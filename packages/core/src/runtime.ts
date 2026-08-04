@@ -1,0 +1,59 @@
+/**
+ * Runtime adapter contract — the seam that decouples the framework core from
+ * the WebView backend. Mirrors the role of Tauri's `Runtime` trait
+ * (`crates/tauri-runtime`).
+ *
+ * `@ztron/runtime-ffi` implements this on top of the `webview/webview` C API
+ * via `tjs:ffi`; a future Electron/Neutralino backend can implement the same
+ * interface without touching the core.
+ */
+
+/** Window creation options (translated from Tauri's `WindowConfig`). */
+export interface WindowConfig {
+  /** Window/webview label, used as a handle key. */
+  label: string;
+  title: string;
+  width: number;
+  height: number;
+  /** Navigate to a URL (dev server, asset server, ...). */
+  url?: string;
+  /** Or load raw HTML content. */
+  html?: string;
+  /** Enable developer tools if supported by the backend. */
+  debug?: boolean;
+}
+
+/**
+ * A handle to a single window + WebView.
+ *
+ * Maps 1:1 onto the `webview/webview` C API surface.
+ */
+export interface WebviewHandle {
+  /** Navigates the WebView to a URL. */
+  loadUrl(url: string): void;
+  /** Loads raw HTML content. */
+  loadHtml(html: string): void;
+  /** Evaluates arbitrary JavaScript in the WebView. */
+  eval(js: string): void;
+  /**
+   * Responds to a binding call. Status 0 resolves the JS promise,
+   * any other value rejects it.
+   */
+  respond(id: string, status: number, result: string): void;
+  /**
+   * Registers the frontend→backend IPC entry. The callback receives
+   * the bind call id and the raw request string (a JSON array of args).
+   */
+  onMessage(cb: (id: string, req: string) => void): void;
+  /** Runs the main loop (blocks the calling thread). */
+  run(): void;
+  /** Stops the main loop. */
+  terminate(): void;
+  /** Destroys the window and releases resources. */
+  close(): void;
+}
+
+/** A factory for creating windows on the current platform. */
+export interface RuntimeAdapter {
+  createWindow(config: WindowConfig): WebviewHandle;
+}

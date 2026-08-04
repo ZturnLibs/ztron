@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage/
+
+# M0 native tooling (rebuilt via scripts/build-native.sh)
+native/txiki.js/
+native/webview/
+native/libs/
+examples/**/native/
+.ztron/
