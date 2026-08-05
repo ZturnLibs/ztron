@@ -8,7 +8,14 @@
  */
 import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { build as viteBuild } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
@@ -27,6 +34,7 @@ const DEFAULT_ENTRY = "./src/main.ts";
 interface ProjectConfig {
   entry?: string;
   frontend?: string;
+  appName?: string;
 }
 
 /** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
@@ -44,21 +52,48 @@ function findTjs(): string {
   );
 }
 
-/** Locate the native host binary (env ZTRON_HOST_BIN or next to the lib). */
-function findHostBin(appRoot: string): string {
-  const configured = process.env.ZTRON_HOST_BIN;
-  if (configured) {
-    return resolve(configured);
-  }
-  for (const dir of ["native/libs", "native/lib", "..", "."]) {
-    const candidate = resolve(appRoot, dir, "ztron-host");
-    if (candidate && !dirname(candidate).includes("node_modules")) {
+/** Walks up from `start` looking for `native/libs/<file>`. */
+function findNativeFile(start: string, file: string): string | undefined {
+  let dir = start;
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = resolve(dir, "native", "libs", file);
+    if (existsSync(candidate)) {
       return candidate;
     }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
   }
-  return resolve(appRoot, "native/libs/ztron-host");
+  return undefined;
 }
 
+function findHostBin(appRoot: string): string {
+  const env = process.env.ZTRON_HOST_BIN;
+  if (env) {
+    return resolve(env);
+  }
+  return (
+    findNativeFile(appRoot, "ztron-host") ??
+    resolve(appRoot, "native/libs/ztron-host")
+  );
+}
+
+/** Locates the platform webview shared library (next to the host). */
+function findWebviewLib(appRoot: string): string | undefined {
+  const env = process.env.ZTRON_WEBVIEW_LIB;
+  if (env) {
+    return resolve(env);
+  }
+  const name =
+    process.platform === "darwin"
+      ? "libwebview.dylib"
+      : process.platform === "win32"
+        ? "webview.dll"
+        : "libwebview.so";
+  return findNativeFile(appRoot, name);
+}
 function parseArgs(argv: string[]): {
   command: string;
   entry: string;
@@ -152,7 +187,7 @@ async function buildFrontend(
     writeFileSync(index, html);
   }
   console.log(`[ztron] frontend built: ${index}`);
-  return "file://" + index;
+  return index;
 }
 
 async function bundle(entry: string, outfile: string): Promise<void> {
@@ -202,7 +237,8 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // Per-session invoke key shared by the backend and the injected bootstrap.
   const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
 
-  const frontendUrl = await buildFrontend(cwd, invokeKey);
+  const frontendIndex = await buildFrontend(cwd, invokeKey);
+  const frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
 
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
@@ -279,8 +315,7 @@ function basenameOf(p: string): string {
   return parts[parts.length - 1] ?? "ztron-app";
 }
 
-const MAIN_TEMPLATE = `import { AppBuilder } from "@ztron/core";
-import { HostRuntime } from "@ztron/runtime-ffi";
+const MAIN_TEMPLATE = `import { AppBuilder } from "@ztron/core";import { HostRuntime } from "@ztron/runtime-ffi";
 import { fsPlugin } from "@ztron/core";
 
 declare const tjs: { env: Record<string, string | undefined> };
@@ -306,6 +341,155 @@ new AppBuilder(runtime, "com.example.app")
   .run();
 `;
 
+/**
+ * Produces a distributable build:
+ *   1. vite build the frontend (bootstrap + invokeKey baked in)
+ *   2. bundle the backend and `tjs compile` it into a standalone binary
+ *   3. assemble a platform bundle (macOS: Ztron*.app with a launcher that
+ *      coordinates ztron-host + ztron-backend and passes the invokeKey)
+ */
+async function buildApp(cwd: string, entry: string): Promise<void> {
+  const tjs = findTjs();
+  const entryPath = resolve(cwd, entry);
+  const appRoot = dirname(entryPath);
+  const buildDir = join(appRoot, ".ztron");
+  mkdirSync(buildDir, { recursive: true });
+  const bundlePath = join(buildDir, "app.mjs");
+
+  const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
+  const frontendIndex = await buildFrontend(cwd, invokeKey);
+  if (!frontendIndex) {
+    throw new Error(
+      "no frontend found (ztron.conf.json frontend or ./frontend)",
+    );
+  }
+
+  console.log(`[ztron] bundling backend ${entryPath}`);
+  await bundle(entryPath, bundlePath);
+
+  const hostBin = findHostBin(appRoot);
+  const lib = findWebviewLib(appRoot);
+  if (!lib) {
+    throw new Error(
+      "webview shared library not found (run scripts/build-native.sh)",
+    );
+  }
+
+  const outDir = join(cwd, "dist");
+  const appName = (readProjectConfig(cwd).appName ?? "ZtronApp")
+    .replace(/\s+/g, "")
+    .replace(/[^\w.-]/g, "");
+
+  if (process.platform === "darwin") {
+    await packMacApp({
+      outDir,
+      appName,
+      invokeKey,
+      backendBundle: bundlePath,
+      hostBin,
+      lib,
+      frontendDist: dirname(frontendIndex),
+      tjs,
+    });
+  } else {
+    throw new Error("packaging is only implemented for macOS (M4)");
+  }
+}
+
+interface PackOptions {
+  outDir: string;
+  appName: string;
+  invokeKey: string;
+  backendBundle: string;
+  hostBin: string;
+  lib: string;
+  frontendDist: string;
+  tjs: string;
+}
+
+async function packMacApp(o: PackOptions): Promise<void> {
+  const macosDir = join(o.outDir, `${o.appName}.app`, "Contents", "MacOS");
+  const resDir = join(o.outDir, `${o.appName}.app`, "Contents", "Resources");
+  mkdirSync(macosDir, { recursive: true });
+  mkdirSync(resDir, { recursive: true });
+
+  // compile the backend bundle into a standalone executable
+  const backendBin = join(macosDir, "ztron-backend");
+  const compiled = spawnSync(o.tjs, ["compile", o.backendBundle, backendBin], {
+    encoding: "utf8",
+  });
+  if (compiled.status !== 0) {
+    throw new Error(`tjs compile failed: ${compiled.stderr}`);
+  }
+
+  copyFileSync(o.hostBin, join(macosDir, "ztron-host"));
+  copyFileSync(o.lib, join(macosDir, "libwebview.dylib"));
+  cpSync(o.frontendDist, join(resDir, "frontend"), { recursive: true });
+
+  writeFileSync(
+    join(o.outDir, `${o.appName}.app`, "Contents", "Info.plist"),
+    appInfoPlist(o.appName),
+  );
+  writeFileSync(
+    join(macosDir, "ztron"),
+    launcherScript(o.appName, o.invokeKey),
+  );
+
+  console.log(`[ztron] packaged: ${join(o.outDir, `${o.appName}.app`)}`);
+}
+
+function appInfoPlist(appName: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>ztron</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.ztron.${appName.toLowerCase()}</string>
+  <key>CFBundleName</key>
+  <string>${appName}</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+</dict>
+</plist>
+`;
+}
+
+/** Launcher: starts ztron-host, reads its PORT, then runs the backend. */
+function launcherScript(appName: string, invokeKey: string): string {
+  return `#!/bin/sh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(dirname "$DIR")"
+RES="$APP_ROOT/Resources"
+KEY="${invokeKey}"
+HOST_LOG="$RES/.host.log"
+
+"$DIR/ztron-host" 0 > "$HOST_LOG" 2>&1 &
+HOST_PID=$!
+
+PORT=""
+i=0
+while [ -z "$PORT" ] && [ $i -lt 100 ]; do
+  PORT=$(sed -n 's/^PORT=//p' "$HOST_LOG" | head -1)
+  [ -z "$PORT" ] && { sleep 0.1; i=$((i + 1)); }
+done
+if [ -z "$PORT" ]; then
+  echo "ztron: host failed to start" >&2
+  cat "$HOST_LOG" >&2
+  exit 1
+fi
+
+ZTRON_HOST=127.0.0.1 ZTRON_HOST_PORT="$PORT" ZTRON_INVOKE_KEY="$KEY" \\
+ZTRON_DEV_URL="file://$RES/frontend/index.html" \\
+"$DIR/ztron-backend"
+
+kill "$HOST_PID" 2>/dev/null
+`;
+}
+
 async function main(): Promise<void> {
   const {
     command,
@@ -329,8 +513,7 @@ async function main(): Promise<void> {
       break;
     }
     case "build": {
-      console.error("[ztron] build is not implemented yet (M4)");
-      process.exit(1);
+      await buildApp(cwd, resolveEntry(cwd, entryArg));
       break;
     }
     default: {

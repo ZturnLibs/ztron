@@ -149,7 +149,7 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 | **M1** | events + Channel 流式 + 窗口命令集 ✅                      | `M1_EVENTS_CHANNEL_WINDOW_OK` |
 | **M2** | 插件基座 + 受限能力层 + CLI dev ✅                        | `M2_FS_SCOPE_PATH_OK`(scope 允/拒) |
 | **M3** | `@ztron/api` 与打包器前端集成(Vite)✅                     | `M3_API_FRONTEND_OK`    |
-| **M4** | `tjs compile` 单文件打包 + 三平台验证                     | 产出可分发二进制        |
+| **M4** | `tjs compile` 打包 + macOS .app 验证 ✅                    | 打包产物端到端 `M3_API_FRONTEND_OK` |
 
 ## 8. 风险与限制
 
@@ -269,3 +269,27 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 ### 取舍
 - 目前 dev 用 `vite build`(无 HMR);真正的 dev server + HMR 需要自定义 scheme 宿主(Tauri 的 `tauri://` 方案),列入后续。
 - invokeKey 由 CLI 生成,`buildInitScript` 注入 + 后端 env 同源,前端每次 dev 会话一致。
+
+## 14. M4 结论(`tjs compile` 打包 + macOS .app,已验证)
+
+### 验证通过 ✅(打包产物端到端 `SPIKE_RESULT: M3_API_FRONTEND_OK`)
+`ztron build` 产出 `ZtronApp.app`,运行后 5 项全通过并干净退出:
+- 后端:esbuild 打包 → `tjs compile` 单文件二进制
+- 前端:vite build + bootstrap/invokeKey 烧入
+- 组装:.app(launcher + ztron-host + ztron-backend + libwebview.dylib + frontend)
+- launcher 脚本:起 host → 读 PORT → 传 invokeKey/DEV_URL 起后端
+
+### 产物结构(macOS)
+```
+ZtronApp.app/Contents/
+  Info.plist
+  MacOS/{ ztron(launcher), ztron-host, ztron-backend, libwebview.dylib }
+  Resources/frontend/{ index.html, assets/ }
+```
+
+### 关键点
+1. `tjs compile` 直接产出可独立运行的 Mach-O(内嵌脚本+运行时),`tjs:*` 内建模块保持 external。
+2. **invokeKey 一致性**:CLI `build` 生成一次 key,vite 插件烧入前端 HTML + launcher 传给后端(env),前后端同源。
+3. `findHostBin/findWebviewLib` 从 appRoot **向上回溯**找 `native/libs`(hello 的 native 在仓库根)。
+4. 打包链路与 dev 共用 `buildFrontend`(返回真实路径,URL 由调用侧拼 `file://`)。
+5. 三平台:macOS 已验证;Windows/Linux 需对应 webview 后端 + 打包脚本(待做)。

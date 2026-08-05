@@ -16,3 +16,6 @@ examples/**/native/
 
 # frontend build output
 examples/**/frontend/dist/
+
+# packaged app output (ztron build)
+dist/
