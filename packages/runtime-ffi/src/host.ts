@@ -45,6 +45,14 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "eval", label: this.label, js });
   }
 
+  setTitle(title: string): void {
+    this.#rt.send({ type: "set_title", label: this.label, title });
+  }
+
+  setSize(width: number, height: number): void {
+    this.#rt.send({ type: "set_size", label: this.label, width, height });
+  }
+
   respond(id: string, status: number, result: string): void {
     this.#rt.send({ type: "response", label: this.label, id, status, result });
   }

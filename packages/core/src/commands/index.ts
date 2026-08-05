@@ -11,6 +11,8 @@ import type { WebviewHandle } from "../runtime.js";
 export interface CommandContext {
   app: App;
   webview: WebviewHandle;
+  /** The label of the webview that issued the command. */
+  label: string;
   /** The resolved command payload (Channel markers replaced). */
   args: unknown;
   /** Resolves a `__CHANNEL__:<id>` marker to a streaming handle. */

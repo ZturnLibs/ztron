@@ -145,10 +145,10 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 
 | 阶段   | 内容                                                      | 验收                    |
 | ------ | --------------------------------------------------------- | ----------------------- |
-| **M0** | ⚡Spike:`webview_run` + tjs 事件循环共存,FFI 跑通 `hello` | 窗口能开,双向调用可用   |
-| **M1** | 注入脚本 + `invoke` 双向 + `@tauri-apps/api` 原样运行     | `invoke('greet')` 往返  |
-| **M2** | events + Channel 流式 + 窗口命令集                        | 双向事件、大文件流      |
-| **M3** | 插件基座 + 受限能力层 + CLI dev                           | 插件可注册,`dev` 一键起 |
+| **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程               | 同步+异步往返,exit=0    |
+| **M1** | events + Channel 流式 + 窗口命令集 ✅                      | `M1_EVENTS_CHANNEL_WINDOW_OK` |
+| **M2** | 插件基座 + 受限能力层 + CLI dev                           | 插件可注册,`dev` 一键起 |
+| **M3** | `@ztron/api` 与打包器前端集成(Vite)+ 前端包实测           | api 包在真实前端运行    |
 | **M4** | `tjs compile` 单文件打包 + 三平台验证                     | 产出可分发二进制        |
 
 ## 8. 风险与限制

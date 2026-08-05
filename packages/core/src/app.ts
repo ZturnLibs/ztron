@@ -5,6 +5,11 @@
 import { CommandRegistry, type CommandHandlers } from "./commands/index.js";
 import type { CommandContext } from "./commands/index.js";
 import { EventTarget } from "./events.js";
+import { ChannelHandle } from "./ipc/channel.js";
+import {
+  EventManager,
+  type EventTarget as EventTargetRef,
+} from "./ipc/eventManager.js";
 import { IpcHub, type InvokeHandler } from "./ipc/mod.js";
 import { PluginManager, type Plugin } from "./plugin.js";
 import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "./runtime.js";
@@ -45,6 +50,7 @@ export class App {
   #adapter: RuntimeAdapter;
   #hub = new IpcHub();
   #windows = new Map<string, { handle: WebviewHandle; events: EventTarget }>();
+  #eventManager: EventManager;
   #setup?: (app: App) => void | Promise<void>;
   #invokeKey: string;
 
@@ -57,6 +63,9 @@ export class App {
     this.state = new StateManager();
     this.plugins = new PluginManager();
     this.#invokeKey = config.invokeKey;
+    this.#eventManager = new EventManager((label) => this.getWebview(label));
+
+    this.registerBuiltinCommands();
 
     for (const plugin of options.plugins ?? []) {
       this.plugins.register(plugin);
@@ -66,6 +75,63 @@ export class App {
     }
     for (const [cmd, handler] of this.pluginCommandEntries()) {
       this.#hub.register(cmd, handler);
+    }
+  }
+
+  /** The backend event registry backing the `plugin:event|*` commands. */
+  get eventManager(): EventManager {
+    return this.#eventManager;
+  }
+
+  /**
+   * Registers the built-in `plugin:event|*` and `plugin:window|*` commands
+   * (the Ztron equivalents of Tauri's event + window plugins).
+   */
+  private registerBuiltinCommands(): void {
+    const commands: Record<
+      string,
+      (args: unknown, ctx: CommandContext) => unknown
+    > = {
+      "plugin:event|listen": (args, ctx) => {
+        const { event, target, handler } = args as {
+          event: string;
+          target: EventTargetRef;
+          handler: number;
+        };
+        return this.#eventManager.listen(ctx.label, event, target, handler);
+      },
+      "plugin:event|unlisten": (args) => {
+        const { event, eventId } = args as { event: string; eventId: number };
+        this.#eventManager.unlisten(event, eventId);
+      },
+      "plugin:event|emit": (args) => {
+        const { event, payload } = args as { event: string; payload?: unknown };
+        this.#eventManager.emit(event, payload);
+      },
+      "plugin:event|emit_to": (args) => {
+        const { target, event, payload } = args as {
+          target: EventTargetRef;
+          event: string;
+          payload?: unknown;
+        };
+        this.#eventManager.emit(event, payload, target);
+      },
+      "plugin:window|close": (_args, ctx) => {
+        ctx.webview.terminate();
+      },
+      "plugin:window|set_title": (args, ctx) => {
+        const { title } = args as { title: string };
+        ctx.webview.setTitle(title);
+      },
+      "plugin:window|set_size": (args, ctx) => {
+        const { width, height } = args as { width: number; height: number };
+        ctx.webview.setSize(width, height);
+      },
+    };
+
+    for (const [name, handler] of Object.entries(commands)) {
+      this.commands.register(name, handler);
+      this.#hub.register(name, handler);
     }
   }
 
@@ -97,6 +163,19 @@ export class App {
     return this.#windows.get(label)?.events;
   }
 
+  /**
+   * Emits an event to all frontend listeners. The backend can call this to
+   * push data to the page (mirrors Tauri's `app.emit`).
+   */
+  emit(event: string, payload?: unknown): void {
+    this.#eventManager.emit(event, payload);
+  }
+
+  /** Emits an event to listeners matching a target (Tauri `app.emitTo`). */
+  emitTo(target: EventTargetRef, event: string, payload?: unknown): void {
+    this.#eventManager.emit(event, payload, target);
+  }
+
   /** Boots the configured windows and blocks on the main loop. */
   async run(): Promise<void> {
     await this.#setup?.(this);
@@ -125,8 +204,9 @@ export class App {
       void this.#hub.handle(handle, id, req, this.#invokeKey, (wv, args) => ({
         app: this,
         webview: wv,
+        label: cfg.label,
         args,
-        getChannel: (channelId) => undefined,
+        getChannel: (channelId) => new ChannelHandle(channelId, wv),
       }));
     });
 

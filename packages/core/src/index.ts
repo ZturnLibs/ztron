@@ -12,6 +12,8 @@ export { IpcHub } from "./ipc/mod.js";
 export type { InvokeHandler, InvokeMessage } from "./ipc/mod.js";
 export { ChannelHandle } from "./ipc/channel.js";
 export { formatCallback } from "./ipc/formatCallback.js";
+export { EventManager } from "./ipc/eventManager.js";
+export type { EventTarget as EventTargetRef } from "./ipc/eventManager.js";
 export { PluginManager } from "./plugin.js";
 export type { Plugin } from "./plugin.js";
 export type { RuntimeAdapter, WebviewHandle, WindowConfig } from "./runtime.js";

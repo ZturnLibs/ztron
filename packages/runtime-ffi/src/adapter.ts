@@ -50,6 +50,14 @@ export class FfiWebviewHandle implements WebviewHandle {
     this.#lib.webview_eval(this.#w, js);
   }
 
+  setTitle(title: string): void {
+    this.#lib.webview_set_title(this.#w, title);
+  }
+
+  setSize(width: number, height: number): void {
+    this.#lib.webview_set_size(this.#w, width, height, 0);
+  }
+
   respond(id: string, status: number, result: string): void {
     this.#lib.webview_return(this.#w, id, status, result);
   }

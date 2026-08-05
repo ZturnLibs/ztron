@@ -19,11 +19,12 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones and risks.
 ## Status
 
 - [x] Monorepo skeleton + design doc
-- [x] **M0** — spike: FFI → webview C API works, window opens, sync IPC round trip (`SPIKE_RESULT: SYNC_ROUNDTRIP_OK`)
-- [x] **Plan A** — native host shim (`ztron-host`) + tjs backend over socket; **async commands now work** (`SPIKE_RESULT: ASYNC_ROUNDTRIP_OK`, backend `setTimeout` fired)
-- [ ] M1 — events + Channel streaming + window command set (`@ztron/api` port)
+- [x] **M0** — spike: FFI → webview C API works, window opens, sync IPC round trip
+- [x] **Plan A** — native host shim (`ztron-host`) + tjs backend over socket; async commands work
+- [x] **M1** — events + Channel streaming + window command set (`M1_EVENTS_CHANNEL_WINDOW_OK`)
 - [ ] M2 — plugin base + capability layer + CLI dev ergonomics
-- [ ] M3 — `tjs compile` packaging + 3-platform verification
+- [ ] M3 — `@ztron/api` in a real bundler frontend (Vite)
+- [ ] M4 — `tjs compile` packaging + 3-platform verification
 
 ## Quick start (after M0)
 

@@ -35,6 +35,10 @@ export interface WebviewHandle {
   loadHtml(html: string): void;
   /** Evaluates arbitrary JavaScript in the WebView. */
   eval(js: string): void;
+  /** Updates the native window title. */
+  setTitle(title: string): void;
+  /** Updates the native window size. */
+  setSize(width: number, height: number): void;
   /**
    * Responds to a binding call. Status 0 resolves the JS promise,
    * any other value rejects it.
