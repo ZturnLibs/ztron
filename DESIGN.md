@@ -153,7 +153,7 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 
 ## 8. 风险与限制
 
-1. **⚠️ 事件循环共存(M0 验证项)**:`webview_run()` 阻塞主线程,webview GUI 循环与 tjs/libuv 循环需共存;bind 回调在 GUI 线程需安全进入 QuickJS。失败则回落 Node 裁剪档。
+1. **⚠️ 事件循环共存(M0 验证项)**:`webview_run()` 阻塞主线程,webview GUI 循环与 tjs/libuv 循环需共存;bind 回调在 GUI 线程需安全进入 QuickJS。失败则回落 Node 裁剪档。**已解决:采用 Plan A(原生宿主 shim),见 §11。**
 2. **单窗口**:webview 一个实例一个窗口,多窗口需多进程(v1 后处理)。
 3. **受限 API 面**:非 Node 兼容,npm 生态不可用,命令能力由框架自建。
 4. **安全模型**:无 custom protocol(tauri://),资产走 navigate 本地 HTTP / set_html;注入脚本无 sandbox。
@@ -176,11 +176,13 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 ## 10. M0 结论(已验证,macOS arm64)
 
 ### 已验证通过 ✅
+
 - **FFI 绑定完整可用**:`tjs:ffi` 的 `dlopen` 正确加载 `libwebview.dylib` 并绑定 webview C API。
 - **窗口 + 页面 + 双向 IPC 全链路跑通**(`examples/hello` 输出 `SPIKE_RESULT: SYNC_ROUNDTRIP_OK`,exit=0):前端 `invoke` → `window.__TAURI_IPC__`(bind)→ 后端 `IpcHub` 分发 → 命令执行 → `webview_return` 原生 Promise 语义回传 → 前端 `await` 拿到结果 → 再次 invoke 回传 → 自动关窗。
 - **页面侧 JS 完全独立运行**:WKWebView 的 DOMContentLoaded、timers、microtask 均正常。
 
 ### 关键实现发现(已写入代码)
+
 1. **`webview_init` 不是"页面加载时注入任意代码"**,而是**设置 post 传输处理器**——传入 JS 会被包成 `return (你的代码)(message)`。用它注入引导脚本会破坏 bind→原生链路。→ `__TAURI_INTERNALS__` 引导代码改为**直接嵌入页面 HTML**(core 在 `loadHtml` 前 prepend `<script>`;M3 起由 CLI 注入 HTML 入口)。
 2. **JSCallback 必须声明 `returns: types.sint32` 并 `return 0`**(`void` 返回在 fast_call 报 `cannot convert js val to void`)。
 3. **bind 回调的 `req` 是 JSON 数组字符串**(如 `["{...}"]`),解析用 `JSON.parse(req)[0]`,不是 `req[0]`。
@@ -189,11 +191,48 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 6. **bind 必须先于页面加载**(core 在 `loadHtml` 前先 `webview_bind`)。
 
 ### ⚠️ 异步命令阻塞(M1/M2 关键前置)
+
 **`webview_run` 阻塞 tjs 主线程期间,libuv 事件循环与 QuickJS 微任务队列不泵动。** 实测:bind 回调内 `Promise.resolve().then(...)` 与 `setTimeout` 均不执行;`async` 命令(Promise 返回)的 `await result` 续体永远不跑 → 响应永不回传。手动调 `uv_run` 泵 loop 会 `SIGSEGV`(重入不安全)。
 
 **推论**:v1 命令必须**同步执行并在回调内同步 respond**(已验证可行)。页面侧定时器驱动的异步仍在评估。
 
 **解决路径(供 M1 前决策)**:
+
 - **A. 原生宿主 shim(Neutralino 模式)**:写 ~百行 C 宿主,把 webview GUI loop 与 tjs 事件循环用 CFRunLoopSource/kevent 集成,tjs 作为嵌入或子进程,tjs 全异步可用。
 - **B. 补丁 txiki**:给 tjs 增加 run-loop 集成模块(我们自行构建 tjs,可打补丁)。
 - **C. v1 妥协**:仅同步命令 + 阻塞式 IO(FFI 调 C 同步函数),异步能力后续再补。
+
+## 11. Plan A 决策与落地(原生宿主 shim,已验证)
+
+### 为什么选 A
+B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交替循环下泵动(需额外验证),且要长期维护 tjs fork;A 让 tjs 作为**独立进程跑自己的事件循环**,异步天然可用,无需打补丁。C 仅作过渡。
+
+### 双进程架构(已验证,macOS arm64,`SPIKE_RESULT: ASYNC_ROUNDTRIP_OK`)
+```
+┌────────────────────────┐        TCP/JSON       ┌──────────────────────────┐
+│ ztron-host (C 宿主)     │◄──────────────────────►│ tjs 后端进程             │
+│ 主线程: webview_run     │   newline-JSON 帧      │ 事件循环完全正常         │
+│  socket 线程: 收后端消息 │                        │  async 命令 ✓ (timers/IO)│
+│  webview_dispatch 回 GUI│                        │  HostRuntime(socket 适配)│
+└────────────────────────┘                        └──────────────────────────┘
+  前端 invoke → bind → 宿主 → socket → 后端 → 响应 → 宿主 webview_return → 前端
+```
+
+### 实现清单
+| 组件 | 位置 | 说明 |
+|---|---|---|
+| `ztron-host` 原生宿主 | `native/host/host.c` | webview + socket 线程 + `webview_dispatch` 回 GUI;消息类型:request/response/eval/create_window/set_html/navigate/set_title/set_size/quit |
+| socket 适配层 | `packages/runtime-ffi/src/host.ts` | `HostRuntime`/`HostWebviewHandle`,实现与 FFI 相同的 `RuntimeAdapter` 契约;`run()` 返回 closed promise |
+| CLI 双进程编排 | `packages/cli/src/index.ts` | 起 host → 读 `PORT=` → spawn tjs + `ZTRON_HOST_PORT` |
+| 构建脚本 | `scripts/build-native.sh` | + 编译 ztron-host(rpath 指向同目录 dylib) |
+| 示例 | `examples/hello/src/main.ts` | `HostRuntime` + 真·异步命令(`setTimeout`) |
+
+### 新踩的坑(已修)
+1. **宿主 JSON 解析必须解码 `\n` 等转义**:否则 html 里换行变字面 `\n`,引导脚本语法错误。`json_str` 已完整处理 `\\n\\r\\t\"\\\\`。
+2. **`tjs.connect` 的流在 `await socket.opened` 结果上**,不在 socket 本体(服务端 accept 的才有直接属性)。
+3. **后端不要把解析后的数组 `String()` 化**:`String([object])` → `[object Object]`。`hub.handle` 兼容数组/字符串两种形态;宿主适配层 `JSON.stringify` 回字符串保持契约一致。
+
+### M0→M1 结论
+- ✅ 同步命令全链路(M0 FFI 验证)
+- ✅ **异步命令全链路(Plan A 验证)**:`invoke` → host → socket → 后端 `setTimeout(30ms)` → 响应 → `webview_return` → 前端 `await` 拿到结果
+- ✅ 事件(emit/eval)与 Channel 流式的传输路径已具备(set_html/eval/response 三种消息均可走通)

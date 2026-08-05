@@ -107,7 +107,9 @@ export class App {
     for (const cfg of this.config.windows) {
       this.createWindow(cfg);
     }
-    this.#windows.forEach(({ handle }) => handle.run());
+    await Promise.all(
+      [...this.#windows.values()].map(({ handle }) => handle.run()),
+    );
   }
 
   /** Creates a window but does not run the main loop (test/dev use). */

@@ -36,4 +36,10 @@ case "$(uname -s)" in
   *)      cp "$NATIVE/webview/build/core/webview.dll" "$NATIVE/libs/" ;;
 esac
 
-echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, lib: $NATIVE/libs/"
+echo "==> [3/3] building ztron-host (webview + socket bridge)"
+cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
+  -I "$NATIVE/webview/core/include" \
+  -L "$NATIVE/libs" -lwebview \
+  -pthread
+
+echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, lib: $NATIVE/libs/, host: $NATIVE/libs/ztron-host"

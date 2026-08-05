@@ -77,23 +77,24 @@ export class IpcHub {
   }
 
   /**
-   * Handles one raw bind request. `req` is the JSON array string of the
-   * JS arguments; resolves/rejects the frontend promise via `handle.respond`.
+   * Handles one bind request. `req` is either the JSON-array string from the
+   * webview bind callback or the already-parsed array from the host adapter;
+   * resolves/rejects the frontend promise via `handle.respond`.
    *
    * Synchronous command results are responded to immediately (no microtask
-   * hop), so the round trip completes within a single bind callback. This is
-   * important while `webview_run` blocks the JS thread (see DESIGN.md M0).
+   * hop) so the round trip completes within a single handler invocation.
    */
   async handle(
     webview: WebviewHandle,
     id: string,
-    req: string,
+    req: string | unknown[],
     invokeKey: string,
     ctx: (webview: WebviewHandle, args: unknown) => CommandContext,
   ): Promise<void> {
     let message: InvokeMessage;
     try {
-      const [rawMessage] = JSON.parse(req) as [unknown];
+      const arr = Array.isArray(req) ? req : (JSON.parse(req) as unknown[]);
+      const [rawMessage] = arr;
       message = parseMessage(rawMessage, invokeKey);
     } catch (err) {
       webview.respond(id, 1, serialize(serializeError(err)));

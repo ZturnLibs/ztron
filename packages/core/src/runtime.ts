@@ -46,7 +46,7 @@ export interface WebviewHandle {
    */
   onMessage(cb: (id: string, req: string) => void): void;
   /** Runs the main loop (blocks the calling thread). */
-  run(): void;
+  run(): void | Promise<void>;
   /** Stops the main loop. */
   terminate(): void;
   /** Destroys the window and releases resources. */

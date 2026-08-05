@@ -1,19 +1,20 @@
 /**
  * CLI entry — orchestration for `ztron dev` / `ztron build`.
  *
- * `dev` bundles the app entry with esbuild (externalizing `tjs:ffi`), then
- * runs it under the txiki `tjs` binary.
+ * `dev` (Plan A two-process model):
+ *   1. bundle the app entry with esbuild (externalizing `tjs:*`),
+ *   2. spawn `ztron-host` (webview + GUI loop), read its `PORT=`,
+ *   3. spawn the txiki backend with `ZTRON_HOST_PORT` and run the bundle.
  */
 import { build } from "esbuild";
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
 Usage:
-  ztron dev [--entry <file>]   Bundle and run the app under the txiki runtime
+  ztron dev [--entry <file>]   Bundle + run under the native host + tjs backend
   ztron build [--entry <file>] Produce a standalone executable (M4)
   ztron version                Print version
 `;
@@ -35,24 +36,19 @@ function findTjs(): string {
   );
 }
 
-/** Locate the webview shared library next to the app, or via env. */
-function findWebviewLib(appRoot: string): string | undefined {
-  if (process.env.ZTRON_WEBVIEW_LIB) {
-    return resolve(process.env.ZTRON_WEBVIEW_LIB);
+/** Locate the native host binary (env ZTRON_HOST_BIN or next to the lib). */
+function findHostBin(appRoot: string): string {
+  const configured = process.env.ZTRON_HOST_BIN;
+  if (configured) {
+    return resolve(configured);
   }
-  const name =
-    process.platform === "darwin"
-      ? "libwebview.dylib"
-      : process.platform === "win32"
-        ? "webview.dll"
-        : "libwebview.so";
-  for (const dir of ["native/libs", "native/lib", "."]) {
-    const candidate = resolve(appRoot, dir, name);
-    if (existsSync(candidate)) {
+  for (const dir of ["native/libs", "native/lib", "..", "."]) {
+    const candidate = resolve(appRoot, dir, "ztron-host");
+    if (candidate && !dirname(candidate).includes("node_modules")) {
       return candidate;
     }
   }
-  return undefined;
+  return resolve(appRoot, "native/libs/ztron-host");
 }
 
 function parseArgs(argv: string[]): { command: string; entry: string } {
@@ -72,10 +68,33 @@ async function bundle(entry: string, outfile: string): Promise<void> {
     bundle: true,
     platform: "neutral",
     format: "esm",
-    external: ["tjs:ffi"],
+    external: ["tjs:*"],
     outfile,
     sourcemap: "inline",
     logLevel: "warning",
+  });
+}
+
+/** Spawns ztron-host and resolves with its listening port. */
+function spawnHost(hostBin: string): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const child = spawn(hostBin, ["0"], {
+      stdio: ["ignore", "pipe", "inherit"],
+    });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+      const m = /^PORT=(\d+)/m.exec(stdout);
+      if (m) {
+        resolvePort(Number(m[1]));
+      }
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code !== null && code !== 0) {
+        reject(new Error(`ztron-host exited with code ${code}`));
+      }
+    });
   });
 }
 
@@ -91,18 +110,19 @@ async function dev(cwd: string, entry: string): Promise<void> {
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
 
-  const lib = findWebviewLib(appRoot);
-  const env = { ...process.env };
-  if (lib) {
-    env.ZTRON_WEBVIEW_LIB = lib;
-    console.log(`[ztron] webview lib: ${lib}`);
-  }
+  const hostBin = findHostBin(appRoot);
+  console.log(`[ztron] starting host: ${hostBin}`);
+  const port = await spawnHost(hostBin);
 
-  console.log(`[ztron] running ${bundlePath} via ${tjs}`);
+  console.log(`[ztron] running backend via ${tjs} on port ${port}`);
   const result = spawnSync(tjs, ["run", bundlePath], {
     stdio: "inherit",
     cwd,
-    env,
+    env: {
+      ...process.env,
+      ZTRON_HOST: "127.0.0.1",
+      ZTRON_HOST_PORT: String(port),
+    },
   });
   process.exit(result.status ?? 1);
 }
