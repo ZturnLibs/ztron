@@ -23,6 +23,24 @@ export interface WindowConfig {
   debug?: boolean;
 }
 
+/** Window state operations translated from Tauri's `tao`/window plugin. */
+export type WindowStateOp =
+  | "minimize"
+  | "unminimize"
+  | "toggle_maximize"
+  | "is_maximized"
+  | "is_minimized"
+  | "set_fullscreen"
+  | "is_fullscreen"
+  | "set_always_on_top"
+  | "center"
+  | "set_focus"
+  | "set_visible"
+  | "set_resizable";
+
+/** Native window events pushed from the host (mapped to `tauri://*`). */
+export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
+
 /**
  * A handle to a single window + WebView.
  *
@@ -39,6 +57,13 @@ export interface WebviewHandle {
   setTitle(title: string): void;
   /** Updates the native window size. */
   setSize(width: number, height: number): void;
+  /**
+   * Applies a window state operation. Query ops (`is_*`) resolve to the
+   * native boolean; mutation ops resolve immediately.
+   */
+  windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean>;
+  /** Registers a handler for native window events. */
+  onWindowEvent(cb: (event: WindowEvent) => void): void;
   /**
    * Responds to a binding call. Status 0 resolves the JS promise,
    * any other value rejects it.

@@ -58,6 +58,17 @@ export class FfiWebviewHandle implements WebviewHandle {
     this.#lib.webview_set_size(this.#w, width, height, 0);
   }
 
+  // Reference FFI path: native window state is handled by the host adapter.
+  windowState(
+    op: import("@ztron/core").WindowStateOp,
+  ): boolean | Promise<boolean> {
+    return op.startsWith("is_") ? false : true;
+  }
+
+  onWindowEvent(): void {
+    /* no-op (host adapter provides window events) */
+  }
+
   respond(id: string, status: number, result: string): void {
     this.#lib.webview_return(this.#w, id, status, result);
   }

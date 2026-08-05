@@ -44,7 +44,8 @@ case "$(uname -s)" in
       -I "$NATIVE/webview/core/include" \
       -L "$NATIVE/libs" -lwebview \
       -pthread -Wl,-rpath,@loader_path \
-      -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist"
+      -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist" \
+      -framework Foundation -framework AppKit
     ;;
   *)
     cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \

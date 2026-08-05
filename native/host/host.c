@@ -24,6 +24,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef __APPLE__
+#include <objc/runtime.h>
+#include <objc/message.h>
+#endif
+
 #include "webview.h"
 
 #define MSG_STR_LEN (1 << 20) /* 1 MiB */
@@ -102,7 +107,14 @@ typedef struct {
   int status;
   int width;
   int height;
+  int req_id;   /* request id for window-state queries (-1 = no reply) */
+  int bool_val; /* boolean argument for set_* window ops */
 } Msg;
+
+#ifdef __APPLE__
+static void handle_window_op(Msg *m);
+#endif
+static int is_window_op(const char *t);
 
 static void on_gui(webview_t w, void *arg) {
   Msg *m = (Msg *)arg;
@@ -124,9 +136,159 @@ static void on_gui(webview_t w, void *arg) {
     webview_return(w, m->id, m->status, m->str);
   } else if (strcmp(m->type, "quit") == 0) {
     webview_terminate(w);
+  } else {
+    /* fall through to the macOS window-state handler */
+#ifdef __APPLE__
+    handle_window_op(m);
+    free(m);
+    return;
+#else
+    free(m);
+    return;
+#endif
   }
   free(m);
 }
+
+/* ---- macOS window state + events (via ObjC runtime on NSWindow) ---- */
+
+#ifdef __APPLE__
+
+#define OBJC_MSG(cast, obj, ...) ((cast)objc_msgSend)((id)(obj), __VA_ARGS__)
+
+#define NS_FULLSCREEN_MASK 16384 /* NSFullScreenWindowMask = 1<<14 */
+#define NS_RESIZABLE_MASK 8      /* NSResizableWindowMask = 1<<3 */
+#define NS_NORMAL_LEVEL 0
+
+static void *zt_window(void) {
+  return webview_get_native_handle(g_w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
+}
+
+static unsigned long wnd_style_mask(void *wnd) {
+  return (unsigned long)OBJC_MSG(unsigned long(*)(id, SEL), wnd,
+                                 sel_registerName("styleMask"));
+}
+
+static void wnd_set_style_mask(void *wnd, unsigned long mask) {
+  OBJC_MSG(void(*)(id, SEL, unsigned long), wnd,
+           sel_registerName("setStyleMask:"), mask);
+}
+
+static void wnd_void(void *wnd, const char *sel) {
+  OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName(sel), NULL);
+}
+
+static int wnd_bool(void *wnd, const char *sel) {
+  return (int)OBJC_MSG(BOOL(*)(id, SEL), wnd, sel_registerName(sel));
+}
+
+/* Handles one window-state op (runs on the GUI thread). Query ops reply with
+ * {"type":"query_result","req_id":..,"result":true|false}. */
+static void handle_window_op(Msg *m) {
+  void *wnd = zt_window();
+  if (!wnd) return;
+
+  int result = 0;
+  if (strcmp(m->type, "minimize") == 0) {
+    wnd_void(wnd, "miniaturize:");
+  } else if (strcmp(m->type, "unminimize") == 0) {
+    wnd_void(wnd, "deminiaturize:");
+  } else if (strcmp(m->type, "toggle_maximize") == 0) {
+    wnd_void(wnd, "zoom:");
+  } else if (strcmp(m->type, "is_maximized") == 0) {
+    result = wnd_bool(wnd, "isZoomed");
+  } else if (strcmp(m->type, "is_minimized") == 0) {
+    result = wnd_bool(wnd, "isMiniaturized");
+  } else if (strcmp(m->type, "is_fullscreen") == 0) {
+    result = (wnd_style_mask(wnd) & NS_FULLSCREEN_MASK) != 0;
+  } else if (strcmp(m->type, "set_fullscreen") == 0) {
+    unsigned long mask = wnd_style_mask(wnd);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_FULLSCREEN_MASK)
+                                        : (mask & ~NS_FULLSCREEN_MASK));
+  } else if (strcmp(m->type, "set_always_on_top") == 0) {
+    OBJC_MSG(void(*)(id, SEL, long), wnd, sel_registerName("setLevel:"),
+             m->bool_val ? 1 : NS_NORMAL_LEVEL);
+  } else if (strcmp(m->type, "center") == 0) {
+    OBJC_MSG(void(*)(id, SEL), wnd, sel_registerName("center"));
+  } else if (strcmp(m->type, "set_focus") == 0) {
+    wnd_void(wnd, "makeKeyAndOrderFront:");
+  } else if (strcmp(m->type, "set_visible") == 0) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), wnd, sel_registerName("setIsVisible:"),
+             m->bool_val);
+  } else if (strcmp(m->type, "set_resizable") == 0) {
+    unsigned long mask = wnd_style_mask(wnd);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_RESIZABLE_MASK)
+                                        : (mask & ~NS_RESIZABLE_MASK));
+  }
+
+  if (m->req_id >= 0) {
+    char buf[128];
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"query_result\",\"req_id\":%d,\"result\":%s}",
+             m->req_id, result ? "true" : "false");
+    send_line(buf);
+  }
+}
+
+/* ---- window events via NSWindow delegate ---- */
+
+static void emit_window_event(const char *event) {
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"main\",\"event\":\"%s\"}",
+           event);
+  send_line(buf);
+}
+
+static void zt_evt_resize(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  emit_window_event("resize");
+}
+static void zt_evt_move(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  emit_window_event("move");
+}
+static void zt_evt_focus(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  emit_window_event("focus");
+}
+static void zt_evt_blur(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  emit_window_event("blur");
+}
+static void zt_evt_close(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  emit_window_event("close");
+}
+static BOOL zt_should_close(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  return YES;
+}
+
+static void install_window_delegate(void) {
+  void *wnd = zt_window();
+  if (!wnd) return;
+  Class cls = objc_allocateClassPair(
+      (Class)objc_getClass("NSObject"), "ZtronWindowDelegate", 0);
+  class_addMethod(cls, sel_registerName("windowDidResize:"), (IMP)zt_evt_resize,
+                  "v@:@");
+  class_addMethod(cls, sel_registerName("windowDidMove:"), (IMP)zt_evt_move,
+                  "v@:@");
+  class_addMethod(cls, sel_registerName("windowDidBecomeKey:"),
+                  (IMP)zt_evt_focus, "v@:@");
+  class_addMethod(cls, sel_registerName("windowDidResignKey:"),
+                  (IMP)zt_evt_blur, "v@:@");
+  class_addMethod(cls, sel_registerName("windowWillClose:"), (IMP)zt_evt_close,
+                  "v@:@");
+  class_addMethod(cls, sel_registerName("windowShouldClose:"),
+                  (IMP)zt_should_close, "B@:@");
+  objc_registerClassPair(cls);
+  id delegate = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+  OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setDelegate:"),
+           delegate);
+}
+
+#endif /* __APPLE__ */
 
 /* backend -> host reader thread */
 static void *socket_thread(void *arg) {
@@ -171,12 +333,30 @@ static void *socket_thread(void *arg) {
     } else if (strcmp(m->type, "quit") == 0) {
       webview_dispatch(g_w, on_gui, m);
       break;
+    } else if (is_window_op(m->type)) {
+      m->req_id = json_int(line, "req_id", -1);
+      m->bool_val = json_int(line, "value", 0);
+      webview_dispatch(g_w, on_gui, m);
     } else {
       free(m);
     }
   }
   fclose(f);
   return NULL;
+}
+
+/* window-state operations handled by the platform layer */
+static int is_window_op(const char *t) {
+  static const char *ops[] = {
+      "minimize",       "unminimize",    "toggle_maximize",
+      "is_maximized",   "is_minimized",  "set_fullscreen",
+      "is_fullscreen",  "set_always_on_top", "center",
+      "set_focus",      "set_visible",   "set_resizable",
+  };
+  for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
+    if (strcmp(t, ops[i]) == 0) return 1;
+  }
+  return 0;
 }
 
 /* webview_bind callback (GUI thread) -> backend */
@@ -226,6 +406,9 @@ int main(int argc, char **argv) {
   webview_set_title(g_w, "Ztron");
   webview_set_size(g_w, 900, 640, 0);
   webview_bind(g_w, "__TAURI_IPC__", ipc_cb, NULL);
+#ifdef __APPLE__
+  install_window_delegate();
+#endif
 
   /* wait for the backend to connect */
   struct sockaddr_in caddr;

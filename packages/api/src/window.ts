@@ -1,8 +1,20 @@
 /**
- * Window control API — a minimal port of `@tauri-apps/api/window`,
- * backed by the built-in `plugin:window|*` commands.
+ * Window control API — a port of `@tauri-apps/api/window` (window states,
+ * events), backed by the built-in `plugin:window|*` commands.
  */
 import { invoke } from "./core.js";
+import { listen } from "./event.js";
+
+export type WindowEventName =
+  "resize" | "move" | "focus" | "blur" | "close-requested";
+
+const WINDOW_EVENT = {
+  resize: "tauri://resize",
+  move: "tauri://move",
+  focus: "tauri://focus",
+  blur: "tauri://blur",
+  "close-requested": "tauri://close-requested",
+} as const;
 
 export class Window {
   readonly label: string;
@@ -20,6 +32,8 @@ export class Window {
     return new Window(label ?? "main");
   }
 
+  // ---- title / size ----
+
   async setTitle(title: string): Promise<void> {
     await invoke("plugin:window|set_title", { label: this.label, title });
   }
@@ -34,5 +48,97 @@ export class Window {
 
   async close(): Promise<void> {
     await invoke("plugin:window|close", { label: this.label });
+  }
+
+  // ---- window states ----
+
+  async minimize(): Promise<void> {
+    await invoke("plugin:window|minimize", { label: this.label });
+  }
+
+  async unminimize(): Promise<void> {
+    await invoke("plugin:window|unminimize", { label: this.label });
+  }
+
+  async toggleMaximize(): Promise<void> {
+    await invoke("plugin:window|toggle_maximize", { label: this.label });
+  }
+
+  async isMaximized(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_maximized", { label: this.label });
+  }
+
+  async isMinimized(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_minimized", { label: this.label });
+  }
+
+  async setFullscreen(fullscreen: boolean): Promise<void> {
+    await invoke("plugin:window|set_fullscreen", {
+      label: this.label,
+      fullscreen,
+    });
+  }
+
+  async isFullscreen(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_fullscreen", {
+      label: this.label,
+    });
+  }
+
+  async setAlwaysOnTop(alwaysOnTop: boolean): Promise<void> {
+    await invoke("plugin:window|set_always_on_top", {
+      label: this.label,
+      alwaysOnTop,
+    });
+  }
+
+  async center(): Promise<void> {
+    await invoke("plugin:window|center", { label: this.label });
+  }
+
+  async setFocus(): Promise<void> {
+    await invoke("plugin:window|set_focus", { label: this.label });
+  }
+
+  async setVisible(visible: boolean): Promise<void> {
+    await invoke("plugin:window|set_visible", { label: this.label, visible });
+  }
+
+  async setResizable(resizable: boolean): Promise<void> {
+    await invoke("plugin:window|set_resizable", {
+      label: this.label,
+      resizable,
+    });
+  }
+
+  // ---- window events (listen to `tauri://*`) ----
+
+  private async onEvent<T>(
+    event: WindowEventName,
+    handler: (payload: T) => void,
+  ) {
+    return listen<T>(WINDOW_EVENT[event], (e) => handler(e.payload), {
+      target: this.label,
+    });
+  }
+
+  onResized(handler: (payload: { width: number; height: number }) => void) {
+    return this.onEvent("resize", handler);
+  }
+
+  onMoved(handler: (payload: { x: number; y: number }) => void) {
+    return this.onEvent("move", handler);
+  }
+
+  onFocused(handler: () => void) {
+    return this.onEvent("focus", handler);
+  }
+
+  onBlurred(handler: () => void) {
+    return this.onEvent("blur", handler);
+  }
+
+  onCloseRequested(handler: () => void) {
+    return this.onEvent("close-requested", handler);
   }
 }

@@ -6,7 +6,13 @@
  * commands work. Implements the same `RuntimeAdapter` / `WebviewHandle`
  * contract as the FFI adapter.
  */
-import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "@ztron/core";
+import type {
+  RuntimeAdapter,
+  WebviewHandle,
+  WindowConfig,
+  WindowEvent,
+  WindowStateOp,
+} from "@ztron/core";
 import type { TjsSocket } from "./tjs-global.js";
 
 const enc = new TextEncoder();
@@ -27,6 +33,7 @@ export class HostWebviewHandle implements WebviewHandle {
   #rt: HostRuntime;
   readonly label: string;
   #onMessage: ((id: string, req: string) => void) | null = null;
+  #onWindowEvent: ((event: WindowEvent) => void) | null = null;
 
   constructor(rt: HostRuntime, label: string) {
     this.#rt = rt;
@@ -51,6 +58,19 @@ export class HostWebviewHandle implements WebviewHandle {
 
   setSize(width: number, height: number): void {
     this.#rt.send({ type: "set_size", label: this.label, width, height });
+  }
+
+  windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
+    const query = op.startsWith("is_");
+    if (query) {
+      return this.#rt.sendQuery(op);
+    }
+    this.#rt.send({ type: op, label: this.label, value: Boolean(value) });
+    return true;
+  }
+
+  onWindowEvent(cb: (event: WindowEvent) => void): void {
+    this.#onWindowEvent = cb;
   }
 
   respond(id: string, status: number, result: string): void {
@@ -79,6 +99,10 @@ export class HostWebviewHandle implements WebviewHandle {
     // (same shape as the webview bind callback); re-serialize the parsed array.
     this.#onMessage?.(id, JSON.stringify(req));
   }
+
+  handleWindowEvent(event: WindowEvent): void {
+    this.#onWindowEvent?.(event);
+  }
 }
 
 export class HostRuntime implements RuntimeAdapter {
@@ -87,6 +111,8 @@ export class HostRuntime implements RuntimeAdapter {
   #writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   #pending: WireMessage[] = [];
   #handles = new Map<string, HostWebviewHandle>();
+  #requests = new Map<number, (result: boolean) => void>();
+  #nextReqId = 1;
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
 
@@ -149,6 +175,21 @@ export class HostRuntime implements RuntimeAdapter {
         handle?.handleRequest(String(msg.id), msg.req);
         break;
       }
+      case "window_event": {
+        const label = String(msg.label ?? "main");
+        const handle = this.#handles.get(label);
+        handle?.handleWindowEvent(String(msg.event) as WindowEvent);
+        break;
+      }
+      case "query_result": {
+        const id = Number(msg.req_id);
+        const resolve = this.#requests.get(id);
+        if (resolve) {
+          this.#requests.delete(id);
+          resolve(msg.result === true);
+        }
+        break;
+      }
       case "quit":
       case "closed": {
         this.#closedResolve?.();
@@ -157,12 +198,22 @@ export class HostRuntime implements RuntimeAdapter {
     }
   }
 
+  /** Sends a fire-and-forget message. */
   send(msg: WireMessage): void {
     if (this.#writer) {
       this.#sendNow(msg);
     } else {
       this.#pending.push(msg);
     }
+  }
+
+  /** Sends a window-state query and awaits the host's boolean reply. */
+  sendQuery(op: WindowStateOp): Promise<boolean> {
+    const id = this.#nextReqId++;
+    return new Promise<boolean>((resolve) => {
+      this.#requests.set(id, resolve);
+      this.send({ type: op, label: "main", req_id: id });
+    });
   }
 
   #sendNow(msg: WireMessage): void {

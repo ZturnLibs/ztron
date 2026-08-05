@@ -293,3 +293,17 @@ ZtronApp.app/Contents/
 3. `findHostBin/findWebviewLib` 从 appRoot **向上回溯**找 `native/libs`(hello 的 native 在仓库根)。
 4. 打包链路与 dev 共用 `buildFrontend`(返回真实路径,URL 由调用侧拼 `file://`)。
 5. 三平台:macOS 已验证;Windows/Linux 需对应 webview 后端 + 打包脚本(待做)。
+
+## 15. P0.1 结论(窗口状态 + 窗口事件,已验证)
+
+### 验证通过 ✅(`WIN_STATE_OK` + `WIN_EVENT_OK`)
+- **窗口状态**:minimize/unminimize/toggle_maximize/is_maximized/is_minimized/set_fullscreen/is_fullscreen/set_always_on_top/center/set_focus/set_visible/set_resizable
+- **窗口事件**:resize/move/focus/blur/close → `tauri://resize/move/focus/blur/close-requested` 推送
+- 全链路:host.c(ObjC runtime 直调 NSWindow)→ socket → backend → EventManager → 前端 `listen('tauri://focus')`
+
+### 实现要点
+1. host.c 用 `webview_get_native_handle(w, UI_WINDOW)` 拿 NSWindow,经 **ObjC runtime**(objc_msgSend)调 AppKit:`miniaturize:`/`zoom:`/`setStyleMask:`(fullscreen/resizable)/`setLevel:`(alwaysOnTop)/`center`/`makeKeyAndOrderFront:`/`setIsVisible:`。
+2. 查询操作(is_*)走 **request/response**:host 用 `req_id` 回 `query_result`;HostRuntime 维护 pending promise map。
+3. 窗口事件用 **NSWindow delegate**:动态建类 + `class_addMethod`(windowDidResize:/Move:/BecomeKey:/ResignKey:/WillClose:/ShouldClose:),事件经 socket 推给后端。
+4. host 编译需 `-framework Foundation -framework AppKit`。
+5. `@ztron/api` Window 类补齐状态方法与 onResized/onMoved/onFocused/onBlurred/onCloseRequested。

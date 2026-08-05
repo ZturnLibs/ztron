@@ -47,8 +47,22 @@ async function main(): Promise<void> {
     el("path").textContent = joined;
     if (joined === "/a/b/c") report("PATH_OK");
 
-    // 6. window commands through the api
+    // 6. window states + events through the api
     const win = Window.getCurrent();
+    const maximized = await win.isMaximized();
+    const fullscreen = await win.isFullscreen();
+    await win.setAlwaysOnTop(true);
+    await win.setResizable(true);
+    await win.center();
+    if (maximized === false && fullscreen === false) report("WIN_STATE_OK");
+
+    await listen("tauri://focus", () => report("WIN_EVENT_OK"));
+    // force a real focus transition: hide then show the window
+    await win.setVisible(false);
+    await new Promise((r) => setTimeout(r, 250));
+    await win.setVisible(true);
+    await win.setFocus();
+
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";
   } catch (err) {

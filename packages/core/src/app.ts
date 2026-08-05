@@ -127,6 +127,45 @@ export class App {
         const { width, height } = args as { width: number; height: number };
         ctx.webview.setSize(width, height);
       },
+      "plugin:window|minimize": (_args, ctx) =>
+        ctx.webview.windowState("minimize"),
+      "plugin:window|unminimize": (_args, ctx) =>
+        ctx.webview.windowState("unminimize"),
+      "plugin:window|toggle_maximize": (_args, ctx) =>
+        ctx.webview.windowState("toggle_maximize"),
+      "plugin:window|is_maximized": async (_args, ctx) =>
+        ctx.webview.windowState("is_maximized"),
+      "plugin:window|is_minimized": async (_args, ctx) =>
+        ctx.webview.windowState("is_minimized"),
+      "plugin:window|set_fullscreen": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_fullscreen",
+          Boolean((args as { fullscreen?: boolean }).fullscreen),
+        );
+      },
+      "plugin:window|is_fullscreen": async (_args, ctx) =>
+        ctx.webview.windowState("is_fullscreen"),
+      "plugin:window|set_always_on_top": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_always_on_top",
+          Boolean((args as { alwaysOnTop?: boolean }).alwaysOnTop),
+        );
+      },
+      "plugin:window|center": (_args, ctx) => ctx.webview.windowState("center"),
+      "plugin:window|set_focus": (_args, ctx) =>
+        ctx.webview.windowState("set_focus"),
+      "plugin:window|set_visible": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_visible",
+          Boolean((args as { visible?: boolean }).visible),
+        );
+      },
+      "plugin:window|set_resizable": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_resizable",
+          Boolean((args as { resizable?: boolean }).resizable),
+        );
+      },
     };
 
     for (const [name, handler] of Object.entries(commands)) {
@@ -209,6 +248,9 @@ export class App {
         getChannel: (channelId) => new ChannelHandle(channelId, wv),
       }));
     });
+    handle.onWindowEvent((event) => {
+      this.emit(windowEventToTauri(event));
+    });
 
     const bootstrap =
       this.config.initScript ??
@@ -236,6 +278,22 @@ export class App {
     this.commands.register(cmd, handler);
     this.#hub.register(cmd, handler);
     return this;
+  }
+}
+
+/** Maps native window events to Tauri's `tauri://*` event names. */
+function windowEventToTauri(event: import("./runtime.js").WindowEvent): string {
+  switch (event) {
+    case "resize":
+      return "tauri://resize";
+    case "move":
+      return "tauri://move";
+    case "focus":
+      return "tauri://focus";
+    case "blur":
+      return "tauri://blur";
+    case "close":
+      return "tauri://close-requested";
   }
 }
 

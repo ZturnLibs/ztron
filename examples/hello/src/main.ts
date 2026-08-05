@@ -81,8 +81,8 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 5) {
-        console.log("SPIKE_RESULT: M3_API_FRONTEND_OK");
+      if (done.size >= 7) {
+        console.log("SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK");
         ctx.webview.terminate();
       }
     });

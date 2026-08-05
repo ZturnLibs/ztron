@@ -20,5 +20,11 @@ export { PathScope } from "./scope.js";
 export type { PathScopeConfig } from "./scope.js";
 export { fsPlugin, pathPlugin } from "./plugins/index.js";
 export type { FsPluginOptions, DirEntry } from "./plugins/index.js";
-export type { RuntimeAdapter, WebviewHandle, WindowConfig } from "./runtime.js";
+export type {
+  RuntimeAdapter,
+  WebviewHandle,
+  WindowConfig,
+  WindowEvent,
+  WindowStateOp,
+} from "./runtime.js";
 export { StateManager } from "./state.js";
