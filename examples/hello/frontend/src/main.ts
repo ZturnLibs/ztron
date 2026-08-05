@@ -2,7 +2,16 @@
  * M3 frontend — uses the real `@ztron/api` package in a Vite-bundled page.
  * Exercises invoke, events, Channel, fs and path through the public API.
  */
-import { invoke, listen, Channel, fs, path, Window } from "@ztron/api";
+import {
+  invoke,
+  listen,
+  Channel,
+  fs,
+  path,
+  Window,
+  createTray,
+  setTrayTooltip,
+} from "@ztron/api";
 
 function el(id: string): HTMLElement {
   return document.getElementById(id)!;
@@ -62,6 +71,11 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 250));
     await win.setVisible(true);
     await win.setFocus();
+
+    // 7. system tray (creation/title/tooltip; click is manual)
+    await createTray({ title: "Ztron", tooltip: "Ztron tray" });
+    await setTrayTooltip("Ztron tray updated");
+    report("TRAY_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

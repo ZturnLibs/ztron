@@ -113,6 +113,10 @@ typedef struct {
 
 #ifdef __APPLE__
 static void handle_window_op(Msg *m);
+static void tray_create(const char *title);
+static void tray_set_title(const char *title);
+static void tray_set_tooltip(const char *tooltip);
+static void tray_destroy(void);
 #endif
 static int is_window_op(const char *t);
 
@@ -136,6 +140,22 @@ static void on_gui(webview_t w, void *arg) {
     webview_return(w, m->id, m->status, m->str);
   } else if (strcmp(m->type, "quit") == 0) {
     webview_terminate(w);
+  } else if (strcmp(m->type, "tray_create") == 0) {
+#ifdef __APPLE__
+    tray_create(m->str);
+#endif
+  } else if (strcmp(m->type, "tray_set_title") == 0) {
+#ifdef __APPLE__
+    tray_set_title(m->str);
+#endif
+  } else if (strcmp(m->type, "tray_set_tooltip") == 0) {
+#ifdef __APPLE__
+    tray_set_tooltip(m->str);
+#endif
+  } else if (strcmp(m->type, "tray_destroy") == 0) {
+#ifdef __APPLE__
+    tray_destroy();
+#endif
   } else {
     /* fall through to the macOS window-state handler */
 #ifdef __APPLE__
@@ -288,6 +308,78 @@ static void install_window_delegate(void) {
            delegate);
 }
 
+/* ---- system tray (NSStatusItem) ---- */
+
+static void *g_status_item = NULL;
+static id g_tray_target = NULL;
+
+static id zt_nsstring(const char *s) {
+  return OBJC_MSG(id(*)(id, SEL, const char *), (id)objc_getClass("NSString"),
+                  sel_registerName("stringWithUTF8String:"), s);
+}
+
+static void emit_tray_event(const char *event) {
+  char buf[128];
+  snprintf(buf, sizeof(buf), "{\"type\":\"tray_event\",\"event\":\"%s\"}",
+           event);
+  send_line(buf);
+}
+
+static void zt_tray_click(id s, SEL c, id sender) {
+  (void)s; (void)c; (void)sender;
+  emit_tray_event("click");
+}
+
+static void tray_create(const char *title) {
+  void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"),
+                       sel_registerName("systemStatusBar"));
+  id item = OBJC_MSG(id(*)(id, SEL, double), bar,
+                     sel_registerName("statusItemWithLength:"), -1.0);
+  if (item) {
+    OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"),
+             zt_nsstring(title));
+    id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
+    OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"),
+             g_tray_target);
+    OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"),
+             sel_registerName("trayClick:"));
+    g_status_item = item;
+  }
+}
+
+static void tray_set_title(const char *title) {
+  if (g_status_item) {
+    OBJC_MSG(void(*)(id, SEL, id), g_status_item, sel_registerName("setTitle:"),
+             zt_nsstring(title));
+  }
+}
+
+static void tray_set_tooltip(const char *tooltip) {
+  if (g_status_item) {
+    OBJC_MSG(void(*)(id, SEL, id), g_status_item,
+             sel_registerName("setToolTip:"), zt_nsstring(tooltip));
+  }
+}
+
+static void tray_destroy(void) {
+  if (g_status_item) {
+    void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"),
+                         sel_registerName("systemStatusBar"));
+    OBJC_MSG(void(*)(id, SEL, id), bar, sel_registerName("removeStatusItem:"),
+             g_status_item);
+    g_status_item = NULL;
+  }
+}
+
+static void install_tray_target(void) {
+  Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"),
+                                     "ZtronTrayTarget", 0);
+  class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click,
+                  "v@:@");
+  objc_registerClassPair(cls);
+  g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+}
+
 #endif /* __APPLE__ */
 
 /* backend -> host reader thread */
@@ -333,6 +425,15 @@ static void *socket_thread(void *arg) {
     } else if (strcmp(m->type, "quit") == 0) {
       webview_dispatch(g_w, on_gui, m);
       break;
+    } else if (strcmp(m->type, "tray_create") == 0 ||
+               strcmp(m->type, "tray_set_title") == 0) {
+      json_str(line, "title", m->str, sizeof(m->str));
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "tray_set_tooltip") == 0) {
+      json_str(line, "tooltip", m->str, sizeof(m->str));
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "tray_destroy") == 0) {
+      webview_dispatch(g_w, on_gui, m);
     } else if (is_window_op(m->type)) {
       m->req_id = json_int(line, "req_id", -1);
       m->bool_val = json_int(line, "value", 0);
@@ -344,6 +445,7 @@ static void *socket_thread(void *arg) {
   fclose(f);
   return NULL;
 }
+
 
 /* window-state operations handled by the platform layer */
 static int is_window_op(const char *t) {
@@ -407,7 +509,10 @@ int main(int argc, char **argv) {
   webview_set_size(g_w, 900, 640, 0);
   webview_bind(g_w, "__TAURI_IPC__", ipc_cb, NULL);
 #ifdef __APPLE__
+#ifdef __APPLE__
   install_window_delegate();
+  install_tray_target();
+#endif
 #endif
 
   /* wait for the backend to connect */

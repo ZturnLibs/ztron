@@ -8,6 +8,7 @@
  */
 import type {
   RuntimeAdapter,
+  TrayController,
   WebviewHandle,
   WindowConfig,
   WindowEvent,
@@ -113,8 +114,35 @@ export class HostRuntime implements RuntimeAdapter {
   #handles = new Map<string, HostWebviewHandle>();
   #requests = new Map<number, (result: boolean) => void>();
   #nextReqId = 1;
+  #trayEventCb: ((event: "click") => void) | null = null;
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
+
+  /** System tray controller (implements `RuntimeAdapter.tray`). */
+  readonly tray: TrayController = {
+    apply: (op, payload) => {
+      switch (op) {
+        case "create":
+          this.send({ type: "tray_create", title: payload?.title ?? "" });
+          break;
+        case "set_title":
+          this.send({ type: "tray_set_title", title: payload?.title ?? "" });
+          break;
+        case "set_tooltip":
+          this.send({
+            type: "tray_set_tooltip",
+            tooltip: payload?.tooltip ?? "",
+          });
+          break;
+        case "destroy":
+          this.send({ type: "tray_destroy" });
+          break;
+      }
+    },
+    onEvent: (cb) => {
+      this.#trayEventCb = cb;
+    },
+  };
 
   constructor(options: HostRuntimeOptions) {
     this.#host = options.host ?? "127.0.0.1";
@@ -179,6 +207,10 @@ export class HostRuntime implements RuntimeAdapter {
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
         handle?.handleWindowEvent(String(msg.event) as WindowEvent);
+        break;
+      }
+      case "tray_event": {
+        this.#trayEventCb?.(String(msg.event) as "click");
         break;
       }
       case "query_result": {

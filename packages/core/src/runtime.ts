@@ -82,7 +82,24 @@ export interface WebviewHandle {
   close(): void;
 }
 
+/** Tray operations translated from Tauri's tray plugin. */
+export type TrayOp = "create" | "set_title" | "set_tooltip" | "destroy";
+
+/** Tray payload for `TrayController.apply`. */
+export interface TrayPayload {
+  title?: string;
+  tooltip?: string;
+}
+
+/** System tray controller provided by the runtime backend. */
+export interface TrayController {
+  apply(op: TrayOp, payload?: TrayPayload): void;
+  onEvent(cb: (event: "click") => void): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
+  /** Optional system tray support. */
+  tray?: TrayController;
 }

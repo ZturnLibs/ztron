@@ -26,5 +26,8 @@ export type {
   WindowConfig,
   WindowEvent,
   WindowStateOp,
+  TrayController,
+  TrayOp,
+  TrayPayload,
 } from "./runtime.js";
 export { StateManager } from "./state.js";

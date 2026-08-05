@@ -307,3 +307,16 @@ ZtronApp.app/Contents/
 3. 窗口事件用 **NSWindow delegate**:动态建类 + `class_addMethod`(windowDidResize:/Move:/BecomeKey:/ResignKey:/WillClose:/ShouldClose:),事件经 socket 推给后端。
 4. host 编译需 `-framework Foundation -framework AppKit`。
 5. `@ztron/api` Window 类补齐状态方法与 onResized/onMoved/onFocused/onBlurred/onCloseRequested。
+
+## 16. P0.2 结论(系统托盘,已验证)
+
+### 验证通过 ✅(`TRAY_OK`)
+- tray 创建(title/tooltip)/set_title/set_tooltip/destroy,点击 → `tauri://tray-click` 推送(点击需手动)
+- 全链路:前端 `createTray()` → `plugin:tray|*` → backend → host(NSStatusItem)→ 菜单栏
+- 点击路径与窗口事件同构(host → socket → backend → EventManager)
+
+### 实现要点
+1. host.c:`NSStatusBar systemStatusBar` + `statusItemWithLength:`(变长)→ `setTitle:`/`setToolTip:`;按钮 target/action 用动态类 `ZtronTrayTarget` 的 `trayClick:`。
+2. `RuntimeAdapter.tray`(可选)TrayController;`App` 接线点击 → `tauri://tray-click`;`plugin:tray|create/set_title/set_tooltip/destroy` 命令。
+3. `@ztron/api` tray.ts:createTray/setTrayTitle/setTrayTooltip/destroyTray/onTrayClick。
+4. 图标支持(NSImage)后续加;Windows Shell_NotifyIcon 待平台移植。

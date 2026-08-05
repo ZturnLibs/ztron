@@ -64,6 +64,9 @@ export class App {
     this.plugins = new PluginManager();
     this.#invokeKey = config.invokeKey;
     this.#eventManager = new EventManager((label) => this.getWebview(label));
+    this.#adapter.tray?.onEvent(() => {
+      this.emit("tauri://tray-click");
+    });
 
     this.registerBuiltinCommands();
 
@@ -165,6 +168,18 @@ export class App {
           "set_resizable",
           Boolean((args as { resizable?: boolean }).resizable),
         );
+      },
+      "plugin:tray|create": (args) => {
+        this.#adapter.tray?.apply("create", args as { title?: string });
+      },
+      "plugin:tray|set_title": (args) => {
+        this.#adapter.tray?.apply("set_title", args as { title?: string });
+      },
+      "plugin:tray|set_tooltip": (args) => {
+        this.#adapter.tray?.apply("set_tooltip", args as { tooltip?: string });
+      },
+      "plugin:tray|destroy": () => {
+        this.#adapter.tray?.apply("destroy");
       },
     };
 

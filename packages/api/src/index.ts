@@ -39,3 +39,12 @@ export {
   dirname,
   extname,
 } from "./path.js";
+export {
+  tray,
+  createTray,
+  setTrayTitle,
+  setTrayTooltip,
+  destroyTray,
+  onTrayClick,
+} from "./tray.js";
+export type { TrayOptions } from "./tray.js";
