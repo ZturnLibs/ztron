@@ -6,14 +6,15 @@
  *    the page uses `@ztron/api` (invoke/events/Channel/fs/path/window).
  *  - Without: falls back to the inline-html M2 spike (scoped fs + path).
  */
-import { AppBuilder, fsPlugin, pathPlugin } from "@ztron/core";
-import type { CapabilityFile } from "@ztron/core";
+import {
+  AppBuilder,
+  fsPlugin,
+  pathPlugin,
+  loadCapabilities,
+} from "@ztron/core";
 import { HostRuntime } from "@ztron/runtime-ffi";
 
-declare const tjs: {
-  env: Record<string, string | undefined>;
-  readFile(p: string): Promise<Uint8Array>;
-};
+declare const tjs: { env: Record<string, string | undefined> };
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
 const port = Number(tjs.env.ZTRON_HOST_PORT);
@@ -36,12 +37,9 @@ const inlineHtml = `<!doctype html>
 
 const done = new Set<string>();
 
-// Load capabilities: this opts into the ACL. The main window is granted
-// `core:default` + `fs:write-default` (read+write, no remove).
-const capBytes = await tjs.readFile("./capabilities/main.json");
-const capabilities: CapabilityFile[] = [
-  JSON.parse(new TextDecoder().decode(capBytes)),
-];
+const capabilities = await loadCapabilities(
+  tjs.env.ZTRON_CAPABILITIES_DIR ?? "./capabilities",
+);
 
 new AppBuilder(runtime, "com.ztron.hello")
   .configure({ invokeKey, capabilities })

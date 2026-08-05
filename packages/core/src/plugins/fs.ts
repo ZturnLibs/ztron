@@ -48,12 +48,16 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
       async read_dir(args) {
         const { path } = args as { path: string };
         const canon = await scope.check(path);
-        const entries = await tjs.readDir(canon);
-        return entries.map((e): DirEntry => ({
-          name: e.name,
-          isDirectory: e.isDirectory,
-          isFile: e.isFile,
-        }));
+        const iter = await tjs.readDir(canon);
+        const out: DirEntry[] = [];
+        for await (const e of iter as unknown as AsyncIterable<DirEntry>) {
+          out.push({
+            name: e.name,
+            isDirectory: e.isDirectory,
+            isFile: e.isFile,
+          });
+        }
+        return out;
       },
       async exists(args) {
         const { path } = args as { path: string };

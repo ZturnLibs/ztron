@@ -40,7 +40,7 @@
 ### P1 最小权限模型(纯 TS)
 
 - [x] **P1.1 Capabilities/ACL**:Capability/Permission/Set + IpcHub 门禁(`ACL_DENY_OK`)
-- [ ] **P1.2 CLI capabilities.json** + `ztron.conf.json` zod schema
+- [x] **P1.2 CLI capabilities 自动加载**(`loadCapabilities` + `for await` 迭代器)
 - [ ] **P1.3 http scope**:tjs fetch + URL allowlist
 
 ### P2 自定义协议 + HMR(C 层)

@@ -257,6 +257,9 @@ async function dev(cwd: string, entry: string): Promise<void> {
       ZTRON_HOST_PORT: String(port),
       ZTRON_INVOKE_KEY: invokeKey,
       ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
+      ...(existsSync(resolve(cwd, "capabilities"))
+        ? { ZTRON_CAPABILITIES_DIR: resolve(cwd, "capabilities") }
+        : {}),
     },
   });
   process.exit(result.status ?? 1);

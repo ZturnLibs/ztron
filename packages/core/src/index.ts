@@ -43,6 +43,9 @@ export {
   ResolvedAcl,
   resolveAcl,
   permissiveAcl,
+  parseCapabilityFile,
+  loadCapabilitiesFromDir,
+  loadCapabilities,
 } from "./acl/index.js";
 export type {
   Identifier,
