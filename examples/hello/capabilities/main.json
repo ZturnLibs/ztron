@@ -1,6 +1,11 @@
 {
   "identifier": "main",
-  "description": "Main window: core + path + read/write fs (no remove).",
+  "description": "Main window: core + path + read/write fs (no remove) + scoped http.",
   "windows": ["main"],
-  "permissions": ["core:default", "path:default", "fs:write-default"]
+  "permissions": [
+    "core:default",
+    "path:default",
+    "fs:write-default",
+    "http:default"
+  ]
 }

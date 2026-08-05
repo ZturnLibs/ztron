@@ -362,3 +362,16 @@ ZtronApp.app/Contents/
 4. **插件权限声明**:fsPlugin/pathPlugin 在 Plugin.permissions/permissionSets 中声明(与 Tauri 的 permission manifest 对应);App 启动时构建 `core:default` 集合(所有内置命令)。
 5. **Tauri 兼容**:capability 文件格式与 Tauri 一致(`permissions: ["id", {identifier, scope}]`);`!cmd` 前缀表 deny;scope 透传给 PathScope。
 6. **限制**(后续):per-command scope 未真正生效(目前 scope 仅记录);remote URL 匹配、glob 窗口、schema 校验未做。
+
+## 20. P1.3 结论(HTTP scope,已验证)
+
+### 验证通过 ✅(`HTTP_OK:200` + `HTTP_SCOPE_DENY_OK`)
+- `http.fetch("https://httpbin.org/get")` → 200(允许域)
+- `http.fetch("https://evil.example.com/steal")` → scope denied(拒绝域)
+- 全链路:前端 `http.fetch()` → `plugin:http|fetch` → backend → HttpScope 校验 → tjs fetch
+
+### 实现要点
+1. **`HttpScope`** 编译时解析 URL 模式为 `CompiledPattern`(protocol/hostLabels/port/pathPrefix/pathGlobstar),`*` 通配子域,`**` 通配路径深度;host 从右向左匹配。
+2. **`httpPlugin`** 包装标准 WHATWG `fetch`(tjs 原生支持),scope 不通过抛 `http scope denied`;ACL 权限:`http:allow-fetch`/`http:deny-fetch`/`http:default`。
+3. **两层防护**:HttpScope(URL 粒度,插件配置)+ ACL(命令粒度,capability 授予)。
+4. **`@ztron/api`** http.ts:`fetch(url, options)` → `HttpResponse {status, ok, headers, body}`。

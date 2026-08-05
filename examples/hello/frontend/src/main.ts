@@ -8,6 +8,7 @@ import {
   Channel,
   fs,
   path,
+  http,
   Window,
   createTray,
   setTrayTooltip,
@@ -78,6 +79,29 @@ async function main(): Promise<void> {
     const joined = await path.join("/a", "b", "c");
     el("path").textContent = joined;
     if (joined === "/a/b/c") report("PATH_OK");
+
+    // 5b. scoped http: allowed URL works, out-of-scope URL is denied
+    try {
+      const resp = await http.fetch("https://httpbin.org/get");
+      if (resp.ok && resp.status === 200) {
+        report("HTTP_OK:" + resp.status);
+      } else {
+        report("HTTP_FAIL:status=" + resp.status);
+      }
+    } catch (e) {
+      report("HTTP_FAIL:" + extractError(e).slice(0, 40));
+    }
+    try {
+      await http.fetch("https://evil.example.com/steal");
+      report("HTTP_SCOPE_FAIL: was allowed");
+    } catch (e) {
+      const msg = extractError(e);
+      if (msg.includes("scope denied") || msg.includes("not allowed")) {
+        report("HTTP_SCOPE_DENY_OK");
+      } else {
+        report("HTTP_SCOPE_UNEXPECTED:" + msg.slice(0, 40));
+      }
+    }
 
     // 6. window states + events through the api
     const win = Window.getCurrent();

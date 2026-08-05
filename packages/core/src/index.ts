@@ -18,8 +18,15 @@ export { PluginManager } from "./plugin.js";
 export type { Plugin } from "./plugin.js";
 export { PathScope } from "./scope.js";
 export type { PathScopeConfig } from "./scope.js";
-export { fsPlugin, pathPlugin } from "./plugins/index.js";
-export type { FsPluginOptions, DirEntry } from "./plugins/index.js";
+export { fsPlugin, pathPlugin, httpPlugin } from "./plugins/index.js";
+export type {
+  FsPluginOptions,
+  DirEntry,
+  HttpPluginOptions,
+  HttpResponse,
+} from "./plugins/index.js";
+export { HttpScope } from "./httpScope.js";
+export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
 export type {
   RuntimeAdapter,
   WebviewHandle,

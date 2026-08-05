@@ -10,6 +10,7 @@ import {
   AppBuilder,
   fsPlugin,
   pathPlugin,
+  httpPlugin,
   loadCapabilities,
 } from "@ztron/core";
 import { HostRuntime } from "@ztron/runtime-ffi";
@@ -45,6 +46,16 @@ new AppBuilder(runtime, "com.ztron.hello")
   .configure({ invokeKey, capabilities })
   .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
   .plugin(pathPlugin())
+  .plugin(
+    httpPlugin({
+      scope: {
+        allow: [
+          { url: "https://httpbin.org/*" },
+          { url: "https://api.github.com/*" },
+        ],
+      },
+    }),
+  )
   .window({
     label: "main",
     title: "Ztron M3",
@@ -98,9 +109,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 11) {
+      if (done.size >= 13) {
         console.log(
-          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK + ACL_DENY_OK",
+          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK + ACL_DENY_OK + HTTP_SCOPE_OK",
         );
         ctx.webview.terminate();
       }

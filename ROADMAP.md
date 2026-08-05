@@ -41,7 +41,7 @@
 
 - [x] **P1.1 Capabilities/ACL**:Capability/Permission/Set + IpcHub 门禁(`ACL_DENY_OK`)
 - [x] **P1.2 CLI capabilities 自动加载**(`loadCapabilities` + `for await` 迭代器)
-- [ ] **P1.3 http scope**:tjs fetch + URL allowlist
+- [x] **P1.3 http scope**:tjs fetch + HttpScope URL allowlist(`HTTP_SCOPE_DENY_OK`)
 
 ### P2 自定义协议 + HMR(C 层)
 
