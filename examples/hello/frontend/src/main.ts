@@ -9,6 +9,10 @@ import {
   fs,
   path,
   http,
+  os,
+  store,
+  logger,
+  shell,
   Window,
   createTray,
   setTrayTooltip,
@@ -101,6 +105,34 @@ async function main(): Promise<void> {
       } else {
         report("HTTP_SCOPE_UNEXPECTED:" + msg.slice(0, 40));
       }
+    }
+
+    // 5c. os plugin
+    const osInfo = await os.info();
+    if (osInfo.platform === "macos" || osInfo.platform.includes("mac")) {
+      report("OS_OK:" + osInfo.platform);
+    } else {
+      report("OS_OK:" + osInfo.platform);
+    }
+
+    // 5d. store plugin (KV persistence)
+    const tmp = await os.tmpdir();
+    const storePath = `${tmp}/ztron_store_test.json`;
+    await store.clear(storePath);
+    await store.set(storePath, "greeting", "hello-store");
+    const val = await store.get<string>(storePath, "greeting");
+    if (val === "hello-store") report("STORE_OK:" + val);
+
+    // 5e. log plugin
+    await logger.info("spike: log plugin test from frontend");
+    report("LOG_OK");
+
+    // 5f. shell plugin (scoped: echo only)
+    const result = await shell.execute("echo", ["hello-shell"]);
+    if (result.stdout.trim() === "hello-shell") {
+      report("SHELL_OK:" + result.stdout.trim());
+    } else {
+      report("SHELL_FAIL:" + result.stdout.trim());
     }
 
     // 6. window states + events through the api

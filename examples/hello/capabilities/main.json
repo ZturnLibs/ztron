@@ -1,11 +1,15 @@
 {
   "identifier": "main",
-  "description": "Main window: core + path + read/write fs (no remove) + scoped http.",
+  "description": "Main window: core + path + fs + http + os + store + log + shell.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "path:default",
     "fs:write-default",
-    "http:default"
+    "http:default",
+    "os:default",
+    "store:write",
+    "log:default",
+    "shell:default"
   ]
 }

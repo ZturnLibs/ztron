@@ -375,3 +375,18 @@ ZtronApp.app/Contents/
 2. **`httpPlugin`** 包装标准 WHATWG `fetch`(tjs 原生支持),scope 不通过抛 `http scope denied`;ACL 权限:`http:allow-fetch`/`http:deny-fetch`/`http:default`。
 3. **两层防护**:HttpScope(URL 粒度,插件配置)+ ACL(命令粒度,capability 授予)。
 4. **`@ztron/api`** http.ts:`fetch(url, options)` → `HttpResponse {status, ok, headers, body}`。
+
+## 21. P3 结论(插件生态:os/store/log/shell,已验证)
+
+### 验证通过 ✅(`FULL_OK`,17 项全通过)
+- **os**:platform/arch/hostname/version/homedir/tmpdir/sep(navigator + tjs)
+- **store**:KV JSON 文件(get/set/delete/keys/values/entries/clear),内存缓存 + 持久化
+- **log**:trace/debug/info/warn/error(级别过滤)
+- **shell**:scoped 命令执行(program+args glob 匹配,tjs.spawn pipe stdout/stderr)
+
+### 实现要点
+1. 插件统一模式:Plugin{name, commands, permissions, permissionSets} → 自动注册 ACL
+2. shell scope 匹配:program basename 匹配 + args glob(`*`/`**`)
+3. store baseDir 默认 $TMP(不经 PathScope,直接 tjs 文件操作)
+4. 每插件都有 `default` + `write`/`full` 权限集
+5. 前端 api 包:`os.ts`/`store.ts`/`log.ts`/`shell.ts`(与 Tauri @tauri-apps/api 对齐)

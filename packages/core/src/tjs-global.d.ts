@@ -32,6 +32,7 @@ declare const tjs: {
   homeDir: string;
   tmpDir: string;
   cwd: string;
+  pid: number;
   realPath(p: string): Promise<string>;
   readFile(p: string, options?: { encoding?: string }): Promise<Uint8Array>;
   writeFile(p: string, data: string | Uint8Array): Promise<void>;
@@ -44,4 +45,18 @@ declare const tjs: {
   readDir(p: string): Promise<DirEntry[]>;
   remove(p: string): Promise<void>;
   makeDir(p: string, mode?: number): Promise<void>;
+  spawn(
+    cmd: string[],
+    opts?: {
+      stdout?: "pipe" | "inherit" | "ignore";
+      stderr?: "pipe" | "inherit" | "ignore";
+      cwd?: string;
+      env?: Record<string, string>;
+    },
+  ): {
+    stdout: ReadableStream<Uint8Array> | null;
+    stderr: ReadableStream<Uint8Array> | null;
+    wait(): Promise<{ exitStatus: number | null }>;
+    kill(sig?: number): void;
+  };
 };

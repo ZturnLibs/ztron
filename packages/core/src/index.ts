@@ -18,12 +18,27 @@ export { PluginManager } from "./plugin.js";
 export type { Plugin } from "./plugin.js";
 export { PathScope } from "./scope.js";
 export type { PathScopeConfig } from "./scope.js";
-export { fsPlugin, pathPlugin, httpPlugin } from "./plugins/index.js";
+export {
+  fsPlugin,
+  pathPlugin,
+  httpPlugin,
+  osPlugin,
+  storePlugin,
+  logPlugin,
+  shellPlugin,
+} from "./plugins/index.js";
 export type {
   FsPluginOptions,
   DirEntry,
   HttpPluginOptions,
   HttpResponse,
+  OsInfo,
+  StorePluginOptions,
+  LogLevel,
+  LogPluginOptions,
+  ShellPluginOptions,
+  ShellScopeEntry,
+  ExecResult,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";

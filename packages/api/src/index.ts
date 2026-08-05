@@ -58,3 +58,18 @@ export type {
 } from "./dialog.js";
 export { http, fetch } from "./http.js";
 export type { HttpResponse, FetchOptions } from "./http.js";
+export { os, info as osInfo, platform, arch, homedir, tmpdir } from "./os.js";
+export type { OsInfo } from "./os.js";
+export { store } from "./store.js";
+export {
+  logger,
+  log,
+  trace,
+  debug,
+  info as logInfo,
+  warn,
+  error as logError,
+} from "./log.js";
+export type { LogLevel } from "./log.js";
+export { shell } from "./shell.js";
+export type { ExecResult } from "./shell.js";

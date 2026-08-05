@@ -11,6 +11,10 @@ import {
   fsPlugin,
   pathPlugin,
   httpPlugin,
+  osPlugin,
+  storePlugin,
+  logPlugin,
+  shellPlugin,
   loadCapabilities,
 } from "@ztron/core";
 import { HostRuntime } from "@ztron/runtime-ffi";
@@ -56,6 +60,10 @@ new AppBuilder(runtime, "com.ztron.hello")
       },
     }),
   )
+  .plugin(osPlugin())
+  .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
+  .plugin(logPlugin())
+  .plugin(shellPlugin({ scope: [{ program: "echo", args: ["*"] }] }))
   .window({
     label: "main",
     title: "Ztron M3",
@@ -109,9 +117,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 13) {
+      if (done.size >= 17) {
         console.log(
-          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK + ACL_DENY_OK + HTTP_SCOPE_OK",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/win/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

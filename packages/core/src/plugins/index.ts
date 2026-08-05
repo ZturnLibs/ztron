@@ -3,3 +3,15 @@ export type { FsPluginOptions, DirEntry } from "./fs.js";
 export { pathPlugin } from "./path.js";
 export { httpPlugin } from "./http.js";
 export type { HttpPluginOptions, HttpResponse } from "./http.js";
+export { osPlugin } from "./os.js";
+export type { OsInfo } from "./os.js";
+export { storePlugin } from "./store.js";
+export type { StorePluginOptions } from "./store.js";
+export { logPlugin } from "./log.js";
+export type { LogLevel, LogPluginOptions } from "./log.js";
+export { shellPlugin } from "./shell.js";
+export type {
+  ShellPluginOptions,
+  ShellScopeEntry,
+  ExecResult,
+} from "./shell.js";

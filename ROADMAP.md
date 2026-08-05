@@ -51,8 +51,8 @@
 
 ### P3 插件生态(每个 = core 命令 + api + 权限)
 
-- [ ] store(kv) · http · shell · os · log · notification · clipboard
-- [ ] positioner · window-state · autostart · sql(tjs:sqlite 包装)
+- [x] store(kv) · http · shell · os · log (FULL_OK, 17 checks pass)
+- [ ] notification · clipboard · positioner · window-state · autostart · sql
 
 ### P4 开发者体验
 
