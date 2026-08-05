@@ -19,6 +19,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
+import { codegen } from "./codegen.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
@@ -648,6 +649,10 @@ async function main(): Promise<void> {
     }
     case "build": {
       await buildApp(cwd, resolveEntry(cwd, entryArg));
+      break;
+    }
+    case "codegen": {
+      await codegen(cwd);
       break;
     }
     default: {

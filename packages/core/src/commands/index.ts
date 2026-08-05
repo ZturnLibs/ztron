@@ -38,6 +38,13 @@ export class CommandRegistry {
     this.#handlers.set(cmd, handler);
   }
 
+  /** Registers a typed CommandDef (from `defineCommand`). */
+  registerDef<Name extends string, Args, Result>(
+    def: import("./define.js").CommandDef<Name, Args, Result>,
+  ): void {
+    this.register(def.name, def.handler as CommandHandler);
+  }
+
   registerAll(handlers: CommandHandlers): void {
     for (const [cmd, handler] of Object.entries(handlers)) {
       this.register(cmd, handler);
@@ -56,3 +63,12 @@ export class CommandRegistry {
     return [...this.#handlers.keys()];
   }
 }
+
+export { defineCommand, isCommandDef } from "./define.js";
+export type {
+  CommandDef,
+  CommandName,
+  CommandArgs,
+  CommandResult,
+  CommandNameOf,
+} from "./define.js";

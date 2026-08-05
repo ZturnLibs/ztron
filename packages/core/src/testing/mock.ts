@@ -1,0 +1,130 @@
+/**
+ * Mock runtime — test infrastructure for unit-testing commands without a real
+ * window or host process. Mirrors the role of Tauri's `tauri::test`.
+ *
+ * Usage:
+ * ```ts
+ * const mock = new MockRuntime();
+ * const app = new AppBuilder(mock, "test").setup(...).build();
+ * const result = await mock.invoke("my:command", { ... });
+ * expect(result).toEqual(...);
+ * ```
+ */
+import type {
+  RuntimeAdapter,
+  WebviewHandle,
+  WindowConfig,
+  WindowEvent,
+  WindowStateOp,
+} from "../runtime.js";
+
+/** A mock WebviewHandle that records calls and lets tests drive responses. */
+export class MockWebviewHandle implements WebviewHandle {
+  readonly label: string;
+  evalLog: string[] = [];
+  respondLog: Array<{ id: string; status: number; result: string }> = [];
+  titleLog: string[] = [];
+  sizeLog: Array<{ w: number; h: number }> = [];
+  windowStateLog: Array<{ op: WindowStateOp; value?: boolean }> = [];
+  windowEventLog: WindowEvent[] = [];
+  terminated = false;
+  loadedUrl: string | null = null;
+  loadedHtml: string | null = null;
+
+  #onMessage: ((id: string, req: string) => void) | null = null;
+  #onWindowEvent: ((event: WindowEvent) => void) | null = null;
+
+  constructor(label = "main") {
+    this.label = label;
+  }
+
+  loadUrl(url: string): void {
+    this.loadedUrl = url;
+  }
+
+  loadHtml(html: string): void {
+    this.loadedHtml = html;
+  }
+
+  eval(js: string): void {
+    this.evalLog.push(js);
+  }
+
+  setTitle(title: string): void {
+    this.titleLog.push(title);
+  }
+
+  setSize(w: number, h: number): void {
+    this.sizeLog.push({ w, h });
+  }
+
+  windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
+    this.windowStateLog.push({ op, value });
+    return op.startsWith("is_") ? false : true;
+  }
+
+  onWindowEvent(cb: (event: WindowEvent) => void): void {
+    this.#onWindowEvent = cb;
+  }
+
+  respond(id: string, status: number, result: string): void {
+    this.respondLog.push({ id, status, result });
+  }
+
+  onMessage(cb: (id: string, req: string) => void): void {
+    this.#onMessage = cb;
+  }
+
+  run(): Promise<void> {
+    return new Promise(() => {});
+  }
+
+  terminate(): void {
+    this.terminated = true;
+  }
+
+  close(): void {}
+
+  /** Simulates the frontend invoking a command. */
+  async invoke(cmd: string, args: unknown = {}): Promise<unknown> {
+    const req = JSON.stringify([{ cmd, payload: args }]);
+    const id = `mock-${Date.now()}`;
+    return new Promise((resolve) => {
+      const origRespond = this.respond.bind(this);
+      this.respond = (rid: string, status: number, result: string) => {
+        this.respondLog.push({ id: rid, status, result });
+        if (rid === id) {
+          this.respond = origRespond;
+          resolve(
+            status === 0
+              ? JSON.parse(result || "null")
+              : Promise.reject(JSON.parse(result)),
+          );
+        }
+      };
+      this.#onMessage?.(id, req);
+    });
+  }
+
+  /** Simulates a window event firing. */
+  emitWindowEvent(event: WindowEvent): void {
+    this.windowEventLog.push(event);
+    this.#onWindowEvent?.(event);
+  }
+}
+
+/** A mock RuntimeAdapter for tests. */
+export class MockRuntime implements RuntimeAdapter {
+  handles: MockWebviewHandle[] = [];
+
+  createWindow(config: WindowConfig): WebviewHandle {
+    const handle = new MockWebviewHandle(config.label);
+    this.handles.push(handle);
+    return handle;
+  }
+
+  /** Convenience: the first (primary) window handle. */
+  get main(): MockWebviewHandle {
+    return this.handles[0]!;
+  }
+}

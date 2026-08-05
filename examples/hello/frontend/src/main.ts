@@ -35,8 +35,13 @@ async function main(): Promise<void> {
   const report = (received: string) => invoke("m3:report", { received });
 
   try {
+    // 0. codegen'd typed invoke (from ztron codegen)
+    const g = await import("../../src/ztron-commands.js");
+    const greetRes = await g.invoke("my:greet", { name: "codegen" });
+    if (greetRes === "hello, codegen") report("CODEGEN_OK:" + greetRes);
+
     // 1. invoke
-    const echoed = await invoke<string>("m3:echo", { msg: "hello-m3" });
+    const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
     el("invoke").textContent = echoed;
     if (echoed === "echo:hello-m3") report("INVOKE_OK");
 

@@ -5,7 +5,14 @@ export type {
   CommandContext,
   CommandHandler,
   CommandHandlers,
+  CommandDef,
+  CommandName,
+  CommandArgs,
+  CommandResult,
+  CommandNameOf,
 } from "./commands/index.js";
+export { defineCommand, isCommandDef } from "./commands/index.js";
+export { MockRuntime, MockWebviewHandle } from "./testing/mock.js";
 export { EventTarget, emitToWebview, isValidEventName } from "./events.js";
 export type { Event } from "./events.js";
 export { IpcHub } from "./ipc/mod.js";

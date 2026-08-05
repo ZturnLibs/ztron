@@ -423,6 +423,15 @@ export class App {
     this.#hub.register(cmd, handler);
     return this;
   }
+
+  /** Registers a typed CommandDef (from `defineCommand`) into hub + registry. */
+  commandDef<Name extends string, Args, Result>(
+    def: import("./commands/index.js").CommandDef<Name, Args, Result>,
+  ): this {
+    this.commands.registerDef(def);
+    this.#hub.register(def.name, def.handler as InvokeHandler);
+    return this;
+  }
 }
 
 /** Maps native window events to Tauri's `tauri://*` event names. */

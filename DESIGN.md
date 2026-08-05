@@ -390,3 +390,22 @@ ZtronApp.app/Contents/
 3. store baseDir 默认 $TMP(不经 PathScope,直接 tjs 文件操作)
 4. 每插件都有 `default` + `write`/`full` 权限集
 5. 前端 api 包:`os.ts`/`store.ts`/`log.ts`/`shell.ts`(与 Tauri @tauri-apps/api 对齐)
+
+## 22. P4 结论(命令 codegen + 测试,已验证)
+
+### 验证通过 ✅(`FULL_OK` + `CODEGEN_OK`,mock 测试 3/3)
+- **`defineCommand`**:类型化命令定义(name/args/result phantom + handler),`app.commandDef()` 同时注册进 registry + hub
+- **`ztron codegen`**:TS AST 扫描 `defineCommand` 调用 → 提取 name/args/result 类型 → 生成 `ztron-commands.ts`(类型化 `invoke` + `KnownCommands` 映射)
+- **`MockRuntime`/`MockWebviewHandle`**:无真实窗口的测试运行时,`mock.main.invoke()` 模拟前端调用
+- **测试**:`node --experimental-strip-types --test tests/core.test.ts`(defineCommand 往返 / window 状态路由 / ACL 拒绝)
+
+### 关键修复
+1. `app.commands.registerDef()` 只进 registry 不进 hub → 新增 `app.commandDef()` 两者都注册
+2. 生成器提取 `{} as T` 的右侧类型(as-expression),而非原样嵌入
+3. 生成模块用单一泛型签名(overloads 与实现冲突),`invoke<C extends keyof KnownCommands>`
+4. mock.invoke 在 status!=0 时 reject → 测试用 `assert.rejects`
+5. `tjs:path` 懒加载 → core 可在 Node 下 import(mock 测试需要)
+6. PathScope 测试在 Node 下跳过(需 tjs 全局)
+
+### 剩余(WebDriver 集成测试)
+- 端到端 WebDriver 测试(host + 真实 webview)尚未做,列 P5/后续

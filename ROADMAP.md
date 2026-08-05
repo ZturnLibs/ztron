@@ -56,8 +56,7 @@
 
 ### P4 开发者体验
 
-- [ ] 命令 codegen(扫描命令 → 前端 TS 类型绑定,替代 tauri-codegen)
-- [ ] 测试:mock RuntimeAdapter + 命令单测 + WebDriver
+- [x] 命令 codegen(`ztron codegen` → 类型化 invoke)+ MockRuntime 测试(3/3 通过)
 
 ### P5 分发与平台
 

@@ -17,6 +17,7 @@ import {
   shellPlugin,
   loadCapabilities,
 } from "@ztron/core";
+import { greet, add, echo } from "./commands.js";
 import { HostRuntime } from "@ztron/runtime-ffi";
 
 declare const tjs: { env: Record<string, string | undefined> };
@@ -72,10 +73,10 @@ new AppBuilder(runtime, "com.ztron.hello")
     ...(devUrl ? { url: devUrl } : { html: inlineHtml }),
   })
   .setup((app) => {
-    app.command("m3:echo", (args) => {
-      const { msg } = args as { msg?: string };
-      return `echo:${msg ?? ""}`;
-    });
+    // Register typed commands (verified via `ztron codegen`)
+    app.commandDef(greet);
+    app.commandDef(add);
+    app.commandDef(echo);
 
     app.command("m3:emit-ticks", async () => {
       for (let i = 1; i <= 2; i++) {
