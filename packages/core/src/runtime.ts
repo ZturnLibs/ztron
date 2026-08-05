@@ -121,6 +121,32 @@ export interface MenuController {
   onEvent(cb: (event: { menuId: string; itemId: string }) => void): void;
 }
 
+/** Native open-dialog options. */
+export interface OpenDialogOptions {
+  title?: string;
+  directory?: boolean;
+  multiple?: boolean;
+}
+
+/** Native save-dialog options. */
+export interface SaveDialogOptions {
+  title?: string;
+  defaultName?: string;
+}
+
+/** Native message-dialog options. */
+export interface MessageDialogOptions {
+  title: string;
+  message?: string;
+}
+
+/** Native dialog controller provided by the runtime backend. */
+export interface DialogController {
+  open(options: OpenDialogOptions): Promise<string | null>;
+  save(options: SaveDialogOptions): Promise<string | null>;
+  message(options: MessageDialogOptions): Promise<number>;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -128,4 +154,6 @@ export interface RuntimeAdapter {
   tray?: TrayController;
   /** Optional application menu support. */
   menu?: MenuController;
+  /** Optional native dialogs. */
+  dialog?: DialogController;
 }

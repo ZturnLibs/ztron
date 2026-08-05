@@ -32,5 +32,9 @@ export type {
   MenuConfig,
   MenuItemConfig,
   MenuController,
+  DialogController,
+  OpenDialogOptions,
+  SaveDialogOptions,
+  MessageDialogOptions,
 } from "./runtime.js";
 export { StateManager } from "./state.js";

@@ -50,3 +50,5 @@ export {
 export type { TrayOptions } from "./tray.js";
 export { Menu, setAppMenu, onMenuEvent } from "./menu.js";
 export type { MenuItem, MenuEvent } from "./menu.js";
+export { dialog, open, save, message } from "./dialog.js";
+export type { OpenDialogOptions, SaveDialogOptions, MessageDialogOptions } from "./dialog.js";

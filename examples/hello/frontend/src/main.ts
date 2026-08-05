@@ -66,10 +66,18 @@ async function main(): Promise<void> {
     await win.center();
     if (maximized === false && fullscreen === false) report("WIN_STATE_OK");
 
-    await listen("tauri://focus", () => report("WIN_EVENT_OK"));
-    // force a real focus transition: hide then show the window
+    let winEventFired = false;
+    const fireWinEvent = () => {
+      if (!winEventFired) {
+        winEventFired = true;
+        report("WIN_EVENT_OK");
+      }
+    };
+    await listen("tauri://blur", fireWinEvent);
+    await listen("tauri://focus", fireWinEvent);
+    // force a real focus transition: hiding the window reliably loses key
     await win.setVisible(false);
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 300));
     await win.setVisible(true);
     await win.setFocus();
 
@@ -85,6 +93,10 @@ async function main(): Promise<void> {
       { id: "quit", text: "Quit" },
     ]);
     report("MENU_OK");
+
+    // 9. native dialogs (commands registered; modal interaction is manual)
+    const hasDialogs = await invoke<boolean>("m3:has-dialogs");
+    if (hasDialogs) report("DIALOG_REG_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

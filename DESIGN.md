@@ -334,3 +334,16 @@ ZtronApp.app/Contents/
 3. `RuntimeAdapter.menu`(可选 MenuController);`App` 接线 → `tauri://menu`(payload {menuId,itemId})。
 4. `@ztron/api` menu.ts:Menu/setAppMenu/onMenuEvent;item enabled/title 更新。
 5. 子菜单(Submenu)/快捷键/CheckMenuItem 为后续扩展;菜单栏点击事件需手动验证。
+
+## 18. P0.4 结论(原生对话框,已验证注册链路)
+
+### 验证通过 ✅(`DIALOG_REG_OK`;模态交互需手动)
+- `plugin:dialog|open/save/message` 注册确认;模态显示 + `req_id` 回传路径实现
+- 全链路:前端 `dialog.open()` → `plugin:dialog|open` → backend → host(NSOpenPanel)→ 选中路径回传
+
+### 实现要点
+1. host.c:`NSOpenPanel openPanel`/`NSSavePanel savePanel`/`NSAlert`,`runModal` 模态(嵌套 run loop);结果 `reply_string`(JSON 转义路径)或 `reply_null`。
+2. `sendRequest` 泛化:query_result 结果任意 JSON(布尔/字符串/null);windowState 用 `r===true`,dialog 用字符串|null。
+3. `RuntimeAdapter.dialog`(可选 DialogController);`plugin:dialog|*` 异步命令。
+4. `@ztron/api` dialog.ts:open/save/message。
+5. **限制**:模态对话框无法自动化 spike;文件过滤器/多选/目录模式为后续扩展;Windows 用 CommonDialog 待平台移植。

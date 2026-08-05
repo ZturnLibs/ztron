@@ -74,6 +74,14 @@ new AppBuilder(runtime, "com.ztron.hello")
       return "streamed";
     });
 
+    app.command("m3:has-dialogs", (_args, ctx) => {
+      return (
+        ctx.app.commands.has("plugin:dialog|open") &&
+        ctx.app.commands.has("plugin:dialog|save") &&
+        ctx.app.commands.has("plugin:dialog|message")
+      );
+    });
+
     app.command("m3:report", (_args, ctx) => {
       const { received } = _args as { received?: string };
       console.log(`[m3] frontend reported: "${received}"`);
@@ -81,9 +89,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 9) {
+      if (done.size >= 10) {
         console.log(
-          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK",
+          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK",
         );
         ctx.webview.terminate();
       }

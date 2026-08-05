@@ -14,7 +14,10 @@ import { IpcHub, type InvokeHandler } from "./ipc/mod.js";
 import { PluginManager, type Plugin } from "./plugin.js";
 import type {
   MenuConfig,
+  OpenDialogOptions,
   RuntimeAdapter,
+  SaveDialogOptions,
+  MessageDialogOptions,
   WebviewHandle,
   WindowConfig,
 } from "./runtime.js";
@@ -214,6 +217,12 @@ export class App {
       "plugin:menu|destroy": (args) => {
         this.#adapter.menu?.destroyMenu((args as { menuId: string }).menuId);
       },
+      "plugin:dialog|open": async (args) =>
+        this.#adapter.dialog?.open((args as OpenDialogOptions) ?? {}) ?? null,
+      "plugin:dialog|save": async (args) =>
+        this.#adapter.dialog?.save((args as SaveDialogOptions) ?? {}) ?? null,
+      "plugin:dialog|message": async (args) =>
+        this.#adapter.dialog?.message(args as MessageDialogOptions) ?? 0,
     };
 
     for (const [name, handler] of Object.entries(commands)) {

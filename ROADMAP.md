@@ -35,7 +35,7 @@
 - [x] **P0.1 窗口状态 + 事件**:min/max/fullscreen/alwaysOnTop/center/focus/visible;resize/move/focus/blur/close → `tauri://*`(`WIN_STATE_OK` + `WIN_EVENT_OK`)
 - [x] **P0.2 Tray**:host NSStatusItem/Shell_NotifyIcon → `plugin:tray|*`(`TRAY_OK`)
 - [x] **P0.3 Menu**:host 菜单栏 → api `menu.ts`(`MENU_OK`)
-- [ ] **P0.4 Dialog**:NSOpenPanel/NSSavePanel → `plugin:dialog|open/save`
+- [x] **P0.4 Dialog**:NSOpenPanel/NSSavePanel/NSAlert → `plugin:dialog|open/save/message`(`DIALOG_REG_OK`)
 
 ### P1 最小权限模型(纯 TS)
 

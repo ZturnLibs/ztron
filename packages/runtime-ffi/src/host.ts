@@ -7,6 +7,7 @@
  * contract as the FFI adapter.
  */
 import type {
+  DialogController,
   MenuController,
   RuntimeAdapter,
   TrayController,
@@ -113,7 +114,7 @@ export class HostRuntime implements RuntimeAdapter {
   #writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
   #pending: WireMessage[] = [];
   #handles = new Map<string, HostWebviewHandle>();
-  #requests = new Map<number, (result: boolean) => void>();
+  #requests = new Map<number, (result: unknown) => void>();
   #nextReqId = 1;
   #trayEventCb: ((event: "click") => void) | null = null;
   #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
@@ -187,6 +188,25 @@ export class HostRuntime implements RuntimeAdapter {
     onEvent: (cb) => {
       this.#menuEventCb = cb;
     },
+  };
+
+  /** Native dialog controller (implements `RuntimeAdapter.dialog`). */
+  readonly dialog: DialogController = {
+    open: (options) =>
+      this.sendRequest("dialog_open", {
+        title: options.title ?? "Open",
+        directory: options.directory ?? false,
+      }).then((r) => (typeof r === "string" ? r : null)),
+    save: (options) =>
+      this.sendRequest("dialog_save", {
+        title: options.title ?? "Save",
+        default_name: options.defaultName ?? "",
+      }).then((r) => (typeof r === "string" ? r : null)),
+    message: (options) =>
+      this.sendRequest("dialog_message", {
+        title: options.title,
+        message: options.message ?? "",
+      }).then((r) => Number(r)),
   };
 
   constructor(options: HostRuntimeOptions) {
@@ -270,7 +290,7 @@ export class HostRuntime implements RuntimeAdapter {
         const resolve = this.#requests.get(id);
         if (resolve) {
           this.#requests.delete(id);
-          resolve(msg.result === true);
+          resolve(msg.result);
         }
         break;
       }
@@ -291,13 +311,24 @@ export class HostRuntime implements RuntimeAdapter {
     }
   }
 
-  /** Sends a window-state query and awaits the host's boolean reply. */
-  sendQuery(op: WindowStateOp): Promise<boolean> {
+  /**
+   * Sends a request to the host and awaits its `query_result` reply.
+   * The host replies with an arbitrary JSON value.
+   */
+  sendRequest(
+    op: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<unknown> {
     const id = this.#nextReqId++;
-    return new Promise<boolean>((resolve) => {
+    return new Promise<unknown>((resolve) => {
       this.#requests.set(id, resolve);
-      this.send({ type: op, label: "main", req_id: id });
+      this.send({ type: op, label: "main", req_id: id, ...payload });
     });
+  }
+
+  /** Window-state query (the host replies with a boolean). */
+  sendQuery(op: WindowStateOp): Promise<boolean> {
+    return this.sendRequest(op).then((r) => r === true);
   }
 
   #sendNow(msg: WireMessage): void {

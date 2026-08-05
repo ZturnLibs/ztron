@@ -127,6 +127,9 @@ static void menu_set_item_enabled(const char *menu_id, const char *item_id,
                                   int enabled);
 static void menu_set_item_title(const char *menu_id, const char *item_id,
                                 const char *title);
+static void dialog_open(Msg *m);
+static void dialog_save(Msg *m);
+static void dialog_message(Msg *m);
 #endif
 static int is_window_op(const char *t);
 
@@ -189,6 +192,18 @@ static void on_gui(webview_t w, void *arg) {
   } else if (strcmp(m->type, "menu_item_set_title") == 0) {
 #ifdef __APPLE__
     menu_set_item_title(m->str, m->id, m->str2);
+#endif
+  } else if (strcmp(m->type, "dialog_open") == 0) {
+#ifdef __APPLE__
+    dialog_open(m);
+#endif
+  } else if (strcmp(m->type, "dialog_save") == 0) {
+#ifdef __APPLE__
+    dialog_save(m);
+#endif
+  } else if (strcmp(m->type, "dialog_message") == 0) {
+#ifdef __APPLE__
+    dialog_message(m);
 #endif
   } else {
     /* fall through to the macOS window-state handler */
@@ -562,6 +577,98 @@ static void install_menu_target(void) {
   g_menu_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
 }
 
+/* ---- native dialogs (NSOpenPanel / NSSavePanel / NSAlert) ---- */
+
+static void reply_query(int req_id, const char *json_value) {
+  char buf[65536];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":%s}",
+           req_id, json_value);
+  send_line(buf);
+}
+
+static void reply_string(int req_id, const char *s) {
+  char buf[65536];
+  char *p = buf;
+  p += sprintf(p,
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":\"",
+               req_id);
+  for (; *s; s++) {
+    if (*s == '"' || *s == '\\') *p++ = '\\';
+    *p++ = *s;
+  }
+  *p++ = '"';
+  *p++ = '}';
+  *p = '\0';
+  send_line(buf);
+}
+
+static void reply_null(int req_id) {
+  reply_query(req_id, "null");
+}
+
+#define NS_MODAL_OK 1 /* NSModalResponseOK */
+
+static void dialog_open(Msg *m) {
+  id panel = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSOpenPanel"),
+                      sel_registerName("openPanel"));
+  OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setTitle:"),
+           zt_nsstring(m->str));
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseFiles:"),
+           YES);
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel,
+           sel_registerName("setCanChooseDirectories:"), NO);
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel,
+           sel_registerName("setAllowsMultipleSelection:"), NO);
+  long resp = (long)OBJC_MSG(long(*)(id, SEL), panel, sel_registerName("runModal"));
+  if (resp == NS_MODAL_OK) {
+    id urls = OBJC_MSG(id(*)(id, SEL), panel, sel_registerName("URLs"));
+    id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls,
+                      sel_registerName("objectAtIndex:"), 0);
+    const char *path = OBJC_MSG(const char *(*)(id, SEL), url,
+                                sel_registerName("fileSystemRepresentation"));
+    reply_string(m->req_id, path ? path : "");
+  } else {
+    reply_null(m->req_id);
+  }
+}
+
+static void dialog_save(Msg *m) {
+  id panel = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSSavePanel"),
+                      sel_registerName("savePanel"));
+  OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setTitle:"),
+           zt_nsstring(m->str));
+  if (m->id[0]) {
+    OBJC_MSG(void(*)(id, SEL, id), panel,
+             sel_registerName("setNameFieldStringValue:"), zt_nsstring(m->id));
+  }
+  long resp = (long)OBJC_MSG(long(*)(id, SEL), panel, sel_registerName("runModal"));
+  if (resp == NS_MODAL_OK) {
+    id url = OBJC_MSG(id(*)(id, SEL), panel, sel_registerName("URL"));
+    const char *path = OBJC_MSG(const char *(*)(id, SEL), url,
+                                sel_registerName("fileSystemRepresentation"));
+    reply_string(m->req_id, path ? path : "");
+  } else {
+    reply_null(m->req_id);
+  }
+}
+
+static void dialog_message(Msg *m) {
+  id alert = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSAlert"),
+                      sel_registerName("alloc"));
+  alert = OBJC_MSG(id(*)(id, SEL), alert, sel_registerName("init"));
+  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setMessageText:"),
+           zt_nsstring(m->str));
+  OBJC_MSG(void(*)(id, SEL, id), alert,
+           sel_registerName("setInformativeText:"), zt_nsstring(m->str2));
+  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("addButtonWithTitle:"),
+           zt_nsstring("OK"));
+  long resp = (long)OBJC_MSG(long(*)(id, SEL), alert, sel_registerName("runModal"));
+  char tmp[32];
+  snprintf(tmp, sizeof(tmp), "%ld", resp - 1000); /* NSAlertFirstButtonReturn */
+  reply_string(m->req_id, tmp);
+}
+
 #endif /* __APPLE__ */
 
 /* backend -> host reader thread */
@@ -637,6 +744,14 @@ static void *socket_thread(void *arg) {
       json_str(line, "menu_id", m->str, sizeof(m->str));
       json_str(line, "item_id", m->id, sizeof(m->id));
       json_str(line, "title", m->str2, sizeof(m->str2));
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "dialog_open") == 0 ||
+               strcmp(m->type, "dialog_save") == 0 ||
+               strcmp(m->type, "dialog_message") == 0) {
+      m->req_id = json_int(line, "req_id", -1);
+      json_str(line, "title", m->str, sizeof(m->str));
+      json_str(line, "default_name", m->id, sizeof(m->id));
+      json_str(line, "message", m->str2, sizeof(m->str2));
       webview_dispatch(g_w, on_gui, m);
     } else if (is_window_op(m->type)) {
       m->req_id = json_int(line, "req_id", -1);
