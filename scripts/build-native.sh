@@ -36,23 +36,32 @@ case "$(uname -s)" in
   *)      cp "$NATIVE/webview/build/core/webview.dll" "$NATIVE/libs/" ;;
 esac
 
-echo "==> [3/3] building ztron-host (webview + socket bridge)"
+echo "==> [3/3] building ztron-host (cross-platform: host.c + host_platform.<plat>.c)"
 # macOS: embed an Info.plist so ATS allows http://127.0.0.1 (dev server)
 case "$(uname -s)" in
   Darwin)
-    cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
+    cc -Wall -Werror "$NATIVE/host/host.c" "$NATIVE/host/host_macos.c" \
+      -o "$NATIVE/libs/ztron-host" \
       -I "$NATIVE/webview/core/include" \
       -L "$NATIVE/libs" -lwebview \
       -pthread -Wl,-rpath,@loader_path \
       -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist" \
       -framework Foundation -framework AppKit
     ;;
-  *)
-    cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
+  Linux)
+    cc -Wall -Werror "$NATIVE/host/host.c" "$NATIVE/host/host_linux.c" \
+      -o "$NATIVE/libs/ztron-host" \
       -I "$NATIVE/webview/core/include" \
       -L "$NATIVE/libs" -lwebview \
-      -pthread
+      $(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1) \
+      -pthread -Wl,-rpath,'$ORIGIN'
+    ;;
+  *)
+    cl -nologo "$NATIVE/host/host.c" "$NATIVE/host/host_windows.c" \
+      /I "$NATIVE/webview/core/include" \
+      /link "$NATIVE/libs/webview.lib" user32.lib shell32.lib \
+      comdlg32.lib ws2_32.lib /OUT:"$NATIVE/libs/ztron-host.exe"
     ;;
 esac
 
-echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, lib: $NATIVE/libs/, host: $NATIVE/libs/ztron-host"
+echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, host: $NATIVE/libs/ztron-host"

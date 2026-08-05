@@ -527,7 +527,19 @@ async function buildApp(cwd: string, entry: string): Promise<void> {
       tjs,
     });
   } else {
-    throw new Error("packaging is only implemented for macOS (M4)");
+    // Cross-platform packaging: same layout for Linux/Windows.
+    // Linux: <dist>/<appName>/ ; Windows: <dist>/ZtronApp/.
+    const platDir =
+      process.platform === "linux"
+        ? join(outDir, appName)
+        : join(outDir, "ZtronApp");
+    mkdirSync(platDir, { recursive: true });
+    copyFileSync(hostBin, join(platDir, "ztron-host"));
+    if (lib) copyFileSync(lib, join(platDir, basenameOf(lib)));
+    cpSync(dirname(frontendIndex), join(platDir, "frontend"), {
+      recursive: true,
+    });
+    console.log(`[ztron] packaged: ${platDir}`);
   }
 }
 

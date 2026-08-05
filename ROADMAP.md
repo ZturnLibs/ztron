@@ -62,6 +62,7 @@
 
 - [x] updater 插件(manifest + sha256,`UPDATER_OK`)
 - [x] macOS ad-hoc 签名 + Win/Linux host 骨架(架构交付)
+- [x] host 跨平台重构(core + host_platform.{macos,windows,linux})已交付
 - [ ] Windows/Linux 编译验证 + NSIS/AppImage 打包(需目标平台)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 

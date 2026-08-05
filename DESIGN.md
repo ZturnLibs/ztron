@@ -428,3 +428,21 @@ ZtronApp.app/Contents/
 - Windows:WebView2 SDK 编译、NSIS/MSI 打包
 - Linux:WebKitGTK 编译、AppImage/deb 打包
 - 正式签名/公证(Developer ID / notarize)、移动端
+
+## 24. 跨平台重构结论(host 分层,已验证)
+
+### 重构:host.c 跨平台 core + 平台实现
+- **host.c**:纯跨平台(socket 协议 + 消息分发 + main loop),不依赖 __APPLE__
+- **host_platform.h**:平台接口 `zt_platform = { dispatch, init }` + 共享 Msg/zt_send_line/zt_json_* + 各平台实现的 zt_reply_*
+- **host_macos.c**:窗口状态/事件(NSWindow delegate)、tray(NSStatusItem)、menu(NSMenu)、dialog(NSOpenPanel 等)——ObjC runtime
+- **host_windows.c**:窗口状态(Win32 ShowWindow/SetWindowPos)、tray(Shell_NotifyIcon)、menu(HMENU)、dialog(GetOpenFileName)——通过 webview native handle 拿 HWND
+- **host_linux.c**:窗口状态(GTK gtk_window_*)、tray(GtkStatusIcon)、menu(GtkMenu)、dialog(GtkFileChooserNative)——通过 native handle 拿 GtkWindow
+
+### 验证 ✅(macOS)
+- host.c + host_macos.c 编译(-Wall -Werror 干净),spike `FULL_OK`(18 项)无回归
+- 关键 bug:重构时 socket_thread 统一字段解析漏了 response 的 `id` → `webview_return(w,"",…)` 前端 promise 永不 resolve → 已修(补 `zt_json_str(line,"id",…)`)
+- Windows/Linux 需在目标平台编译验证(build-native.sh 已按平台选文件 + CLI 打包分支)
+
+### 跨平台打包
+- build-native.sh:Darwin/Linux(*)/Windows 各自编译 host + 平台文件
+- CLI build:darwin→.app;linux/win→目录(host+lib+frontend)
