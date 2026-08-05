@@ -48,3 +48,5 @@ export {
   onTrayClick,
 } from "./tray.js";
 export type { TrayOptions } from "./tray.js";
+export { Menu, setAppMenu, onMenuEvent } from "./menu.js";
+export type { MenuItem, MenuEvent } from "./menu.js";

@@ -11,6 +11,7 @@ import {
   Window,
   createTray,
   setTrayTooltip,
+  setAppMenu,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -76,6 +77,14 @@ async function main(): Promise<void> {
     await createTray({ title: "Ztron", tooltip: "Ztron tray" });
     await setTrayTooltip("Ztron tray updated");
     report("TRAY_OK");
+
+    // 8. application menu (creation/install; click is manual)
+    await setAppMenu([
+      { id: "new", text: "New Window" },
+      { id: "sep", text: "-", separator: true },
+      { id: "quit", text: "Quit" },
+    ]);
+    report("MENU_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

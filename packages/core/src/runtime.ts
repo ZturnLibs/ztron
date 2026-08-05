@@ -97,9 +97,35 @@ export interface TrayController {
   onEvent(cb: (event: "click") => void): void;
 }
 
+/** A menu item (translated from Tauri's `MenuItem`). */
+export interface MenuItemConfig {
+  id: string;
+  text: string;
+  enabled?: boolean;
+  separator?: boolean;
+}
+
+/** A menu composed of items. */
+export interface MenuConfig {
+  id: string;
+  items: MenuItemConfig[];
+}
+
+/** Menu controller provided by the runtime backend. */
+export interface MenuController {
+  createMenu(menu: MenuConfig): void;
+  setAsAppMenu(menuId: string): void;
+  destroyMenu(menuId: string): void;
+  setItemEnabled(menuId: string, itemId: string, enabled: boolean): void;
+  setItemTitle(menuId: string, itemId: string, title: string): void;
+  onEvent(cb: (event: { menuId: string; itemId: string }) => void): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
   /** Optional system tray support. */
   tray?: TrayController;
+  /** Optional application menu support. */
+  menu?: MenuController;
 }

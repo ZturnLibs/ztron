@@ -12,7 +12,12 @@ import {
 } from "./ipc/eventManager.js";
 import { IpcHub, type InvokeHandler } from "./ipc/mod.js";
 import { PluginManager, type Plugin } from "./plugin.js";
-import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "./runtime.js";
+import type {
+  MenuConfig,
+  RuntimeAdapter,
+  WebviewHandle,
+  WindowConfig,
+} from "./runtime.js";
 import { StateManager } from "./state.js";
 import { buildInitScript } from "@ztron/inject";
 
@@ -66,6 +71,9 @@ export class App {
     this.#eventManager = new EventManager((label) => this.getWebview(label));
     this.#adapter.tray?.onEvent(() => {
       this.emit("tauri://tray-click");
+    });
+    this.#adapter.menu?.onEvent((event) => {
+      this.emit("tauri://menu", event);
     });
 
     this.registerBuiltinCommands();
@@ -180,6 +188,31 @@ export class App {
       },
       "plugin:tray|destroy": () => {
         this.#adapter.tray?.apply("destroy");
+      },
+      "plugin:menu|create": (args) => {
+        this.#adapter.menu?.createMenu((args as { menu: MenuConfig }).menu);
+      },
+      "plugin:menu|set_as_app_menu": (args) => {
+        this.#adapter.menu?.setAsAppMenu((args as { menuId: string }).menuId);
+      },
+      "plugin:menu|set_item_enabled": (args) => {
+        const { menuId, itemId, enabled } = args as {
+          menuId: string;
+          itemId: string;
+          enabled: boolean;
+        };
+        this.#adapter.menu?.setItemEnabled(menuId, itemId, enabled);
+      },
+      "plugin:menu|set_item_title": (args) => {
+        const { menuId, itemId, title } = args as {
+          menuId: string;
+          itemId: string;
+          title: string;
+        };
+        this.#adapter.menu?.setItemTitle(menuId, itemId, title);
+      },
+      "plugin:menu|destroy": (args) => {
+        this.#adapter.menu?.destroyMenu((args as { menuId: string }).menuId);
       },
     };
 

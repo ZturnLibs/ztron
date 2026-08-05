@@ -29,5 +29,8 @@ export type {
   TrayController,
   TrayOp,
   TrayPayload,
+  MenuConfig,
+  MenuItemConfig,
+  MenuController,
 } from "./runtime.js";
 export { StateManager } from "./state.js";

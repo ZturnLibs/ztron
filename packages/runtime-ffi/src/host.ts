@@ -7,6 +7,7 @@
  * contract as the FFI adapter.
  */
 import type {
+  MenuController,
   RuntimeAdapter,
   TrayController,
   WebviewHandle,
@@ -115,6 +116,8 @@ export class HostRuntime implements RuntimeAdapter {
   #requests = new Map<number, (result: boolean) => void>();
   #nextReqId = 1;
   #trayEventCb: ((event: "click") => void) | null = null;
+  #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
+    null;
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
 
@@ -141,6 +144,48 @@ export class HostRuntime implements RuntimeAdapter {
     },
     onEvent: (cb) => {
       this.#trayEventCb = cb;
+    },
+  };
+
+  /** Application menu controller (implements `RuntimeAdapter.menu`). */
+  readonly menu: MenuController = {
+    createMenu: (menu) => {
+      this.send({ type: "menu_create", menu_id: menu.id });
+      for (const item of menu.items) {
+        this.send({
+          type: "menu_add_item",
+          menu_id: menu.id,
+          item_id: item.id,
+          text: item.text,
+          enabled: item.enabled ?? true,
+          separator: item.separator ?? false,
+        });
+      }
+    },
+    setAsAppMenu: (menuId) => {
+      this.send({ type: "menu_set_app", menu_id: menuId });
+    },
+    destroyMenu: (menuId) => {
+      this.send({ type: "menu_destroy", menu_id: menuId });
+    },
+    setItemEnabled: (menuId, itemId, enabled) => {
+      this.send({
+        type: "menu_item_set_enabled",
+        menu_id: menuId,
+        item_id: itemId,
+        enabled,
+      });
+    },
+    setItemTitle: (menuId, itemId, title) => {
+      this.send({
+        type: "menu_item_set_title",
+        menu_id: menuId,
+        item_id: itemId,
+        title,
+      });
+    },
+    onEvent: (cb) => {
+      this.#menuEventCb = cb;
     },
   };
 
@@ -211,6 +256,13 @@ export class HostRuntime implements RuntimeAdapter {
       }
       case "tray_event": {
         this.#trayEventCb?.(String(msg.event) as "click");
+        break;
+      }
+      case "menu_event": {
+        this.#menuEventCb?.({
+          menuId: String(msg.menu_id),
+          itemId: String(msg.item_id),
+        });
         break;
       }
       case "query_result": {

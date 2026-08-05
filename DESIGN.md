@@ -320,3 +320,17 @@ ZtronApp.app/Contents/
 2. `RuntimeAdapter.tray`(可选)TrayController;`App` 接线点击 → `tauri://tray-click`;`plugin:tray|create/set_title/set_tooltip/destroy` 命令。
 3. `@ztron/api` tray.ts:createTray/setTrayTitle/setTrayTooltip/destroyTray/onTrayClick。
 4. 图标支持(NSImage)后续加;Windows Shell_NotifyIcon 待平台移植。
+
+## 17. P0.3 结论(应用菜单,已验证)
+
+### 验证通过 ✅(`MENU_OK`)
+- 菜单创建(menu_create + 逐项 menu_add_item)/设为应用主菜单(setMainMenu)/destroy/item enabled/title
+- 点击 → `menu_event` → `tauri://menu` 推送(点击需手动)
+- 全链路:前端 `setAppMenu([...])` → `plugin:menu|*` → backend → host(NSMenu)→ 菜单栏
+
+### 实现要点
+1. host.c:`NSMenu alloc/initWithTitle:` + `setAutoenablesItems:NO`;`NSMenuItem initWithTitle:action:keyEquivalent:` + tag;动态类 `ZtronMenuTarget.menuItemClicked:`;tag→refs 表回查 item_id 发 `menu_event`。
+2. 协议避免数组解析:create + N×add_item(flat JSON),backend 迭代 items。
+3. `RuntimeAdapter.menu`(可选 MenuController);`App` 接线 → `tauri://menu`(payload {menuId,itemId})。
+4. `@ztron/api` menu.ts:Menu/setAppMenu/onMenuEvent;item enabled/title 更新。
+5. 子菜单(Submenu)/快捷键/CheckMenuItem 为后续扩展;菜单栏点击事件需手动验证。

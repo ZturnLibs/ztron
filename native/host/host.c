@@ -104,6 +104,7 @@ typedef struct {
   char type[16];
   char id[128];
   char str[MSG_STR_LEN];
+  char str2[MSG_STR_LEN];
   int status;
   int width;
   int height;
@@ -117,6 +118,15 @@ static void tray_create(const char *title);
 static void tray_set_title(const char *title);
 static void tray_set_tooltip(const char *tooltip);
 static void tray_destroy(void);
+static void menu_create(const char *menu_id);
+static void menu_add_item(const char *menu_id, const char *item_id,
+                          const char *text, int enabled, int separator);
+static void menu_set_app(const char *menu_id);
+static void menu_destroy(const char *menu_id);
+static void menu_set_item_enabled(const char *menu_id, const char *item_id,
+                                  int enabled);
+static void menu_set_item_title(const char *menu_id, const char *item_id,
+                                const char *title);
 #endif
 static int is_window_op(const char *t);
 
@@ -155,6 +165,30 @@ static void on_gui(webview_t w, void *arg) {
   } else if (strcmp(m->type, "tray_destroy") == 0) {
 #ifdef __APPLE__
     tray_destroy();
+#endif
+  } else if (strcmp(m->type, "menu_create") == 0) {
+#ifdef __APPLE__
+    menu_create(m->str);
+#endif
+  } else if (strcmp(m->type, "menu_add_item") == 0) {
+#ifdef __APPLE__
+    menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val);
+#endif
+  } else if (strcmp(m->type, "menu_set_app") == 0) {
+#ifdef __APPLE__
+    menu_set_app(m->str);
+#endif
+  } else if (strcmp(m->type, "menu_destroy") == 0) {
+#ifdef __APPLE__
+    menu_destroy(m->str);
+#endif
+  } else if (strcmp(m->type, "menu_item_set_enabled") == 0) {
+#ifdef __APPLE__
+    menu_set_item_enabled(m->str, m->id, m->status);
+#endif
+  } else if (strcmp(m->type, "menu_item_set_title") == 0) {
+#ifdef __APPLE__
+    menu_set_item_title(m->str, m->id, m->str2);
 #endif
   } else {
     /* fall through to the macOS window-state handler */
@@ -380,6 +414,154 @@ static void install_tray_target(void) {
   g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
 }
 
+/* ---- application menu (NSMenu) ---- */
+
+#define MAX_MENUS 8
+#define MAX_MENU_REFS 256
+
+typedef struct {
+  char menu_id[64];
+  char item_id[128];
+} MenuItemRef;
+
+static void *g_menus[MAX_MENUS];
+static char g_menu_ids[MAX_MENUS][64];
+static int g_menu_count = 0;
+static MenuItemRef g_menu_refs[MAX_MENU_REFS];
+static int g_menu_ref_count = 0;
+static id g_menu_target = NULL;
+
+static int menu_index(const char *id) {
+  for (int i = 0; i < g_menu_count; i++) {
+    if (strcmp(g_menu_ids[i], id) == 0) return i;
+  }
+  return -1;
+}
+
+static void menu_create(const char *menu_id) {
+  id menu = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenu"),
+                     sel_registerName("alloc"));
+  menu = OBJC_MSG(id(*)(id, SEL, id), menu,
+                  sel_registerName("initWithTitle:"), zt_nsstring(menu_id));
+  OBJC_MSG(void(*)(id, SEL, BOOL), menu, sel_registerName("setAutoenablesItems:"),
+           NO);
+  int idx = menu_index(menu_id);
+  if (idx >= 0) {
+    g_menus[idx] = menu;
+  } else if (g_menu_count < MAX_MENUS) {
+    g_menus[g_menu_count] = menu;
+    strncpy(g_menu_ids[g_menu_count], menu_id, sizeof(g_menu_ids[0]) - 1);
+    g_menu_count++;
+  }
+}
+
+static void menu_add_item(const char *menu_id, const char *item_id,
+                          const char *text, int enabled, int separator) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  id menu = g_menus[idx];
+  if (separator) {
+    id item = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenuItem"),
+                       sel_registerName("separatorItem"));
+    OBJC_MSG(void(*)(id, SEL, id), menu, sel_registerName("addItem:"), item);
+    return;
+  }
+  if (g_menu_ref_count >= MAX_MENU_REFS) return;
+  id item = OBJC_MSG(id(*)(id, SEL),
+                     (id)objc_getClass("NSMenuItem"), sel_registerName("alloc"));
+  item = OBJC_MSG(id(*)(id, SEL, id, SEL, id), item,
+                  sel_registerName("initWithTitle:action:keyEquivalent:"),
+                  zt_nsstring(text), sel_registerName("menuItemClicked:"),
+                  zt_nsstring(""));
+  int tag = g_menu_ref_count;
+  strncpy(g_menu_refs[tag].menu_id, menu_id, sizeof(g_menu_refs[tag].menu_id) - 1);
+  strncpy(g_menu_refs[tag].item_id, item_id, sizeof(g_menu_refs[tag].item_id) - 1);
+  g_menu_ref_count++;
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTarget:"),
+           g_menu_target);
+  OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setTag:"), tag);
+  OBJC_MSG(void(*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"),
+           enabled);
+  OBJC_MSG(void(*)(id, SEL, id), menu, sel_registerName("addItem:"), item);
+}
+
+static void menu_set_app(const char *menu_id) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  id app = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                    sel_registerName("sharedApplication"));
+  OBJC_MSG(void(*)(id, SEL, id), app, sel_registerName("setMainMenu:"),
+           g_menus[idx]);
+}
+
+static void menu_destroy(const char *menu_id) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  OBJC_MSG(void(*)(id, SEL), g_menus[idx], sel_registerName("removeAllItems"));
+  g_menus[idx] = NULL;
+  g_menu_ids[idx][0] = '\0';
+}
+
+static id menu_find_item(const char *menu_id, const char *item_id) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return NULL;
+  id items = OBJC_MSG(id(*)(id, SEL), g_menus[idx], sel_registerName("itemArray"));
+  unsigned long count =
+      (unsigned long)OBJC_MSG(unsigned long(*)(id, SEL), items,
+                              sel_registerName("count"));
+  for (unsigned long i = 0; i < count; i++) {
+    id item = OBJC_MSG(id(*)(id, SEL, unsigned long), items,
+                       sel_registerName("objectAtIndex:"), i);
+    long tag = (long)OBJC_MSG(long(*)(id, SEL), item, sel_registerName("tag"));
+    if (tag >= 0 && tag < g_menu_ref_count &&
+        strcmp(g_menu_refs[tag].menu_id, menu_id) == 0 &&
+        strcmp(g_menu_refs[tag].item_id, item_id) == 0) {
+      return item;
+    }
+  }
+  return NULL;
+}
+
+static void menu_set_item_enabled(const char *menu_id, const char *item_id,
+                                  int enabled) {
+  id item = menu_find_item(menu_id, item_id);
+  if (item) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"),
+             enabled);
+  }
+}
+
+static void menu_set_item_title(const char *menu_id, const char *item_id,
+                                const char *title) {
+  id item = menu_find_item(menu_id, item_id);
+  if (item) {
+    OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"),
+             zt_nsstring(title));
+  }
+}
+
+static void zt_menu_click(id s, SEL c, id sender) {
+  (void)s;
+  (void)c;
+  long tag = (long)OBJC_MSG(long(*)(id, SEL), sender, sel_registerName("tag"));
+  if (tag >= 0 && tag < g_menu_ref_count) {
+    char buf[512];
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"menu_event\",\"menu_id\":\"%s\",\"item_id\":\"%s\"}",
+             g_menu_refs[tag].menu_id, g_menu_refs[tag].item_id);
+    send_line(buf);
+  }
+}
+
+static void install_menu_target(void) {
+  Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"),
+                                     "ZtronMenuTarget", 0);
+  class_addMethod(cls, sel_registerName("menuItemClicked:"), (IMP)zt_menu_click,
+                  "v@:@");
+  objc_registerClassPair(cls);
+  g_menu_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+}
+
 #endif /* __APPLE__ */
 
 /* backend -> host reader thread */
@@ -433,6 +615,28 @@ static void *socket_thread(void *arg) {
       json_str(line, "tooltip", m->str, sizeof(m->str));
       webview_dispatch(g_w, on_gui, m);
     } else if (strcmp(m->type, "tray_destroy") == 0) {
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "menu_create") == 0 ||
+               strcmp(m->type, "menu_set_app") == 0 ||
+               strcmp(m->type, "menu_destroy") == 0) {
+      json_str(line, "menu_id", m->str, sizeof(m->str));
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "menu_add_item") == 0) {
+      json_str(line, "menu_id", m->str, sizeof(m->str));
+      json_str(line, "item_id", m->id, sizeof(m->id));
+      json_str(line, "text", m->str2, sizeof(m->str2));
+      m->status = json_int(line, "enabled", 1);
+      m->bool_val = json_int(line, "separator", 0);
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "menu_item_set_enabled") == 0) {
+      json_str(line, "menu_id", m->str, sizeof(m->str));
+      json_str(line, "item_id", m->id, sizeof(m->id));
+      m->status = json_int(line, "enabled", 0);
+      webview_dispatch(g_w, on_gui, m);
+    } else if (strcmp(m->type, "menu_item_set_title") == 0) {
+      json_str(line, "menu_id", m->str, sizeof(m->str));
+      json_str(line, "item_id", m->id, sizeof(m->id));
+      json_str(line, "title", m->str2, sizeof(m->str2));
       webview_dispatch(g_w, on_gui, m);
     } else if (is_window_op(m->type)) {
       m->req_id = json_int(line, "req_id", -1);
@@ -512,6 +716,7 @@ int main(int argc, char **argv) {
 #ifdef __APPLE__
   install_window_delegate();
   install_tray_target();
+  install_menu_target();
 #endif
 #endif
 
