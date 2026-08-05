@@ -27,9 +27,32 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones and risks.
 - [x] **M4** — `tjs compile` packaging + macOS `.app` (packaged app passes `M3_API_FRONTEND_OK`)
 - [ ] Windows/Linux packaging (webview backend + bundling per-platform)
 
-## Quick start (after M0)
+## Quick start
 
 ```bash
 pnpm install
-pnpm --filter @ztron/example-hello dev
+pnpm --filter @ztron/example-hello dev     # dev: vite build + host + backend
+pnpm --filter @ztron/example-hello build   # package ZtronApp.app (after build-native.sh)
 ```
+
+## What has been proven (M0–M4)
+
+A from-scratch TS/Web rewrite of the Tauri architecture now runs end-to-end on macOS:
+
+1. **Runtime (Plan A)**: two-process model — a native C host (`ztron-host`) owns the
+   system WebView + GUI loop; the txiki.js backend runs its own event loop over a
+   socket, so **async commands / timers / IO all work**.
+2. **Framework**: IPC (JSON + callback ids + native Promise semantics via
+   `webview_return`), events, Channel streaming, commands, plugins, state.
+3. **Capability layer**: `PathScope` gates file access (`$HOME/$TMP/$CWD` expansion,
+   symlink-safe canonicalization, allow/deny).
+4. **Frontend**: `@ztron/api` is a faithful port of the `@tauri-apps/api` surface
+   (invoke / listen / Channel / window / fs / path) and runs in a real Vite page.
+5. **Packaging**: `tjs compile` produces a standalone backend binary; `ztron build`
+   assembles a macOS `.app`.
+
+Verified outputs: `M1_EVENTS_CHANNEL_WINDOW_OK`, `M2_FS_SCOPE_PATH_OK`,
+`M3_API_FRONTEND_OK` (dev and packaged).
+
+**Open items**: Windows/Linux backends + bundlers; dev HMR (custom scheme host
+instead of `vite build` + `file://`).
