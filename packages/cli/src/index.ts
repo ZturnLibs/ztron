@@ -10,6 +10,8 @@ import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { build as viteBuild } from "vite";
+import { ztronVitePlugin } from "./vite-plugin.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
@@ -24,6 +26,7 @@ const DEFAULT_ENTRY = "./src/main.ts";
 
 interface ProjectConfig {
   entry?: string;
+  frontend?: string;
 }
 
 /** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
@@ -97,6 +100,61 @@ function resolveEntry(cwd: string, entryArg: string): string {
   return config.entry ?? DEFAULT_ENTRY;
 }
 
+/**
+ * Builds the frontend with Vite (base "./") and returns its file:// URL.
+ *
+ * M3 note: WKWebView blocks plain `http://` via ATS (and a per-process
+ * Info.plist exemption is not honored by the WebKit network process), so the
+ * dev frontend is served from a `file://` URL, which WebKit allows and which
+ * has no ATS restrictions. HMR comes later (custom scheme host, see DESIGN.md).
+ */
+async function buildFrontend(
+  cwd: string,
+  invokeKey: string,
+): Promise<string | null> {
+  const config = readProjectConfig(cwd);
+  const frontend = config.frontend ?? "frontend";
+  const root = resolve(cwd, frontend);
+  if (!existsSync(join(root, "index.html"))) {
+    return null;
+  }
+  const outDir = resolve(root, "dist");
+  await viteBuild({
+    root,
+    base: "./",
+    logLevel: "silent",
+    build: {
+      outDir,
+      emptyOutDir: true,
+      // file:// has a null origin: emit a plain (non-module) IIFE bundle so
+      // WKWebView loads it without module-CORS/crossorigin issues.
+      modulePreload: false,
+      rollupOptions: {
+        output: {
+          format: "iife",
+          name: "ZtronApp",
+          entryFileNames: "assets/[name].js",
+          chunkFileNames: "assets/[name].js",
+        },
+      },
+    },
+    plugins: [ztronVitePlugin(invokeKey)],
+  });
+  const index = resolve(outDir, "index.html");
+  // file:// has a null origin; a `type="module" crossorigin` tag fails the
+  // CORS check in WKWebView. Rewrite to a classic script (the bundle is IIFE).
+  if (existsSync(index)) {
+    let html = readFileSync(index, "utf8");
+    html = html.replace(
+      /<script type="module" crossorigin src="([^"]+)"><\/script>/g,
+      (_, src: string) => `<script src="${src}"></script>`,
+    );
+    writeFileSync(index, html);
+  }
+  console.log(`[ztron] frontend built: ${index}`);
+  return "file://" + index;
+}
+
 async function bundle(entry: string, outfile: string): Promise<void> {
   await build({
     entryPoints: [entry],
@@ -141,6 +199,11 @@ async function dev(cwd: string, entry: string): Promise<void> {
   mkdirSync(buildDir, { recursive: true });
   const bundlePath = join(buildDir, "app.mjs");
 
+  // Per-session invoke key shared by the backend and the injected bootstrap.
+  const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
+
+  const frontendUrl = await buildFrontend(cwd, invokeKey);
+
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
 
@@ -156,9 +219,17 @@ async function dev(cwd: string, entry: string): Promise<void> {
       ...process.env,
       ZTRON_HOST: "127.0.0.1",
       ZTRON_HOST_PORT: String(port),
+      ZTRON_INVOKE_KEY: invokeKey,
+      ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
     },
   });
   process.exit(result.status ?? 1);
+}
+
+function randomKey(): string {
+  return (
+    Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+  );
 }
 
 /** Scaffolds a minimal Ztron project in `target`. */

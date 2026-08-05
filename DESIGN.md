@@ -148,7 +148,7 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 | **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程               | 同步+异步往返,exit=0    |
 | **M1** | events + Channel 流式 + 窗口命令集 ✅                      | `M1_EVENTS_CHANNEL_WINDOW_OK` |
 | **M2** | 插件基座 + 受限能力层 + CLI dev ✅                        | `M2_FS_SCOPE_PATH_OK`(scope 允/拒) |
-| **M3** | `@ztron/api` 与打包器前端集成(Vite)+ 前端包实测           | api 包在真实前端运行    |
+| **M3** | `@ztron/api` 与打包器前端集成(Vite)✅                     | `M3_API_FRONTEND_OK`    |
 | **M4** | `tjs compile` 单文件打包 + 三平台验证                     | 产出可分发二进制        |
 
 ## 8. 风险与限制
@@ -252,3 +252,20 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 1. **scope 根未 canonicalize**:allow 前缀(`/var/...`)与检查路径 canonicalize 后(`/private/var/...`)不匹配 → 一律拒绝。修复:roots 懒加载 canonicalize(带 `.catch` 回退)。
 2. **tjs fs 全异步**:`readFile/writeFile/stat/readDir` 返回 Promise,`readFile` 忽略 encoding 选项返回 Uint8Array → 用 `TextDecoder` 解码。
 3. **`tjs:path` 默认导出**才有 posix/win32;`declare module "tjs:path"` 需在全局脚本文件(无 import/export)中声明。
+
+## 13. M3 结论(@ztron/api 真实 Vite 前端,已验证)
+
+### 验证通过 ✅(`SPIKE_RESULT: M3_API_FRONTEND_OK`,exit=0)
+- **真实 Vite 前端** `examples/hello/frontend/` 用 `import { invoke, listen, Channel, fs, path, Window } from "@ztron/api"` 驱动后端
+- invoke / 事件(后端异步 emit)/ Channel 流式(1,2,3)/ scoped fs / path 全部经 api 包工作
+- CLI 编排:`vite build`(base './',IIFE)→ 改写经典脚本 → `file://` 加载 → host + tjs 后端
+
+### 关键平台发现(macOS)
+1. **WKWebView 拦截 `http://`(ATS)**,且 host 二进制 `__info_plist` ATS 豁免**不生效**(WebKit 网络进程读自己的 plist)。→ dev 前端改用 **`file://` 加载**(不受 ATS 限制,WebKit 允许 file:// ES/经典脚本)。
+2. **`file://` + `<script type="module" crossorigin>` 有 CORS 问题**(文件 URL origin 为 null)。→ vite 产物为 **IIFE + 经典脚本**(CLI 构建后改写标签)。
+3. **bootstrap 必须 `head-prepend`**(第一个脚本),否则 app 脚本先跑时 `__TAURI_INTERNALS__` 未定义。
+4. `@ztron/api` 的 `Channel.onmessage` 收到的是**解码后的消息**(end 由 Channel 内部处理),不是 `{message,index}` 原始帧。
+
+### 取舍
+- 目前 dev 用 `vite build`(无 HMR);真正的 dev server + HMR 需要自定义 scheme 宿主(Tauri 的 `tauri://` 方案),列入后续。
+- invokeKey 由 CLI 生成,`buildInitScript` 注入 + 后端 env 同源,前端每次 dev 会话一致。

@@ -8,13 +8,13 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones and risks.
 
 ## Packages
 
-| Package              | Role                                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------------- |
-| `@ztron/api`         | Frontend transport layer (translated from `@tauri-apps/api/core`) + event/window/fs/path wrappers     |
-| `@ztron/core`        | Main-process core: IPC, commands, events, state, plugins, PathScope capability layer, fs/path plugins |
-| `@ztron/runtime-ffi` | Runtime backend: FFI bindings (reference) + `HostRuntime` socket adapter (Plan A, production path)    |
-| `@ztron/inject`      | WebView bootstrap (`window.__TAURI_INTERNALS__`, embedded into page HTML)                             |
-| `@ztron/cli`         | Two-process orchestration: spawn `ztron-host` + tjs backend                                           |
+| Package              | Role                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `@ztron/api`         | Frontend transport layer (translated from `@tauri-apps/api/core`) + event/window/fs/path wrappers          |
+| `@ztron/core`        | Main-process core: IPC, commands, events, state, plugins, PathScope capability layer, fs/path plugins      |
+| `@ztron/runtime-ffi` | Runtime backend: FFI bindings (reference) + `HostRuntime` socket adapter (Plan A, production path)         |
+| `@ztron/inject`      | WebView bootstrap (`window.__TAURI_INTERNALS__`, embedded into page HTML)                                  |
+| `@ztron/cli`         | Two-process orchestration: `vite build` → `file://` frontend + `ztron-host` + tjs backend; `init` scaffold |
 
 ## Status
 
@@ -23,7 +23,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones and risks.
 - [x] **Plan A** — native host shim (`ztron-host`) + tjs backend over socket; async commands work
 - [x] **M1** — events + Channel streaming + window command set (`M1_EVENTS_CHANNEL_WINDOW_OK`)
 - [x] **M2** — plugin base + PathScope capability layer (scoped fs + path) + `ztron init` (`M2_FS_SCOPE_PATH_OK`)
-- [ ] M3 — `@ztron/api` in a real bundler frontend (Vite)
+- [x] **M3** — `@ztron/api` in a real Vite frontend over `file://` (`M3_API_FRONTEND_OK`)
 - [ ] M4 — `tjs compile` packaging + 3-platform verification
 
 ## Quick start (after M0)

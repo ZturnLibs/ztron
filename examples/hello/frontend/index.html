@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Ztron M3 — @ztron/api frontend</title>
+    <style>
+      body { font-family: system-ui; display: grid; place-content: center; height: 100vh; margin: 0; }
+      #app { text-align: center; }
+      #app h1 { margin-bottom: 0.5rem; }
+      #app p { margin: 0.25rem 0; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <h1>Ztron M3</h1>
+      <p>invoke: <span id="invoke">-</span></p>
+      <p>event: <span id="event">-</span></p>
+      <p>channel: <span id="channel">-</span></p>
+      <p>fs: <span id="fs">-</span></p>
+      <p>path: <span id="path">-</span></p>
+      <p id="status">running...</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

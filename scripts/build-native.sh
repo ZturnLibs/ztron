@@ -37,9 +37,21 @@ case "$(uname -s)" in
 esac
 
 echo "==> [3/3] building ztron-host (webview + socket bridge)"
-cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
-  -I "$NATIVE/webview/core/include" \
-  -L "$NATIVE/libs" -lwebview \
-  -pthread
+# macOS: embed an Info.plist so ATS allows http://127.0.0.1 (dev server)
+case "$(uname -s)" in
+  Darwin)
+    cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
+      -I "$NATIVE/webview/core/include" \
+      -L "$NATIVE/libs" -lwebview \
+      -pthread -Wl,-rpath,@loader_path \
+      -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist"
+    ;;
+  *)
+    cc "$NATIVE/host/host.c" -o "$NATIVE/libs/ztron-host" \
+      -I "$NATIVE/webview/core/include" \
+      -L "$NATIVE/libs" -lwebview \
+      -pthread
+    ;;
+esac
 
 echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, lib: $NATIVE/libs/, host: $NATIVE/libs/ztron-host"

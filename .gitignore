@@ -13,3 +13,6 @@ native/webview/
 native/libs/
 examples/**/native/
 .ztron/
+
+# frontend build output
+examples/**/frontend/dist/
