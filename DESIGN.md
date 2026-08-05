@@ -478,3 +478,18 @@ ZtronApp.app/Contents/
 - `spawnHostInBundle`:临时 ATS-exempt .app bundle(可加载 http://localhost)
 - `startFrontendDevServer`:vite dev server + CORS + dev 保 ESM(待自定义 scheme 时启用)
 - dev 当前用 `startFrontendWatcher`(IIFE + file://,可靠)
+
+## 27. P2 落地:自动刷新 dev(near-HMR,已验证)
+
+### 机制
+- CLI dev:watcher(排除 dist/.ztron 避免循环)检测前端源码变化 → 重建 IIFE → touch `.ztron/reload` 信号文件
+- backend:每 400ms 轮询 reload 文件,检测到变化 → `webview.eval('location.reload()')`
+- **关键修复**:dev 后端改用**异步 `spawn`**(非 `spawnSync`)——spawnSync 阻塞主线程导致 watcher 的 setTimeout 永远不执行
+
+### 验证 ✅
+- 修改 `src/main.ts` → `frontend changed → rebuilt → page reloaded`
+- 修改 `index.html` → 同样触发;无重建循环
+
+### 与完整 HMR 的关系
+- 当前:整页 reload(自动,可靠)
+- 完整模块级 HMR:需 `ztron://` scheme(WKURLSchemeHandler),深度 C 工作(DESIGN.md §26)

@@ -89,6 +89,26 @@ new AppBuilder(runtime, "com.ztron.hello")
     ...(devUrl ? { url: devUrl } : { html: inlineHtml }),
   })
   .setup((app) => {
+    // P2 dev: watch the reload signal file and refresh the page when the CLI
+    // rebuilds the frontend (near-HMR; full module HMR needs ztron:// scheme).
+    const reloadFile = tjs.env.ZTRON_RELOAD_FILE;
+    if (reloadFile && devUrl) {
+      let last = "";
+      setInterval(async () => {
+        try {
+          const bytes = await tjs.readFile(reloadFile);
+          const stamp = new TextDecoder().decode(bytes);
+          if (stamp !== last) {
+            last = stamp;
+            app.getWebview("main")?.eval("location.reload()");
+            console.log("[dev] frontend changed -> page reloaded");
+          }
+        } catch {
+          /* reload file may not exist yet */
+        }
+      }, 400);
+    }
+
     // Register typed commands (verified via `ztron codegen`)
     app.commandDef(greet);
     app.commandDef(add);

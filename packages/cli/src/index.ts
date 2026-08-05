@@ -241,22 +241,26 @@ async function startFrontendWatcher(
   const watcher = await import("node:fs/promises");
   void watcher; // suppress unused
   setTimeout(async () => {
-    const { watch } = await import("node:fs");
-    const w = watch(root, { recursive: true }, (_event, filename) => {
-      if (!filename) return;
-      if (
-        filename.endsWith(".ts") ||
-        filename.endsWith(".html") ||
-        filename.endsWith(".css")
-      ) {
-        console.log(`[ztron] frontend changed: ${filename}, rebuilding...`);
-        void buildFrontend(cwd, invokeKey).then(() => {
-          console.log("[ztron] frontend rebuilt");
-          onRebuild();
-        });
-      }
-    });
-    process.on("exit", () => w.close());
+    try {
+      const { watch } = await import("node:fs");
+      console.log(`[ztron] watching ${root} (recursive)`);
+      const w = watch(root, { recursive: true }, (_event, filename) => {
+        if (!filename) return;
+        const f = String(filename);
+        // Ignore the build output to avoid rebuild loops.
+        if (f.includes("dist") || f.includes(".ztron")) return;
+        if (f.endsWith(".ts") || f.endsWith(".html") || f.endsWith(".css")) {
+          console.log(`[ztron] frontend changed: ${filename}, rebuilding...`);
+          void buildFrontend(cwd, invokeKey).then(() => {
+            console.log("[ztron] frontend rebuilt");
+            onRebuild();
+          });
+        }
+      });
+      process.on("exit", () => w.close());
+    } catch (e) {
+      console.error("[ztron] watcher failed:", String(e));
+    }
   }, 100);
 
   return index;
@@ -355,10 +359,23 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // Per-session invoke key shared by the backend and the injected bootstrap.
   const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
 
-  // P2: dev uses the reliable watcher (vite build IIFE + file://). Full HMR
-  // via a vite dev server needs a custom scheme host (WKURLSchemeHandler)
-  // because WKWebView's ESM loading over http:// is unreliable — see DESIGN.md.
-  const frontendIndex = await startFrontendWatcher(cwd, invokeKey, () => {});
+  // P2: dev uses the reliable watcher (vite build IIFE + file://). On every
+  // frontend rebuild we touch a reload signal file the backend polls, so the
+  // page reloads automatically (near-HMR). Full module HMR needs a custom
+  // ztron:// scheme host (WKURLSchemeHandler) — see DESIGN.md §26.
+  const reloadFile = join(buildDir, "reload");
+  const signalReload = () => {
+    try {
+      writeFileSync(reloadFile, String(Date.now()));
+    } catch {
+      /* ignore */
+    }
+  };
+  const frontendIndex = await startFrontendWatcher(
+    cwd,
+    invokeKey,
+    signalReload,
+  );
   const frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
 
   console.log(`[ztron] bundling ${entryPath}`);
@@ -371,21 +388,31 @@ async function dev(cwd: string, entry: string): Promise<void> {
   port = await spawnHost(hostBin);
 
   console.log(`[ztron] running backend via ${tjs} on port ${port}`);
-  const result = spawnSync(tjs, ["run", bundlePath], {
-    stdio: "inherit",
-    cwd,
-    env: {
-      ...process.env,
-      ZTRON_HOST: "127.0.0.1",
-      ZTRON_HOST_PORT: String(port),
-      ZTRON_INVOKE_KEY: invokeKey,
-      ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
-      ...(existsSync(resolve(cwd, "capabilities"))
-        ? { ZTRON_CAPABILITIES_DIR: resolve(cwd, "capabilities") }
-        : {}),
-    },
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ZTRON_HOST: "127.0.0.1",
+    ZTRON_HOST_PORT: String(port),
+    ZTRON_INVOKE_KEY: invokeKey,
+    ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
+    ZTRON_RELOAD_FILE: reloadFile,
+    ...(existsSync(resolve(cwd, "capabilities"))
+      ? { ZTRON_CAPABILITIES_DIR: resolve(cwd, "capabilities") }
+      : {}),
+  };
+
+  // Async spawn (not spawnSync) so the watcher's setTimeout keeps running on
+  // the main event loop while the backend is up.
+  await new Promise<void>((resolve) => {
+    const child = spawn(tjs, ["run", bundlePath], {
+      stdio: "inherit",
+      cwd,
+      env,
+    });
+    child.on("exit", (code) => {
+      resolve();
+      process.exit(code ?? 1);
+    });
   });
-  process.exit(result.status ?? 1);
 }
 
 function randomKey(): string {
