@@ -4,55 +4,61 @@ A Tauri-style cross-platform desktop framework **rewritten in TypeScript** on to
 [txiki.js](https://txikijs.org) (tiny JS runtime, ~2MB) + system WebView
 ([webview/webview](https://github.com/webview/webview) via `tjs:ffi`).
 
-See [DESIGN.md](./DESIGN.md) for the full architecture, milestones and risks.
+See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and risks;
+[ROADMAP.md](./ROADMAP.md) for the capability gap vs Tauri and the phased plan.
+
+## Architecture
+
+```
+┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
+│ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
+│ system WebView + GUI    │             │ @ztron/core: IPC/events/commands │
+│ window/tray/menu/dialog │             │  ACL + plugins + updater         │
+└────────────────────────┘             └──────────────────────────────────┘
+        frontend: Vite page → @ztron/api → invoke/listen/Channel/fs/http/os/store/log/shell
+        packaging: tjs compile backend → ztron build → macOS .app (signed)
+```
 
 ## Packages
 
-| Package              | Role                                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `@ztron/api`         | Frontend transport layer (translated from `@tauri-apps/api/core`) + event/window/fs/path wrappers          |
-| `@ztron/core`        | Main-process core: IPC, commands, events, state, plugins, PathScope capability layer, fs/path plugins      |
-| `@ztron/runtime-ffi` | Runtime backend: FFI bindings (reference) + `HostRuntime` socket adapter (Plan A, production path)         |
-| `@ztron/inject`      | WebView bootstrap (`window.__TAURI_INTERNALS__`, embedded into page HTML)                                  |
-| `@ztron/cli`         | Two-process orchestration: `vite build` → `file://` frontend + `ztron-host` + tjs backend; `init` scaffold |
+| Package              | Role                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `@ztron/api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers    |
+| `@ztron/core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 8 plugins, MockRuntime test infra |
+| `@ztron/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                 |
+| `@ztron/inject`      | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML)                                                               |
+| `@ztron/cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                        |
 
-## Status
+## Status (M0–P5 complete)
 
-- [x] Monorepo skeleton + design doc
-- [x] **M0** — spike: FFI → webview C API works, window opens, sync IPC round trip
-- [x] **Plan A** — native host shim (`ztron-host`) + tjs backend over socket; async commands work
-- [x] **M1** — events + Channel streaming + window command set (`M1_EVENTS_CHANNEL_WINDOW_OK`)
-- [x] **M2** — plugin base + PathScope capability layer (scoped fs + path) + `ztron init` (`M2_FS_SCOPE_PATH_OK`)
-- [x] **M3** — `@ztron/api` in a real Vite frontend over `file://` (`M3_API_FRONTEND_OK`)
-- [x] **M4** — `tjs compile` packaging + macOS `.app` (packaged app passes `M3_API_FRONTEND_OK`)
-- [ ] Windows/Linux packaging (webview backend + bundling per-platform)
+| Phase | Delivered                                            | Verified                                                          |
+| ----- | ---------------------------------------------------- | ----------------------------------------------------------------- |
+| M0    | FFI + Plan A two-process host (async unlocked)       | sync + async round trip                                           |
+| M1    | events + Channel streaming + window commands         | `M1_EVENTS_CHANNEL_WINDOW_OK`                                     |
+| M2    | plugin base + `PathScope` + `ztron init`             | `M2_FS_SCOPE_PATH_OK`                                             |
+| M3    | `@ztron/api` in a real Vite frontend                 | `M3_API_FRONTEND_OK`                                              |
+| M4    | `tjs compile` packaging + macOS `.app`               | packaged app passes                                               |
+| P0    | window states/events, tray, menu, dialogs            | `WIN_STATE_OK` `WIN_EVENT_OK` `TRAY_OK` `MENU_OK` `DIALOG_REG_OK` |
+| P1    | ACL permissions, capabilities auto-load, scoped http | `ACL_DENY_OK` `HTTP_SCOPE_DENY_OK`                                |
+| P2    | dev watcher + ATS-exempt bundle                      | —                                                                 |
+| P3    | plugin ecosystem: os/store/log/shell                 | `OS_OK` `STORE_OK` `LOG_OK` `SHELL_OK`                            |
+| P4    | `ztron codegen` typed commands + MockRuntime tests   | `CODEGEN_OK` + 3/3 unit tests                                     |
+| P5    | updater + macOS signing + Win/Linux host skeletons   | `UPDATER_OK`                                                      |
+
+Final spike: **18 checks, all pass** (`FULL_OK`).
 
 ## Quick start
 
 ```bash
 pnpm install
-pnpm --filter @ztron/example-hello dev     # dev: vite build + host + backend
-pnpm --filter @ztron/example-hello build   # package ZtronApp.app (after build-native.sh)
+scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
+pnpm --filter @ztron/example-hello dev  # dev: vite build + host + backend
+pnpm --filter @ztron/example-hello build  # package + ad-hoc sign ZtronApp.app
+node --experimental-strip-types --test tests/core.test.ts  # unit tests
 ```
 
-## What has been proven (M0–M4)
+## Remaining (needs target platforms)
 
-A from-scratch TS/Web rewrite of the Tauri architecture now runs end-to-end on macOS:
-
-1. **Runtime (Plan A)**: two-process model — a native C host (`ztron-host`) owns the
-   system WebView + GUI loop; the txiki.js backend runs its own event loop over a
-   socket, so **async commands / timers / IO all work**.
-2. **Framework**: IPC (JSON + callback ids + native Promise semantics via
-   `webview_return`), events, Channel streaming, commands, plugins, state.
-3. **Capability layer**: `PathScope` gates file access (`$HOME/$TMP/$CWD` expansion,
-   symlink-safe canonicalization, allow/deny).
-4. **Frontend**: `@ztron/api` is a faithful port of the `@tauri-apps/api` surface
-   (invoke / listen / Channel / window / fs / path) and runs in a real Vite page.
-5. **Packaging**: `tjs compile` produces a standalone backend binary; `ztron build`
-   assembles a macOS `.app`.
-
-Verified outputs: `M1_EVENTS_CHANNEL_WINDOW_OK`, `M2_FS_SCOPE_PATH_OK`,
-`M3_API_FRONTEND_OK` (dev and packaged).
-
-**Open items**: Windows/Linux backends + bundlers; dev HMR (custom scheme host
-instead of `vite build` + `file://`).
+- Windows (WebView2) / Linux (WebKitGTK) host compile + NSIS/AppImage packaging
+- Developer ID signing / notarization; mobile (Android/iOS)
+- Full Vite HMR (custom `ztron://` scheme host)
