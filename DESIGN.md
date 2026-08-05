@@ -493,3 +493,23 @@ ZtronApp.app/Contents/
 ### 与完整 HMR 的关系
 - 当前:整页 reload(自动,可靠)
 - 完整模块级 HMR:需 `ztron://` scheme(WKURLSchemeHandler),深度 C 工作(DESIGN.md §26)
+
+## 28. P2 终评:ztron:// 自定义 scheme 技术蓝图(评估完成,暂缓实现)
+
+### 为什么需要
+- WKWebView 对 `http://` 的 ESM module 加载不可靠(§26),完整模块级 HMR 需要自定义 scheme
+- 生产资产走 `ztron://` 可获隔离(优于 file://)
+
+### patch 位置(webview/webview,header-only)
+- `core/include/webview/api.h`:加 `webview_register_scheme(webview_t, const char *scheme, handler, arg)`
+- `core/include/webview/detail/backends/cocoa_webkit.hh` **`window_settings()`(约 450 行)**:`WKWebViewConfiguration_new()` 之后、`m_webview` 创建(485 行)之前,调 `WKWebViewConfiguration_setURLSchemeHandler_forURLScheme(config, handler, scheme)`
+- 需用 ObjC 运行时动态类实现 WKURLSchemeHandler 协议:`webView:startURLSchemeTask:`(解析 URL path → 生成响应 → task didReceiveResponse/didReceiveData/didFinish)、`webView:stopURLSchemeTask:`
+
+### 评估
+- **工作量**:100-200 行 ObjC 运行时动态协议代码(arm64 msgSend、task 生命周期、NSData/NSHTTPURLResponse 构造)
+- **风险**:高(动态协议实现易错,可能破坏现有 webview 功能;当前 GUI 环境 http/窗口渲染不稳定,难可靠验证)
+- **收益**:生产资产隔离 + 完整模块级 HMR
+- **结论**:暂缓;near-HMR(§27)已覆盖开发体验的主要缺口。未来实现时按本蓝图在目标平台(或有稳定 GUI 的环境)进行。
+
+### devtools(P2.3 部分)
+- 已默认启用:host `webview_create(1, …)` → `developerExtrasEnabled`(cocoa 后端 window_settings 中设置)

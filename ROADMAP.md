@@ -45,9 +45,9 @@
 
 ### P2 自定义协议 + HMR(C 层)
 
-- [ ] **P2.1** host 注册 `ztron://` scheme,资产走自定义协议(验证:WKWebView 对 http:// ESM 不可靠,必须自定义 scheme)
-- [~] **P2.2** dev 自动刷新(near-HMR,watcher+reload 信号,`page reloaded`);完整 HMR 需 ztron://
-- [ ] **P2.3** devtools 开关、`asset://` convertFileSrc
+- [~] **P2.1** ztron:// scheme:技术蓝图已定(§28),ObjC 动态类高风险,暂缓
+- [x] **P2.2** dev 自动刷新(near-HMR,`page reloaded`);模块级 HMR 待 ztron://
+- [~] **P2.3** devtools 已默认启用(debug=1);convertFileSrc asset:// 待 ztron://
 
 ### P3 插件生态(每个 = core 命令 + api + 权限)
 
