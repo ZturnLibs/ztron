@@ -463,3 +463,18 @@ ZtronApp.app/Contents/
 
 ### spike:20 项 FULL_OK
 - 新增 SQL_OK + AUTOSTART_OK(启用→检查→禁用,幂等)
+
+## 26. P2 深入结论(http ESM 不可靠 → 需自定义 scheme)
+
+### 验证过程与结论
+- **可靠路径**:dev 用 watcher(vite build IIFE + file://),spike 稳定 `FULL_OK`(20 项)。手动 file:// navigate 也稳定执行页面。
+- **尝试**:ATS-exempt .app bundle + vite dev server(http://localhost)+ CORS 头 + dev 保 `type="module"`。
+  - CORS 头确认出现(index/main.ts 均 `Access-Control-Allow-Origin: *`)
+  - 经典脚本探针在手动 http 场景**能执行**(证明 http 页面加载 + bind 正常)
+  - **ESM module(main.ts)始终不执行**(多次验证;禁用 vite HMR websocket 也无效)
+- **根因判断**:WKWebView 对 `http://` + `type="module"` 的 ESM 加载在当前 webview/webview 配置下不可靠(经典 script 正常)。完整 HMR(ESM + HMR websocket)需要 **WKURLSchemeHandler 自定义 scheme**(`ztron://`),即 ROADMAP P2.1 标注的深度 C 工作(需 patch webview 库或 host 自建 WKWebView 层)。
+
+### 基础设施(已保留)
+- `spawnHostInBundle`:临时 ATS-exempt .app bundle(可加载 http://localhost)
+- `startFrontendDevServer`:vite dev server + CORS + dev 保 ESM(待自定义 scheme 时启用)
+- dev 当前用 `startFrontendWatcher`(IIFE + file://,可靠)

@@ -1,6 +1,11 @@
 /**
  * Ztron Vite plugin — injects the `__TAURI_INTERNALS__` bootstrap into the
- * served HTML so `@ztron/api` works inside a Vite dev server page.
+ * served HTML so `@ztron/api` works inside a Vite page.
+ *
+ * - dev server: keep ESM `type="module"` (strip `crossorigin`), add CORS
+ *   headers so WKWebView can load modules from http://localhost.
+ * - build: Vite emits an IIFE bundle, so rewrite module tags to classic
+ *   `<script>` (file:// has a null origin; module scripts fail CORS).
  */
 import type { Plugin } from "vite";
 import { buildInitScript } from "@ztron/inject";
@@ -10,11 +15,15 @@ export function ztronVitePlugin(
   metadata?: Record<string, unknown>,
 ): Plugin {
   const bootstrap = buildInitScript({ invokeKey, metadata });
+  let isDev = false;
   return {
     name: "ztron:internals",
     configureServer: ((server: {
       middlewares: { use: (m: unknown) => void };
     }) => {
+      isDev = true;
+      // Add CORS first (before vite's own middleware) so WKWebView can load
+      // ESM modules from http://localhost.
       server.middlewares.use(
         (
           _req: unknown,
@@ -27,14 +36,22 @@ export function ztronVitePlugin(
       );
     }) as never,
     transformIndexHtml(html: string): string {
-      // 1. Strip crossorigin + type="module" from scripts (IIFE bundle,
-      //    file:// has null origin so module scripts fail CORS).
-      let out = html.replace(
-        /<script type="module"(?:\s+crossorigin)? src="([^"]+)"><\/script>/g,
-        (_, src: string) => `<script src="${src}"></script>`,
-      );
-      // 2. Inject the __TAURI_INTERNALS__ bootstrap IMMEDIATELY after <head>
-      //    so it runs before the app bundle script.
+      let out: string;
+      if (isDev) {
+        // Dev: keep ESM, just drop the crossorigin attribute.
+        out = html.replace(
+          /<script type="module" crossorigin /g,
+          '<script type="module" ',
+        );
+      } else {
+        // Build: the bundle is IIFE, so emit a classic script.
+        out = html.replace(
+          /<script type="module"(?:\s+crossorigin)? src="([^"]+)"><\/script>/g,
+          (_, src: string) => `<script src="${src}"></script>`,
+        );
+      }
+      // Inject the __TAURI_INTERNALS__ bootstrap immediately after <head> so
+      // it runs before the app bundle.
       if (!out.includes("__TAURI_INTERNALS__")) {
         out = out.replace(/<head>/, `<head><script>${bootstrap}</script>`);
       }

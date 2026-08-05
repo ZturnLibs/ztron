@@ -156,11 +156,9 @@ async function startFrontendDevServer(
   const server = await createServer({
     root,
     logLevel: "silent",
-    server: { host: "127.0.0.1", port: 0 } as never,
+    server: { host: "127.0.0.1", port: 0, hmr: false } as never,
     plugins: [ztronVitePlugin(invokeKey)],
   });
-  // WKWebView loads ESM modules with crossorigin; allow all origins.
-  (server as unknown as { cors: { origin: string } }).cors = { origin: "*" };
   await server.listen();
   const addr = server.httpServer?.address();
   const port = typeof addr === "object" && addr ? addr.port : 5173;
@@ -357,24 +355,17 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // Per-session invoke key shared by the backend and the injected bootstrap.
   const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
 
-  // P2: watch + rebuild frontend (IIFE + file://), notify backend to reload.
-  // WKWebView blocks ESM modules from http:// via CORS even with ATS exempt,
-  // so dev uses the same IIFE build as production, with a file watcher that
-  // rebuilds on change and signals the backend to reload the page.
-  const frontendIndex = await startFrontendWatcher(cwd, invokeKey, () => {
-    // Signal the backend to reload the webview (via env pipe or signal).
-    // For now, the backend watches a trigger file.
-  });
+  // P2: dev uses the reliable watcher (vite build IIFE + file://). Full HMR
+  // via a vite dev server needs a custom scheme host (WKURLSchemeHandler)
+  // because WKWebView's ESM loading over http:// is unreliable — see DESIGN.md.
+  const frontendIndex = await startFrontendWatcher(cwd, invokeKey, () => {});
   const frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
 
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
 
   const hostBin = findHostBin(appRoot);
-  const lib = findWebviewLib(appRoot);
 
-  // P2: dev uses file:// + IIFE (reliable on WKWebView). The ATS-exempt bundle
-  // is only needed for http:// (vite dev server), which we don't use yet.
   let port: number;
   console.log(`[ztron] starting host: ${hostBin}`);
   port = await spawnHost(hostBin);
