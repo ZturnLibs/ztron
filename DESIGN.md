@@ -147,7 +147,7 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 | ------ | --------------------------------------------------------- | ----------------------- |
 | **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程               | 同步+异步往返,exit=0    |
 | **M1** | events + Channel 流式 + 窗口命令集 ✅                      | `M1_EVENTS_CHANNEL_WINDOW_OK` |
-| **M2** | 插件基座 + 受限能力层 + CLI dev                           | 插件可注册,`dev` 一键起 |
+| **M2** | 插件基座 + 受限能力层 + CLI dev ✅                        | `M2_FS_SCOPE_PATH_OK`(scope 允/拒) |
 | **M3** | `@ztron/api` 与打包器前端集成(Vite)+ 前端包实测           | api 包在真实前端运行    |
 | **M4** | `tjs compile` 单文件打包 + 三平台验证                     | 产出可分发二进制        |
 
@@ -236,3 +236,19 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 - ✅ 同步命令全链路(M0 FFI 验证)
 - ✅ **异步命令全链路(Plan A 验证)**:`invoke` → host → socket → 后端 `setTimeout(30ms)` → 响应 → `webview_return` → 前端 `await` 拿到结果
 - ✅ 事件(emit/eval)与 Channel 流式的传输路径已具备(set_html/eval/response 三种消息均可走通)
+
+## 12. M2 结论(插件基座 + 受限能力层,已验证)
+
+### 验证通过 ✅(`SPIKE_RESULT: M2_FS_SCOPE_PATH_OK`,exit=0)
+- **插件基座**:`app.plugin(fsPlugin(...))` → 命令自动注册为 `plugin:fs|*`、`plugin:path|*`
+- **受限能力层 `PathScope`**:路径 `$VAR` 展开(HOME/TMP/CWD)+ 绝对化 + canonicalize(解析父目录真实路径,防符号链接逃逸)+ allow/deny 前缀匹配
+- fs 插件:read_text / write_text / read_dir / exists / remove / make_dir,全部经 scope 闸门
+- path 插件:join/resolve/normalize/is_absolute/basename/dirname/extname(纯字符串,无 scope)
+- 越权写 `/etc/passwd` 被正确拒绝(scope 外抛 access denied)
+- CLI:`ztron init <dir>` 脚手架(package.json + ztron.conf.json + src/main.ts)、`ztron.conf.json.entry` 决定入口
+- 前端 `@ztron/api`:fs.ts / path.ts 类型化包装
+
+### 踩坑(已修)
+1. **scope 根未 canonicalize**:allow 前缀(`/var/...`)与检查路径 canonicalize 后(`/private/var/...`)不匹配 → 一律拒绝。修复:roots 懒加载 canonicalize(带 `.catch` 回退)。
+2. **tjs fs 全异步**:`readFile/writeFile/stat/readDir` 返回 Promise,`readFile` 忽略 encoding 选项返回 Uint8Array → 用 `TextDecoder` 解码。
+3. **`tjs:path` 默认导出**才有 posix/win32;`declare module "tjs:path"` 需在全局脚本文件(无 import/export)中声明。

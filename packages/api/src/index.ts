@@ -19,3 +19,23 @@ export type {
   UnlistenFn,
 } from "./event.js";
 export { Window } from "./window.js";
+export {
+  fs,
+  readText,
+  writeText,
+  readDir,
+  exists,
+  remove,
+  makeDir,
+} from "./fs.js";
+export type { DirEntry } from "./fs.js";
+export {
+  path,
+  join,
+  resolve,
+  normalize,
+  isAbsolute,
+  basename,
+  dirname,
+  extname,
+} from "./path.js";

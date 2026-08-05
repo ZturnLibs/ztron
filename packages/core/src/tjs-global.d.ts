@@ -1,0 +1,47 @@
+/**
+ * Ambient declarations for the `tjs` global + `tjs:path` module in txiki.js.
+ * A global script (no top-level imports/exports): top-level `declare` of a
+ * const/interface declares a global; `declare module` declares a module.
+ */
+
+declare module "tjs:path" {
+  export interface PathLike {
+    join(...parts: string[]): string;
+    resolve(...parts: string[]): string;
+    normalize(p: string): string;
+    isAbsolute(p: string): boolean;
+    basename(p: string, ext?: string): string;
+    dirname(p: string): string;
+    extname(p: string): string;
+    relative(from: string, to: string): string;
+    sep: string;
+    delimiter: string;
+  }
+  const _default: PathLike & { posix: PathLike; win32: PathLike };
+  export default _default;
+}
+
+interface DirEntry {
+  name: string;
+  isDirectory: boolean;
+  isFile: boolean;
+}
+
+declare const tjs: {
+  env: Record<string, string | undefined>;
+  homeDir: string;
+  tmpDir: string;
+  cwd: string;
+  realPath(p: string): Promise<string>;
+  readFile(p: string, options?: { encoding?: string }): Promise<Uint8Array>;
+  writeFile(p: string, data: string | Uint8Array): Promise<void>;
+  stat(p: string): Promise<{
+    isFile: boolean;
+    isDirectory: boolean;
+    size: number;
+    mtime: number;
+  }>;
+  readDir(p: string): Promise<DirEntry[]>;
+  remove(p: string): Promise<void>;
+  makeDir(p: string, mode?: number): Promise<void>;
+};

@@ -8,18 +8,23 @@
  */
 import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
 Usage:
-  ztron dev [--entry <file>]   Bundle + run under the native host + tjs backend
-  ztron build [--entry <file>] Produce a standalone executable (M4)
-  ztron version                Print version
+  ztron init [dir]                 Scaffold a new project in [dir] (default .)
+  ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
+  ztron build [--entry <file>]     Produce a standalone executable (M4)
+  ztron version                    Print version
 `;
 
 const DEFAULT_ENTRY = "./src/main.ts";
+
+interface ProjectConfig {
+  entry?: string;
+}
 
 /** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
 function findTjs(): string {
@@ -51,15 +56,45 @@ function findHostBin(appRoot: string): string {
   return resolve(appRoot, "native/libs/ztron-host");
 }
 
-function parseArgs(argv: string[]): { command: string; entry: string } {
+function parseArgs(argv: string[]): {
+  command: string;
+  entry: string;
+  positional: string;
+} {
   const command = argv[0] ?? "dev";
-  let entry = DEFAULT_ENTRY;
+  let entry = "";
+  let positional = "";
   for (let i = 1; i < argv.length; i += 1) {
-    if (argv[i] === "--entry") {
-      entry = argv[i + 1] ?? entry;
+    const a = argv[i] ?? "";
+    if (a === "--entry") {
+      entry = argv[i + 1] ?? "";
+    } else if (!a.startsWith("-") && !positional) {
+      positional = a;
     }
   }
-  return { command, entry };
+  return { command, entry, positional };
+}
+
+/** Reads `ztron.conf.json` if present. */
+function readProjectConfig(cwd: string): ProjectConfig {
+  const file = join(cwd, "ztron.conf.json");
+  try {
+    if (existsSync(file)) {
+      return JSON.parse(readFileSync(file, "utf8")) as ProjectConfig;
+    }
+  } catch {
+    /* ignore malformed config */
+  }
+  return {};
+}
+
+/** Resolves the entry file: --entry > ztron.conf.json.entry > src/main.ts. */
+function resolveEntry(cwd: string, entryArg: string): string {
+  if (entryArg) {
+    return entryArg;
+  }
+  const config = readProjectConfig(cwd);
+  return config.entry ?? DEFAULT_ENTRY;
 }
 
 async function bundle(entry: string, outfile: string): Promise<void> {
@@ -102,7 +137,6 @@ async function dev(cwd: string, entry: string): Promise<void> {
   const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
   const appRoot = dirname(entryPath);
-
   const buildDir = join(appRoot, ".ztron");
   mkdirSync(buildDir, { recursive: true });
   const bundlePath = join(buildDir, "app.mjs");
@@ -127,8 +161,86 @@ async function dev(cwd: string, entry: string): Promise<void> {
   process.exit(result.status ?? 1);
 }
 
+/** Scaffolds a minimal Ztron project in `target`. */
+async function initProject(target: string): Promise<void> {
+  mkdirSync(join(target, "src"), { recursive: true });
+  const name = basenameOf(target);
+
+  const files: Record<string, string> = {
+    "package.json": JSON.stringify(
+      {
+        name,
+        version: "0.1.0",
+        private: true,
+        type: "module",
+        scripts: {
+          dev: "ztron dev",
+          build: "ztron build",
+        },
+        dependencies: {
+          "@ztron/api": "latest",
+          "@ztron/core": "latest",
+          "@ztron/runtime-ffi": "latest",
+        },
+        devDependencies: {
+          "@ztron/cli": "latest",
+        },
+      },
+      null,
+      2,
+    ),
+    "ztron.conf.json": JSON.stringify({ entry: "src/main.ts" }, null, 2),
+    "src/main.ts": MAIN_TEMPLATE,
+  };
+
+  for (const [rel, content] of Object.entries(files)) {
+    const file = join(target, rel);
+    if (!existsSync(file)) {
+      writeFileSync(file, content);
+    }
+  }
+  console.log(`[ztron] scaffolded a project in ${target}`);
+  console.log(`[ztron] next: pnpm install && pnpm dev`);
+}
+
+function basenameOf(p: string): string {
+  const parts = p.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "ztron-app";
+}
+
+const MAIN_TEMPLATE = `import { AppBuilder } from "@ztron/core";
+import { HostRuntime } from "@ztron/runtime-ffi";
+import { fsPlugin } from "@ztron/core";
+
+declare const tjs: { env: Record<string, string | undefined> };
+
+const runtime = new HostRuntime({
+  host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
+  port: Number(tjs.env.ZTRON_HOST_PORT),
+});
+await runtime.connect();
+
+const html = \`<!doctype html>
+<html>
+  <body style="font-family:system-ui;padding:2rem">
+    <h1>Hello Ztron</h1>
+    <p id="status">ready</p>
+  </body>
+</html>\`;
+
+new AppBuilder(runtime, "com.example.app")
+  .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
+  .window({ label: "main", title: "My Ztron App", width: 800, height: 600, html })
+  .build()
+  .run();
+`;
+
 async function main(): Promise<void> {
-  const { command, entry } = parseArgs(process.argv.slice(2));
+  const {
+    command,
+    entry: entryArg,
+    positional,
+  } = parseArgs(process.argv.slice(2));
   const cwd = process.cwd();
 
   switch (command) {
@@ -136,8 +248,13 @@ async function main(): Promise<void> {
       console.log("ztron 0.1.0");
       break;
     }
+    case "init": {
+      const target = positional ? resolve(cwd, positional) : cwd;
+      await initProject(target);
+      break;
+    }
     case "dev": {
-      await dev(cwd, entry);
+      await dev(cwd, resolveEntry(cwd, entryArg));
       break;
     }
     case "build": {

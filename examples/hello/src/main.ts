@@ -1,14 +1,13 @@
 /**
- * M1 spike — events + Channel streaming + window commands (Plan A).
+ * M2 spike — plugin base + restricted capability layer (scoped fs + path).
  *
- * The inline page exercises the exact protocol wrapped by `@ztron/api`
- * (listen / Channel / window): registers an event listener, streams ordered
- * messages over a Channel, and drives window setTitle/setSize. The backend
- * reports each step back and terminates when all three pass.
+ * Registers `fsPlugin` (scoped to `$TMP/**`) and `pathPlugin`, then the page
+ * exercises: path ops, in-scope file write/read, and an out-of-scope write
+ * that must be denied by the PathScope gate.
  *
  * Run: pnpm --filter @ztron/example-hello dev
  */
-import { AppBuilder } from "@ztron/core";
+import { AppBuilder, fsPlugin, pathPlugin } from "@ztron/core";
 import { HostRuntime } from "@ztron/runtime-ffi";
 
 declare const tjs: { env: Record<string, string | undefined> };
@@ -18,66 +17,51 @@ const port = Number(tjs.env.ZTRON_HOST_PORT);
 
 const runtime = new HostRuntime({ host, port });
 await runtime.connect();
-console.log(`[m1] backend connected to host ${host}:${port}`);
+console.log(`[m2] backend connected to host ${host}:${port}`);
 
 const html = `<!doctype html>
 <html>
-  <head><meta charset="utf-8"><title>Ztron M1</title></head>
+  <head><meta charset="utf-8"><title>Ztron M2</title></head>
   <body style="font-family:system-ui;display:grid;place-content:center;height:100vh;margin:0">
     <div style="text-align:center">
-      <h1>Ztron M1</h1>
-      <p>events: <span id="ev">-</span></p>
-      <p>channel: <span id="ch">-</span></p>
-      <p>window: <span id="win">-</span></p>
+      <h1>Ztron M2 — scoped fs + path</h1>
+      <p>path: <span id="p">-</span></p>
+      <p>fs: <span id="f">-</span></p>
+      <p>deny: <span id="d">-</span></p>
       <p id="status">running...</p>
     </div>
     <script>
       const I = window.__TAURI_INTERNALS__;
-      const report = (received) => I.invoke("m1:report", { received });
-
-      // Minimal Channel (same protocol as @ztron/api Channel).
-      class Channel {
-        constructor(onmessage) {
-          this.id = I.transformCallback((raw) => onmessage(raw));
-        }
-        toJSON() { return "__CHANNEL__:" + this.id; }
-      }
+      const report = (received) => I.invoke("m2:report", { received });
 
       async function run() {
         const status = document.getElementById("status");
 
-        // 1. EVENTS — listen to m1:tick, ask the backend to emit 3 ticks.
-        let ticks = 0;
-        const unlisten = await I.invoke("plugin:event|listen", {
-          event: "m1:tick",
-          target: { kind: "Any" },
-          handler: I.transformCallback((event) => {
-            ticks++;
-            document.getElementById("ev").textContent = "tick " + event.payload.n;
-            if (ticks === 3) report("EVENTS_OK:" + event.id);
-          }),
-        });
-        await I.invoke("m1:start", {});
+        // 1. PATH — plugin:path|* (pure string ops)
+        const joined = await I.invoke("plugin:path|join", { parts: ["/a", "b", "c"] });
+        const base = await I.invoke("plugin:path|basename", { path: "/a/b/c.txt" });
+        const ext = await I.invoke("plugin:path|extname", { path: "/a/b/c.txt" });
+        document.getElementById("p").textContent = joined + " / " + base + " / " + ext;
+        if (joined === "/a/b/c" && base === "c.txt" && ext === ".txt") {
+          report("PATH_OK:" + joined);
+        }
 
-        // 2. CHANNEL — stream 3 ordered messages from the backend.
-        const msgs = [];
-        const channel = new Channel((raw) => {
-          if (raw.end) {
-            const joined = msgs.map((m) => m.n ?? m).join(",");
-            document.getElementById("ch").textContent = joined;
-            report("CHANNEL_OK:" + joined);
-          } else {
-            msgs.push(raw.message);
-          }
-        });
-        const streamed = await I.invoke("m1:stream", { ch: channel });
-        status.textContent = "stream: " + streamed;
+        // 2. FS — in-scope write + read ($TMP/** allowed)
+        await I.invoke("plugin:fs|write_text", { path: "$TMP/ztron_m2.txt", contents: "m2-hello" });
+        const data = await I.invoke("plugin:fs|read_text", { path: "$TMP/ztron_m2.txt" });
+        document.getElementById("f").textContent = data;
+        if (data === "m2-hello") report("FS_OK:" + data);
 
-        // 3. WINDOW — setTitle + setSize through plugin:window|*.
-        await I.invoke("plugin:window|set_title", { label: "main", title: "Ztron M1" });
-        await I.invoke("plugin:window|set_size", { label: "main", width: 640, height: 480 });
-        document.getElementById("win").textContent = "title/size set";
-        report("WINDOW_OK");
+        // 3. FS — out-of-scope write must be denied by PathScope
+        try {
+          await I.invoke("plugin:fs|write_text", { path: "/etc/passwd", contents: "x" });
+          document.getElementById("d").textContent = "FAIL: was allowed!";
+          report("FS_DENY_FAIL");
+        } catch (e) {
+          document.getElementById("d").textContent = "denied";
+          report("FS_DENY_OK");
+        }
+        status.textContent = "done";
       }
 
       window.addEventListener("DOMContentLoaded", run);
@@ -88,47 +72,31 @@ const html = `<!doctype html>
 const done = new Set<string>();
 
 new AppBuilder(runtime, "com.ztron.hello")
+  .plugin(
+    fsPlugin({
+      scope: {
+        allow: ["$TMP/**"],
+      },
+    }),
+  )
+  .plugin(pathPlugin())
   .window({
     label: "main",
-    title: "Ztron M1",
+    title: "Ztron M2",
     width: 800,
     height: 600,
     html,
   })
   .setup((app) => {
-    // Backend-driven async emits (proves the backend event loop is live).
-    app.command("m1:start", async () => {
-      for (let i = 1; i <= 3; i++) {
-        await new Promise((r) => setTimeout(r, 30));
-        app.emit("m1:tick", { n: i });
-        console.log(`[m1] emitted tick ${i}`);
-      }
-      return "started";
-    });
-
-    // Channel streaming command.
-    app.command("m1:stream", (args, ctx) => {
-      const { ch } = args as { ch?: { kind: "channel"; id: number } };
-      if (!ch) return "no-channel";
-      const handle = ctx.getChannel(ch.id);
-      if (!handle) return "no-handle";
-      for (let i = 1; i <= 3; i++) {
-        handle.send({ n: i });
-      }
-      handle.end();
-      console.log("[m1] streamed 3 messages");
-      return "streamed";
-    });
-
-    app.command("m1:report", (_args, ctx) => {
+    app.command("m2:report", (_args, ctx) => {
       const { received } = _args as { received?: string };
-      console.log(`[m1] frontend reported: "${received}"`);
+      console.log(`[m2] frontend reported: "${received}"`);
       const tag = received?.split(":")[0];
       if (tag) {
         done.add(tag);
       }
       if (done.size >= 3) {
-        console.log("SPIKE_RESULT: M1_EVENTS_CHANNEL_WINDOW_OK");
+        console.log("SPIKE_RESULT: M2_FS_SCOPE_PATH_OK");
         ctx.webview.terminate();
       }
     });
