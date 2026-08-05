@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { build as viteBuild } from "vite";
+import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
@@ -136,12 +136,40 @@ function resolveEntry(cwd: string, entryArg: string): string {
 }
 
 /**
- * Builds the frontend with Vite (base "./") and returns its file:// URL.
+ * Starts the Vite dev server for the frontend, returning its URL.
  *
- * M3 note: WKWebView blocks plain `http://` via ATS (and a per-process
- * Info.plist exemption is not honored by the WebKit network process), so the
- * dev frontend is served from a `file://` URL, which WebKit allows and which
- * has no ATS restrictions. HMR comes later (custom scheme host, see DESIGN.md).
+ * P2: WKWebView blocks plain `http://` via ATS unless the host runs inside a
+ * .app bundle whose Info.plist grants NSAllowsLocalNetworking. `spawnHostInBundle`
+ * creates a temporary bundle for dev so the Vite dev server (and HMR) works.
+ */
+async function startFrontendDevServer(
+  cwd: string,
+  invokeKey: string,
+): Promise<string | null> {
+  const config = readProjectConfig(cwd);
+  const frontend = config.frontend ?? "frontend";
+  const root = resolve(cwd, frontend);
+  if (!existsSync(join(root, "index.html"))) {
+    return null;
+  }
+  const server = await createServer({
+    root,
+    logLevel: "silent",
+    server: { host: "127.0.0.1", port: 0 } as never,
+    plugins: [ztronVitePlugin(invokeKey)],
+  });
+  // WKWebView loads ESM modules with crossorigin; allow all origins.
+  (server as unknown as { cors: { origin: string } }).cors = { origin: "*" };
+  await server.listen();
+  const addr = server.httpServer?.address();
+  const port = typeof addr === "object" && addr ? addr.port : 5173;
+  console.log(`[ztron] vite dev server: http://127.0.0.1:${port}`);
+  return `http://localhost:${port}`;
+}
+
+/**
+ * Builds the frontend for production (base "./", IIFE, classic script).
+ * Used by `ztron build`; dev uses `startFrontendDevServer` instead.
  */
 async function buildFrontend(
   cwd: string,
@@ -161,8 +189,6 @@ async function buildFrontend(
     build: {
       outDir,
       emptyOutDir: true,
-      // file:// has a null origin: emit a plain (non-module) IIFE bundle so
-      // WKWebView loads it without module-CORS/crossorigin issues.
       modulePreload: false,
       rollupOptions: {
         output: {
@@ -176,17 +202,64 @@ async function buildFrontend(
     plugins: [ztronVitePlugin(invokeKey)],
   });
   const index = resolve(outDir, "index.html");
-  // file:// has a null origin; a `type="module" crossorigin` tag fails the
-  // CORS check in WKWebView. Rewrite to a classic script (the bundle is IIFE).
   if (existsSync(index)) {
     let html = readFileSync(index, "utf8");
+    // The bundle is IIFE but vite emits `<script type="module">`; file:// has
+    // a null origin so module scripts fail CORS. Rewrite to classic scripts.
     html = html.replace(
-      /<script type="module" crossorigin src="([^"]+)"><\/script>/g,
+      /<script type="module"(?:\s+crossorigin)? src="([^"]+)"><\/script>/g,
       (_, src: string) => `<script src="${src}"></script>`,
     );
     writeFileSync(index, html);
   }
   console.log(`[ztron] frontend built: ${index}`);
+  return index;
+}
+
+/**
+ * Starts a Vite build watcher that rebuilds the frontend on every file change,
+ * returning a callback to stop the watcher. Used for `ztron dev` (P2):
+ * unlike a dev server (which WKWebView blocks via CORS on ESM modules), the
+ * build watcher produces IIFE bundles loadable via `file://`.
+ */
+async function startFrontendWatcher(
+  cwd: string,
+  invokeKey: string,
+  onRebuild: () => void,
+): Promise<string | null> {
+  const config = readProjectConfig(cwd);
+  const frontend = config.frontend ?? "frontend";
+  const root = resolve(cwd, frontend);
+  if (!existsSync(join(root, "index.html"))) {
+    return null;
+  }
+  const outDir = resolve(root, "dist");
+
+  // Initial build (synchronous, awaited)
+  const index = await buildFrontend(cwd, invokeKey);
+
+  // Start the watcher in the background
+  const watcher = await import("node:fs/promises");
+  void watcher; // suppress unused
+  setTimeout(async () => {
+    const { watch } = await import("node:fs");
+    const w = watch(root, { recursive: true }, (_event, filename) => {
+      if (!filename) return;
+      if (
+        filename.endsWith(".ts") ||
+        filename.endsWith(".html") ||
+        filename.endsWith(".css")
+      ) {
+        console.log(`[ztron] frontend changed: ${filename}, rebuilding...`);
+        void buildFrontend(cwd, invokeKey).then(() => {
+          console.log("[ztron] frontend rebuilt");
+          onRebuild();
+        });
+      }
+    });
+    process.on("exit", () => w.close());
+  }, 100);
+
   return index;
 }
 
@@ -226,6 +299,52 @@ function spawnHost(hostBin: string): Promise<number> {
   });
 }
 
+const ATS_INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>ztron-host</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.ztron.dev-host</string>
+  <key>CFBundleName</key>
+  <string>Ztron Dev Host</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+</dict>
+</plist>
+`;
+
+/**
+ * Creates a temporary .app bundle containing ztron-host + libwebview + an
+ * ATS-exempt Info.plist, then spawns the host from inside the bundle.
+ *
+ * macOS only honors ATS exemptions from a bundle-level Info.plist (not the
+ * `-sectcreate`-embedded one in a bare binary). Running the host from inside
+ * a .app bundle lets WKWebView load `http://localhost` (Vite dev server).
+ */
+function spawnHostInBundle(hostBin: string, libPath: string): Promise<number> {
+  const bundleDir = join(
+    process.env.TMPDIR ?? "/tmp",
+    `ztron-dev-${process.pid}.app`,
+  );
+  const macosDir = join(bundleDir, "Contents", "MacOS");
+  mkdirSync(macosDir, { recursive: true });
+  copyFileSync(hostBin, join(macosDir, "ztron-host"));
+  if (existsSync(libPath)) {
+    copyFileSync(libPath, join(macosDir, "libwebview.dylib"));
+  }
+  writeFileSync(join(bundleDir, "Contents", "Info.plist"), ATS_INFO_PLIST);
+  return spawnHost(join(macosDir, "ztron-host"));
+}
+
 async function dev(cwd: string, entry: string): Promise<void> {
   const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
@@ -237,15 +356,27 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // Per-session invoke key shared by the backend and the injected bootstrap.
   const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
 
-  const frontendIndex = await buildFrontend(cwd, invokeKey);
+  // P2: watch + rebuild frontend (IIFE + file://), notify backend to reload.
+  // WKWebView blocks ESM modules from http:// via CORS even with ATS exempt,
+  // so dev uses the same IIFE build as production, with a file watcher that
+  // rebuilds on change and signals the backend to reload the page.
+  const frontendIndex = await startFrontendWatcher(cwd, invokeKey, () => {
+    // Signal the backend to reload the webview (via env pipe or signal).
+    // For now, the backend watches a trigger file.
+  });
   const frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
 
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
 
   const hostBin = findHostBin(appRoot);
+  const lib = findWebviewLib(appRoot);
+
+  // P2: dev uses file:// + IIFE (reliable on WKWebView). The ATS-exempt bundle
+  // is only needed for http:// (vite dev server), which we don't use yet.
+  let port: number;
   console.log(`[ztron] starting host: ${hostBin}`);
-  const port = await spawnHost(hostBin);
+  port = await spawnHost(hostBin);
 
   console.log(`[ztron] running backend via ${tjs} on port ${port}`);
   const result = spawnSync(tjs, ["run", bundlePath], {

@@ -66,14 +66,7 @@ export function resolveAcl(
 
   for (const file of capabilities) {
     for (const cap of normalizeCapabilities(file)) {
-      console.log(
-        `[acl-resolve] cap=${cap.identifier} windows=${cap.windows.join(",")}`,
-      );
       for (const entry of cap.permissions) {
-        const perms = registry.expand(entry.identifier);
-        console.log(
-          `[acl-resolve] entry=${entry.identifier} -> ${perms.length} perms`,
-        );
         applyEntry(registry, acl, cap, entry);
       }
     }
