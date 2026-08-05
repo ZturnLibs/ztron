@@ -12,7 +12,7 @@ import { HostRuntime } from "@ztron/runtime-ffi";
 
 declare const tjs: {
   env: Record<string, string | undefined>;
-  readFile(p: string, opts?: { encoding?: string }): Promise<string>;
+  readFile(p: string): Promise<Uint8Array>;
 };
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
@@ -40,7 +40,7 @@ const done = new Set<string>();
 // `core:default` + `fs:write-default` (read+write, no remove).
 const capBytes = await tjs.readFile("./capabilities/main.json");
 const capabilities: CapabilityFile[] = [
-  JSON.parse(new TextDecoder().decode(capBytes as Uint8Array)),
+  JSON.parse(new TextDecoder().decode(capBytes)),
 ];
 
 new AppBuilder(runtime, "com.ztron.hello")
