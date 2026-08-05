@@ -39,7 +39,7 @@
 
 ### P1 最小权限模型(纯 TS)
 
-- [ ] **P1.1 Capabilities/ACL**:Capability(窗口匹配+权限集合)、Permission(default/allow-<cmd>/deny-<cmd>)、IpcHub 分发前校验
+- [x] **P1.1 Capabilities/ACL**:Capability/Permission/Set + IpcHub 门禁(`ACL_DENY_OK`)
 - [ ] **P1.2 CLI capabilities.json** + `ztron.conf.json` zod schema
 - [ ] **P1.3 http scope**:tjs fetch + URL allowlist
 

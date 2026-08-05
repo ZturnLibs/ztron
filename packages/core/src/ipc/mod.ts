@@ -67,6 +67,9 @@ export type InvokeHandler = (
 /** The hub that dispatches frontend IPC messages to registered commands. */
 export class IpcHub {
   #commands = new Map<string, InvokeHandler>();
+  #acl: {
+    canRun(label: string, cmd: string): { allowed: boolean; reason?: string };
+  } | null = null;
 
   register(cmd: string, handler: InvokeHandler): void {
     this.#commands.set(cmd, handler);
@@ -74,6 +77,13 @@ export class IpcHub {
 
   has(cmd: string): boolean {
     return this.#commands.has(cmd);
+  }
+
+  /** Installs the ACL gate (call after capabilities are resolved). */
+  setAcl(acl: {
+    canRun(label: string, cmd: string): { allowed: boolean; reason?: string };
+  }): void {
+    this.#acl = acl;
   }
 
   /**
@@ -113,6 +123,20 @@ export class IpcHub {
 
     const { payload } = deserializeChannelRefs(message.payload);
     const commandCtx = ctx(webview, payload);
+
+    if (this.#acl && message.cmd.startsWith("plugin:")) {
+      const decision = this.#acl.canRun(commandCtx.label, message.cmd);
+      if (!decision.allowed) {
+        webview.respond(
+          id,
+          1,
+          serialize({
+            error: `access denied: ${decision.reason ?? "not allowed"}`,
+          }),
+        );
+        return;
+      }
+    }
 
     try {
       const result = handler(payload, commandCtx);

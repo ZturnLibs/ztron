@@ -18,6 +18,14 @@ function el(id: string): HTMLElement {
   return document.getElementById(id)!;
 }
 
+/** Extracts a message from an error value (Tauri-style rejection payloads). */
+function extractError(e: unknown): string {
+  if (e && typeof e === "object" && "error" in e) {
+    return String((e as { error: unknown }).error);
+  }
+  return String(e);
+}
+
 async function main(): Promise<void> {
   const report = (received: string) => invoke("m3:report", { received });
 
@@ -51,6 +59,20 @@ async function main(): Promise<void> {
     const data = await fs.readText("$TMP/ztron_m3.txt");
     el("fs").textContent = data;
     if (data === "m3-hello") report("FS_OK");
+
+    // 4b. ACL: fs.remove is NOT granted (capability has fs:write-default).
+    // Expect the backend to reject with "access denied".
+    try {
+      await fs.remove("$TMP/ztron_m3.txt");
+      report("ACL_FAIL: remove was allowed");
+    } catch (e) {
+      const msg = extractError(e);
+      if (msg.includes("access denied") || msg.includes("not allowed")) {
+        report("ACL_DENY_OK");
+      } else {
+        report("ACL_UNEXPECTED:" + msg.slice(0, 40));
+      }
+    }
 
     // 5. path
     const joined = await path.join("/a", "b", "c");
@@ -101,8 +123,9 @@ async function main(): Promise<void> {
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";
   } catch (err) {
-    el("status").textContent = "error: " + String(err);
-    await invoke("m3:report", { received: "ERROR:" + String(err) });
+    const msg = extractError(err);
+    el("status").textContent = "error: " + msg;
+    await invoke("m3:report", { received: "ERROR:" + msg.slice(0, 60) });
   }
 }
 

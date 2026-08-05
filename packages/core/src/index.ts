@@ -38,3 +38,19 @@ export type {
   MessageDialogOptions,
 } from "./runtime.js";
 export { StateManager } from "./state.js";
+export {
+  PermissionRegistry,
+  ResolvedAcl,
+  resolveAcl,
+  permissiveAcl,
+} from "./acl/index.js";
+export type {
+  Identifier,
+  Permission,
+  PermissionSet,
+  PermissionEntry,
+  Capability,
+  CapabilityFile,
+  PathScopeLike,
+  AclDecision,
+} from "./acl/index.js";

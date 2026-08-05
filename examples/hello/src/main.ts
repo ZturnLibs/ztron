@@ -7,9 +7,13 @@
  *  - Without: falls back to the inline-html M2 spike (scoped fs + path).
  */
 import { AppBuilder, fsPlugin, pathPlugin } from "@ztron/core";
+import type { CapabilityFile } from "@ztron/core";
 import { HostRuntime } from "@ztron/runtime-ffi";
 
-declare const tjs: { env: Record<string, string | undefined> };
+declare const tjs: {
+  env: Record<string, string | undefined>;
+  readFile(p: string, opts?: { encoding?: string }): Promise<string>;
+};
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
 const port = Number(tjs.env.ZTRON_HOST_PORT);
@@ -32,8 +36,15 @@ const inlineHtml = `<!doctype html>
 
 const done = new Set<string>();
 
+// Load capabilities: this opts into the ACL. The main window is granted
+// `core:default` + `fs:write-default` (read+write, no remove).
+const capBytes = await tjs.readFile("./capabilities/main.json");
+const capabilities: CapabilityFile[] = [
+  JSON.parse(new TextDecoder().decode(capBytes as Uint8Array)),
+];
+
 new AppBuilder(runtime, "com.ztron.hello")
-  .configure({ invokeKey })
+  .configure({ invokeKey, capabilities })
   .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
   .plugin(pathPlugin())
   .window({
@@ -89,9 +100,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 10) {
+      if (done.size >= 11) {
         console.log(
-          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK",
+          "SPIKE_RESULT: M3_API_FRONTEND_OK + WIN_STATE_EVENTS_OK + TRAY_OK + MENU_OK + DIALOG_REG_OK + ACL_DENY_OK",
         );
         ctx.webview.terminate();
       }

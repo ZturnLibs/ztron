@@ -6,6 +6,16 @@ import pathMod from "tjs:path";
 import type { Plugin } from "../plugin.js";
 
 export function pathPlugin(): Plugin {
+  const cmds = [
+    "join",
+    "resolve",
+    "normalize",
+    "is_absolute",
+    "basename",
+    "dirname",
+    "extname",
+    "sep",
+  ] as const;
   return {
     name: "path",
     commands: {
@@ -24,5 +34,16 @@ export function pathPlugin(): Plugin {
       extname: (args) => pathMod.extname((args as { path: string }).path),
       sep: () => pathMod.sep,
     },
+    permissions: cmds.map((c) => ({
+      identifier: `path:allow-${c.replace(/_/g, "-")}`,
+      commands: [`plugin:path|${c}`],
+    })),
+    permissionSets: [
+      {
+        name: "path:default",
+        description: "All path utilities (pure string operations, no scope).",
+        permissions: cmds.map((c) => `path:allow-${c.replace(/_/g, "-")}`),
+      },
+    ],
   };
 }

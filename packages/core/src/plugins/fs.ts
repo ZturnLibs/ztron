@@ -23,6 +23,15 @@ export interface DirEntry {
 export function fsPlugin(options: FsPluginOptions): Plugin {
   const scope = new PathScope(options.scope);
 
+  const fsCommands = {
+    read_text: "plugin:fs|read_text",
+    write_text: "plugin:fs|write_text",
+    read_dir: "plugin:fs|read_dir",
+    exists: "plugin:fs|exists",
+    remove: "plugin:fs|remove",
+    make_dir: "plugin:fs|make_dir",
+  } as const;
+
   return {
     name: "fs",
     commands: {
@@ -70,5 +79,65 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         await tjs.makeDir(canon);
       },
     },
+    permissions: [
+      {
+        identifier: "fs:allow-read-text-file",
+        description: "Allows reading text files via plugin:fs|read_text.",
+        commands: [fsCommands.read_text],
+      },
+      {
+        identifier: "fs:allow-write-text-file",
+        description: "Allows writing text files via plugin:fs|write_text.",
+        commands: [fsCommands.write_text],
+      },
+      {
+        identifier: "fs:allow-read-dir",
+        commands: [fsCommands.read_dir],
+      },
+      {
+        identifier: "fs:allow-exists",
+        commands: [fsCommands.exists],
+      },
+      {
+        identifier: "fs:allow-remove",
+        commands: [fsCommands.remove],
+      },
+      {
+        identifier: "fs:allow-make-dir",
+        commands: [fsCommands.make_dir],
+      },
+      {
+        identifier: "fs:deny-write-text-file",
+        description: "Explicitly denies writing text files (overrides allow).",
+        commands: [`!${fsCommands.write_text}`],
+      },
+    ],
+    permissionSets: [
+      {
+        name: "fs:default",
+        description:
+          "Allows read-only filesystem access (read_text, read_dir, exists).",
+        permissions: [
+          "fs:allow-read-text-file",
+          "fs:allow-read-dir",
+          "fs:allow-exists",
+        ],
+      },
+      {
+        name: "fs:write-default",
+        description:
+          "Allows read + write, but not remove (safer default for apps).",
+        permissions: ["fs:default", "fs:allow-write-text-file"],
+      },
+      {
+        name: "fs:full",
+        description: "All filesystem operations including remove.",
+        permissions: [
+          "fs:default",
+          "fs:allow-write-text-file",
+          "fs:allow-remove",
+        ],
+      },
+    ],
   };
 }

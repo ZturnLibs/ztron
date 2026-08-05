@@ -1,0 +1,6 @@
+{
+  "identifier": "main",
+  "description": "Main window: core + path + read/write fs (no remove).",
+  "windows": ["main"],
+  "permissions": ["core:default", "path:default", "fs:write-default"]
+}

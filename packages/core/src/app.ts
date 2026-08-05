@@ -23,6 +23,13 @@ import type {
 } from "./runtime.js";
 import { StateManager } from "./state.js";
 import { buildInitScript } from "@ztron/inject";
+import {
+  PermissionRegistry,
+  ResolvedAcl,
+  resolveAcl,
+  permissiveAcl,
+  type CapabilityFile,
+} from "./acl/index.js";
 
 export interface AppConfig {
   /** Reverse-domain identifier, e.g. `com.example.app`. */
@@ -36,6 +43,12 @@ export interface AppConfig {
   withGlobalTauri?: boolean;
   /** Override the default `__TAURI_INTERNALS__` init script. */
   initScript?: string;
+  /**
+   * Capability files restricting which commands each window may invoke.
+   * When empty, the app runs in permissive mode (all commands allowed),
+   * matching v1 default. Authors opt into ACL by adding capabilities here.
+   */
+  capabilities?: CapabilityFile[];
 }
 
 export interface AppOptions {
@@ -90,6 +103,80 @@ export class App {
     for (const [cmd, handler] of this.pluginCommandEntries()) {
       this.#hub.register(cmd, handler);
     }
+
+    this.buildAcl(options.plugins ?? []);
+  }
+
+  /** Builds the permission registry + resolved ACL and arms the IPC gate. */
+  private buildAcl(plugins: Plugin[]): void {
+    const registry = new PermissionRegistry();
+
+    // Register core (built-in) permissions: one allow per built-in command,
+    // plus a `core:default` set that grants all of them. Apps reference this
+    // in capabilities as `core:default` (or individual `core:allow-<cmd>`).
+    const coreAllowed: string[] = [
+      "plugin:event|listen",
+      "plugin:event|unlisten",
+      "plugin:event|emit",
+      "plugin:event|emit_to",
+      "plugin:window|close",
+      "plugin:window|set_title",
+      "plugin:window|set_size",
+      "plugin:window|minimize",
+      "plugin:window|unminimize",
+      "plugin:window|toggle_maximize",
+      "plugin:window|is_maximized",
+      "plugin:window|is_minimized",
+      "plugin:window|set_fullscreen",
+      "plugin:window|is_fullscreen",
+      "plugin:window|set_always_on_top",
+      "plugin:window|center",
+      "plugin:window|set_focus",
+      "plugin:window|set_visible",
+      "plugin:window|set_resizable",
+      "plugin:tray|create",
+      "plugin:tray|set_title",
+      "plugin:tray|set_tooltip",
+      "plugin:tray|destroy",
+      "plugin:menu|create",
+      "plugin:menu|set_as_app_menu",
+      "plugin:menu|set_item_enabled",
+      "plugin:menu|set_item_title",
+      "plugin:menu|destroy",
+      "plugin:dialog|open",
+      "plugin:dialog|save",
+      "plugin:dialog|message",
+    ];
+    const coreIds: string[] = [];
+    for (const cmd of coreAllowed) {
+      const parts = cmd.split("|");
+      const pluginPart = parts[0]?.replace("plugin:", "") ?? "core";
+      const cmdPart = parts[1] ?? cmd;
+      const id = `core:allow-${pluginPart}_${cmdPart.replace(/-/g, "_")}`;
+      registry.register({ identifier: id, commands: [cmd] });
+      coreIds.push(id);
+    }
+    registry.registerSet({
+      name: "core:default",
+      permissions: coreIds,
+      description: "Grants all built-in Ztron commands.",
+    });
+
+    for (const p of plugins) {
+      for (const perm of p.permissions ?? []) {
+        registry.register(perm);
+      }
+      for (const set of p.permissionSets ?? []) {
+        registry.registerSet(set);
+      }
+    }
+
+    const capabilities = this.config.capabilities ?? [];
+    const acl: ResolvedAcl =
+      capabilities.length === 0
+        ? permissiveAcl()
+        : resolveAcl(registry, capabilities);
+    this.#hub.setAcl(acl);
   }
 
   /** The backend event registry backing the `plugin:event|*` commands. */

@@ -347,3 +347,18 @@ ZtronApp.app/Contents/
 3. `RuntimeAdapter.dialog`(可选 DialogController);`plugin:dialog|*` 异步命令。
 4. `@ztron/api` dialog.ts:open/save/message。
 5. **限制**:模态对话框无法自动化 spike;文件过滤器/多选/目录模式为后续扩展;Windows 用 CommonDialog 待平台移植。
+
+## 19. P1.1 结论(ACL 权限模型,已验证)
+
+### 验证通过 ✅(`ACL_DENY_OK`)
+- capability `["core:default", "path:default", "fs:write-default"]` 授予 main 窗口
+- `fs.remove` 未授权 → backend 拒绝 `access denied`(其他命令放行)
+- 全链路:capability JSON → `PermissionRegistry.expand` → `ResolvedAcl.allow/deny` → `IpcHub.handle` 门禁
+
+### 实现要点
+1. **三层数据模型**:Permission(commands+scope)、PermissionSet(命名分组,如 `default`)、Capability(windows+permissions)。Set 成员相对解析(`fs:default` 内的 `allow-x` → `fs:allow-x`)。
+2. **Per-label 表**:`ResolvedAcl.#byLabel: Map<label, {allowedCommands, deniedCommands}>`;无 capability → permissive(向后兼容)。
+3. **门禁范围**:`IpcHub.handle` 只对 `plugin:*` 命令做 ACL 检查(用户自定义命令 `m3:echo` 等免授权,简化 v1)。
+4. **插件权限声明**:fsPlugin/pathPlugin 在 Plugin.permissions/permissionSets 中声明(与 Tauri 的 permission manifest 对应);App 启动时构建 `core:default` 集合(所有内置命令)。
+5. **Tauri 兼容**:capability 文件格式与 Tauri 一致(`permissions: ["id", {identifier, scope}]`);`!cmd` 前缀表 deny;scope 透传给 PathScope。
+6. **限制**(后续):per-command scope 未真正生效(目前 scope 仅记录);remote URL 匹配、glob 窗口、schema 校验未做。
