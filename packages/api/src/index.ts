@@ -75,3 +75,5 @@ export { shell } from "./shell.js";
 export type { ExecResult } from "./shell.js";
 export { updater, check as checkUpdate, download as downloadUpdate, verify as verifyUpdate } from "./updater.js";
 export type { UpdateCheck } from "./updater.js";
+export { Database, sql } from "./sql.js";
+export { autostart, enableAutostart, disableAutostart, isAutostartEnabled } from "./autostart.js";

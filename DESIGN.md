@@ -446,3 +446,20 @@ ZtronApp.app/Contents/
 ### 跨平台打包
 - build-native.sh:Darwin/Linux(*)/Windows 各自编译 host + 平台文件
 - CLI build:darwin→.app;linux/win→目录(host+lib+frontend)
+
+## 25. 补充:sql + autostart 插件(已验证)
+
+### sql 插件 ✅(`SQL_OK:hello-sql`)
+- `plugin:sql|load/execute/select/close`,连接池(id → Database),路径经 PathScope
+- tjs:sqlite 确认:`prepare(sql).run([params])` / `.all([params])`(位置 `?` 占位,数组传参;无 reset,每次新 prepare)
+- 前端 `Database.load/execute/select/close`
+
+### autostart 插件 ✅(`AUTOSTART_OK`)
+- `plugin:autostart|enable/disable/is_enabled`
+- macOS:写 `~/Library/LaunchAgents/<id>.plist`(ProgramArguments = exec)
+- Linux:写 `~/.config/autostart/<id>.desktop`
+- Windows:`reg.exe add HKCU\...\Run`(tjs.spawn)
+- exec 默认 `tjs.exePath`,可配置
+
+### spike:20 项 FULL_OK
+- 新增 SQL_OK + AUTOSTART_OK(启用→检查→禁用,幂等)

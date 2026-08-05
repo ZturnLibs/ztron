@@ -21,3 +21,7 @@ export type {
   UpdateCheck,
   UpdaterPluginOptions,
 } from "./updater.js";
+export { sqlPlugin } from "./sql.js";
+export type { SqlPluginOptions } from "./sql.js";
+export { autostartPlugin } from "./autostart.js";
+export type { AutostartPluginOptions } from "./autostart.js";

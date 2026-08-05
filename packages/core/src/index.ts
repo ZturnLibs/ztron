@@ -35,6 +35,8 @@ export {
   shellPlugin,
   updaterPlugin,
   compareVersions,
+  sqlPlugin,
+  autostartPlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -51,6 +53,8 @@ export type {
   UpdaterManifest,
   UpdateCheck,
   UpdaterPluginOptions,
+  SqlPluginOptions,
+  AutostartPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";

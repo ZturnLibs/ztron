@@ -11,6 +11,8 @@
     "store:write",
     "log:default",
     "shell:default",
-    "updater:default"
+    "updater:default",
+    "sql:default",
+    "autostart:default"
   ]
 }

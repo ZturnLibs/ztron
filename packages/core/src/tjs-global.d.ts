@@ -27,12 +27,26 @@ interface DirEntry {
   isFile: boolean;
 }
 
+declare module "tjs:sqlite" {
+  export class Database {
+    constructor(path: string);
+    exec(sql: string): void;
+    close(): void;
+    inTransaction: boolean;
+    prepare(sql: string): {
+      run(params?: unknown[]): void;
+      all(params?: unknown[]): unknown[];
+    };
+  }
+}
+
 declare const tjs: {
   env: Record<string, string | undefined>;
   homeDir: string;
   tmpDir: string;
   cwd: string;
   pid: number;
+  exePath: string;
   realPath(p: string): Promise<string>;
   readFile(p: string, options?: { encoding?: string }): Promise<Uint8Array>;
   writeFile(p: string, data: string | Uint8Array): Promise<void>;

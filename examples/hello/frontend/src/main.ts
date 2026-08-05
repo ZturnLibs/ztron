@@ -17,6 +17,10 @@ import {
   createTray,
   setTrayTooltip,
   setAppMenu,
+  Database,
+  enableAutostart,
+  disableAutostart,
+  isAutostartEnabled,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -147,6 +151,37 @@ async function main(): Promise<void> {
       report("UPDATER_OK");
     } else {
       report("UPDATER_FAIL:" + JSON.stringify(up));
+    }
+
+    // 5h. sql (tjs:sqlite)
+    const tmpDir = await os.tmpdir();
+    const db = await Database.load(`${tmpDir}/ztron_spike.db`);
+    await db.execute(
+      "CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, text TEXT)",
+    );
+    await db.execute("INSERT INTO notes(text) VALUES(?)", ["hello-sql"]);
+    const rows = await db.select<{ text: string }>(
+      "SELECT text FROM notes WHERE text = ?",
+      ["hello-sql"],
+    );
+    await db.close();
+    if (rows.length === 1 && rows[0]?.text === "hello-sql") {
+      report("SQL_OK:" + rows[0].text);
+    } else {
+      report("SQL_FAIL");
+    }
+
+    // 5i. autostart
+    const wasEnabled = await isAutostartEnabled();
+    await enableAutostart();
+    const nowEnabled = await isAutostartEnabled();
+    await disableAutostart();
+    if (nowEnabled && !wasEnabled) {
+      report("AUTOSTART_OK");
+    } else if (nowEnabled) {
+      report("AUTOSTART_OK(was-enabled)");
+    } else {
+      report("AUTOSTART_FAIL");
     }
 
     // 6. window states + events through the api
