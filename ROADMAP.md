@@ -60,8 +60,9 @@
 
 ### P5 分发与平台
 
-- [ ] Windows(NSIS/MSI)+ Linux(AppImage/deb)打包
-- [ ] updater(轮询+签名校验)、图标/签名/公证
+- [x] updater 插件(manifest + sha256,`UPDATER_OK`)
+- [x] macOS ad-hoc 签名 + Win/Linux host 骨架(架构交付)
+- [ ] Windows/Linux 编译验证 + NSIS/AppImage 打包(需目标平台)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 
 ## 4. 优先级(投入产出比)

@@ -15,12 +15,12 @@ import {
   storePlugin,
   logPlugin,
   shellPlugin,
+  updaterPlugin,
+  compareVersions,
   loadCapabilities,
 } from "@ztron/core";
 import { greet, add, echo } from "./commands.js";
 import { HostRuntime } from "@ztron/runtime-ffi";
-
-declare const tjs: { env: Record<string, string | undefined> };
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
 const port = Number(tjs.env.ZTRON_HOST_PORT);
@@ -65,6 +65,18 @@ new AppBuilder(runtime, "com.ztron.hello")
   .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
   .plugin(logPlugin())
   .plugin(shellPlugin({ scope: [{ program: "echo", args: ["*"] }] }))
+  .plugin(
+    updaterPlugin({
+      currentVersion: "0.1.0",
+      scope: {
+        allow: [
+          { url: "http://localhost:*/*" },
+          { url: "https://httpbin.org/*" },
+          { url: "https://api.github.com/*" },
+        ],
+      },
+    }),
+  )
   .window({
     label: "main",
     title: "Ztron M3",
@@ -111,6 +123,49 @@ new AppBuilder(runtime, "com.ztron.hello")
       );
     });
 
+    // P5: updater spike — serve a local manifest + verify sha256.
+    app.command("m3:updater-test", async () => {
+      const server = tjs.serve({
+        port: 0,
+        listenIp: "127.0.0.1",
+        fetch: async (req: { url: string }) => {
+          if (req.url.includes("latest.json")) {
+            return new Response(
+              JSON.stringify({
+                version: "1.2.0",
+                notes: "test update",
+                platforms: {
+                  darwin: { url: "https://httpbin.org/bytes/16", sha256: "" },
+                },
+              }),
+              { headers: { "Content-Type": "application/json" } },
+            );
+          }
+          return new Response("not found", { status: 404 });
+        },
+      });
+      const manifestUrl = `http://127.0.0.1:${server.port}/latest.json`;
+
+      // 1. check: current 0.1.0 vs manifest 1.2.0 -> hasUpdate
+      const resp = await fetch(manifestUrl);
+      const manifest = JSON.parse(await resp.text()) as { version: string };
+      const hasUpdate = compareVersions(manifest.version, "0.1.0") > 0;
+
+      // 2. verify: sha256 of a known file
+      const probe = `${tjs.tmpDir}/ztron_updater_probe.txt`;
+      await tjs.writeFile(probe, "update-me");
+      const bytes = new Uint8Array(await tjs.readFile(probe));
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      const hex = [...new Uint8Array(digest)]
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      const verifyOk =
+        hex ===
+        "5bf04d1e8b222b899c65ae02ad3e394eab758a3ea4e8d69390b99c80072a8f6a";
+      server.close();
+      return { hasUpdate, verifyOk };
+    });
+
     app.command("m3:report", (_args, ctx) => {
       const { received } = _args as { received?: string };
       console.log(`[m3] frontend reported: "${received}"`);
@@ -118,9 +173,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 17) {
+      if (done.size >= 18) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/win/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/win/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

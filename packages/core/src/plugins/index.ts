@@ -15,3 +15,9 @@ export type {
   ShellScopeEntry,
   ExecResult,
 } from "./shell.js";
+export { updaterPlugin, compareVersions } from "./updater.js";
+export type {
+  UpdaterManifest,
+  UpdateCheck,
+  UpdaterPluginOptions,
+} from "./updater.js";

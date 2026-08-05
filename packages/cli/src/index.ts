@@ -570,6 +570,33 @@ async function packMacApp(o: PackOptions): Promise<void> {
     launcherScript(o.appName, o.invokeKey),
   );
 
+  // Optional ad-hoc signing (no Apple identity): makes the bundle runnable
+  // on the same machine without gatekeeper prompts. Set ZTRON_SIGN_IDENTITY
+  // to a real identity (e.g. "Developer ID Application: …") for distribution.
+  if (process.platform === "darwin") {
+    const identity = process.env.ZTRON_SIGN_IDENTITY ?? "-";
+    const codesign = spawnSync(
+      "codesign",
+      [
+        "--force",
+        "--deep",
+        "--sign",
+        identity,
+        join(o.outDir, `${o.appName}.app`),
+      ],
+      { encoding: "utf8" },
+    );
+    if (codesign.status !== 0) {
+      console.warn(
+        `[ztron] codesign warning: ${(codesign.stderr ?? "").trim().slice(0, 200)}`,
+      );
+    } else {
+      console.log(
+        `[ztron] signed ${o.appName}.app (${identity === "-" ? "ad-hoc" : identity})`,
+      );
+    }
+  }
+
   console.log(`[ztron] packaged: ${join(o.outDir, `${o.appName}.app`)}`);
 }
 

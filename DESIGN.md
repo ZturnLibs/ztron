@@ -409,3 +409,22 @@ ZtronApp.app/Contents/
 
 ### 剩余(WebDriver 集成测试)
 - 端到端 WebDriver 测试(host + 真实 webview)尚未做,列 P5/后续
+
+## 23. P5 结论(updater + 签名 + 跨平台骨架,已验证)
+
+### 验证通过 ✅(`UPDATER_OK`,18 项 FULL_OK)
+- **updater 插件**:check(版本比较)/download(fetch+写文件)/verify(sha256)
+  - tjs 能力确认:`crypto.subtle.digest("SHA-256")` + `fetch().arrayBuffer()` 均可用
+  - spike:本地 `tjs.serve` manifest server(version 1.2.0 vs current 0.1.0)→ hasUpdate;sha256 校验 "update-me" 匹配
+- **macOS ad-hoc 签名**:CLI build 后 `codesign --force --deep --sign -`;`ZTRON_SIGN_IDENTITY` 可换正式身份
+- **Win/Linux host 骨架**:`host_win.c`(WebView2 + Win32)/`host_linux.c`(WebKitGTK)——协议与 host.c 一致,runtime-ffi 无需改动;待目标平台编译验证
+
+### 关键发现
+1. `tjs.serve({port, listenIp, fetch})` 返回 `{ port, close }`(`.port` 属性,非 opened)
+2. updater manifest 格式与 Tauri 对齐:`{ version, platforms: { darwin: { url, sha256 } } }`
+3. 跨平台解耦已验证:runtime-ffi 的 HostRuntime 只依赖 socket 协议,后端平台只需换 host 二进制
+
+### 剩余(需目标平台)
+- Windows:WebView2 SDK 编译、NSIS/MSI 打包
+- Linux:WebKitGTK 编译、AppImage/deb 打包
+- 正式签名/公证(Developer ID / notarize)、移动端

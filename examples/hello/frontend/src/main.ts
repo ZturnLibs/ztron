@@ -136,8 +136,17 @@ async function main(): Promise<void> {
     const result = await shell.execute("echo", ["hello-shell"]);
     if (result.stdout.trim() === "hello-shell") {
       report("SHELL_OK:" + result.stdout.trim());
+    }
+
+    // 5g. updater (local manifest server + sha256 verify)
+    const up = await invoke<{ hasUpdate: boolean; verifyOk: boolean }>(
+      "m3:updater-test",
+      {},
+    );
+    if (up.hasUpdate && up.verifyOk) {
+      report("UPDATER_OK");
     } else {
-      report("SHELL_FAIL:" + result.stdout.trim());
+      report("UPDATER_FAIL:" + JSON.stringify(up));
     }
 
     // 6. window states + events through the api

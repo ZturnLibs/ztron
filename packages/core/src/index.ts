@@ -33,6 +33,8 @@ export {
   storePlugin,
   logPlugin,
   shellPlugin,
+  updaterPlugin,
+  compareVersions,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -46,6 +48,9 @@ export type {
   ShellPluginOptions,
   ShellScopeEntry,
   ExecResult,
+  UpdaterManifest,
+  UpdateCheck,
+  UpdaterPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
