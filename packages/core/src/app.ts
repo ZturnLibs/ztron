@@ -94,6 +94,9 @@ export class App {
     this.#adapter.globalShortcut?.onEvent((event) => {
       this.emit("tauri://global-shortcut", event);
     });
+    this.#adapter.deepLink?.onEvent((url) => {
+      this.emit("tauri://deep-link", { url });
+    });
 
     this.registerBuiltinCommands();
 
@@ -146,6 +149,7 @@ export class App {
       "plugin:notification|send",
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
+      "plugin:deep-link|get_last_url",
       "plugin:tray|create",
       "plugin:tray|set_title",
       "plugin:tray|set_tooltip",
@@ -321,6 +325,8 @@ export class App {
         const { id } = args as { id: string };
         return this.#adapter.globalShortcut?.unregister(id) ?? false;
       },
+      "plugin:deep-link|get_last_url": () =>
+        this.#adapter.deepLink?.getLastUrl() ?? null,
       "plugin:tray|create": (args) => {
         this.#adapter.tray?.apply("create", args as { title?: string });
       },

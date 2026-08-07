@@ -57,7 +57,8 @@
 - [x] clipboard(`CLIPBOARD_OK`,host 三平台 NSPasteboard/Win32/GTK)
 - [x] positioner · window-state · notification(`POSITIONER_OK`/`WINDOW_STATE_PLUGIN_OK`/`NOTIFICATION_OK`)
 - [x] global-shortcut · single-instance(`SHORTCUT_OK`/`SINGLE_INSTANCE_OK`;spike 27 项)
-- [ ] deep-link 及更偏门插件(按需;deep-link 需 bundle Info.plist CFBundleURLTypes)
+- [x] deep-link(macOS kAEGetURL + CFBundleURLTypes;dev 管线 `DEEP_LINK_OK`,打包版可 `open ztron://`)
+- [ ] 更偏门插件(按需)
 
 ### P4 开发者体验
 

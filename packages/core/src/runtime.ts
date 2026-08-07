@@ -188,6 +188,14 @@ export interface GlobalShortcutController {
   onEvent(cb: (event: { shortcutId: string }) => void): void;
 }
 
+/** Deep-link controller provided by the runtime backend. */
+export interface DeepLinkController {
+  /** Registers a handler for `app://...` URLs opened via the OS. */
+  onEvent(cb: (url: string) => void): void;
+  /** The most recent deep-link URL (null when launched normally). */
+  getLastUrl(): string | null;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -203,4 +211,6 @@ export interface RuntimeAdapter {
   notification?: NotificationController;
   /** Optional global shortcuts. */
   globalShortcut?: GlobalShortcutController;
+  /** Optional deep-link (custom URL scheme) support. */
+  deepLink?: DeepLinkController;
 }

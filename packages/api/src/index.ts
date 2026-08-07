@@ -119,3 +119,4 @@ export {
   isPrimaryInstance,
   onSecondInstance,
 } from "./single-instance.js";
+export { deepLink, getCurrentUrl, onDeepLink } from "./deep-link.js";

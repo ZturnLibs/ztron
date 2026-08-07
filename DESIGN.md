@@ -670,3 +670,14 @@ ZtronApp.app/Contents/
 - Linux:`gtk_widget_set_opacity` / RGBA visual+app_paintable / `gtk_window_set_decorated`
 - api `window.ts`:`setOpacity/setTransparent/setDecorations`
 - 验证:`OPACITY_OK`/`TRANSPARENT_OK`/`DECORATIONS_OK`;spike 30 项 FULL_OK(3 次稳定)
+
+## 33. deep-link 插件(macOS kAEGetURL,管线已验证)
+
+- host:AppleEvent handler(`kInternetEventClass`/`kAEGetURL`)→ 发 `deep_link` 消息;`LSRegisterURL` 注册当前可执行;embedded Info.plist 加 `CFBundleURLTypes`(ztron scheme)
+- core `DeepLinkController`(onEvent + getLastUrl)+ `plugin:deep-link|get_last_url`;触发时发 `tauri://deep-link` 事件
+- api `deep-link.ts`(`getCurrentUrl` / `onDeepLink`)
+- 打包 app Info.plist 也加 `CFBundleURLTypes`(CLI appInfoPlist)→ `open "ztron://..."` 可用
+- **验证**:
+  - dev spike:`DEEP_LINK_OK`(管线:get_last_url 返回 null、onDeepLink 可注册),31 项 FULL_OK
+  - 打包 app:`lsregister` 注册后 `open "ztron://..."` 退出 0(scheme 已认领)
+  - **已知限制**:脚本启动的裸二进制/dev 无法认领 scheme(LaunchServices 只认 bundle);URL 投递到"已运行实例"依赖启动方式(脚本启动的实例 `open` 会另起新实例)—— 标准 macOS 行为,非代码 bug

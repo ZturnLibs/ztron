@@ -80,6 +80,7 @@ export type {
   NotificationController,
   NotificationOptions,
   GlobalShortcutController,
+  DeepLinkController,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

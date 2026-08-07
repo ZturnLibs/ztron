@@ -663,6 +663,17 @@ function appInfoPlist(appName: string): string {
   <string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.ztron.${appName.toLowerCase()}.deeplink</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>ztron</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>
 `;

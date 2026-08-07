@@ -8,6 +8,7 @@
  */
 import type {
   ClipboardController,
+  DeepLinkController,
   DialogController,
   GlobalShortcutController,
   MenuController,
@@ -147,6 +148,8 @@ export class HostRuntime implements RuntimeAdapter {
   #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
     null;
   #shortcutEventCb: ((event: { shortcutId: string }) => void) | null = null;
+  #deepLinkCb: ((url: string) => void) | null = null;
+  #lastDeepLink: string | null = null;
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
 
@@ -273,6 +276,14 @@ export class HostRuntime implements RuntimeAdapter {
     },
   };
 
+  /** Deep-link controller (implements `RuntimeAdapter.deepLink`). */
+  readonly deepLink: DeepLinkController = {
+    onEvent: (cb) => {
+      this.#deepLinkCb = cb;
+    },
+    getLastUrl: () => this.#lastDeepLink,
+  };
+
   constructor(options: HostRuntimeOptions) {
     this.#host = options.host ?? "127.0.0.1";
     this.#port = options.port;
@@ -351,6 +362,11 @@ export class HostRuntime implements RuntimeAdapter {
       }
       case "shortcut_event": {
         this.#shortcutEventCb?.({ shortcutId: String(msg.shortcut_id) });
+        break;
+      }
+      case "deep_link": {
+        this.#lastDeepLink = String(msg.url ?? "");
+        this.#deepLinkCb?.(this.#lastDeepLink);
         break;
       }
       case "query_result": {

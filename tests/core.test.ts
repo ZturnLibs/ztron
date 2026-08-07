@@ -72,6 +72,12 @@ test("global-shortcut commands route to the controller", async () => {
   assert.deepEqual(mock.shortcutUnregisters, ["toggle"]);
 });
 
+test("deep-link get_last_url routes to the controller", async () => {
+  const { mock } = buildApp();
+  const last = await mock.main.invoke("plugin:deep-link|get_last_url", {});
+  assert.equal(last, null);
+});
+
 test("window-state plugin saves and restores geometry", async () => {
   // Stub the txiki `tjs` global with an in-memory fs for the plugin.
   const files = new Map<string, string>();

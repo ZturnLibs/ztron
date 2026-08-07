@@ -11,6 +11,7 @@
  * ```
  */
 import type {
+  DeepLinkController,
   GlobalShortcutController,
   RuntimeAdapter,
   WebviewHandle,
@@ -153,6 +154,11 @@ export class MockRuntime implements RuntimeAdapter {
       return Promise.resolve(true);
     },
     onEvent: () => {},
+  };
+
+  deepLink: DeepLinkController = {
+    onEvent: () => {},
+    getLastUrl: () => null,
   };
 
   createWindow(config: WindowConfig): WebviewHandle {

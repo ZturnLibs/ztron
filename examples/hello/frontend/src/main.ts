@@ -31,6 +31,7 @@ import {
   registerShortcut,
   unregisterShortcut,
   isPrimaryInstance,
+  onDeepLink,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -47,6 +48,13 @@ function extractError(e: unknown): string {
 
 async function main(): Promise<void> {
   const report = (received: string) => invoke("m3:report", { received });
+
+  // Register the deep-link listener early so an externally-opened ztron://
+  // URL (packaged .app, registered via CFBundleURLTypes) is captured at any
+  // point during the run.
+  await onDeepLink((url) => {
+    if (url.includes("spike")) report("DEEP_LINK_EVENT:" + url);
+  });
 
   try {
     // 0. codegen'd typed invoke (from ztron codegen)
@@ -295,6 +303,20 @@ async function main(): Promise<void> {
     // 11. single-instance (this process holds the lock)
     const primary = await isPrimaryInstance();
     if (primary) report("SINGLE_INSTANCE_OK");
+
+    // 12. deep-link: command plumbing. OS routing of ztron:// needs a bundle
+    // registered with CFBundleURLTypes (the packaged .app); the dev bare
+    // binary cannot claim a scheme, so here we verify the plumbing. A real
+    // URL delivered during the run is reported as DEEP_LINK_EVENT.
+    const lastUrl = await invoke<string | null>(
+      "plugin:deep-link|get_last_url",
+      {},
+    );
+    if (lastUrl === null) {
+      report("DEEP_LINK_OK");
+    } else {
+      report("DEEP_LINK_FAIL:" + String(lastUrl));
+    }
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

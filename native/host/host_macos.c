@@ -12,6 +12,7 @@
 #include <objc/runtime.h>
 #include <objc/message.h>
 #include <Carbon/Carbon.h>
+#include <mach-o/dyld.h>
 
 #include "host_platform.h"
 
@@ -241,6 +242,55 @@ static int shortcut_unregister(const char *name) {
     }
   }
   return 0;
+}
+
+/* ---- deep links (kAEGetURL AppleEvent) ---- */
+
+static OSErr ae_geturl_handler(const AppleEvent *ev, AppleEvent *reply,
+                               SRefCon ref) {
+  (void)reply;
+  (void)ref;
+  AEDesc desc;
+  if (AEGetParamDesc(ev, keyDirectObject, typeChar, &desc) == noErr) {
+    Size len = AEGetDescDataSize(&desc);
+    if (len > 0) {
+      char *buf = (char *)malloc((size_t)len + 1);
+      if (buf) {
+        AEGetDescData(&desc, buf, len);
+        buf[len] = '\0';
+        char out[8192];
+        char *p = out;
+        p += sprintf(p, "{\"type\":\"deep_link\",\"url\":\"");
+        for (char *s = buf; *s; s++) {
+          if (*s == '"' || *s == '\\') *p++ = '\\';
+          *p++ = *s;
+        }
+        *p++ = '"';
+        *p++ = '}';
+        *p = '\0';
+        zt_send_line(out);
+        free(buf);
+      }
+    }
+    AEDisposeDesc(&desc);
+  }
+  return noErr;
+}
+
+static void install_deep_link_handler(void) {
+  AEInstallEventHandler(kInternetEventClass, kAEGetURL,
+                        NewAEEventHandlerUPP(ae_geturl_handler), 0, 0);
+  /* Register the `ztron` scheme so `open "ztron://..."` routes here. */
+  char path[4096];
+  uint32_t size = sizeof(path);
+  if (_NSGetExecutablePath(path, &size) == 0) {
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(
+        NULL, (const UInt8 *)path, strlen(path), false);
+    if (url) {
+      LSRegisterURL(url, true);
+      CFRelease(url);
+    }
+  }
 }
 
 /* ---- helpers ---- */
@@ -658,6 +708,7 @@ static int init(void) {
   install_window_delegate();
   install_tray_target();
   install_menu_target();
+  install_deep_link_handler();
   return 1;
 }
 
