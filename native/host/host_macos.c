@@ -276,6 +276,7 @@ static int is_window_op(const char *t) {
       "is_maximized",   "is_minimized",  "set_fullscreen",
       "is_fullscreen",  "set_always_on_top", "center",
       "set_focus",      "set_visible",   "set_resizable",
+      "set_opacity",    "set_transparent", "set_decorations",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -318,6 +319,25 @@ static void handle_window_op(Msg *m) {
     unsigned long mask = wnd_style_mask(wnd);
     wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_RESIZABLE_MASK)
                                         : (mask & ~NS_RESIZABLE_MASK));
+  } else if (strcmp(m->type, "set_opacity") == 0) {
+    OBJC_MSG(void(*)(id, SEL, double), wnd, sel_registerName("setAlphaValue:"),
+             m->opacity_val);
+  } else if (strcmp(m->type, "set_transparent") == 0) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), wnd, sel_registerName("setOpaque:"),
+             m->bool_val ? NO : YES);
+    OBJC_MSG(void(*)(id, SEL, BOOL), wnd, sel_registerName("setHasShadow:"),
+             m->bool_val ? NO : YES);
+    id bg = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSColor"),
+                     sel_registerName(m->bool_val ? "clearColor"
+                                                  : "windowBackgroundColor"));
+    OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setBackgroundColor:"),
+             bg);
+  } else if (strcmp(m->type, "set_decorations") == 0) {
+    unsigned long mask = wnd_style_mask(wnd);
+    /* Titled | Closable | Miniaturizable | Resizable | FullSizeContentView */
+    unsigned long deco_mask = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 15);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask | deco_mask)
+                                        : (mask & ~deco_mask));
   }
 
   if (m->req_id >= 0) {

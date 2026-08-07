@@ -213,6 +213,16 @@ async function main(): Promise<void> {
     await win.center();
     if (maximized === false && fullscreen === false) report("WIN_STATE_OK");
 
+    // 6a. window appearance (opacity/transparent/decorations round trip)
+    await win.setOpacity(0.5);
+    report("OPACITY_OK");
+    await win.setTransparent(true);
+    await win.setTransparent(false);
+    report("TRANSPARENT_OK");
+    await win.setDecorations(false);
+    await win.setDecorations(true);
+    report("DECORATIONS_OK");
+
     // 6b. positioner (setPosition/getPosition round trip)
     await setPosition(120, 140);
     const pos = await getPosition();

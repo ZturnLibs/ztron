@@ -86,6 +86,10 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }
 
+  setOpacity(opacity: number): void {
+    this.#rt.send({ type: "set_opacity", label: this.label, opacity });
+  }
+
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
     const query = op.startsWith("is_");
     if (query) {

@@ -36,7 +36,10 @@ export type WindowStateOp =
   | "center"
   | "set_focus"
   | "set_visible"
-  | "set_resizable";
+  | "set_resizable"
+  | "set_opacity"
+  | "set_transparent"
+  | "set_decorations";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
@@ -69,6 +72,8 @@ export interface WebviewHandle {
   getFrame(): Promise<WindowFrame | null>;
   /** Moves the native window to the given origin. */
   setPosition(x: number, y: number): void;
+  /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
+  setOpacity(opacity: number): void;
   /**
    * Applies a window state operation. Query ops (`is_*`) resolve to the
    * native boolean; mutation ops resolve immediately.

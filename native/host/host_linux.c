@@ -57,6 +57,7 @@ static int is_window_op(const char *t) {
       "is_maximized",     "is_minimized",    "set_fullscreen",
       "is_fullscreen",    "set_always_on_top", "center",
       "set_focus",        "set_visible",     "set_resizable",
+      "set_opacity",      "set_transparent", "set_decorations",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++)
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -97,6 +98,15 @@ static void handle_window_op(Msg *m) {
     else gtk_widget_hide(GTK_WIDGET(w));
   } else if (strcmp(m->type, "set_resizable") == 0) {
     gtk_window_set_resizable(w, m->bool_val);
+  } else if (strcmp(m->type, "set_opacity") == 0) {
+    gtk_widget_set_opacity(GTK_WIDGET(w), m->opacity_val);
+  } else if (strcmp(m->type, "set_transparent") == 0) {
+    GdkScreen *screen = gtk_widget_get_screen(GTK_WIDGET(w));
+    GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
+    if (visual) gtk_widget_set_visual(GTK_WIDGET(w), visual);
+    gtk_widget_set_app_paintable(GTK_WIDGET(w), m->bool_val);
+  } else if (strcmp(m->type, "set_decorations") == 0) {
+    gtk_window_set_decorated(w, m->bool_val);
   }
 
   if (m->req_id >= 0) zt_reply_query(m->req_id, result ? "true" : "false");

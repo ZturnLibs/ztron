@@ -75,6 +75,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.frame.y = y;
   }
 
+  opacityLog: number[] = [];
+
+  setOpacity(opacity: number): void {
+    this.opacityLog.push(opacity);
+  }
+
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
     this.windowStateLog.push({ op, value });
     return op.startsWith("is_") ? false : true;

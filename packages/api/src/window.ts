@@ -111,6 +111,30 @@ export class Window {
     });
   }
 
+  /** Sets the window opacity, 0.0 (transparent) to 1.0 (opaque). */
+  async setOpacity(opacity: number): Promise<void> {
+    await invoke("plugin:window|set_opacity", {
+      label: this.label,
+      opacity,
+    });
+  }
+
+  /** Toggles a transparent window background. */
+  async setTransparent(transparent: boolean): Promise<void> {
+    await invoke("plugin:window|set_transparent", {
+      label: this.label,
+      transparent,
+    });
+  }
+
+  /** Toggles native window decorations (title bar / borders). */
+  async setDecorations(decorations: boolean): Promise<void> {
+    await invoke("plugin:window|set_decorations", {
+      label: this.label,
+      decorations,
+    });
+  }
+
   // ---- window events (listen to `tauri://*`) ----
 
   private async onEvent<T>(

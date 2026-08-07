@@ -68,6 +68,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window position) */
   }
 
+  setOpacity(): void {
+    /* no-op (host adapter provides window opacity) */
+  }
+
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
     op: import("@ztron/core").WindowStateOp,

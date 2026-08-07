@@ -660,3 +660,13 @@ ZtronApp.app/Contents/
 
 - 新增 SHORTCUT_OK + SINGLE_INSTANCE_OK;阈值 27,连续 4 次全绿
 - `ztron build` 打包回归:产物含 CSP、launcher 可执行、运行 26/27(script 启动缺 WIN_EVENT,见上)
+
+## 32. 补充:窗口外观(set_opacity / transparent / decorations,已验证)
+
+- `plugin:window|set_opacity`(0.0–1.0,Msg 加 `double opacity_val` + `zt_json_double` 解析)
+- `plugin:window|set_transparent` / `set_decorations`(bool,走 `windowState`)
+- macOS:`setAlphaValue:` / `setOpaque:`+`setBackgroundColor:` / `setStyleMask`(去/加 Titled|Closable|Miniaturizable|Resizable|FullSizeContentView)
+- Windows:`SetLayeredWindowAttributes(LWA_ALPHA)` / `WS_EX_TRANSPARENT` / `WS_OVERLAPPEDWINDOW`
+- Linux:`gtk_widget_set_opacity` / RGBA visual+app_paintable / `gtk_window_set_decorated`
+- api `window.ts`:`setOpacity/setTransparent/setDecorations`
+- 验证:`OPACITY_OK`/`TRANSPARENT_OK`/`DECORATIONS_OK`;spike 30 项 FULL_OK(3 次稳定)

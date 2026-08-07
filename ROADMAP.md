@@ -32,7 +32,7 @@
 
 ### P0 让它像桌面应用(C 层攻坚)
 
-- [x] **P0.1 窗口状态 + 事件**:min/max/fullscreen/alwaysOnTop/center/focus/visible;resize/move/focus/blur/close → `tauri://*`(`WIN_STATE_OK` + `WIN_EVENT_OK`)
+- [x] **P0.1 窗口状态 + 事件**:min/max/fullscreen/alwaysOnTop/center/focus/visible/opacity/transparent/decorations;resize/move/focus/blur/close → `tauri://*`(`WIN_STATE_OK` + `WIN_EVENT_OK` + `OPACITY_OK`/`TRANSPARENT_OK`/`DECORATIONS_OK`)
 - [x] **P0.2 Tray**:host NSStatusItem/Shell_NotifyIcon → `plugin:tray|*`(`TRAY_OK`)
 - [x] **P0.3 Menu**:host 菜单栏 → api `menu.ts`(`MENU_OK`)
 - [x] **P0.4 Dialog**:NSOpenPanel/NSSavePanel/NSAlert → `plugin:dialog|open/save/message`(`DIALOG_REG_OK`)

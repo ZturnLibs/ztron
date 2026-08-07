@@ -78,6 +78,17 @@ int zt_json_int(const char *json, const char *key, int def) {
   return atoi(p);
 }
 
+double zt_json_double(const char *json, const char *key, double def) {
+  char pat[128];
+  snprintf(pat, sizeof(pat), "\"%s\"", key);
+  const char *p = strstr(json, pat);
+  if (!p) return def;
+  p = strchr(p + strlen(pat), ':');
+  if (!p) return def;
+  p = skip_ws(p + 1);
+  return atof(p);
+}
+
 /* ---- socket bridge ---- */
 
 static int g_fd = -1;
@@ -159,6 +170,7 @@ static void *socket_thread(void *arg) {
     m->y = zt_json_int(line, "y", 0);
     m->req_id = zt_json_int(line, "req_id", -1);
     m->bool_val = zt_json_int(line, "value", 0);
+    m->opacity_val = zt_json_double(line, "opacity", 0);
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_int(line, "enabled", m->status);
 

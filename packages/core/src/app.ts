@@ -137,6 +137,9 @@ export class App {
       "plugin:window|set_focus",
       "plugin:window|set_visible",
       "plugin:window|set_resizable",
+      "plugin:window|set_opacity",
+      "plugin:window|set_transparent",
+      "plugin:window|set_decorations",
       "plugin:window|get_frame",
       "plugin:window|get_position",
       "plugin:window|set_position",
@@ -276,6 +279,22 @@ export class App {
         ctx.webview.windowState(
           "set_resizable",
           Boolean((args as { resizable?: boolean }).resizable),
+        );
+      },
+      "plugin:window|set_opacity": (args, ctx) => {
+        const { opacity } = args as { opacity: number };
+        ctx.webview.setOpacity(Number(opacity));
+      },
+      "plugin:window|set_transparent": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_transparent",
+          Boolean((args as { transparent?: boolean }).transparent),
+        );
+      },
+      "plugin:window|set_decorations": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_decorations",
+          Boolean((args as { decorations?: boolean }).decorations),
         );
       },
       "plugin:window|get_frame": async (_args, ctx) => ctx.webview.getFrame(),

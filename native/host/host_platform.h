@@ -37,6 +37,7 @@ typedef struct Msg_ {
   int y;
   int req_id;   /* request id for window-state queries (-1 = no reply) */
   int bool_val; /* boolean argument for set_* window ops */
+  double opacity_val; /* window opacity 0.0..1.0 */
 } Msg;
 
 /* ---- shared runtime state (defined in host.c) ---- */

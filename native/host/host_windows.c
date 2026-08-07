@@ -65,6 +65,7 @@ static int is_window_op(const char *t) {
       "is_maximized",     "is_minimized",    "set_fullscreen",
       "is_fullscreen",    "set_always_on_top", "center",
       "set_focus",        "set_visible",     "set_resizable",
+      "set_opacity",      "set_transparent", "set_decorations",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++)
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -128,6 +129,20 @@ static void handle_window_op(Msg *m) {
     LONG_PTR style = GetWindowLongPtr(w, GWL_STYLE);
     if (m->bool_val) style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
     else style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    SetWindowLongPtr(w, GWL_STYLE, style);
+  } else if (strcmp(m->type, "set_opacity") == 0) {
+    SetWindowLongPtr(w, GWL_EXSTYLE,
+                     GetWindowLongPtr(w, GWL_EXSTYLE) | WS_EX_LAYERED);
+    SetLayeredWindowAttributes(w, 0, (BYTE)(m->opacity_val * 255), LWA_ALPHA);
+  } else if (strcmp(m->type, "set_transparent") == 0) {
+    LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
+    if (m->bool_val) ex |= WS_EX_LAYERED | WS_EX_TRANSPARENT;
+    else ex &= ~(WS_EX_LAYERED | WS_EX_TRANSPARENT);
+    SetWindowLongPtr(w, GWL_EXSTYLE, ex);
+  } else if (strcmp(m->type, "set_decorations") == 0) {
+    LONG_PTR style = GetWindowLongPtr(w, GWL_STYLE);
+    if (m->bool_val) style |= WS_OVERLAPPEDWINDOW;
+    else style &= ~WS_OVERLAPPEDWINDOW;
     SetWindowLongPtr(w, GWL_STYLE, style);
   }
 
