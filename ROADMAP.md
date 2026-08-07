@@ -1,6 +1,7 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4(运行时/IPC/事件/插件/能力层/前端/打包最小闭环)。
+> Ztron 已完成 M0–M4 + P0–P5 全部可在本机验证的项(spike 30 项确定性 FULL_OK,
+> 另有 WIN_EVENT_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
 ## 1. 能力差距矩阵
