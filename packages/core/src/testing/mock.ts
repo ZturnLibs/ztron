@@ -11,6 +11,7 @@
  * ```
  */
 import type {
+  GlobalShortcutController,
   RuntimeAdapter,
   WebviewHandle,
   WindowConfig,
@@ -58,6 +59,8 @@ export class MockWebviewHandle implements WebviewHandle {
 
   setSize(w: number, h: number): void {
     this.sizeLog.push({ w, h });
+    this.frame.width = w;
+    this.frame.height = h;
   }
 
   frame: WindowFrame = { x: 100, y: 120, width: 900, height: 640 };
@@ -130,6 +133,21 @@ export class MockWebviewHandle implements WebviewHandle {
 /** A mock RuntimeAdapter for tests. */
 export class MockRuntime implements RuntimeAdapter {
   handles: MockWebviewHandle[] = [];
+  shortcutRegisters: Array<{ id: string; accelerator: string }> = [];
+  shortcutUnregisters: string[] = [];
+
+  /** Records global-shortcut register/unregister calls. */
+  readonly globalShortcut: GlobalShortcutController = {
+    register: (id, accelerator) => {
+      this.shortcutRegisters.push({ id, accelerator });
+      return Promise.resolve(true);
+    },
+    unregister: (id) => {
+      this.shortcutUnregisters.push(id);
+      return Promise.resolve(true);
+    },
+    onEvent: () => {},
+  };
 
   createWindow(config: WindowConfig): WebviewHandle {
     const handle = new MockWebviewHandle(config.label);

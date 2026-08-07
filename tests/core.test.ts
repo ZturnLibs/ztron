@@ -12,6 +12,7 @@ import {
   MockRuntime,
   defineCommand,
   PathScope,
+  windowStatePlugin,
 } from "../packages/core/dist/index.js";
 
 function buildApp(
@@ -44,6 +45,65 @@ test("window state commands route through the handle", async () => {
   await mock.main.invoke("plugin:window|set_title", { title: "New Title" });
   assert.equal(mock.main.windowStateLog[0]?.op, "minimize");
   assert.deepEqual(mock.main.titleLog, ["New Title"]);
+});
+
+test("positioner commands route through the handle frame", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:window|set_position", { x: 30, y: 40 });
+  assert.deepEqual(mock.main.positionLog, [{ x: 30, y: 40 }]);
+  const frame = await mock.main.invoke("plugin:window|get_frame", {});
+  assert.deepEqual(frame, { x: 30, y: 40, width: 900, height: 640 });
+});
+
+test("global-shortcut commands route to the controller", async () => {
+  const { mock } = buildApp();
+  const ok = await mock.main.invoke("plugin:global-shortcut|register", {
+    id: "toggle",
+    accelerator: "Cmd+Shift+K",
+  });
+  assert.equal(ok, true);
+  assert.deepEqual(mock.shortcutRegisters, [
+    { id: "toggle", accelerator: "Cmd+Shift+K" },
+  ]);
+  const un = await mock.main.invoke("plugin:global-shortcut|unregister", {
+    id: "toggle",
+  });
+  assert.equal(un, true);
+  assert.deepEqual(mock.shortcutUnregisters, ["toggle"]);
+});
+
+test("window-state plugin saves and restores geometry", async () => {
+  // Stub the txiki `tjs` global with an in-memory fs for the plugin.
+  const files = new Map<string, string>();
+  (globalThis as Record<string, unknown>).tjs = {
+    tmpDir: "/tmp",
+    readFile: async (p: string) =>
+      new TextEncoder().encode(files.get(p) ?? "{}"),
+    writeFile: async (p: string, data: string | Uint8Array) => {
+      files.set(p, new TextDecoder().decode(data));
+    },
+  };
+
+  const { mock } = buildApp((b) =>
+    b.plugin(windowStatePlugin({ file: "/tmp/ws.json" })),
+  );
+  await mock.main.invoke("plugin:window|set_position", { x: 55, y: 66 });
+  const saved = await mock.main.invoke("plugin:window-state|save", {});
+  assert.deepEqual(saved, { x: 55, y: 66, width: 900, height: 640 });
+
+  // Move away, restore, and confirm the handle re-applies the saved geometry.
+  await mock.main.invoke("plugin:window|set_position", { x: 200, y: 200 });
+  const restored = await mock.main.invoke("plugin:window-state|restore", {});
+  assert.deepEqual(restored, { x: 55, y: 66, width: 900, height: 640 });
+  assert.deepEqual(mock.main.positionLog[mock.main.positionLog.length - 1], {
+    x: 55,
+    y: 66,
+  });
+  assert.deepEqual(mock.main.sizeLog[mock.main.sizeLog.length - 1], {
+    w: 900,
+    h: 640,
+  });
+  delete (globalThis as Record<string, unknown>).tjs;
 });
 
 test("ACL: command outside capability is denied", async () => {
