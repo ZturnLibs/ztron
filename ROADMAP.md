@@ -56,7 +56,8 @@
 - [x] sql(tjs:sqlite)· autostart(`SQL_OK` + `AUTOSTART_OK`)
 - [x] clipboard(`CLIPBOARD_OK`,host 三平台 NSPasteboard/Win32/GTK)
 - [x] positioner · window-state · notification(`POSITIONER_OK`/`WINDOW_STATE_PLUGIN_OK`/`NOTIFICATION_OK`)
-- [ ] 其余插件(single-instance/deep-link/global-shortcut 等)按需
+- [x] global-shortcut · single-instance(`SHORTCUT_OK`/`SINGLE_INSTANCE_OK`;spike 27 项)
+- [ ] deep-link 及更偏门插件(按需;deep-link 需 bundle Info.plist CFBundleURLTypes)
 
 ### P4 开发者体验
 

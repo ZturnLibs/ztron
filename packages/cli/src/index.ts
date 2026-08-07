@@ -15,6 +15,7 @@ import {
   mkdirSync,
   readFileSync,
   writeFileSync,
+  chmodSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
@@ -615,6 +616,7 @@ async function packMacApp(o: PackOptions): Promise<void> {
     join(macosDir, "ztron"),
     launcherScript(o.appName, o.invokeKey),
   );
+  chmodSync(join(macosDir, "ztron"), 0o755);
 
   // Optional ad-hoc signing (no Apple identity): makes the bundle runnable
   // on the same machine without gatekeeper prompts. Set ZTRON_SIGN_IDENTITY

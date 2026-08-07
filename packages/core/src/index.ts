@@ -38,6 +38,7 @@ export {
   sqlPlugin,
   autostartPlugin,
   windowStatePlugin,
+  singleInstancePlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -57,6 +58,7 @@ export type {
   SqlPluginOptions,
   AutostartPluginOptions,
   WindowStatePluginOptions,
+  SingleInstancePluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
@@ -77,6 +79,7 @@ export type {
   ClipboardController,
   NotificationController,
   NotificationOptions,
+  GlobalShortcutController,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

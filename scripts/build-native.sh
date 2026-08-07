@@ -46,7 +46,7 @@ case "$(uname -s)" in
       -L "$NATIVE/libs" -lwebview \
       -pthread -Wl,-rpath,@loader_path \
       -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist" \
-      -framework Foundation -framework AppKit
+      -framework Foundation -framework AppKit -framework Carbon
     ;;
   Linux)
     cc -Wall -Werror "$NATIVE/host/host.c" "$NATIVE/host/host_linux.c" \

@@ -14,6 +14,7 @@
     "updater:default",
     "sql:default",
     "autostart:default",
-    "window-state:write"
+    "window-state:write",
+    "single-instance:default"
   ]
 }

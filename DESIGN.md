@@ -632,3 +632,31 @@ ZtronApp.app/Contents/
 ### spike:25 项 FULL_OK
 
 - 新增 POSITIONER_OK + WINDOW_STATE_PLUGIN_OK + NOTIFICATION_OK;阈值 25,连续 3 次全绿
+
+## 31. 补充:global-shortcut + single-instance 插件 + 打包修复(已验证)
+
+### global-shortcut ✅(`SHORTCUT_OK`)
+
+- host op:`shortcut_register` / `shortcut_unregister`(id→m->id、accelerator→str2)
+- macOS:Carbon `RegisterEventHotKey`/`UnregisterEventHotKey` + `kEventHotKeyPressed` 事件处理器(链接 `-framework Carbon`);accelerator 解析 `Cmd/Ctrl/Alt/Option/Shift + A-Z/0-9/F1-F12/Space`
+- Windows:`RegisterHotKey` + `WM_HOTKEY`(zt_proc);Linux:返回 false(X11 XGrabKey 未实现)
+- core `GlobalShortcutController` + 内建命令;触发时发 `tauri://global-shortcut` 事件;api `global-shortcut.ts`
+- 验证:register("Cmd+Shift+K") + unregister 均返回 true
+
+### single-instance 插件 ✅(`SINGLE_INSTANCE_OK`)
+
+- `singleInstancePlugin({ identifier })`:FNV-1a 把 identifier 哈希到 [20000,60000) 端口,`tjs.serve` 绑定
+  - 绑定成功 → 主实例;次实例连接时主实例发 `tauri://single-instance` + focus 窗口
+  - 绑定失败 → 次实例(向主实例发 HTTP GET 唤醒),`is_primary === false`
+- api `single-instance.ts`(`isPrimaryInstance` / `onSecondInstance`)
+
+### 打包修复
+
+- **launcher 无执行位 bug**:`packMacApp` 用 `writeFileSync` 写 `ztron` 启动脚本,不设 exec bit → `.app` 无法启动。修复:`chmodSync(0o755)`
+- **WIN_EVENT_OK 偶发回归**:P3 轮删掉 `win.setFocus()`,focus 事件完全依赖 hide/show 时序而偶发丢失。恢复 `setFocus()`(makeKeyAndOrderFront 确定性触发 windowDidBecomeKey),dev 4/4 稳定
+- **已知限制**:script 启动的裸二进制 .app(非 `open`)不激活 app → 窗口永不 key → WIN_EVENT 不发。`open`/Finder 启动时正常。属环境性,非代码 bug
+
+### spike:27 项 FULL_OK
+
+- 新增 SHORTCUT_OK + SINGLE_INSTANCE_OK;阈值 27,连续 4 次全绿
+- `ztron build` 打包回归:产物含 CSP、launcher 可执行、运行 26/27(script 启动缺 WIN_EVENT,见上)

@@ -108,3 +108,14 @@ export {
 export type { WindowState, WindowStateOptions } from "./window-state.js";
 export { notification, sendNotification } from "./notification.js";
 export type { NotificationOptions } from "./notification.js";
+export {
+  globalShortcut,
+  registerShortcut,
+  unregisterShortcut,
+  onShortcut,
+} from "./global-shortcut.js";
+export {
+  singleInstance,
+  isPrimaryInstance,
+  onSecondInstance,
+} from "./single-instance.js";

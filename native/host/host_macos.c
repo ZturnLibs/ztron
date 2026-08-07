@@ -7,9 +7,11 @@
  */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <objc/runtime.h>
 #include <objc/message.h>
+#include <Carbon/Carbon.h>
 
 #include "host_platform.h"
 
@@ -95,6 +97,150 @@ static void notification_send(const char *title, const char *body) {
   OBJC_MSG(void(*)(id, SEL, id), center, sel_registerName("deliverNotification:"),
            note);
   OBJC_MSG(void(*)(id, SEL), note, sel_registerName("release"));
+}
+
+/* ---- global shortcuts (Carbon RegisterEventHotKey) ---- */
+
+#define MAX_HOTKEYS 16
+
+typedef struct {
+  EventHotKeyRef ref;
+  int id;
+  char name[64];
+} HotKeyEntry;
+
+static HotKeyEntry g_hotkeys[MAX_HOTKEYS];
+static int g_hotkey_count = 0;
+static int g_hotkey_seq = 1;
+static EventHandlerUPP g_hotkey_handler = NULL;
+
+static OSStatus hotkey_cb(EventHandlerCallRef next, EventRef ev, void *user) {
+  (void)next;
+  (void)user;
+  EventHotKeyID hk;
+  if (GetEventParameter(ev, kEventParamDirectObject, typeEventHotKeyID, NULL,
+                        sizeof(hk), NULL, &hk) != noErr) {
+    return noErr;
+  }
+  for (int i = 0; i < g_hotkey_count; i++) {
+    if (g_hotkeys[i].id == (int)hk.id) {
+      char buf[512];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"shortcut_event\",\"shortcut_id\":\"%s\"}",
+               g_hotkeys[i].name);
+      zt_send_line(buf);
+      break;
+    }
+  }
+  return noErr;
+}
+
+static void ensure_hotkey_handler(void) {
+  if (g_hotkey_handler) return;
+  EventTypeSpec specs[] = {{kEventClassKeyboard, kEventHotKeyPressed}};
+  g_hotkey_handler = NewEventHandlerUPP(hotkey_cb);
+  InstallEventHandler(GetApplicationEventTarget(), g_hotkey_handler, 1, specs,
+                      NULL, NULL);
+}
+
+static int letter_keycode(char c) {
+  static const int codes[26] = {
+      0x00, 0x0B, 0x08, 0x02, 0x0E, 0x03, 0x05, 0x04, 0x22, 0x26, 0x28, 0x25,
+      0x2E, 0x2D, 0x1F, 0x23, 0x0C, 0x0F, 0x01, 0x11, 0x20, 0x09, 0x0D, 0x07,
+      0x10, 0x06};
+  if (c >= 'A' && c <= 'Z') return codes[c - 'A'];
+  return -1;
+}
+
+/* Parses "Cmd+Shift+K" / "F5" / "Ctrl+Alt+1" into Carbon keycode + modifiers. */
+static int parse_accelerator(const char *accel, UInt32 *mods, UInt32 *code) {
+  *mods = 0;
+  const char *key = accel;
+  char tmp[256];
+  snprintf(tmp, sizeof(tmp), "%s", accel);
+  char *save = NULL;
+  for (char *tok = strtok_r(tmp, "+", &save); tok;
+       tok = strtok_r(NULL, "+", &save)) {
+    if (!strcasecmp(tok, "cmd") || !strcasecmp(tok, "command") ||
+        !strcasecmp(tok, "super") || !strcasecmp(tok, "meta")) {
+      *mods |= cmdKey;
+      continue;
+    }
+    if (!strcasecmp(tok, "ctrl") || !strcasecmp(tok, "control")) {
+      *mods |= controlKey;
+      continue;
+    }
+    if (!strcasecmp(tok, "alt") || !strcasecmp(tok, "option")) {
+      *mods |= optionKey;
+      continue;
+    }
+    if (!strcasecmp(tok, "shift")) {
+      *mods |= shiftKey;
+      continue;
+    }
+    key = tok; /* last non-modifier token is the key */
+  }
+
+  if (strlen(key) == 1) {
+    char k = key[0];
+    if (k >= 'A' && k <= 'Z') {
+      *code = (UInt32)letter_keycode(k);
+      return *code != (UInt32)-1 ? 0 : -1;
+    }
+    if (k >= '0' && k <= '9') {
+      static const int digits[10] = {0x1D, 0x12, 0x13, 0x14, 0x15,
+                                     0x17, 0x16, 0x1A, 0x1C, 0x19};
+      *code = (UInt32)digits[k - '0'];
+      return 0;
+    }
+    if (k == ' ') { *code = 0x31; return 0; }
+    return -1;
+  }
+  if (key[0] == 'F' && key[1] >= '1' && key[1] <= '9' && !key[2]) {
+    static const int fkeys[10] = {0x7A, 0x78, 0x63, 0x76, 0x60,
+                                  0x61, 0x62, 0x64, 0x65};
+    *code = (UInt32)fkeys[key[1] - '1'];
+    return 0;
+  }
+  if (key[0] == 'F' && key[1] == '1' && key[2] >= '0' && key[2] <= '2' &&
+      !key[3]) {
+    static const int fkeys[3] = {0x6D, 0x67, 0x6F};
+    *code = (UInt32)fkeys[key[2] - '0'];
+    return 0;
+  }
+  return -1;
+}
+
+static int shortcut_register(const char *name, const char *accel) {
+  if (g_hotkey_count >= MAX_HOTKEYS) return 0;
+  UInt32 mods = 0, code = 0;
+  if (parse_accelerator(accel, &mods, &code) != 0) return 0;
+  ensure_hotkey_handler();
+  EventHotKeyID hkid;
+  hkid.signature = 'Ztrn';
+  hkid.id = (UInt32)g_hotkey_seq++;
+  EventHotKeyRef ref = NULL;
+  if (RegisterEventHotKey(code, mods, hkid, GetApplicationEventTarget(), 0,
+                          &ref) != noErr) {
+    return 0;
+  }
+  g_hotkeys[g_hotkey_count].ref = ref;
+  g_hotkeys[g_hotkey_count].id = hkid.id;
+  snprintf(g_hotkeys[g_hotkey_count].name, sizeof(g_hotkeys[0].name), "%s",
+           name);
+  g_hotkey_count++;
+  return 1;
+}
+
+static int shortcut_unregister(const char *name) {
+  for (int i = 0; i < g_hotkey_count; i++) {
+    if (strcmp(g_hotkeys[i].name, name) == 0) {
+      UnregisterEventHotKey(g_hotkeys[i].ref);
+      g_hotkeys[i] = g_hotkeys[--g_hotkey_count];
+      return 1;
+    }
+  }
+  return 0;
 }
 
 /* ---- helpers ---- */
@@ -433,6 +579,16 @@ static int dispatch(Msg *m) {
   }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
+    return 1;
+  }
+  if (strcmp(m->type, "shortcut_register") == 0) {
+    int ok = shortcut_register(m->id, m->str2);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
+    return 1;
+  }
+  if (strcmp(m->type, "shortcut_unregister") == 0) {
+    int ok = shortcut_unregister(m->id);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }

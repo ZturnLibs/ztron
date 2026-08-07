@@ -28,6 +28,9 @@ import {
   saveWindowState,
   restoreWindowState,
   sendNotification,
+  registerShortcut,
+  unregisterShortcut,
+  isPrimaryInstance,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -250,10 +253,12 @@ async function main(): Promise<void> {
     };
     await listen("tauri://blur", fireWinEvent);
     await listen("tauri://focus", fireWinEvent);
-    // force a real focus transition: hiding the window reliably loses key
+    // force a real focus transition: hiding the window loses key, then
+    // makeKeyAndOrderFront deterministically fires windowDidBecomeKey
     await win.setVisible(false);
     await new Promise((r) => setTimeout(r, 300));
     await win.setVisible(true);
+    await win.setFocus();
     await createTray({ title: "Ztron", tooltip: "Ztron tray" });
     await setTrayTooltip("Ztron tray updated");
     report("TRAY_OK");
@@ -269,6 +274,17 @@ async function main(): Promise<void> {
     // 9. native dialogs (commands registered; modal interaction is manual)
     const hasDialogs = await invoke<boolean>("m3:has-dialogs");
     if (hasDialogs) report("DIALOG_REG_OK");
+
+    // 10. global shortcut (register/unregister resolves; pressing is manual).
+    // Ran last so Carbon's Register/UnregisterEventHotKey cannot disturb the
+    // window focus transition exercised by WIN_EVENT_OK above.
+    const regOk = await registerShortcut("spike-toggle", "Cmd+Shift+K");
+    const unregOk = await unregisterShortcut("spike-toggle");
+    if (regOk && unregOk) report("SHORTCUT_OK");
+
+    // 11. single-instance (this process holds the lock)
+    const primary = await isPrimaryInstance();
+    if (primary) report("SINGLE_INSTANCE_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

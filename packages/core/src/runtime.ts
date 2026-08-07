@@ -176,6 +176,13 @@ export interface NotificationController {
   send(options: NotificationOptions): void;
 }
 
+/** Global shortcut controller provided by the runtime backend. */
+export interface GlobalShortcutController {
+  register(id: string, accelerator: string): Promise<boolean>;
+  unregister(id: string): Promise<boolean>;
+  onEvent(cb: (event: { shortcutId: string }) => void): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -189,4 +196,6 @@ export interface RuntimeAdapter {
   clipboard?: ClipboardController;
   /** Optional native notifications. */
   notification?: NotificationController;
+  /** Optional global shortcuts. */
+  globalShortcut?: GlobalShortcutController;
 }

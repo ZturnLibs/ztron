@@ -153,6 +153,9 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
     case WM_APP + 1: /* tray callback */
       if (LOWORD(lp) == WM_LBUTTONUP) emit_tray_event("click");
       return 0;
+    case WM_HOTKEY:
+      zt_shortcut_pressed((int)wp);
+      return 0;
     case WM_ACTIVATE:
       if (wp != WA_INACTIVE) emit_tray_event("focus");
       else emit_tray_event("blur");
@@ -309,6 +312,65 @@ static void notification_send(const char *title, const char *body) {
   }
 }
 
+/* ---- global shortcuts (RegisterHotKey) ---- */
+
+#define MAX_SHORTCUTS 16
+static char g_shortcuts[MAX_SHORTCUTS][64];
+static int g_shortcut_count = 0;
+
+static void zt_shortcut_pressed(int id) {
+  if (id < 0 || id >= MAX_SHORTCUTS || !g_shortcuts[id][0]) return;
+  char buf[512];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"shortcut_event\",\"shortcut_id\":\"%s\"}",
+           g_shortcuts[id]);
+  zt_send_line(buf);
+}
+
+static int parse_accel_mods(const char *accel, int *mods, int *vk) {
+  *mods = 0;
+  const char *key = accel;
+  char tmp[256];
+  snprintf(tmp, sizeof(tmp), "%s", accel);
+  char *save = NULL;
+  for (char *tok = strtok_s(tmp, "+", &save); tok;
+       tok = strtok_s(NULL, "+", &save)) {
+    if (!_stricmp(tok, "ctrl") || !_stricmp(tok, "control")) { *mods |= MOD_CONTROL; continue; }
+    if (!_stricmp(tok, "shift")) { *mods |= MOD_SHIFT; continue; }
+    if (!_stricmp(tok, "alt") || !_stricmp(tok, "option")) { *mods |= MOD_ALT; continue; }
+    if (!_stricmp(tok, "cmd") || !_stricmp(tok, "super") || !_stricmp(tok, "meta")) { *mods |= MOD_WIN; continue; }
+    key = tok;
+  }
+  if (strlen(key) == 1 && key[0] >= 'A' && key[0] <= 'Z') { *vk = key[0]; return 0; }
+  if (strlen(key) == 1 && key[0] >= '0' && key[0] <= '9') { *vk = key[0]; return 0; }
+  return -1;
+}
+
+static int shortcut_register(const char *name, const char *accel) {
+  HWND w = zt_hwnd();
+  if (!w || g_shortcut_count >= MAX_SHORTCUTS) return 0;
+  int mods = 0, vk = 0;
+  if (parse_accel_mods(accel, &mods, &vk) != 0) return 0;
+  if (!RegisterHotKey(w, g_shortcut_count, mods, vk)) return 0;
+  snprintf(g_shortcuts[g_shortcut_count], sizeof(g_shortcuts[0]), "%s", name);
+  g_shortcut_count++;
+  return 1;
+}
+
+static int shortcut_unregister(const char *name) {
+  for (int i = 0; i < g_shortcut_count; i++) {
+    if (strcmp(g_shortcuts[i], name) == 0) {
+      HWND w = zt_hwnd();
+      if (w) UnregisterHotKey(w, i);
+      for (int j = i; j < g_shortcut_count - 1; j++)
+        strncpy(g_shortcuts[j], g_shortcuts[j + 1], sizeof(g_shortcuts[0]));
+      g_shortcut_count--;
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /* ---- platform ops ---- */
 
 static int dispatch(Msg *m) {
@@ -327,6 +389,16 @@ static int dispatch(Msg *m) {
   }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
+    return 1;
+  }
+  if (strcmp(m->type, "shortcut_register") == 0) {
+    int ok = shortcut_register(m->id, m->str2);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
+    return 1;
+  }
+  if (strcmp(m->type, "shortcut_unregister") == 0) {
+    int ok = shortcut_unregister(m->id);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }

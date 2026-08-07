@@ -73,4 +73,9 @@ declare const tjs: {
     wait(): Promise<{ exitStatus: number | null }>;
     kill(sig?: number): void;
   };
+  serve(options: {
+    port: number;
+    listenIp?: string;
+    fetch(req: { url: string; method: string }): Promise<Response> | Response;
+  }): Promise<{ port: number; close(): void }>;
 };

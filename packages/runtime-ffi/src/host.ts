@@ -9,6 +9,7 @@
 import type {
   ClipboardController,
   DialogController,
+  GlobalShortcutController,
   MenuController,
   NotificationController,
   RuntimeAdapter,
@@ -141,6 +142,7 @@ export class HostRuntime implements RuntimeAdapter {
   #trayEventCb: ((event: "click") => void) | null = null;
   #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
     null;
+  #shortcutEventCb: ((event: { shortcutId: string }) => void) | null = null;
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
 
@@ -254,6 +256,19 @@ export class HostRuntime implements RuntimeAdapter {
     },
   };
 
+  /** Global shortcut controller (implements `RuntimeAdapter.globalShortcut`). */
+  readonly globalShortcut: GlobalShortcutController = {
+    register: (id, accelerator) =>
+      this.sendRequest("shortcut_register", { id, accelerator }).then(
+        (r) => r === true,
+      ),
+    unregister: (id) =>
+      this.sendRequest("shortcut_unregister", { id }).then((r) => r === true),
+    onEvent: (cb) => {
+      this.#shortcutEventCb = cb;
+    },
+  };
+
   constructor(options: HostRuntimeOptions) {
     this.#host = options.host ?? "127.0.0.1";
     this.#port = options.port;
@@ -328,6 +343,10 @@ export class HostRuntime implements RuntimeAdapter {
           menuId: String(msg.menu_id),
           itemId: String(msg.item_id),
         });
+        break;
+      }
+      case "shortcut_event": {
+        this.#shortcutEventCb?.({ shortcutId: String(msg.shortcut_id) });
         break;
       }
       case "query_result": {

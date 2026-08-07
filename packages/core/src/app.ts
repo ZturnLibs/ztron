@@ -91,6 +91,9 @@ export class App {
     this.#adapter.menu?.onEvent((event) => {
       this.emit("tauri://menu", event);
     });
+    this.#adapter.globalShortcut?.onEvent((event) => {
+      this.emit("tauri://global-shortcut", event);
+    });
 
     this.registerBuiltinCommands();
 
@@ -138,6 +141,8 @@ export class App {
       "plugin:window|get_position",
       "plugin:window|set_position",
       "plugin:notification|send",
+      "plugin:global-shortcut|register",
+      "plugin:global-shortcut|unregister",
       "plugin:tray|create",
       "plugin:tray|set_title",
       "plugin:tray|set_tooltip",
@@ -285,6 +290,17 @@ export class App {
       "plugin:notification|send": (args) => {
         const { title, body } = args as { title: string; body?: string };
         this.#adapter.notification?.send({ title, body: body ?? "" });
+      },
+      "plugin:global-shortcut|register": async (args) => {
+        const { id, accelerator } = args as {
+          id: string;
+          accelerator: string;
+        };
+        return this.#adapter.globalShortcut?.register(id, accelerator) ?? false;
+      },
+      "plugin:global-shortcut|unregister": async (args) => {
+        const { id } = args as { id: string };
+        return this.#adapter.globalShortcut?.unregister(id) ?? false;
       },
       "plugin:tray|create": (args) => {
         this.#adapter.tray?.apply("create", args as { title?: string });

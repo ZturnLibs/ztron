@@ -297,6 +297,12 @@ static int dispatch(Msg *m) {
     (void)!system(cmd);
     return 1;
   }
+  if (strcmp(m->type, "shortcut_register") == 0 ||
+      strcmp(m->type, "shortcut_unregister") == 0) {
+    /* Global shortcuts need X11 XGrabKey; not implemented on Wayland. */
+    if (m->req_id >= 0) zt_reply_query(m->req_id, "false");
+    return 1;
+  }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
