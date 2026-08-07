@@ -599,3 +599,36 @@ ZtronApp.app/Contents/
 ### spike:22 项 FULL_OK
 
 - 新增 CLIPBOARD_OK;阈值 22(CODEGEN…WIN_EVENT/TRAY/MENU/DIALOG_REG),连续 3 次全绿
+
+## 30. 补充:positioner + window-state + notification 插件(已验证)
+
+### positioner ✅(`POSITIONER_OK:120,140`)
+
+- host 新 op:`window_get_frame`(返回 `{x,y,width,height}`)、`window_set_position`(x/y;Msg 加 x/y 字段)
+- macOS:`[window frame]` / `setFrameOrigin:`(arm64 直接 objc_msgSend,x86_64 用 objc_msgSend_stret)
+- Windows:`GetWindowRect` / `SetWindowPos`;Linux:`gtk_window_get_position/size` / `gtk_window_move`
+- core 内建命令 `plugin:window|get_frame/get_position/set_position`;api `positioner.ts`
+- 验证:setPosition(120,140) → getPosition 精确返回 (120,140)
+
+### window-state 插件 ✅(`WINDOW_STATE_PLUGIN_OK:120,140`)
+
+- `windowStatePlugin({ file, restoreOnStartup })`,命令 `plugin:window-state|get/save/restore`
+- save:读当前 frame 写 JSON;restore:读 JSON 应用位置+尺寸;restoreOnStartup 在 setup 后延 100ms 自动恢复
+- api `window-state.ts`(`getWindowState/saveWindowState/restoreWindowState`)
+
+### 关键发现:`webview_set_size` 总是居中窗口
+
+- webview 库 cocoa 后端 `set_size_impl`(cocoa_webkit.hh)设置 frame 后**无条件调用 `NSWindow_center()`**
+- 因此 restore 若先 setPosition 再 setSize,窗口会被重新居中,位置丢失(实际得到屏幕中心坐标)
+- **修复:restore 先 setSize 再 setPosition**(文档记录,避免重踩)
+
+### notification ✅(`NOTIFICATION_OK`)
+
+- host op `notification_send`(title→id、body→str2)
+- macOS:NSUserNotificationCenter(deprecated 但免授权/bundle);Windows:Shell_NotifyIcon NIF_INFO;Linux:notify-send
+- core 内建命令 `plugin:notification|send`;api `notification.ts`
+- 验证:send 命令解析即通过(OS 级投递不做断言)
+
+### spike:25 项 FULL_OK
+
+- 新增 POSITIONER_OK + WINDOW_STATE_PLUGIN_OK + NOTIFICATION_OK;阈值 25,连续 3 次全绿

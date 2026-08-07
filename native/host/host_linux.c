@@ -12,6 +12,7 @@
  */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
 
@@ -268,6 +269,34 @@ static void dialog_message(Msg *m) {
 
 static int dispatch(Msg *m) {
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
+  if (strcmp(m->type, "window_get_frame") == 0) {
+    GtkWidget *w = zt_window();
+    if (w && m->req_id >= 0) {
+      gint x, y, width, height;
+      gtk_window_get_position(GTK_WINDOW(w), &x, &y);
+      gtk_window_get_size(GTK_WINDOW(w), &width, &height);
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":{\"x\":%d,"
+               "\"y\":%d,\"width\":%d,\"height\":%d}}",
+               m->req_id, x, y, width, height);
+      zt_send_line(buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "window_set_position") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) gtk_window_move(GTK_WINDOW(w), m->x, m->y);
+    return 1;
+  }
+  if (strcmp(m->type, "notification_send") == 0) {
+    char cmd[1024];
+    snprintf(cmd, sizeof(cmd), "notify-send %s %s", m->id, m->str2);
+    (void)!system(cmd);
+    return 1;
+  }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }

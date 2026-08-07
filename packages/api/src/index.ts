@@ -73,8 +73,38 @@ export {
 export type { LogLevel } from "./log.js";
 export { shell } from "./shell.js";
 export type { ExecResult } from "./shell.js";
-export { updater, check as checkUpdate, download as downloadUpdate, verify as verifyUpdate } from "./updater.js";
+export {
+  updater,
+  check as checkUpdate,
+  download as downloadUpdate,
+  verify as verifyUpdate,
+} from "./updater.js";
 export type { UpdateCheck } from "./updater.js";
 export { Database, sql } from "./sql.js";
-export { autostart, enableAutostart, disableAutostart, isAutostartEnabled } from "./autostart.js";
-export { clipboard, readText as readClipboardText, writeText as writeClipboardText } from "./clipboard.js";
+export {
+  autostart,
+  enableAutostart,
+  disableAutostart,
+  isAutostartEnabled,
+} from "./autostart.js";
+export {
+  clipboard,
+  readText as readClipboardText,
+  writeText as writeClipboardText,
+} from "./clipboard.js";
+export {
+  positioner,
+  getPosition,
+  setPosition,
+  getSize,
+  getFrame,
+} from "./positioner.js";
+export {
+  windowState,
+  getWindowState,
+  saveWindowState,
+  restoreWindowState,
+} from "./window-state.js";
+export type { WindowState, WindowStateOptions } from "./window-state.js";
+export { notification, sendNotification } from "./notification.js";
+export type { NotificationOptions } from "./notification.js";

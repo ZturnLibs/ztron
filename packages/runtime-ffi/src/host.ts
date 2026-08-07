@@ -10,11 +10,13 @@ import type {
   ClipboardController,
   DialogController,
   MenuController,
+  NotificationController,
   RuntimeAdapter,
   TrayController,
   WebviewHandle,
   WindowConfig,
   WindowEvent,
+  WindowFrame,
   WindowStateOp,
 } from "@ztron/core";
 import type { TjsSocket } from "./tjs-global.js";
@@ -62,6 +64,25 @@ export class HostWebviewHandle implements WebviewHandle {
 
   setSize(width: number, height: number): void {
     this.#rt.send({ type: "set_size", label: this.label, width, height });
+  }
+
+  getFrame(): Promise<WindowFrame | null> {
+    return this.#rt.sendRequest("window_get_frame").then((r) => {
+      if (r && typeof r === "object") {
+        const f = r as Record<string, unknown>;
+        return {
+          x: Number(f.x ?? 0),
+          y: Number(f.y ?? 0),
+          width: Number(f.width ?? 0),
+          height: Number(f.height ?? 0),
+        };
+      }
+      return null;
+    });
+  }
+
+  setPosition(x: number, y: number): void {
+    this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }
 
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
@@ -218,6 +239,18 @@ export class HostRuntime implements RuntimeAdapter {
       ),
     writeText: (text) => {
       this.send({ type: "clipboard_write_text", label: "main", text });
+    },
+  };
+
+  /** Notification controller (implements `RuntimeAdapter.notification`). */
+  readonly notification: NotificationController = {
+    send: ({ title, body }) => {
+      this.send({
+        type: "notification_send",
+        label: "main",
+        title,
+        message: body ?? "",
+      });
     },
   };
 

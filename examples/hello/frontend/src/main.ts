@@ -23,6 +23,11 @@ import {
   isAutostartEnabled,
   readClipboardText,
   writeClipboardText,
+  getPosition,
+  setPosition,
+  saveWindowState,
+  restoreWindowState,
+  sendNotification,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -204,6 +209,37 @@ async function main(): Promise<void> {
     await win.setResizable(true);
     await win.center();
     if (maximized === false && fullscreen === false) report("WIN_STATE_OK");
+
+    // 6b. positioner (setPosition/getPosition round trip)
+    await setPosition(120, 140);
+    const pos = await getPosition();
+    if (pos && Math.abs(pos.x - 120) <= 3 && Math.abs(pos.y - 140) <= 3) {
+      report("POSITIONER_OK:" + pos.x + "," + pos.y);
+    } else {
+      report("POSITIONER_FAIL:" + JSON.stringify(pos));
+    }
+
+    // 6c. window-state plugin (save -> move -> restore -> verify)
+    const savedState = await saveWindowState();
+    await setPosition(savedState.x + 40, savedState.y + 40);
+    await restoreWindowState();
+    const restoredPos = await getPosition();
+    if (
+      restoredPos &&
+      Math.abs(restoredPos.x - savedState.x) <= 3 &&
+      Math.abs(restoredPos.y - savedState.y) <= 3
+    ) {
+      report("WINDOW_STATE_PLUGIN_OK:" + savedState.x + "," + savedState.y);
+    } else {
+      report(
+        "WINDOW_STATE_PLUGIN_FAIL:" +
+          JSON.stringify({ saved: savedState, restored: restoredPos }),
+      );
+    }
+
+    // 6d. notification (send resolves; delivery is OS-level)
+    await sendNotification({ title: "Ztron", body: "hello-notification" });
+    report("NOTIFICATION_OK");
 
     let winEventFired = false;
     const fireWinEvent = () => {

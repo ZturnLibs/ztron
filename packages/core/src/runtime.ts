@@ -41,6 +41,14 @@ export type WindowStateOp =
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
 
+/** Native window geometry (CSS-pixel position + size). */
+export interface WindowFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * A handle to a single window + WebView.
  *
@@ -57,6 +65,10 @@ export interface WebviewHandle {
   setTitle(title: string): void;
   /** Updates the native window size. */
   setSize(width: number, height: number): void;
+  /** Reads the native window frame (position + size). */
+  getFrame(): Promise<WindowFrame | null>;
+  /** Moves the native window to the given origin. */
+  setPosition(x: number, y: number): void;
   /**
    * Applies a window state operation. Query ops (`is_*`) resolve to the
    * native boolean; mutation ops resolve immediately.
@@ -153,6 +165,17 @@ export interface ClipboardController {
   writeText(text: string): void;
 }
 
+/** Native notification options (translated from Tauri's notification plugin). */
+export interface NotificationOptions {
+  title: string;
+  body?: string;
+}
+
+/** Native notification controller provided by the runtime backend. */
+export interface NotificationController {
+  send(options: NotificationOptions): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -164,4 +187,6 @@ export interface RuntimeAdapter {
   dialog?: DialogController;
   /** Optional clipboard access. */
   clipboard?: ClipboardController;
+  /** Optional native notifications. */
+  notification?: NotificationController;
 }

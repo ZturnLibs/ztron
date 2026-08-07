@@ -55,7 +55,8 @@
 - [x] store(kv) · http · shell · os · log (FULL_OK, 17 checks pass)
 - [x] sql(tjs:sqlite)· autostart(`SQL_OK` + `AUTOSTART_OK`)
 - [x] clipboard(`CLIPBOARD_OK`,host 三平台 NSPasteboard/Win32/GTK)
-- [ ] notification · positioner · window-state
+- [x] positioner · window-state · notification(`POSITIONER_OK`/`WINDOW_STATE_PLUGIN_OK`/`NOTIFICATION_OK`)
+- [ ] 其余插件(single-instance/deep-link/global-shortcut 等)按需
 
 ### P4 开发者体验
 

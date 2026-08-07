@@ -134,6 +134,10 @@ export class App {
       "plugin:window|set_focus",
       "plugin:window|set_visible",
       "plugin:window|set_resizable",
+      "plugin:window|get_frame",
+      "plugin:window|get_position",
+      "plugin:window|set_position",
+      "plugin:notification|send",
       "plugin:tray|create",
       "plugin:tray|set_title",
       "plugin:tray|set_tooltip",
@@ -268,6 +272,19 @@ export class App {
           "set_resizable",
           Boolean((args as { resizable?: boolean }).resizable),
         );
+      },
+      "plugin:window|get_frame": async (_args, ctx) => ctx.webview.getFrame(),
+      "plugin:window|get_position": async (_args, ctx) => {
+        const f = await ctx.webview.getFrame();
+        return f ? { x: f.x, y: f.y } : null;
+      },
+      "plugin:window|set_position": (args, ctx) => {
+        const { x, y } = args as { x: number; y: number };
+        ctx.webview.setPosition(Number(x), Number(y));
+      },
+      "plugin:notification|send": (args) => {
+        const { title, body } = args as { title: string; body?: string };
+        this.#adapter.notification?.send({ title, body: body ?? "" });
       },
       "plugin:tray|create": (args) => {
         this.#adapter.tray?.apply("create", args as { title?: string });

@@ -33,6 +33,8 @@ typedef struct Msg_ {
   int status;
   int width;
   int height;
+  int x;
+  int y;
   int req_id;   /* request id for window-state queries (-1 = no reply) */
   int bool_val; /* boolean argument for set_* window ops */
 } Msg;

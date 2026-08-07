@@ -19,6 +19,7 @@ import {
   compareVersions,
   sqlPlugin,
   autostartPlugin,
+  windowStatePlugin,
   loadCapabilities,
 } from "@ztron/core";
 import { greet, add, echo } from "./commands.js";
@@ -81,6 +82,12 @@ new AppBuilder(runtime, "com.ztron.hello")
   )
   .plugin(sqlPlugin({ scope: { allow: ["$TMP/**"] } }))
   .plugin(autostartPlugin({ id: "com.ztron.hello" }))
+  .plugin(
+    windowStatePlugin({
+      file: `${tjs.tmpDir}/ztron_window_state_test.json`,
+      restoreOnStartup: false,
+    }),
+  )
   .window({
     label: "main",
     title: "Ztron M3",
@@ -197,9 +204,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 22) {
+      if (done.size >= 25) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/win/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/win/positioner/window-state/notification/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

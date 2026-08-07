@@ -37,6 +37,7 @@ export {
   compareVersions,
   sqlPlugin,
   autostartPlugin,
+  windowStatePlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -55,6 +56,7 @@ export type {
   UpdaterPluginOptions,
   SqlPluginOptions,
   AutostartPluginOptions,
+  WindowStatePluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
@@ -63,6 +65,7 @@ export type {
   WebviewHandle,
   WindowConfig,
   WindowEvent,
+  WindowFrame,
   WindowStateOp,
   TrayController,
   TrayOp,
@@ -72,6 +75,8 @@ export type {
   MenuController,
   DialogController,
   ClipboardController,
+  NotificationController,
+  NotificationOptions,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

@@ -290,10 +290,45 @@ static void dialog_message(Msg *m) {
   zt_reply_string(m->req_id, tmp);
 }
 
+static void zt_reply_frame(int req_id, const RECT *r) {
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":{\"x\":%d,"
+           "\"y\":%d,\"width\":%d,\"height\":%d}}",
+           req_id, (int)r->left, (int)r->top,
+           (int)(r->right - r->left), (int)(r->bottom - r->top));
+  zt_send_line(buf);
+}
+
+static void notification_send(const char *title, const char *body) {
+  if (g_tray_hwnd) {
+    g_nid.uFlags = NIF_INFO;
+    to_wide(title, g_nid.szInfoTitle, sizeof(g_nid.szInfoTitle) / sizeof(wchar_t));
+    to_wide(body, g_nid.szInfo, sizeof(g_nid.szInfo) / sizeof(wchar_t));
+    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+  }
+}
+
 /* ---- platform ops ---- */
 
 static int dispatch(Msg *m) {
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
+  if (strcmp(m->type, "window_get_frame") == 0) {
+    RECT r;
+    HWND w = zt_hwnd();
+    if (w && m->req_id >= 0 && GetWindowRect(w, &r)) zt_reply_frame(m->req_id, &r);
+    else if (m->req_id >= 0) zt_reply_null(m->req_id);
+    return 1;
+  }
+  if (strcmp(m->type, "window_set_position") == 0) {
+    HWND w = zt_hwnd();
+    if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+    return 1;
+  }
+  if (strcmp(m->type, "notification_send") == 0) {
+    notification_send(m->id[0] ? m->id : "", m->str2);
+    return 1;
+  }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }

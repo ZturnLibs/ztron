@@ -25,3 +25,5 @@ export { sqlPlugin } from "./sql.js";
 export type { SqlPluginOptions } from "./sql.js";
 export { autostartPlugin } from "./autostart.js";
 export type { AutostartPluginOptions } from "./autostart.js";
+export { windowStatePlugin } from "./window-state.js";
+export type { WindowStatePluginOptions } from "./window-state.js";

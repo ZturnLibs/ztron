@@ -58,6 +58,16 @@ export class FfiWebviewHandle implements WebviewHandle {
     this.#lib.webview_set_size(this.#w, width, height, 0);
   }
 
+  // Reference FFI path: native window frame/position is handled by the host
+  // adapter (Plan A); the FFI adapter only exercises the webview C surface.
+  getFrame(): Promise<import("@ztron/core").WindowFrame | null> {
+    return Promise.resolve(null);
+  }
+
+  setPosition(): void {
+    /* no-op (host adapter provides window position) */
+  }
+
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
     op: import("@ztron/core").WindowStateOp,

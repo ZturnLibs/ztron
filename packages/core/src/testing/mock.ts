@@ -15,6 +15,7 @@ import type {
   WebviewHandle,
   WindowConfig,
   WindowEvent,
+  WindowFrame,
   WindowStateOp,
 } from "../runtime.js";
 
@@ -25,6 +26,7 @@ export class MockWebviewHandle implements WebviewHandle {
   respondLog: Array<{ id: string; status: number; result: string }> = [];
   titleLog: string[] = [];
   sizeLog: Array<{ w: number; h: number }> = [];
+  positionLog: Array<{ x: number; y: number }> = [];
   windowStateLog: Array<{ op: WindowStateOp; value?: boolean }> = [];
   windowEventLog: WindowEvent[] = [];
   terminated = false;
@@ -56,6 +58,18 @@ export class MockWebviewHandle implements WebviewHandle {
 
   setSize(w: number, h: number): void {
     this.sizeLog.push({ w, h });
+  }
+
+  frame: WindowFrame = { x: 100, y: 120, width: 900, height: 640 };
+
+  getFrame(): Promise<WindowFrame | null> {
+    return Promise.resolve({ ...this.frame });
+  }
+
+  setPosition(x: number, y: number): void {
+    this.positionLog.push({ x, y });
+    this.frame.x = x;
+    this.frame.y = y;
   }
 
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {

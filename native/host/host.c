@@ -154,6 +154,8 @@ static void *socket_thread(void *arg) {
     zt_json_str(line, "result", m->str, sizeof(m->str));
     m->width = zt_json_int(line, "width", 0);
     m->height = zt_json_int(line, "height", 0);
+    m->x = zt_json_int(line, "x", 0);
+    m->y = zt_json_int(line, "y", 0);
     m->req_id = zt_json_int(line, "req_id", -1);
     m->bool_val = zt_json_int(line, "value", 0);
     m->status = zt_json_int(line, "status", 0);

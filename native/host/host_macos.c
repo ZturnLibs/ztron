@@ -48,6 +48,55 @@ void zt_reply_string(int req_id, const char *s) {
 
 void zt_reply_null(int req_id) { zt_reply_query(req_id, "null"); }
 
+static id zt_nsstring(const char *s); /* defined below */
+
+/* ---- window frame / position (NSPoint/NSRect via objc_msgSend) ---- */
+
+typedef struct { double x, y, width, height; } ZtRect;
+
+static ZtRect zt_wnd_frame(void *wnd) {
+  ZtRect r;
+#if defined(__aarch64__)
+  r = ((ZtRect(*)(id, SEL))objc_msgSend)((id)wnd, sel_registerName("frame"));
+#else
+  ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+      (id)wnd, sel_registerName("frame"), &r);
+#endif
+  return r;
+}
+
+static void zt_wnd_set_origin(void *wnd, double x, double y) {
+  ((void(*)(id, SEL, double, double))objc_msgSend)(
+      (id)wnd, sel_registerName("setFrameOrigin:"), x, y);
+}
+
+static void zt_reply_frame(int req_id, ZtRect r) {
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":{\"x\":%d,"
+           "\"y\":%d,\"width\":%d,\"height\":%d}}",
+           req_id, (int)r.x, (int)r.y, (int)r.width, (int)r.height);
+  zt_send_line(buf);
+}
+
+/* ---- notifications (NSUserNotificationCenter) ---- */
+
+static void notification_send(const char *title, const char *body) {
+  id center = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSUserNotificationCenter"),
+                       sel_registerName("defaultUserNotificationCenter"));
+  id note = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSUserNotification"),
+                     sel_registerName("alloc"));
+  note = OBJC_MSG(id(*)(id, SEL), note, sel_registerName("init"));
+  if (!note) return;
+  OBJC_MSG(void(*)(id, SEL, id), note, sel_registerName("setTitle:"),
+           zt_nsstring(title));
+  OBJC_MSG(void(*)(id, SEL, id), note, sel_registerName("setInformativeText:"),
+           zt_nsstring(body));
+  OBJC_MSG(void(*)(id, SEL, id), center, sel_registerName("deliverNotification:"),
+           note);
+  OBJC_MSG(void(*)(id, SEL), note, sel_registerName("release"));
+}
+
 /* ---- helpers ---- */
 
 static void *zt_window(void) {
@@ -370,6 +419,20 @@ static void dialog_message(Msg *m) {
 static int dispatch(Msg *m) {
   if (is_window_op(m->type)) {
     handle_window_op(m);
+    return 1;
+  }
+  if (strcmp(m->type, "window_get_frame") == 0) {
+    void *wnd = zt_window();
+    if (wnd && m->req_id >= 0) zt_reply_frame(m->req_id, zt_wnd_frame(wnd));
+    return 1;
+  }
+  if (strcmp(m->type, "window_set_position") == 0) {
+    void *wnd = zt_window();
+    if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);
+    return 1;
+  }
+  if (strcmp(m->type, "notification_send") == 0) {
+    notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;
   }
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
