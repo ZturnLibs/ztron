@@ -77,3 +77,4 @@ export { updater, check as checkUpdate, download as downloadUpdate, verify as ve
 export type { UpdateCheck } from "./updater.js";
 export { Database, sql } from "./sql.js";
 export { autostart, enableAutostart, disableAutostart, isAutostartEnabled } from "./autostart.js";
+export { clipboard, readText as readClipboardText, writeText as writeClipboardText } from "./clipboard.js";

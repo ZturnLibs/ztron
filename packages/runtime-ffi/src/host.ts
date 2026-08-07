@@ -7,6 +7,7 @@
  * contract as the FFI adapter.
  */
 import type {
+  ClipboardController,
   DialogController,
   MenuController,
   RuntimeAdapter,
@@ -209,6 +210,17 @@ export class HostRuntime implements RuntimeAdapter {
       }).then((r) => Number(r)),
   };
 
+  /** Clipboard controller (implements `RuntimeAdapter.clipboard`). */
+  readonly clipboard: ClipboardController = {
+    readText: () =>
+      this.sendRequest("clipboard_read_text").then((r) =>
+        typeof r === "string" ? r : null,
+      ),
+    writeText: (text) => {
+      this.send({ type: "clipboard_write_text", label: "main", text });
+    },
+  };
+
   constructor(options: HostRuntimeOptions) {
     this.#host = options.host ?? "127.0.0.1";
     this.#port = options.port;
@@ -334,7 +346,9 @@ export class HostRuntime implements RuntimeAdapter {
   #sendNow(msg: WireMessage): void {
     void this.#writer
       ?.write(enc.encode(JSON.stringify(msg) + "\n"))
-      .catch(() => {});
+      .catch((e) =>
+        console.log("[be-send:ERR]", msg.type, String(e).slice(0, 60)),
+      );
   }
 
   createWindow(config: WindowConfig): WebviewHandle {

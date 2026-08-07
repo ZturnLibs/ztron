@@ -147,6 +147,12 @@ export interface DialogController {
   message(options: MessageDialogOptions): Promise<number>;
 }
 
+/** Clipboard controller provided by the runtime backend. */
+export interface ClipboardController {
+  readText(): Promise<string | null>;
+  writeText(text: string): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -156,4 +162,6 @@ export interface RuntimeAdapter {
   menu?: MenuController;
   /** Optional native dialogs. */
   dialog?: DialogController;
+  /** Optional clipboard access. */
+  clipboard?: ClipboardController;
 }

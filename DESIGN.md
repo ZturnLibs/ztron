@@ -143,13 +143,13 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 
 ## 7. 里程碑
 
-| 阶段   | 内容                                                      | 验收                    |
-| ------ | --------------------------------------------------------- | ----------------------- |
-| **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程               | 同步+异步往返,exit=0    |
-| **M1** | events + Channel 流式 + 窗口命令集 ✅                      | `M1_EVENTS_CHANNEL_WINDOW_OK` |
-| **M2** | 插件基座 + 受限能力层 + CLI dev ✅                        | `M2_FS_SCOPE_PATH_OK`(scope 允/拒) |
-| **M3** | `@ztron/api` 与打包器前端集成(Vite)✅                     | `M3_API_FRONTEND_OK`    |
-| **M4** | `tjs compile` 打包 + macOS .app 验证 ✅                    | 打包产物端到端 `M3_API_FRONTEND_OK` |
+| 阶段   | 内容                                         | 验收                                |
+| ------ | -------------------------------------------- | ----------------------------------- |
+| **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程 | 同步+异步往返,exit=0                |
+| **M1** | events + Channel 流式 + 窗口命令集 ✅        | `M1_EVENTS_CHANNEL_WINDOW_OK`       |
+| **M2** | 插件基座 + 受限能力层 + CLI dev ✅           | `M2_FS_SCOPE_PATH_OK`(scope 允/拒)  |
+| **M3** | `@ztron/api` 与打包器前端集成(Vite)✅        | `M3_API_FRONTEND_OK`                |
+| **M4** | `tjs compile` 打包 + macOS .app 验证 ✅      | 打包产物端到端 `M3_API_FRONTEND_OK` |
 
 ## 8. 风险与限制
 
@@ -205,9 +205,11 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 ## 11. Plan A 决策与落地(原生宿主 shim,已验证)
 
 ### 为什么选 A
+
 B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交替循环下泵动(需额外验证),且要长期维护 tjs fork;A 让 tjs 作为**独立进程跑自己的事件循环**,异步天然可用,无需打补丁。C 仅作过渡。
 
 ### 双进程架构(已验证,macOS arm64,`SPIKE_RESULT: ASYNC_ROUNDTRIP_OK`)
+
 ```
 ┌────────────────────────┐        TCP/JSON       ┌──────────────────────────┐
 │ ztron-host (C 宿主)     │◄──────────────────────►│ tjs 后端进程             │
@@ -219,20 +221,23 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 ```
 
 ### 实现清单
-| 组件 | 位置 | 说明 |
-|---|---|---|
-| `ztron-host` 原生宿主 | `native/host/host.c` | webview + socket 线程 + `webview_dispatch` 回 GUI;消息类型:request/response/eval/create_window/set_html/navigate/set_title/set_size/quit |
-| socket 适配层 | `packages/runtime-ffi/src/host.ts` | `HostRuntime`/`HostWebviewHandle`,实现与 FFI 相同的 `RuntimeAdapter` 契约;`run()` 返回 closed promise |
-| CLI 双进程编排 | `packages/cli/src/index.ts` | 起 host → 读 `PORT=` → spawn tjs + `ZTRON_HOST_PORT` |
-| 构建脚本 | `scripts/build-native.sh` | + 编译 ztron-host(rpath 指向同目录 dylib) |
-| 示例 | `examples/hello/src/main.ts` | `HostRuntime` + 真·异步命令(`setTimeout`) |
+
+| 组件                  | 位置                               | 说明                                                                                                                                     |
+| --------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ztron-host` 原生宿主 | `native/host/host.c`               | webview + socket 线程 + `webview_dispatch` 回 GUI;消息类型:request/response/eval/create_window/set_html/navigate/set_title/set_size/quit |
+| socket 适配层         | `packages/runtime-ffi/src/host.ts` | `HostRuntime`/`HostWebviewHandle`,实现与 FFI 相同的 `RuntimeAdapter` 契约;`run()` 返回 closed promise                                    |
+| CLI 双进程编排        | `packages/cli/src/index.ts`        | 起 host → 读 `PORT=` → spawn tjs + `ZTRON_HOST_PORT`                                                                                     |
+| 构建脚本              | `scripts/build-native.sh`          | + 编译 ztron-host(rpath 指向同目录 dylib)                                                                                                |
+| 示例                  | `examples/hello/src/main.ts`       | `HostRuntime` + 真·异步命令(`setTimeout`)                                                                                                |
 
 ### 新踩的坑(已修)
+
 1. **宿主 JSON 解析必须解码 `\n` 等转义**:否则 html 里换行变字面 `\n`,引导脚本语法错误。`json_str` 已完整处理 `\\n\\r\\t\"\\\\`。
 2. **`tjs.connect` 的流在 `await socket.opened` 结果上**,不在 socket 本体(服务端 accept 的才有直接属性)。
 3. **后端不要把解析后的数组 `String()` 化**:`String([object])` → `[object Object]`。`hub.handle` 兼容数组/字符串两种形态;宿主适配层 `JSON.stringify` 回字符串保持契约一致。
 
 ### M0→M1 结论
+
 - ✅ 同步命令全链路(M0 FFI 验证)
 - ✅ **异步命令全链路(Plan A 验证)**:`invoke` → host → socket → 后端 `setTimeout(30ms)` → 响应 → `webview_return` → 前端 `await` 拿到结果
 - ✅ 事件(emit/eval)与 Channel 流式的传输路径已具备(set_html/eval/response 三种消息均可走通)
@@ -240,6 +245,7 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 ## 12. M2 结论(插件基座 + 受限能力层,已验证)
 
 ### 验证通过 ✅(`SPIKE_RESULT: M2_FS_SCOPE_PATH_OK`,exit=0)
+
 - **插件基座**:`app.plugin(fsPlugin(...))` → 命令自动注册为 `plugin:fs|*`、`plugin:path|*`
 - **受限能力层 `PathScope`**:路径 `$VAR` 展开(HOME/TMP/CWD)+ 绝对化 + canonicalize(解析父目录真实路径,防符号链接逃逸)+ allow/deny 前缀匹配
 - fs 插件:read_text / write_text / read_dir / exists / remove / make_dir,全部经 scope 闸门
@@ -249,6 +255,7 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 - 前端 `@ztron/api`:fs.ts / path.ts 类型化包装
 
 ### 踩坑(已修)
+
 1. **scope 根未 canonicalize**:allow 前缀(`/var/...`)与检查路径 canonicalize 后(`/private/var/...`)不匹配 → 一律拒绝。修复:roots 懒加载 canonicalize(带 `.catch` 回退)。
 2. **tjs fs 全异步**:`readFile/writeFile/stat/readDir` 返回 Promise,`readFile` 忽略 encoding 选项返回 Uint8Array → 用 `TextDecoder` 解码。
 3. **`tjs:path` 默认导出**才有 posix/win32;`declare module "tjs:path"` 需在全局脚本文件(无 import/export)中声明。
@@ -256,30 +263,36 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 ## 13. M3 结论(@ztron/api 真实 Vite 前端,已验证)
 
 ### 验证通过 ✅(`SPIKE_RESULT: M3_API_FRONTEND_OK`,exit=0)
+
 - **真实 Vite 前端** `examples/hello/frontend/` 用 `import { invoke, listen, Channel, fs, path, Window } from "@ztron/api"` 驱动后端
 - invoke / 事件(后端异步 emit)/ Channel 流式(1,2,3)/ scoped fs / path 全部经 api 包工作
 - CLI 编排:`vite build`(base './',IIFE)→ 改写经典脚本 → `file://` 加载 → host + tjs 后端
 
 ### 关键平台发现(macOS)
+
 1. **WKWebView 拦截 `http://`(ATS)**,且 host 二进制 `__info_plist` ATS 豁免**不生效**(WebKit 网络进程读自己的 plist)。→ dev 前端改用 **`file://` 加载**(不受 ATS 限制,WebKit 允许 file:// ES/经典脚本)。
 2. **`file://` + `<script type="module" crossorigin>` 有 CORS 问题**(文件 URL origin 为 null)。→ vite 产物为 **IIFE + 经典脚本**(CLI 构建后改写标签)。
 3. **bootstrap 必须 `head-prepend`**(第一个脚本),否则 app 脚本先跑时 `__TAURI_INTERNALS__` 未定义。
 4. `@ztron/api` 的 `Channel.onmessage` 收到的是**解码后的消息**(end 由 Channel 内部处理),不是 `{message,index}` 原始帧。
 
 ### 取舍
+
 - 目前 dev 用 `vite build`(无 HMR);真正的 dev server + HMR 需要自定义 scheme 宿主(Tauri 的 `tauri://` 方案),列入后续。
 - invokeKey 由 CLI 生成,`buildInitScript` 注入 + 后端 env 同源,前端每次 dev 会话一致。
 
 ## 14. M4 结论(`tjs compile` 打包 + macOS .app,已验证)
 
 ### 验证通过 ✅(打包产物端到端 `SPIKE_RESULT: M3_API_FRONTEND_OK`)
+
 `ztron build` 产出 `ZtronApp.app`,运行后 5 项全通过并干净退出:
+
 - 后端:esbuild 打包 → `tjs compile` 单文件二进制
 - 前端:vite build + bootstrap/invokeKey 烧入
 - 组装:.app(launcher + ztron-host + ztron-backend + libwebview.dylib + frontend)
 - launcher 脚本:起 host → 读 PORT → 传 invokeKey/DEV_URL 起后端
 
 ### 产物结构(macOS)
+
 ```
 ZtronApp.app/Contents/
   Info.plist
@@ -288,6 +301,7 @@ ZtronApp.app/Contents/
 ```
 
 ### 关键点
+
 1. `tjs compile` 直接产出可独立运行的 Mach-O(内嵌脚本+运行时),`tjs:*` 内建模块保持 external。
 2. **invokeKey 一致性**:CLI `build` 生成一次 key,vite 插件烧入前端 HTML + launcher 传给后端(env),前后端同源。
 3. `findHostBin/findWebviewLib` 从 appRoot **向上回溯**找 `native/libs`(hello 的 native 在仓库根)。
@@ -297,11 +311,13 @@ ZtronApp.app/Contents/
 ## 15. P0.1 结论(窗口状态 + 窗口事件,已验证)
 
 ### 验证通过 ✅(`WIN_STATE_OK` + `WIN_EVENT_OK`)
+
 - **窗口状态**:minimize/unminimize/toggle_maximize/is_maximized/is_minimized/set_fullscreen/is_fullscreen/set_always_on_top/center/set_focus/set_visible/set_resizable
 - **窗口事件**:resize/move/focus/blur/close → `tauri://resize/move/focus/blur/close-requested` 推送
 - 全链路:host.c(ObjC runtime 直调 NSWindow)→ socket → backend → EventManager → 前端 `listen('tauri://focus')`
 
 ### 实现要点
+
 1. host.c 用 `webview_get_native_handle(w, UI_WINDOW)` 拿 NSWindow,经 **ObjC runtime**(objc_msgSend)调 AppKit:`miniaturize:`/`zoom:`/`setStyleMask:`(fullscreen/resizable)/`setLevel:`(alwaysOnTop)/`center`/`makeKeyAndOrderFront:`/`setIsVisible:`。
 2. 查询操作(is_*)走 **request/response**:host 用 `req_id` 回 `query_result`;HostRuntime 维护 pending promise map。
 3. 窗口事件用 **NSWindow delegate**:动态建类 + `class_addMethod`(windowDidResize:/Move:/BecomeKey:/ResignKey:/WillClose:/ShouldClose:),事件经 socket 推给后端。
@@ -311,11 +327,13 @@ ZtronApp.app/Contents/
 ## 16. P0.2 结论(系统托盘,已验证)
 
 ### 验证通过 ✅(`TRAY_OK`)
+
 - tray 创建(title/tooltip)/set_title/set_tooltip/destroy,点击 → `tauri://tray-click` 推送(点击需手动)
 - 全链路:前端 `createTray()` → `plugin:tray|*` → backend → host(NSStatusItem)→ 菜单栏
 - 点击路径与窗口事件同构(host → socket → backend → EventManager)
 
 ### 实现要点
+
 1. host.c:`NSStatusBar systemStatusBar` + `statusItemWithLength:`(变长)→ `setTitle:`/`setToolTip:`;按钮 target/action 用动态类 `ZtronTrayTarget` 的 `trayClick:`。
 2. `RuntimeAdapter.tray`(可选)TrayController;`App` 接线点击 → `tauri://tray-click`;`plugin:tray|create/set_title/set_tooltip/destroy` 命令。
 3. `@ztron/api` tray.ts:createTray/setTrayTitle/setTrayTooltip/destroyTray/onTrayClick。
@@ -324,11 +342,13 @@ ZtronApp.app/Contents/
 ## 17. P0.3 结论(应用菜单,已验证)
 
 ### 验证通过 ✅(`MENU_OK`)
+
 - 菜单创建(menu_create + 逐项 menu_add_item)/设为应用主菜单(setMainMenu)/destroy/item enabled/title
 - 点击 → `menu_event` → `tauri://menu` 推送(点击需手动)
 - 全链路:前端 `setAppMenu([...])` → `plugin:menu|*` → backend → host(NSMenu)→ 菜单栏
 
 ### 实现要点
+
 1. host.c:`NSMenu alloc/initWithTitle:` + `setAutoenablesItems:NO`;`NSMenuItem initWithTitle:action:keyEquivalent:` + tag;动态类 `ZtronMenuTarget.menuItemClicked:`;tag→refs 表回查 item_id 发 `menu_event`。
 2. 协议避免数组解析:create + N×add_item(flat JSON),backend 迭代 items。
 3. `RuntimeAdapter.menu`(可选 MenuController);`App` 接线 → `tauri://menu`(payload {menuId,itemId})。
@@ -338,10 +358,12 @@ ZtronApp.app/Contents/
 ## 18. P0.4 结论(原生对话框,已验证注册链路)
 
 ### 验证通过 ✅(`DIALOG_REG_OK`;模态交互需手动)
+
 - `plugin:dialog|open/save/message` 注册确认;模态显示 + `req_id` 回传路径实现
 - 全链路:前端 `dialog.open()` → `plugin:dialog|open` → backend → host(NSOpenPanel)→ 选中路径回传
 
 ### 实现要点
+
 1. host.c:`NSOpenPanel openPanel`/`NSSavePanel savePanel`/`NSAlert`,`runModal` 模态(嵌套 run loop);结果 `reply_string`(JSON 转义路径)或 `reply_null`。
 2. `sendRequest` 泛化:query_result 结果任意 JSON(布尔/字符串/null);windowState 用 `r===true`,dialog 用字符串|null。
 3. `RuntimeAdapter.dialog`(可选 DialogController);`plugin:dialog|*` 异步命令。
@@ -351,11 +373,13 @@ ZtronApp.app/Contents/
 ## 19. P1.1 结论(ACL 权限模型,已验证)
 
 ### 验证通过 ✅(`ACL_DENY_OK`)
+
 - capability `["core:default", "path:default", "fs:write-default"]` 授予 main 窗口
 - `fs.remove` 未授权 → backend 拒绝 `access denied`(其他命令放行)
 - 全链路:capability JSON → `PermissionRegistry.expand` → `ResolvedAcl.allow/deny` → `IpcHub.handle` 门禁
 
 ### 实现要点
+
 1. **三层数据模型**:Permission(commands+scope)、PermissionSet(命名分组,如 `default`)、Capability(windows+permissions)。Set 成员相对解析(`fs:default` 内的 `allow-x` → `fs:allow-x`)。
 2. **Per-label 表**:`ResolvedAcl.#byLabel: Map<label, {allowedCommands, deniedCommands}>`;无 capability → permissive(向后兼容)。
 3. **门禁范围**:`IpcHub.handle` 只对 `plugin:*` 命令做 ACL 检查(用户自定义命令 `m3:echo` 等免授权,简化 v1)。
@@ -366,11 +390,13 @@ ZtronApp.app/Contents/
 ## 20. P1.3 结论(HTTP scope,已验证)
 
 ### 验证通过 ✅(`HTTP_OK:200` + `HTTP_SCOPE_DENY_OK`)
+
 - `http.fetch("https://httpbin.org/get")` → 200(允许域)
 - `http.fetch("https://evil.example.com/steal")` → scope denied(拒绝域)
 - 全链路:前端 `http.fetch()` → `plugin:http|fetch` → backend → HttpScope 校验 → tjs fetch
 
 ### 实现要点
+
 1. **`HttpScope`** 编译时解析 URL 模式为 `CompiledPattern`(protocol/hostLabels/port/pathPrefix/pathGlobstar),`*` 通配子域,`**` 通配路径深度;host 从右向左匹配。
 2. **`httpPlugin`** 包装标准 WHATWG `fetch`(tjs 原生支持),scope 不通过抛 `http scope denied`;ACL 权限:`http:allow-fetch`/`http:deny-fetch`/`http:default`。
 3. **两层防护**:HttpScope(URL 粒度,插件配置)+ ACL(命令粒度,capability 授予)。
@@ -379,12 +405,14 @@ ZtronApp.app/Contents/
 ## 21. P3 结论(插件生态:os/store/log/shell,已验证)
 
 ### 验证通过 ✅(`FULL_OK`,17 项全通过)
+
 - **os**:platform/arch/hostname/version/homedir/tmpdir/sep(navigator + tjs)
 - **store**:KV JSON 文件(get/set/delete/keys/values/entries/clear),内存缓存 + 持久化
 - **log**:trace/debug/info/warn/error(级别过滤)
 - **shell**:scoped 命令执行(program+args glob 匹配,tjs.spawn pipe stdout/stderr)
 
 ### 实现要点
+
 1. 插件统一模式:Plugin{name, commands, permissions, permissionSets} → 自动注册 ACL
 2. shell scope 匹配:program basename 匹配 + args glob(`*`/`**`)
 3. store baseDir 默认 $TMP(不经 PathScope,直接 tjs 文件操作)
@@ -394,12 +422,14 @@ ZtronApp.app/Contents/
 ## 22. P4 结论(命令 codegen + 测试,已验证)
 
 ### 验证通过 ✅(`FULL_OK` + `CODEGEN_OK`,mock 测试 3/3)
+
 - **`defineCommand`**:类型化命令定义(name/args/result phantom + handler),`app.commandDef()` 同时注册进 registry + hub
 - **`ztron codegen`**:TS AST 扫描 `defineCommand` 调用 → 提取 name/args/result 类型 → 生成 `ztron-commands.ts`(类型化 `invoke` + `KnownCommands` 映射)
 - **`MockRuntime`/`MockWebviewHandle`**:无真实窗口的测试运行时,`mock.main.invoke()` 模拟前端调用
 - **测试**:`node --experimental-strip-types --test tests/core.test.ts`(defineCommand 往返 / window 状态路由 / ACL 拒绝)
 
 ### 关键修复
+
 1. `app.commands.registerDef()` 只进 registry 不进 hub → 新增 `app.commandDef()` 两者都注册
 2. 生成器提取 `{} as T` 的右侧类型(as-expression),而非原样嵌入
 3. 生成模块用单一泛型签名(overloads 与实现冲突),`invoke<C extends keyof KnownCommands>`
@@ -408,11 +438,13 @@ ZtronApp.app/Contents/
 6. PathScope 测试在 Node 下跳过(需 tjs 全局)
 
 ### 剩余(WebDriver 集成测试)
+
 - 端到端 WebDriver 测试(host + 真实 webview)尚未做,列 P5/后续
 
 ## 23. P5 结论(updater + 签名 + 跨平台骨架,已验证)
 
 ### 验证通过 ✅(`UPDATER_OK`,18 项 FULL_OK)
+
 - **updater 插件**:check(版本比较)/download(fetch+写文件)/verify(sha256)
   - tjs 能力确认:`crypto.subtle.digest("SHA-256")` + `fetch().arrayBuffer()` 均可用
   - spike:本地 `tjs.serve` manifest server(version 1.2.0 vs current 0.1.0)→ hasUpdate;sha256 校验 "update-me" 匹配
@@ -420,11 +452,13 @@ ZtronApp.app/Contents/
 - **Win/Linux host 骨架**:`host_win.c`(WebView2 + Win32)/`host_linux.c`(WebKitGTK)——协议与 host.c 一致,runtime-ffi 无需改动;待目标平台编译验证
 
 ### 关键发现
+
 1. `tjs.serve({port, listenIp, fetch})` 返回 `{ port, close }`(`.port` 属性,非 opened)
 2. updater manifest 格式与 Tauri 对齐:`{ version, platforms: { darwin: { url, sha256 } } }`
 3. 跨平台解耦已验证:runtime-ffi 的 HostRuntime 只依赖 socket 协议,后端平台只需换 host 二进制
 
 ### 剩余(需目标平台)
+
 - Windows:WebView2 SDK 编译、NSIS/MSI 打包
 - Linux:WebKitGTK 编译、AppImage/deb 打包
 - 正式签名/公证(Developer ID / notarize)、移动端
@@ -432,29 +466,34 @@ ZtronApp.app/Contents/
 ## 24. 跨平台重构结论(host 分层,已验证)
 
 ### 重构:host.c 跨平台 core + 平台实现
-- **host.c**:纯跨平台(socket 协议 + 消息分发 + main loop),不依赖 __APPLE__
+
+- **host.c**:纯跨平台(socket 协议 + 消息分发 + main loop),不依赖 **APPLE**
 - **host_platform.h**:平台接口 `zt_platform = { dispatch, init }` + 共享 Msg/zt_send_line/zt_json_* + 各平台实现的 zt_reply_*
 - **host_macos.c**:窗口状态/事件(NSWindow delegate)、tray(NSStatusItem)、menu(NSMenu)、dialog(NSOpenPanel 等)——ObjC runtime
 - **host_windows.c**:窗口状态(Win32 ShowWindow/SetWindowPos)、tray(Shell_NotifyIcon)、menu(HMENU)、dialog(GetOpenFileName)——通过 webview native handle 拿 HWND
 - **host_linux.c**:窗口状态(GTK gtk_window_*)、tray(GtkStatusIcon)、menu(GtkMenu)、dialog(GtkFileChooserNative)——通过 native handle 拿 GtkWindow
 
 ### 验证 ✅(macOS)
+
 - host.c + host_macos.c 编译(-Wall -Werror 干净),spike `FULL_OK`(18 项)无回归
 - 关键 bug:重构时 socket_thread 统一字段解析漏了 response 的 `id` → `webview_return(w,"",…)` 前端 promise 永不 resolve → 已修(补 `zt_json_str(line,"id",…)`)
 - Windows/Linux 需在目标平台编译验证(build-native.sh 已按平台选文件 + CLI 打包分支)
 
 ### 跨平台打包
+
 - build-native.sh:Darwin/Linux(*)/Windows 各自编译 host + 平台文件
 - CLI build:darwin→.app;linux/win→目录(host+lib+frontend)
 
 ## 25. 补充:sql + autostart 插件(已验证)
 
 ### sql 插件 ✅(`SQL_OK:hello-sql`)
+
 - `plugin:sql|load/execute/select/close`,连接池(id → Database),路径经 PathScope
 - tjs:sqlite 确认:`prepare(sql).run([params])` / `.all([params])`(位置 `?` 占位,数组传参;无 reset,每次新 prepare)
 - 前端 `Database.load/execute/select/close`
 
 ### autostart 插件 ✅(`AUTOSTART_OK`)
+
 - `plugin:autostart|enable/disable/is_enabled`
 - macOS:写 `~/Library/LaunchAgents/<id>.plist`(ProgramArguments = exec)
 - Linux:写 `~/.config/autostart/<id>.desktop`
@@ -462,11 +501,13 @@ ZtronApp.app/Contents/
 - exec 默认 `tjs.exePath`,可配置
 
 ### spike:20 项 FULL_OK
+
 - 新增 SQL_OK + AUTOSTART_OK(启用→检查→禁用,幂等)
 
 ## 26. P2 深入结论(http ESM 不可靠 → 需自定义 scheme)
 
 ### 验证过程与结论
+
 - **可靠路径**:dev 用 watcher(vite build IIFE + file://),spike 稳定 `FULL_OK`(20 项)。手动 file:// navigate 也稳定执行页面。
 - **尝试**:ATS-exempt .app bundle + vite dev server(http://localhost)+ CORS 头 + dev 保 `type="module"`。
   - CORS 头确认出现(index/main.ts 均 `Access-Control-Allow-Origin: *`)
@@ -475,6 +516,7 @@ ZtronApp.app/Contents/
 - **根因判断**:WKWebView 对 `http://` + `type="module"` 的 ESM 加载在当前 webview/webview 配置下不可靠(经典 script 正常)。完整 HMR(ESM + HMR websocket)需要 **WKURLSchemeHandler 自定义 scheme**(`ztron://`),即 ROADMAP P2.1 标注的深度 C 工作(需 patch webview 库或 host 自建 WKWebView 层)。
 
 ### 基础设施(已保留)
+
 - `spawnHostInBundle`:临时 ATS-exempt .app bundle(可加载 http://localhost)
 - `startFrontendDevServer`:vite dev server + CORS + dev 保 ESM(待自定义 scheme 时启用)
 - dev 当前用 `startFrontendWatcher`(IIFE + file://,可靠)
@@ -482,34 +524,78 @@ ZtronApp.app/Contents/
 ## 27. P2 落地:自动刷新 dev(near-HMR,已验证)
 
 ### 机制
+
 - CLI dev:watcher(排除 dist/.ztron 避免循环)检测前端源码变化 → 重建 IIFE → touch `.ztron/reload` 信号文件
 - backend:每 400ms 轮询 reload 文件,检测到变化 → `webview.eval('location.reload()')`
 - **关键修复**:dev 后端改用**异步 `spawn`**(非 `spawnSync`)——spawnSync 阻塞主线程导致 watcher 的 setTimeout 永远不执行
 
 ### 验证 ✅
+
 - 修改 `src/main.ts` → `frontend changed → rebuilt → page reloaded`
 - 修改 `index.html` → 同样触发;无重建循环
 
 ### 与完整 HMR 的关系
+
 - 当前:整页 reload(自动,可靠)
 - 完整模块级 HMR:需 `ztron://` scheme(WKURLSchemeHandler),深度 C 工作(DESIGN.md §26)
 
 ## 28. P2 终评:ztron:// 自定义 scheme 技术蓝图(评估完成,暂缓实现)
 
 ### 为什么需要
+
 - WKWebView 对 `http://` 的 ESM module 加载不可靠(§26),完整模块级 HMR 需要自定义 scheme
 - 生产资产走 `ztron://` 可获隔离(优于 file://)
 
 ### patch 位置(webview/webview,header-only)
+
 - `core/include/webview/api.h`:加 `webview_register_scheme(webview_t, const char *scheme, handler, arg)`
 - `core/include/webview/detail/backends/cocoa_webkit.hh` **`window_settings()`(约 450 行)**:`WKWebViewConfiguration_new()` 之后、`m_webview` 创建(485 行)之前,调 `WKWebViewConfiguration_setURLSchemeHandler_forURLScheme(config, handler, scheme)`
 - 需用 ObjC 运行时动态类实现 WKURLSchemeHandler 协议:`webView:startURLSchemeTask:`(解析 URL path → 生成响应 → task didReceiveResponse/didReceiveData/didFinish)、`webView:stopURLSchemeTask:`
 
 ### 评估
+
 - **工作量**:100-200 行 ObjC 运行时动态协议代码(arm64 msgSend、task 生命周期、NSData/NSHTTPURLResponse 构造)
 - **风险**:高(动态协议实现易错,可能破坏现有 webview 功能;当前 GUI 环境 http/窗口渲染不稳定,难可靠验证)
 - **收益**:生产资产隔离 + 完整模块级 HMR
 - **结论**:暂缓;near-HMR(§27)已覆盖开发体验的主要缺口。未来实现时按本蓝图在目标平台(或有稳定 GUI 的环境)进行。
 
 ### devtools(P2.3 部分)
+
 - 已默认启用:host `webview_create(1, …)` → `developerExtrasEnabled`(cocoa 后端 window_settings 中设置)
+
+## 29. 补充:clipboard 插件 + CSP 注入 + tray 崩溃修复(已验证)
+
+### clipboard 插件 ✅(`CLIPBOARD_OK:hello-clipboard`)
+
+- `plugin:clipboard|read_text` / `write_text`,core 加 `ClipboardController`(runtime-ffi 实现,`sendRequest` 读 / `send` 写)
+- host 三平台:
+  - macOS:`NSPasteboard.generalPasteboard` + `stringForType:` / `clearContents`+`setString:forType:`
+  - Windows:`OpenClipboard` + `CF_TEXT`(GlobalAlloc/GlobalLock)
+  - Linux:`gtk_clipboard_get(GDK_SELECTION_CLIPBOARD)` + `wait_for_text` / `set_text`
+- 前端 `readClipboardText` / `writeClipboardText`(api/clipboard.ts)
+
+### 关键发现 1:`Msg.type` 长度截断 bug
+
+- `Msg.type` 原是 `char[16]`;`clipboard_read_text`(18)/`menu_item_set_enabled`(22)超长
+- `zt_json_str` 会截断后写 `'\0'` 并返回 `*p=='"'`(此时 *p 非引号)→ **返回 0 → host 静默丢弃该消息**
+- 修复:`char[32]`,并统一 `text/tooltip/message → str2`、`title/item_id/default_name → id`
+
+### 关键发现 2:host 在 tray 操作后崩溃(定位过程)
+
+- 现象:CLIPBOARD_OK 之后 TRAY/MENU/DIALOG 永不出现,前端卡在 `await setTrayTooltip`
+- 定位:后端已写 set_tooltip 的 response(无 `be-send:ERR`),但 host 永远读不到下一行
+- 根因:**host 进程在 `tray_set_tooltip` → `setToolTip:` 处 EXC_BAD_ACCESS 崩溃**
+  - `statusItemWithLength:` 返回 **autoreleased** 的 NSStatusItem;存储到 `g_status_item` 未 retain
+  - 主 run loop 排空 autorelease pool 后 `g_status_item` 成悬垂指针 → 下次 `setToolTip:` 崩溃(PAC failure)
+- 修复:`tray_create` 中 `[item retain]`,`tray_destroy` 中 `[g_status_item release]`
+- 教训:跨线程/跨 runloop 存储的 autoreleased 对象必须显式 retain
+
+### CSP 注入 ✅
+
+- CLI `buildFrontend`:若 index.html 无 CSP meta,注入默认 CSP
+  - `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*`
+- `ztron.conf.json` 的 `csp` 字段可覆盖
+
+### spike:22 项 FULL_OK
+
+- 新增 CLIPBOARD_OK;阈值 22(CODEGEN…WIN_EVENT/TRAY/MENU/DIALOG_REG),连续 3 次全绿

@@ -309,6 +309,30 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
   if (strcmp(m->type, "dialog_message") == 0) { dialog_message(m); return 1; }
+
+  if (strcmp(m->type, "clipboard_read_text") == 0) {
+    if (m->req_id >= 0 && OpenClipboard(NULL)) {
+      HANDLE h = GetClipboardData(CF_TEXT);
+      if (h) {
+        char *s = (char *)GlobalLock(h);
+        if (s) zt_reply_string(m->req_id, s);
+        GlobalUnlock(h);
+      } else zt_reply_null(m->req_id);
+      CloseClipboard();
+    } else zt_reply_null(m->req_id);
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_write_text") == 0) {
+    if (OpenClipboard(NULL)) {
+      EmptyClipboard();
+      const char *txt = m->str2[0] ? m->str2 : m->str;
+      size_t len = strlen(txt) + 1;
+      HGLOBAL h = GlobalAlloc(GMEM_MOVEABLE, len);
+      if (h) { memcpy(GlobalLock(h), txt, len); GlobalUnlock(h); SetClipboardData(CF_TEXT, h); }
+      CloseClipboard();
+    }
+    return 1;
+  }
   return 0;
 }
 

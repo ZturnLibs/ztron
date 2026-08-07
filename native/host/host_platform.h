@@ -26,7 +26,7 @@
 #define MSG_STR_LEN (1 << 20) /* 1 MiB */
 
 typedef struct Msg_ {
-  char type[16];
+  char type[32]; /* longest op: menu_item_set_enabled (22) */
   char id[128];
   char str[MSG_STR_LEN];
   char str2[MSG_STR_LEN];

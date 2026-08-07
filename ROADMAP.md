@@ -42,6 +42,7 @@
 - [x] **P1.1 Capabilities/ACL**:Capability/Permission/Set + IpcHub 门禁(`ACL_DENY_OK`)
 - [x] **P1.2 CLI capabilities 自动加载**(`loadCapabilities` + `for await` 迭代器)
 - [x] **P1.3 http scope**:tjs fetch + HttpScope URL allowlist(`HTTP_SCOPE_DENY_OK`)
+- [x] **P1.4 CSP 注入**:build 时注入默认 CSP meta,`ztron.conf.json.csp` 可覆盖
 
 ### P2 自定义协议 + HMR(C 层)
 
@@ -53,7 +54,8 @@
 
 - [x] store(kv) · http · shell · os · log (FULL_OK, 17 checks pass)
 - [x] sql(tjs:sqlite)· autostart(`SQL_OK` + `AUTOSTART_OK`)
-- [ ] notification · clipboard · positioner · window-state
+- [x] clipboard(`CLIPBOARD_OK`,host 三平台 NSPasteboard/Win32/GTK)
+- [ ] notification · positioner · window-state
 
 ### P4 开发者体验
 

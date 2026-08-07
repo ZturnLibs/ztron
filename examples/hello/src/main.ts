@@ -197,9 +197,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      if (done.size >= 20) {
+      if (done.size >= 22) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/win/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/win/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

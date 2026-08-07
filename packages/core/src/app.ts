@@ -146,6 +146,8 @@ export class App {
       "plugin:dialog|open",
       "plugin:dialog|save",
       "plugin:dialog|message",
+      "plugin:clipboard|read_text",
+      "plugin:clipboard|write_text",
     ];
     const coreIds: string[] = [];
     for (const cmd of coreAllowed) {
@@ -310,6 +312,13 @@ export class App {
         this.#adapter.dialog?.save((args as SaveDialogOptions) ?? {}) ?? null,
       "plugin:dialog|message": async (args) =>
         this.#adapter.dialog?.message(args as MessageDialogOptions) ?? 0,
+      "plugin:clipboard|read_text": async () =>
+        this.#adapter.clipboard?.readText() ?? null,
+      "plugin:clipboard|write_text": (args) => {
+        this.#adapter.clipboard?.writeText(
+          (args as { text?: string }).text ?? "",
+        );
+      },
     };
 
     for (const [name, handler] of Object.entries(commands)) {

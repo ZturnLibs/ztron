@@ -283,6 +283,21 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
   if (strcmp(m->type, "dialog_message") == 0) { dialog_message(m); return 1; }
+
+  if (strcmp(m->type, "clipboard_read_text") == 0) {
+    if (m->req_id >= 0) {
+      GtkClipboard *cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+      gchar *text = gtk_clipboard_wait_for_text(cb);
+      if (text) { zt_reply_string(m->req_id, text); g_free(text); }
+      else zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_write_text") == 0) {
+    GtkClipboard *cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    gtk_clipboard_set_text(cb, m->str2[0] ? m->str2 : m->str, -1);
+    return 1;
+  }
   return 0;
 }
 

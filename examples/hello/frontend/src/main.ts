@@ -21,6 +21,8 @@ import {
   enableAutostart,
   disableAutostart,
   isAutostartEnabled,
+  readClipboardText,
+  writeClipboardText,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -156,6 +158,7 @@ async function main(): Promise<void> {
     // 5h. sql (tjs:sqlite)
     const tmpDir = await os.tmpdir();
     const db = await Database.load(`${tmpDir}/ztron_spike.db`);
+    await db.execute("DROP TABLE IF EXISTS notes");
     await db.execute(
       "CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, text TEXT)",
     );
@@ -168,7 +171,7 @@ async function main(): Promise<void> {
     if (rows.length === 1 && rows[0]?.text === "hello-sql") {
       report("SQL_OK:" + rows[0].text);
     } else {
-      report("SQL_FAIL");
+      report("SQL_FAIL:rows=" + JSON.stringify(rows).slice(0, 80));
     }
 
     // 5i. autostart
@@ -182,6 +185,15 @@ async function main(): Promise<void> {
       report("AUTOSTART_OK(was-enabled)");
     } else {
       report("AUTOSTART_FAIL");
+    }
+
+    // 5j. clipboard (host NSPasteboard)
+    await writeClipboardText("hello-clipboard");
+    const clip = await readClipboardText();
+    if (clip === "hello-clipboard") {
+      report("CLIPBOARD_OK:" + clip);
+    } else {
+      report("CLIPBOARD_FAIL:" + String(clip));
     }
 
     // 6. window states + events through the api
@@ -206,9 +218,6 @@ async function main(): Promise<void> {
     await win.setVisible(false);
     await new Promise((r) => setTimeout(r, 300));
     await win.setVisible(true);
-    await win.setFocus();
-
-    // 7. system tray (creation/title/tooltip; click is manual)
     await createTray({ title: "Ztron", tooltip: "Ztron tray" });
     await setTrayTooltip("Ztron tray updated");
     report("TRAY_OK");

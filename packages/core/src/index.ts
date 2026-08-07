@@ -71,6 +71,7 @@ export type {
   MenuItemConfig,
   MenuController,
   DialogController,
+  ClipboardController,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

@@ -183,7 +183,9 @@ static void tray_create(const char *title) {
     id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
     OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
     OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
-    g_status_item = item;
+    /* statusItemWithLength: returns an autoreleased item; retain it so the
+       stored g_status_item survives the next autorelease-pool drain. */
+    g_status_item = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("retain"));
   }
 }
 static void tray_set_title(const char *title) {
@@ -200,6 +202,7 @@ static void tray_destroy(void) {
   if (g_status_item) {
     void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
     OBJC_MSG(void(*)(id, SEL, id), bar, sel_registerName("removeStatusItem:"), g_status_item);
+    OBJC_MSG(void(*)(id, SEL), g_status_item, sel_registerName("release"));
     g_status_item = NULL;
   }
 }
@@ -384,6 +387,30 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
   if (strcmp(m->type, "dialog_message") == 0) { dialog_message(m); return 1; }
+
+  if (strcmp(m->type, "clipboard_read_text") == 0) {
+    if (m->req_id >= 0) {
+      id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                       sel_registerName("generalPasteboard"));
+      id str = OBJC_MSG(id(*)(id, SEL, id), pb, sel_registerName("stringForType:"),
+                        zt_nsstring("public.utf8-plain-text"));
+      const char *s = str
+          ? OBJC_MSG(const char *(*)(id, SEL), str, sel_registerName("UTF8String"))
+          : NULL;
+      if (s) zt_reply_string(m->req_id, s);
+      else zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_write_text") == 0) {
+    id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                     sel_registerName("generalPasteboard"));
+    OBJC_MSG(void(*)(id, SEL), pb, sel_registerName("clearContents"));
+    OBJC_MSG(void(*)(id, SEL, id, id), pb, sel_registerName("setString:forType:"),
+             zt_nsstring(m->str2[0] ? m->str2 : m->str),
+             zt_nsstring("public.utf8-plain-text"));
+    return 1;
+  }
 
   return 0;
 }

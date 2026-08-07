@@ -36,7 +36,15 @@ interface ProjectConfig {
   entry?: string;
   frontend?: string;
   appName?: string;
+  /** Content-Security-Policy header/value; defaults to a permissive-but-sane one. */
+  csp?: string;
 }
+
+/** Default CSP injected into the built index.html. */
+const DEFAULT_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+  "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+  "connect-src 'self' http://localhost:* ws://localhost:*";
 
 /** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
 function findTjs(): string {
@@ -209,6 +217,14 @@ async function buildFrontend(
       /<script type="module"(?:\s+crossorigin)? src="([^"]+)"><\/script>/g,
       (_, src: string) => `<script src="${src}"></script>`,
     );
+    // Inject a Content-Security-Policy meta (configurable via ztron.conf.json).
+    if (!/<meta[^>]+http-equiv="?Content-Security-Policy"?/i.test(html)) {
+      const csp = config.csp ?? DEFAULT_CSP;
+      html = html.replace(
+        /<head>/,
+        `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`,
+      );
+    }
     writeFileSync(index, html);
   }
   console.log(`[ztron] frontend built: ${index}`);
