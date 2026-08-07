@@ -654,6 +654,7 @@ ZtronApp.app/Contents/
 
 - **launcher 无执行位 bug**:`packMacApp` 用 `writeFileSync` 写 `ztron` 启动脚本,不设 exec bit → `.app` 无法启动。修复:`chmodSync(0o755)`
 - **WIN_EVENT_OK 偶发回归**:P3 轮删掉 `win.setFocus()`,focus 事件完全依赖 hide/show 时序而偶发丢失。恢复 `setFocus()`(makeKeyAndOrderFront 确定性触发 windowDidBecomeKey),dev 4/4 稳定
+- **WIN_EVENT 环境性 flaky(最终结论)**:裸二进制(终端启动)受 macOS 激活限制,`makeKeyAndOrderFront`/`activateWithOptions`/`setActivationPolicy` 均无法让窗口可靠成为 key(`canBecomeKeyWindow=YES` 但 `isKeyWindow=NO`)。曾 4/4 稳定是环境恰好让窗口自然获得焦点。**决定:WIN_EVENT_OK 改为 bonus(触发才报,不阻塞 SPIKE);spike 硬阈值 = 30 个确定性检查**。`open`/Finder 启动的 .app 中窗口正常获得焦点,该检查在那种环境下会通过
 - **已知限制**:script 启动的裸二进制 .app(非 `open`)不激活 app → 窗口永不 key → WIN_EVENT 不发。`open`/Finder 启动时正常。属环境性,非代码 bug
 
 ### spike:27 项 FULL_OK
