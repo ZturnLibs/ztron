@@ -451,6 +451,7 @@ async function main(): Promise<void> {
     await win.setShadow(true);
     await win.setEnabled(true);
     await win.setZoom(1.5);
+    await win.setBounds(60, 70, 800, 600);
     report("CURSOR_OK");
 
     // 6a2e. os.locale + window.innerPosition

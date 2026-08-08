@@ -155,6 +155,7 @@ export class App {
       "plugin:window|set_shadow",
       "plugin:window|set_enabled",
       "plugin:window|set_position",
+      "plugin:window|set_bounds",
       "plugin:window|start_dragging",
       "plugin:app|name",
       "plugin:app|version",
@@ -360,6 +361,20 @@ export class App {
       "plugin:window|set_position": (args, ctx) => {
         const { x, y } = args as { x: number; y: number };
         ctx.webview.setPosition(Number(x), Number(y));
+      },
+      "plugin:window|set_bounds": (args, ctx) => {
+        const { x, y, width, height } = args as {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        };
+        ctx.webview.setBounds(
+          Number(x),
+          Number(y),
+          Number(width),
+          Number(height),
+        );
       },
       "plugin:window|start_dragging": (_args, ctx) =>
         ctx.webview.startDragging(),

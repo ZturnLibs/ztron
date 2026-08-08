@@ -29,6 +29,7 @@ export class MockWebviewHandle implements WebviewHandle {
   titleLog: string[] = [];
   sizeLog: Array<{ w: number; h: number }> = [];
   positionLog: Array<{ x: number; y: number }> = [];
+  boundsLog: Array<{ x: number; y: number; w: number; h: number }> = [];
   windowStateLog: Array<{ op: WindowStateOp; value?: boolean }> = [];
   /** Return values for `is_*` window-state queries. */
   windowStateValues: Partial<Record<WindowStateOp, boolean>> = {};
@@ -131,6 +132,11 @@ export class MockWebviewHandle implements WebviewHandle {
     this.positionLog.push({ x, y });
     this.frame.x = x;
     this.frame.y = y;
+  }
+
+  setBounds(x: number, y: number, width: number, height: number): void {
+    this.boundsLog.push({ x, y, w: width, h: height });
+    this.frame = { x, y, width, height };
   }
 
   opacityLog: number[] = [];

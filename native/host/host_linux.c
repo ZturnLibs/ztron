@@ -326,6 +326,14 @@ static int dispatch(Msg *m) {
     if (w) gtk_window_move(GTK_WINDOW(w), m->x, m->y);
     return 1;
   }
+  if (strcmp(m->type, "window_set_bounds") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) {
+      gtk_window_move(GTK_WINDOW(w), m->x, m->y);
+      gtk_window_resize(GTK_WINDOW(w), m->width, m->height);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "window_get_state") == 0) {
     GtkWidget *w = zt_window();
     if (w && m->req_id >= 0) {

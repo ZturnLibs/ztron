@@ -84,6 +84,8 @@ export interface WebviewHandle {
   getFrame(): Promise<WindowFrame | null>;
   /** Moves the native window to the given origin. */
   setPosition(x: number, y: number): void;
+  /** Sets the native window bounds (position + size in one op). */
+  setBounds(x: number, y: number, width: number, height: number): void;
   /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
   setOpacity(opacity: number): void;
   /** Reads the native window's boolean state flags. */

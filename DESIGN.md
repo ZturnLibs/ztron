@@ -934,6 +934,12 @@ ZtronApp.app/Contents/
 - backend:menu createMenu 递归构建(子菜单 + check);api MenuItem 支持嵌套/check
 - spike:setAppMenu 含子菜单 View→Zoom(check)+Reload;MENU_OK;53 项 FULL_OK
 
+## 68. window.setBounds
+
+- host op `window_set_bounds`:macOS `setFrame:display:`(⚠ `setFrame:` 不存在,unrecognized selector 崩溃,正确为 3 参数 `setFrame:display:`);Win `SetWindowPos`(全参);Linux `gtk_window_move`+`gtk_window_resize`
+- core `WebviewHandle.setBounds` + `plugin:window|set_bounds`;api `Window.setBounds(x,y,width,height)`
+- 单测:setBounds 路由 + frame 更新;spike CURSOR_OK(含 setBounds);53 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

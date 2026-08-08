@@ -68,6 +68,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window position) */
   }
 
+  setBounds(): void {
+    /* no-op (host adapter provides window bounds) */
+  }
+
   setOpacity(): void {
     /* no-op (host adapter provides window opacity) */
   }

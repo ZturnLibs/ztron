@@ -82,10 +82,15 @@ test("window commands route to the handle", async () => {
   const sf = await mock.main.invoke("plugin:window|get_scale_factor", {});
   assert.ok(typeof sf === "number");
 
-  await mock.main.invoke("plugin:window|set_title", { title: "New" });
-  assert.deepEqual(w.titleLog, ["New"]);
-  await mock.main.invoke("plugin:window|set_size", { width: 800, height: 600 });
-  assert.deepEqual(w.sizeLog.at(-1), { w: 800, h: 600 });
+  await mock.main.invoke("plugin:window|set_bounds", {
+    x: 1,
+    y: 2,
+    width: 300,
+    height: 200,
+  });
+  assert.deepEqual(w.boundsLog.at(-1), { x: 1, y: 2, w: 300, h: 200 });
+  const afterBounds = await mock.main.invoke("plugin:window|get_frame", {});
+  assert.equal(afterBounds?.width, 300);
 });
 
 test("tray commands route to the adapter", async () => {

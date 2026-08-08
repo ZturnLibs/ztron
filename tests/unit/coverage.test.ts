@@ -81,6 +81,7 @@ const UNIT_COVERED = new Set([
   "plugin:window|set_shadow",
   "plugin:window|set_enabled",
   "plugin:window|set_position",
+  "plugin:window|set_bounds",
   "plugin:window|start_dragging",
   "plugin:window|set_title",
   "plugin:window|set_size",

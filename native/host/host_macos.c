@@ -769,6 +769,16 @@ static int dispatch(Msg *m) {
     if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);
     return 1;
   }
+  if (strcmp(m->type, "window_set_bounds") == 0) {
+    void *wnd = zt_window();
+    if (wnd) {
+      /* [window setFrame:NSMakeRect(x,y,w,h) display:YES] */
+      ((void(*)(id, SEL, double, double, double, double, BOOL))objc_msgSend)(
+          (id)wnd, sel_registerName("setFrame:display:"), (double)m->x,
+          (double)m->y, (double)m->width, (double)m->height, YES);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "window_get_state") == 0) {
     void *wnd = zt_window();
     if (wnd && m->req_id >= 0) {

@@ -139,6 +139,17 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }
 
+  setBounds(x: number, y: number, width: number, height: number): void {
+    this.#rt.send({
+      type: "window_set_bounds",
+      label: this.label,
+      x,
+      y,
+      width,
+      height,
+    });
+  }
+
   setOpacity(opacity: number): void {
     this.#rt.send({ type: "set_opacity", label: this.label, opacity });
   }
