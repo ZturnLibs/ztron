@@ -19,4 +19,15 @@ export async function getTauriVersion(): Promise<string> {
   return invoke("plugin:app|tauri_version", {});
 }
 
-export const app = { getName, getVersion, getTauriVersion };
+export interface AppInfo {
+  identifier: string;
+  appName?: string;
+  version?: string;
+}
+
+/** The app configuration (identifier/name/version; secrets are stripped). */
+export async function getConfig(): Promise<AppInfo & Record<string, unknown>> {
+  return invoke("plugin:app|get_config", {});
+}
+
+export const app = { getName, getVersion, getTauriVersion, getConfig };

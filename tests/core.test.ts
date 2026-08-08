@@ -93,6 +93,9 @@ test("app metadata commands report config name/version", async () => {
   assert.equal(await mock.main.invoke("plugin:app|name", {}), "MyApp");
   assert.equal(await mock.main.invoke("plugin:app|version", {}), "3.2.1");
   assert.equal(await mock.main.invoke("plugin:app|tauri_version", {}), "2.0.0");
+  const cfg = await mock.main.invoke("plugin:app|get_config", {});
+  assert.equal(cfg?.identifier, "com.ztron.test");
+  assert.equal("invokeKey" in cfg, false);
 });
 
 test("process commands route to the controller", async () => {

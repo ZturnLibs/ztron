@@ -35,6 +35,7 @@ import {
   onDeepLink,
   getName,
   getVersion,
+  getConfig,
   websocket,
 } from "@ztron/api";
 
@@ -76,6 +77,10 @@ async function main(): Promise<void> {
     const appVersion = await getVersion();
     if (appName === "com.ztron.hello" && appVersion === "0.1.0") {
       report("APP_OK:" + appName + "@" + appVersion);
+    }
+    const appInfo = await getConfig();
+    if (appInfo.identifier === "com.ztron.hello" && !("invokeKey" in appInfo)) {
+      report("APP_CONFIG_OK:" + appInfo.identifier);
     }
 
     // 1c. process module (commands registered; not invoked — they'd exit)

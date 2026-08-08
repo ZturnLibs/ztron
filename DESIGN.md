@@ -833,6 +833,12 @@ ZtronApp.app/Contents/
 - spike:`WEBSOCKET_OK:ws-echo-test`(连 postman-echo → 发送 → 收到回显);42 项 FULL_OK(2 次稳定)
 - 注:echo.websocket.org 不回显原消息(返回 "Request served by ..."),故用 ws.postman-echo.com/raw
 
+## 54. app.getConfig
+
+- `plugin:app|get_config` 返回 AppConfig(identifier/appName/version/windows 等),**剥离 invokeKey/initScript/withGlobalTauri 敏感字段**
+- api `app.getConfig()`;单测验证 invokeKey 不泄漏
+- spike `APP_CONFIG_OK:com.ztron.hello`;43 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
