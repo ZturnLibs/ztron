@@ -83,3 +83,42 @@
 | 4      | P3 store/http/dialog 插件 | 开箱即用                    |
 | 5      | P5 打包扩展 + 测试        | 分发与质量                  |
 | 6      | 多窗口/多平台/移动端      | 最深,延后                   |
+
+## 5. 现状对比(2026-08)与补全计划
+
+> 完整对比结论见 `tests/README.md` 与 §「对比」。
+> 概括:**macOS 桌面可验证面基本翻译完成**(核心 API + 25 插件 + 窗口全能力 + 安全 + 打包 + 三层测试);剩余为深水区/平台绑定/偏门子集。
+
+### 5.1 已对齐(✅)
+
+| 维度     | 覆盖                                                                                                                                                                                                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| core api | invoke/transformCallback/Channel/Resource/event/process/app/os/path/window/clipboard/http/shell/dialog/tray/updater/menu                                                                                                          |
+| 插件(25) | store·fs·http·shell(+stream)·os·log·sql·clipboard·positioner·window-state·notification·global-shortcut·single-instance·deep-link·updater·autostart·websocket·local-ip·network·upload·persisted-scope·menu·tray·dialog·app/process |
+| 窗口     | min/max/fullscreen/alwaysOnTop/decorations/opacity/transparent/drag/position/size/focus/visible/resizable/cursor/ignore-cursor/theme/scaleFactor/title/close/center + 事件 + is*/outer* 查询                                      |
+| 安全     | ACL capabilities/deny/覆盖 · PathScope/HttpScope · CSP · IPC key                                                                                                                                                                  |
+| 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · near-HMR                                                                                                                                                                              |
+| 测试     | 三层框架(50 单测 + 51 spike,100% 覆盖账本)                                                                                                                                                                                        |
+
+### 5.2 部分完成(🟡)与补全计划(本机可做)
+
+| 项                 | 差距                                                                               | 状态       |
+| ------------------ | ---------------------------------------------------------------------------------- | ---------- |
+| path 目录 getter   | 缺 appDataDir/appCacheDir/documentDir/downloadDir/desktopDir/resourceDir 等 ~20 个 | [ ] 计划中 |
+| os type/family/eol | 缺 3 个查询                                                                        | [ ] 计划中 |
+| window 高级        | setShadow/setZoom/setEnabled/isEnabled/startResizeDragging/setBounds               | [ ] 计划中 |
+| menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [ ] 计划中 |
+| shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [ ] 低优先 |
+| IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先 |
+
+### 5.3 缺失(❌ 深水区/平台/移动端)
+
+| 项                                                                                        | 原因                              |
+| ----------------------------------------------------------------------------------------- | --------------------------------- |
+| 多窗口/WebviewWindow/getByLabel/webview 模块/dpi 类型                                     | host 单 webview 实例,需重写       |
+| ztron:// scheme(→convertFileSrc/HMR/资产隔离)                                             | ObjC 动态类高风险,蓝图已备        |
+| Win/Linux 编译 + NSIS/AppImage/dmg                                                        | 需目标平台                        |
+| 移动端 + 移动/硬件插件(barcode/biometric/haptics/nfc/bluetooth/authenticator/geolocation) | 整个构建链未启动                  |
+| stronghold / fps / server 插件                                                            | 需原生绑定/偏门                   |
+| tauri-driver/WebDriver 集成测试                                                           | 未实现(用 MockRuntime+spike 替代) |
+| Image 模块(transformImage)                                                                | 需原生图像处理                    |
