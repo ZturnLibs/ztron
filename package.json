@@ -2,6 +2,7 @@
   "name": "ztron",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "A Tauri-style cross-platform desktop framework rewritten in TypeScript on top of txiki.js + system WebView",
   "packageManager": "pnpm@9.15.4",
   "engines": {
@@ -10,7 +11,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "node --experimental-strip-types --test tests/unit/*.test.ts tests/core.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "dev": "pnpm --filter @ztron/cli dev --root ../../examples/hello"
   },
   "devDependencies": {

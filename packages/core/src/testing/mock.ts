@@ -233,6 +233,74 @@ export class MockRuntime implements RuntimeAdapter {
     },
   };
 
+  trayLog: Array<{ op: string; payload?: unknown }> = [];
+  readonly tray: import("../runtime.js").TrayController = {
+    apply: (op, payload) => {
+      this.trayLog.push({ op, payload });
+    },
+    onEvent: () => {},
+  };
+
+  menuLog: Array<{ op: string; payload?: unknown }> = [];
+  readonly menu: import("../runtime.js").MenuController = {
+    createMenu: (menu) => {
+      this.menuLog.push({ op: "create", payload: menu });
+    },
+    setAsAppMenu: (menuId) => {
+      this.menuLog.push({ op: "set_as_app_menu", payload: { menuId } });
+    },
+    destroyMenu: (menuId) => {
+      this.menuLog.push({ op: "destroy", payload: { menuId } });
+    },
+    setItemEnabled: (menuId, itemId, enabled) => {
+      this.menuLog.push({
+        op: "set_item_enabled",
+        payload: { menuId, itemId, enabled },
+      });
+    },
+    setItemTitle: (menuId, itemId, title) => {
+      this.menuLog.push({
+        op: "set_item_title",
+        payload: { menuId, itemId, title },
+      });
+    },
+    onEvent: () => {},
+  };
+
+  dialogLog: Array<{ kind: string; options?: unknown }> = [];
+  readonly dialog: import("../runtime.js").DialogController = {
+    open: (options) => {
+      this.dialogLog.push({ kind: "open", options });
+      return Promise.resolve(null);
+    },
+    save: (options) => {
+      this.dialogLog.push({ kind: "save", options });
+      return Promise.resolve(null);
+    },
+    message: (options) => {
+      this.dialogLog.push({ kind: "message", options });
+      return Promise.resolve(0);
+    },
+  };
+
+  clipboardLog: Array<{ kind: string; text?: string }> = [];
+  readonly clipboard: import("../runtime.js").ClipboardController = {
+    readText: () => {
+      this.clipboardLog.push({ kind: "read" });
+      return Promise.resolve("mock-clip");
+    },
+    writeText: (text) => {
+      this.clipboardLog.push({ kind: "write", text });
+    },
+  };
+
+  notificationLog: Array<{ title: string; body?: string }> = [];
+  readonly notification: import("../runtime.js").NotificationController = {
+    send: (options) => {
+      this.notificationLog.push(options);
+    },
+  };
+
   createWindow(config: WindowConfig): WebviewHandle {
     const handle = new MockWebviewHandle(config.label);
     this.handles.push(handle);

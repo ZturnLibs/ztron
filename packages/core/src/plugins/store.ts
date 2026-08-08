@@ -65,6 +65,11 @@ export function storePlugin(options: StorePluginOptions = {}): Plugin {
         store[key] = value;
         await save(path, store);
       },
+      async has(args) {
+        const { path, key } = args as { path: string; key: string };
+        const store = await getStore(path);
+        return key in store;
+      },
       async delete(args) {
         const { path, key } = args as { path: string; key: string };
         const store = await getStore(path);
@@ -107,6 +112,10 @@ export function storePlugin(options: StorePluginOptions = {}): Plugin {
       {
         identifier: "store:allow-set",
         commands: ["plugin:store|set"],
+      },
+      {
+        identifier: "store:allow-has",
+        commands: ["plugin:store|has"],
       },
       {
         identifier: "store:allow-delete",

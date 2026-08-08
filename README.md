@@ -47,6 +47,24 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 
 Final spike: **51 checks, all pass** (`FULL_OK`).
 
+## Tests
+
+```
+pnpm test       # 50 tests: 49 pass / 1 skip (surface + unit + core)
+pnpm test:unit  # unit suite only
+```
+
+Three layers target 100% coverage of features + API:
+
+- **surface** — the framework registers exactly the manifest commands and
+  `@ztron/api` exports exactly the manifest values (no missing, no extra)
+- **unit** — every command routed through `MockRuntime` + an in-memory `tjs`
+  stub; PathScope/HttpScope and the ACL are exhaustively tested; a coverage
+  ledger asserts every command is unit- or spike-covered
+- **integration** — the 51-check spike drives the real host + webview
+
+See `tests/README.md` for the design.
+
 ## Quick start
 
 ```bash

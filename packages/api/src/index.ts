@@ -28,8 +28,11 @@ export {
   exists,
   remove,
   makeDir,
+  copyFile,
+  renameFile,
+  stat,
 } from "./fs.js";
-export type { DirEntry } from "./fs.js";
+export type { DirEntry, FileMeta } from "./fs.js";
 export {
   path,
   join,
@@ -60,7 +63,15 @@ export type {
 } from "./dialog.js";
 export { http, fetch } from "./http.js";
 export type { HttpResponse, FetchOptions } from "./http.js";
-export { os, info as osInfo, platform, arch, homedir, tmpdir } from "./os.js";
+export {
+  os,
+  info as osInfo,
+  platform,
+  arch,
+  homedir,
+  tmpdir,
+  locale,
+} from "./os.js";
 export type { OsInfo } from "./os.js";
 export { store } from "./store.js";
 export {

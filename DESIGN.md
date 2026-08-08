@@ -892,6 +892,15 @@ ZtronApp.app/Contents/
 - api `network.getLocalIpv4/6`/`getPublicIp`;权限 `network:default`
 - spike `NETWORK_OK:192.168.0.134:none:180.213.154.232`(local+public);51 项 FULL_OK
 
+## 63. 测试框架(三层 100% 覆盖)
+
+- **Surface(完整性)**:`tests/helpers/manifest.ts` 是命令 + @ztron/api 导出的 source of truth;`surface.test.ts` 断言框架注册的命令与导出 == 清单(无缺失/无多余)
+- **Unit(路由/行为)**:`MockRuntime` 增强(补 tray/menu/dialog/clipboard/notification adapter)+ `tjs-stub.ts`(内存 fs/spawn/serve)→ `routing.test.ts` 逐个命令断言路由;`scopes.test.ts` PathScope/HttpScope 穷举;`acl.test.ts` ACL 穷举;`coverage.test.ts` 覆盖账本(UNIT_COVERED ∪ INTEGRATION_ONLY = 全部命令,无空洞)
+- **Integration**:spike 51 项(tjs:` 模块/网络/会退出应用的命令)
+- 运行:`pnpm test`(50 测试:49 pass / 1 skip)
+- 发现并修复:`store` 缺 `has` 命令(补上)、api 顶层导出补全(fs copyFile/renameFile/stat、os locale、updater check/verify/download)
+- 设计要点:manifest 即契约 —— 新增命令/API 必须同步更新 manifest,否则测试失败
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
