@@ -191,6 +191,7 @@ static void *socket_thread(void *arg) {
     m->req_id = zt_json_int(line, "req_id", -1);
     m->bool_val = zt_json_bool(line, "value", 0);
     m->bool_val = zt_json_bool(line, "separator", m->bool_val);
+    m->bool_val = zt_json_bool(line, "directory", m->bool_val);
     m->opacity_val = zt_json_double(line, "opacity", 0);
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_bool(line, "enabled", m->status);

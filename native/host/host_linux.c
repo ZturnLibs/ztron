@@ -244,8 +244,11 @@ static void menu_set_item_title(const char *menu_id, const char *item_id, const 
 /* ---- dialogs ---- */
 
 static void dialog_open(Msg *m) {
+  GtkFileChooserAction action = m->bool_val
+                                    ? GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER
+                                    : GTK_FILE_CHOOSER_ACTION_OPEN;
   GtkWidget *dlg = gtk_file_chooser_native_new(
-      m->id, zt_window(), GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", "_Cancel");
+      m->id, zt_window(), action, "_Open", "_Cancel");
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
     char *path = gtk_file_chooser_get_filename(
         GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))));

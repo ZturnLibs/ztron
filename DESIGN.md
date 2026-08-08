@@ -787,6 +787,13 @@ ZtronApp.app/Contents/
 - api `shell.execute(program, args, {cwd, env})`
 - spike `SHELL_CWD_OK`(`pwd` 在 tempDir 运行;example scope 加 `pwd`),39 项 FULL_OK
 
+## 48. dialog_open 目录选项修复
+
+- 后端发 `directory` 选项但 host 忽略(wire 无映射 + macOS 硬编码 setCanChooseDirectories:NO)→ 目录选择失效
+- 修复:host.c 加 `directory`→`m->bool_val` 映射;macOS setCanChooseFiles/Directories 按标志;Linux 用 `GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER`
+- Windows 需 COM IFileDialog(保留为 skeleton 已知限制)
+- 验证:39 项 FULL_OK 回归
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

@@ -627,9 +627,12 @@ static void install_menu_target(void) {
 static void dialog_open(Msg *m) {
   id panel = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSOpenPanel"), sel_registerName("openPanel"));
   OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setTitle:"), zt_nsstring(m->id));
-  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseFiles:"), YES);
-  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseDirectories:"), NO);
-  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setAllowsMultipleSelection:"), NO);
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseFiles:"),
+           m->bool_val ? NO : YES);
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseDirectories:"),
+           m->bool_val ? YES : NO);
+  OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setAllowsMultipleSelection:"),
+           NO);
   long resp = (long)OBJC_MSG(long(*)(id, SEL), panel, sel_registerName("runModal"));
   if (resp == NS_MODAL_OK) {
     id urls = OBJC_MSG(id(*)(id, SEL), panel, sel_registerName("URLs"));
