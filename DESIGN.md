@@ -864,6 +864,13 @@ ZtronApp.app/Contents/
 - `Window.innerPosition()`:近似 outer(frame 原点,精确 content 原点需标题栏高度)
 - spike `LOCALE_OK:en-US`;47 项 FULL_OK
 
+## 59. upload 插件 + HttpScope 端口通配修复
+
+- `plugin:upload|upload({url,file})`:文件过 PathScope、URL 过 HttpScope,读文件字节 → 原始 POST
+- api `uploader.upload(url, file)`;权限 `upload:default`
+- **HttpScope bug**:`new URL` 无法解析 `*` 端口 → 文档示例 `http://localhost:*` 一直失效。修复:compile 前归一化 `://host:*`,port 用 -1 通配
+- spike:example setup 起本地 echo 服务器(tjs.serve 回显 body),前端写文件→上传→验证回显;`UPLOAD_OK:200`;48 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

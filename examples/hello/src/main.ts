@@ -23,6 +23,7 @@ import {
   singleInstancePlugin,
   websocketPlugin,
   localIpPlugin,
+  uploadPlugin,
   loadCapabilities,
 } from "@ztron/core";
 import { greet, add, echo } from "./commands.js";
@@ -92,6 +93,12 @@ new AppBuilder(runtime, "com.ztron.hello")
   .plugin(singleInstancePlugin({ identifier: "com.ztron.hello" }))
   .plugin(websocketPlugin())
   .plugin(localIpPlugin())
+  .plugin(
+    uploadPlugin({
+      fileScope: { allow: ["$TMP/**"] },
+      urlScope: { allow: [{ url: "http://localhost:*/*" }] },
+    }),
+  )
   .window({
     label: "main",
     title: "Ztron M3",
@@ -100,6 +107,24 @@ new AppBuilder(runtime, "com.ztron.hello")
     ...(devUrl ? { url: devUrl } : { html: inlineHtml }),
   })
   .setup((app) => {
+    // Local echo server for the upload spike (deterministic, no external dep).
+    let echoPort = 0;
+    void (async () => {
+      try {
+        const server = (await tjs.serve({
+          port: 0,
+          listenIp: "127.0.0.1",
+          fetch: async (req: { text(): Promise<string> }) => {
+            const body = await req.text();
+            return new Response(body, { status: 200 });
+          },
+        })) as { port: number };
+        echoPort = server.port;
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    app.command("m3:echo-port", () => echoPort);
     // Write a tiny 1x1 PNG for the tray-icon spike (host loads it via NSImage).
     void (async () => {
       try {
@@ -235,9 +260,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       // 33 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
       // window to become key, which a terminal-launched bare binary cannot
       // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 47) {
+      if (done.size >= 48) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/upload/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

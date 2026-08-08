@@ -6,6 +6,6 @@ declare const tjs: {
   serve(options: {
     port: number;
     listenIp?: string;
-    fetch: (req: { url: string }) => Promise<Response>;
+    fetch: (req: { url: string; text(): Promise<string> }) => Promise<Response>;
   }): { port: number; close(): void };
 };

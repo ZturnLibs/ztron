@@ -20,6 +20,7 @@
     "window-state:write",
     "single-instance:default",
     "websocket:default",
-    "local-ip:default"
+    "local-ip:default",
+    "upload:default"
   ]
 }

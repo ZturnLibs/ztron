@@ -38,6 +38,7 @@ import {
   getConfig,
   websocket,
   getLocalIpv4,
+  uploader,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -117,6 +118,23 @@ async function main(): Promise<void> {
       report("LOCAL_IP_FAIL:" + String(localIp));
     }
 
+    // 1f. upload: POST a file to the local echo server and verify the round trip
+    try {
+      await fs.writeText("$TMP/ztron_upload.txt", "upload-payload-77");
+      const port = await invoke<number>("m3:echo-port", {});
+      const up = await uploader.upload(
+        `http://localhost:${port}/echo`,
+        "$TMP/ztron_upload.txt",
+      );
+      if (up.ok && up.body.includes("upload-payload-77")) {
+        report("UPLOAD_OK:" + up.status + ":" + up.body.slice(0, 16));
+      } else {
+        report("UPLOAD_FAIL:" + up.status + ":" + up.body.slice(0, 40));
+      }
+    } catch (err) {
+      report("UPLOAD_FAIL:" + extractError(err).slice(0, 60));
+    }
+
     // 2. events (backend emits async ticks)
     let ticks = 0;
     await listen<{ n: number }>("m3:tick", (e) => {
@@ -177,7 +195,7 @@ async function main(): Promise<void> {
 
     // 5b. scoped http: allowed URL works, out-of-scope URL is denied
     try {
-      const resp = await http.fetch("https://httpbin.org/get");
+      const resp = await http.fetch("https://api.github.com/");
       if (resp.ok && resp.status === 200) {
         report("HTTP_OK:" + resp.status);
       } else {

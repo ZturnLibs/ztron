@@ -66,12 +66,23 @@ export class HttpScope {
 }
 
 function compile(pattern: string): CompiledPattern {
+  // `new URL` can't parse a `*` port, so normalize `://host:*` first.
+  let portWildcard = false;
+  let clean = pattern;
+  const m = pattern.match(/^(https?):\/\/([^/]+):\*\//);
+  if (m) {
+    portWildcard = true;
+    clean = `${m[1]}://${m[2]}/`;
+  } else if (/^https?:\/\/[^/]+:\*$/.test(pattern)) {
+    portWildcard = true;
+    clean = pattern.replace(/:\*$/, "");
+  }
   let url: URL;
   try {
-    url = new URL(pattern);
+    url = new URL(clean);
   } catch {
     // Treat as host-only pattern with default https
-    url = new URL("https://" + pattern);
+    url = new URL("https://" + clean);
   }
   const hostLabels = url.hostname.split(".");
   const pathParts = url.pathname.split("/").filter(Boolean);
@@ -81,7 +92,7 @@ function compile(pattern: string): CompiledPattern {
   return {
     protocol: url.protocol.replace(":", ""),
     hostLabels,
-    port: url.port ? Number(url.port) : null,
+    port: portWildcard ? -1 : url.port ? Number(url.port) : null,
     pathPrefix,
     pathGlobstar,
   };
@@ -92,7 +103,8 @@ function match(url: URL, p: CompiledPattern): boolean {
     return false;
   }
   const urlPort = url.port ? Number(url.port) : null;
-  if (p.port !== null && urlPort !== p.port) {
+  // p.port === -1 is a wildcard that matches any port.
+  if (p.port !== null && p.port !== -1 && urlPort !== p.port) {
     return false;
   }
   if (!matchHost(url.hostname.split("."), p.hostLabels)) {

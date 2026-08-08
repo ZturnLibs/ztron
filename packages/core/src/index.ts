@@ -41,6 +41,7 @@ export {
   singleInstancePlugin,
   websocketPlugin,
   localIpPlugin,
+  uploadPlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -62,6 +63,7 @@ export type {
   AutostartPluginOptions,
   WindowStatePluginOptions,
   SingleInstancePluginOptions,
+  UploadPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
