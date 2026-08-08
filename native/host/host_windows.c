@@ -32,9 +32,14 @@ void zt_reply_query(int req_id, const char *json_value) {
   zt_send_line(buf);
 }
 void zt_reply_string(int req_id, const char *s) {
-  char buf[65536];
+  size_t need = strlen(s) * 2 + 64;
+  char *buf = (char *)malloc(need);
+  if (!buf) {
+    zt_reply_null(req_id);
+    return;
+  }
   char *p = buf;
-  char *end = buf + sizeof(buf) - 32;
+  char *end = buf + need - 1;
   p += sprintf(p,
                "{\"type\":\"query_result\",\"req_id\":%d,\"result\":\"",
                req_id);
@@ -50,6 +55,7 @@ void zt_reply_string(int req_id, const char *s) {
   *p++ = '}';
   *p = '\0';
   zt_send_line(buf);
+  free(buf);
 }
 void zt_reply_null(int req_id) { zt_reply_query(req_id, "null"); }
 

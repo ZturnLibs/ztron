@@ -765,3 +765,9 @@ ZtronApp.app/Contents/
 - 修复:补 `\n`/`\r`/`\t` 转义 + 其他控制字符替换为 `?` + 缓冲边界(65536-32)
 - 影响面:所有 `zt_reply_string` 响应(clipboard 读、dialog 路径、window_get_title)
 - **验证**:spike clipboard 改为特殊字符往返(`'line1\n"quoted"\\back'`),`CLIPBOARD_OK` round-trip 通过;36 项 FULL_OK
+
+## 44. 修复:zt_reply_string 固定缓冲截断大回复
+
+- 上一版 `char buf[65536]` 会把 >64KB 回复(大剪贴板文本/dialog 路径)截断 → 静默数据丢失
+- 修复:按 `strlen(s)*2+64` heap 分配,无截断;OOM 时回退 `zt_reply_null`
+- **验证**:spike 加 100KB 剪贴板往返 `CLIPBOARD_BIG_OK:100000`;37 项 FULL_OK(2 次稳定)

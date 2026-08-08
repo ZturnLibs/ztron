@@ -231,6 +231,16 @@ async function main(): Promise<void> {
       report("CLIPBOARD_FAIL:" + JSON.stringify(clip));
     }
 
+    // 5j2. clipboard large payload (guards the reply buffer: no truncation)
+    const bigText = "x".repeat(100_000);
+    await writeClipboardText(bigText);
+    const bigClip = await readClipboardText();
+    if (bigClip === bigText) {
+      report("CLIPBOARD_BIG_OK:" + bigClip.length);
+    } else {
+      report("CLIPBOARD_BIG_FAIL:" + String(bigClip?.length));
+    }
+
     // 6. window states + events through the api
     const win = Window.getCurrent();
     const maximized = await win.isMaximized();
