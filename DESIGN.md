@@ -682,3 +682,17 @@ ZtronApp.app/Contents/
   - dev spike:`DEEP_LINK_OK`(管线:get_last_url 返回 null、onDeepLink 可注册),31 项 FULL_OK
   - 打包 app:`lsregister` 注册后 `open "ztron://..."` 退出 0(scheme 已认领)
   - **已知限制**:脚本启动的裸二进制/dev 无法认领 scheme(LaunchServices 只认 bundle);URL 投递到"已运行实例"依赖启动方式(脚本启动的实例 `open` 会另起新实例)—— 标准 macOS 行为,非代码 bug
+
+## 34. 修复:JSON boolean 解析 bug(重要)+ window-state 增强
+
+### 关键 bug:`zt_json_int` 无法解析 JSON boolean
+
+- `Msg.bool_val`(`set_*` 窗口 op 的 value 字段)用 `zt_json_int`(atoi)解析 → `"value":true` → `atoi("true")=0`
+- **受影响**:set_always_on_top / set_visible / set_resizable / set_fullscreen / set_transparent / set_decorations / menu `enabled` / `separator` —— 全部失效(spike 只验证命令 resolve,未验证实际状态,掩盖了 bug)
+- 修复:新增 `zt_json_bool`(识别 `true`/`false`/整数),用于 `value`/`separator`/`enabled` 字段
+- 现象溯源:window-state 增强后 save 时 `is_maximized` 误报 true(setDecorations(true) 未生效 → 窗口保持 borderless style=0 → isZoomed=true)
+
+### window-state 增强
+
+- 新增保存 `maximized`/`fullscreen` 标志(save 查询 is_maximized/is_fullscreen,restore 恢复)
+- 单测新增:标志保存 + restore 重新最大化

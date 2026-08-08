@@ -89,6 +89,20 @@ double zt_json_double(const char *json, const char *key, double def) {
   return atof(p);
 }
 
+/* JSON booleans (`true`/`false`) parse to 1/0; plain ints fall through. */
+int zt_json_bool(const char *json, const char *key, int def) {
+  char pat[128];
+  snprintf(pat, sizeof(pat), "\"%s\"", key);
+  const char *p = strstr(json, pat);
+  if (!p) return def;
+  p = strchr(p + strlen(pat), ':');
+  if (!p) return def;
+  p = skip_ws(p + 1);
+  if (strncmp(p, "true", 4) == 0) return 1;
+  if (strncmp(p, "false", 5) == 0) return 0;
+  return atoi(p);
+}
+
 /* ---- socket bridge ---- */
 
 static int g_fd = -1;
@@ -169,10 +183,11 @@ static void *socket_thread(void *arg) {
     m->x = zt_json_int(line, "x", 0);
     m->y = zt_json_int(line, "y", 0);
     m->req_id = zt_json_int(line, "req_id", -1);
-    m->bool_val = zt_json_int(line, "value", 0);
+    m->bool_val = zt_json_bool(line, "value", 0);
+    m->bool_val = zt_json_bool(line, "separator", m->bool_val);
     m->opacity_val = zt_json_double(line, "opacity", 0);
     m->status = zt_json_int(line, "status", 0);
-    m->status = zt_json_int(line, "enabled", m->status);
+    m->status = zt_json_bool(line, "enabled", m->status);
 
     if (strcmp(m->type, "quit") == 0) {
       webview_dispatch(zt_w, on_gui, m);

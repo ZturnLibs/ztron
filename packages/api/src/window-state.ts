@@ -9,6 +9,8 @@ export interface WindowState {
   y: number;
   width: number;
   height: number;
+  maximized: boolean;
+  fullscreen: boolean;
 }
 
 export interface WindowStateOptions {

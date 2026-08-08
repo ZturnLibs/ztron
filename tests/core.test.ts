@@ -95,12 +95,26 @@ test("window-state plugin saves and restores geometry", async () => {
   );
   await mock.main.invoke("plugin:window|set_position", { x: 55, y: 66 });
   const saved = await mock.main.invoke("plugin:window-state|save", {});
-  assert.deepEqual(saved, { x: 55, y: 66, width: 900, height: 640 });
+  assert.deepEqual(saved, {
+    x: 55,
+    y: 66,
+    width: 900,
+    height: 640,
+    maximized: false,
+    fullscreen: false,
+  });
 
   // Move away, restore, and confirm the handle re-applies the saved geometry.
   await mock.main.invoke("plugin:window|set_position", { x: 200, y: 200 });
   const restored = await mock.main.invoke("plugin:window-state|restore", {});
-  assert.deepEqual(restored, { x: 55, y: 66, width: 900, height: 640 });
+  assert.deepEqual(restored, {
+    x: 55,
+    y: 66,
+    width: 900,
+    height: 640,
+    maximized: false,
+    fullscreen: false,
+  });
   assert.deepEqual(mock.main.positionLog[mock.main.positionLog.length - 1], {
     x: 55,
     y: 66,
@@ -109,6 +123,34 @@ test("window-state plugin saves and restores geometry", async () => {
     w: 900,
     h: 640,
   });
+  delete (globalThis as Record<string, unknown>).tjs;
+});
+
+test("window-state plugin saves and restores maximized/fullscreen flags", async () => {
+  const files = new Map<string, string>();
+  (globalThis as Record<string, unknown>).tjs = {
+    tmpDir: "/tmp",
+    readFile: async (p: string) =>
+      new TextEncoder().encode(files.get(p) ?? "{}"),
+    writeFile: async (p: string, data: string | Uint8Array) => {
+      files.set(p, new TextDecoder().decode(data));
+    },
+  };
+
+  const { mock } = buildApp((b) =>
+    b.plugin(windowStatePlugin({ file: "/tmp/ws-max.json" })),
+  );
+  mock.main.windowStateValues["is_maximized"] = true;
+  const saved = await mock.main.invoke("plugin:window-state|save", {});
+  assert.equal(saved?.maximized, true);
+  assert.equal(saved?.fullscreen, false);
+
+  const restored = await mock.main.invoke("plugin:window-state|restore", {});
+  assert.equal(restored?.maximized, true);
+  assert.ok(
+    mock.main.windowStateLog.some((l) => l.op === "toggle_maximize"),
+    "restore should re-maximize the window",
+  );
   delete (globalThis as Record<string, unknown>).tjs;
 });
 

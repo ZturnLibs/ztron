@@ -1,7 +1,7 @@
 /**
  * `plugin:window-state|*` — persist/restore native window geometry.
- * Translated from Tauri's `tauri-plugin-window-state` (simplified: position +
- * size only; maximized/fullscreen flags omitted).
+ * Translated from Tauri's `tauri-plugin-window-state` (position + size +
+ * maximized/fullscreen flags).
  */
 import type { Plugin } from "../plugin.js";
 
@@ -15,17 +15,21 @@ export interface WindowStatePluginOptions {
   restoreOnStartup?: boolean;
 }
 
+export interface WindowState {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+  fullscreen: boolean;
+}
+
 export function windowStatePlugin(
   options: WindowStatePluginOptions = {},
 ): Plugin {
   const file = options.file ?? `${tjs.tmpDir}/ztron-window-state.json`;
 
-  async function readState(): Promise<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null> {
+  async function readState(): Promise<WindowState | null> {
     try {
       const bytes = await tjs.readFile(file);
       const parsed = JSON.parse(dec.decode(bytes)) as Record<string, unknown>;
@@ -40,6 +44,8 @@ export function windowStatePlugin(
           y: parsed.y,
           width: parsed.width,
           height: parsed.height,
+          maximized: parsed.maximized === true,
+          fullscreen: parsed.fullscreen === true,
         };
       }
     } catch {
@@ -48,12 +54,7 @@ export function windowStatePlugin(
     return null;
   }
 
-  async function writeState(state: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }): Promise<void> {
+  async function writeState(state: WindowState): Promise<void> {
     await tjs.writeFile(file, enc.encode(JSON.stringify(state)));
   }
 
@@ -68,11 +69,17 @@ export function windowStatePlugin(
         if (!frame) {
           throw new Error("window-state: failed to read window frame");
         }
-        const state = {
+        const [maximized, fullscreen] = await Promise.all([
+          ctx.webview.windowState("is_maximized"),
+          ctx.webview.windowState("is_fullscreen"),
+        ]);
+        const state: WindowState = {
           x: frame.x,
           y: frame.y,
           width: frame.width,
           height: frame.height,
+          maximized: maximized === true,
+          fullscreen: fullscreen === true,
         };
         await writeState(state);
         return state;
@@ -86,6 +93,12 @@ export function windowStatePlugin(
         // apply the size first and position afterwards (see DESIGN.md §30).
         ctx.webview.setSize(state.width, state.height);
         ctx.webview.setPosition(state.x, state.y);
+        if (state.maximized) {
+          ctx.webview.windowState("toggle_maximize");
+        }
+        if (state.fullscreen) {
+          ctx.webview.windowState("set_fullscreen", true);
+        }
         return state;
       },
     },
@@ -127,6 +140,12 @@ export function windowStatePlugin(
             if (state) {
               wv.setSize(state.width, state.height);
               wv.setPosition(state.x, state.y);
+              if (state.maximized) {
+                wv.windowState("toggle_maximize");
+              }
+              if (state.fullscreen) {
+                wv.windowState("set_fullscreen", true);
+              }
             }
           });
         }, 100);
