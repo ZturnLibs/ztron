@@ -264,6 +264,11 @@ async function main(): Promise<void> {
       report("STATE_VERIFY_FAIL:" + JSON.stringify(st));
     }
 
+    // 6a2b. setTitle/getTitle round trip (guards the set_title wire field fix)
+    await win.setTitle("Ztron Spike");
+    const t = await win.getTitle();
+    if (t === "Ztron Spike") report("TITLE_OK:" + t);
+
     // 6a3. drag-region: command round-trips (real dragging needs a mouse;
     // macOS no-ops when [NSApp currentEvent] is not a mouseDown)
     await win.startDragging();

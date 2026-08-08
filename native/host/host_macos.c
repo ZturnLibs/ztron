@@ -667,6 +667,20 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "window_get_title") == 0) {
+    void *wnd = zt_window();
+    if (wnd && m->req_id >= 0) {
+      id title = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("title"));
+      const char *cstr = title
+                             ? OBJC_MSG(const char *(*)(id, SEL), title,
+                                        sel_registerName("UTF8String"))
+                             : "";
+      zt_reply_string(m->req_id, cstr ? cstr : "");
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     void *wnd = zt_window();
     if (wnd) {

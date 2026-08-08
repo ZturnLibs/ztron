@@ -76,6 +76,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     return Promise.resolve(null);
   }
 
+  getWindowTitle(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
   startDragging(): void {
     /* no-op (host adapter provides window dragging) */
   }

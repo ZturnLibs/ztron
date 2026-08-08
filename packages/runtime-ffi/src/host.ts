@@ -100,6 +100,12 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  getWindowTitle(): Promise<string | null> {
+    return this.#rt
+      .sendRequest("window_get_title")
+      .then((r) => (typeof r === "string" ? r : null));
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

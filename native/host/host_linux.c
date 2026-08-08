@@ -320,6 +320,16 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "window_get_title") == 0) {
+    GtkWidget *w = zt_window();
+    if (w && m->req_id >= 0) {
+      const char *title = gtk_window_get_title(GTK_WINDOW(w));
+      zt_reply_string(m->req_id, title ? title : "");
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     GtkWidget *w = zt_window();
     if (w) {

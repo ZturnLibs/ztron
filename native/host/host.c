@@ -138,7 +138,7 @@ static void on_gui(webview_t w, void *arg) {
   } else if (strcmp(m->type, "navigate") == 0) {
     webview_navigate(w, m->str);
   } else if (strcmp(m->type, "set_title") == 0) {
-    webview_set_title(w, m->str);
+    webview_set_title(w, m->id); /* `title` maps to m->id on the wire */
   } else if (strcmp(m->type, "set_size") == 0) {
     webview_set_size(w, m->width, m->height, 0);
   } else if (strcmp(m->type, "response") == 0) {

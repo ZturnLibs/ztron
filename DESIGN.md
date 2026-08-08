@@ -749,3 +749,12 @@ ZtronApp.app/Contents/
 - **dialog bug**:`dialog_open`/`dialog_message` 的标题用 `m->str`,但 title 在 m->id → 对话框标题空。修复:macOS/Win/Linux 改 `m->id`(dialog_save 的 title 与 default_name 冲突,标题为装饰性,保留 default_name)
 - **menu 标题 bug**:`menu_item_set_title` 后端发 `title`(与 item_id 同映射 m->id)→ 新标题丢失。修复:后端改发 `text`(→m->str2)
 - 这些 bug 均被"命令能 resolve"的 spike 掩盖;TRAY_OK/MENU_OK/DIALOG_REG_OK 只验证注册
+
+## 42. 修复:window set_title + get_title(NSString 转换)
+
+- **set_title**:host.c 用 `m->str`,但 title 映射到 m->id → `win.setTitle()` 一直失效。修复:改 `m->id`
+- **get_title 新查询**:`[window title]` 返回 **NSString***(不是 const char*),直接 cast 传给 `zt_reply_string`(strlen 读垃圾)→ 查询挂起。修复:用 `UTF8String` 转换
+- Win `GetWindowTextA` / Linux `gtk_window_get_title`(C 字符串,天然正确)
+- core `plugin:window|get_title` + `WebviewHandle.getWindowTitle()`;api `Window.getTitle()`
+- **验证**:spike `TITLE_OK`(setTitle→getTitle round-trip 直接验证 wire 字段),36 项 FULL_OK(3 次稳定)
+- 教训:`[xxx title]`/`[xxx stringValue]` 返回 NSString*,必须 `UTF8String` 转 C 串 —— 与 boolean 解析、字段映射同类的潜伏 bug

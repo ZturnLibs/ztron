@@ -430,6 +430,17 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "window_get_title") == 0) {
+    HWND w = zt_hwnd();
+    if (w && m->req_id >= 0) {
+      char title[512];
+      GetWindowTextA(w, title, sizeof(title));
+      zt_reply_string(m->req_id, title);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     HWND w = zt_hwnd();
     if (w) {

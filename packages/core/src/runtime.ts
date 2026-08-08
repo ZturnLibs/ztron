@@ -86,6 +86,8 @@ export interface WebviewHandle {
   setOpacity(opacity: number): void;
   /** Reads the native window's boolean state flags. */
   getWindowState(): Promise<WindowStateSnapshot | null>;
+  /** Reads the native window title. */
+  getWindowTitle(): Promise<string | null>;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */
   startDragging(): void;
   /**

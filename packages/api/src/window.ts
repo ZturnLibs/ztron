@@ -38,6 +38,11 @@ export class Window {
     await invoke("plugin:window|set_title", { label: this.label, title });
   }
 
+  /** The current native window title. */
+  async getTitle(): Promise<string> {
+    return invoke("plugin:window|get_title", { label: this.label });
+  }
+
   async setSize(width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_size", {
       label: this.label,

@@ -146,6 +146,7 @@ export class App {
       "plugin:window|get_frame",
       "plugin:window|get_position",
       "plugin:window|get_state",
+      "plugin:window|get_title",
       "plugin:window|set_position",
       "plugin:window|start_dragging",
       "plugin:app|name",
@@ -315,6 +316,10 @@ export class App {
       },
       "plugin:window|get_state": async (_args, ctx) =>
         ctx.webview.getWindowState(),
+      "plugin:window|get_title": async (_args, ctx) => {
+        const t = await ctx.webview.getWindowTitle();
+        return t ?? "";
+      },
       "plugin:window|set_position": (args, ctx) => {
         const { x, y } = args as { x: number; y: number };
         ctx.webview.setPosition(Number(x), Number(y));

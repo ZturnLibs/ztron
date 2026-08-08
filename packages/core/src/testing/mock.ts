@@ -92,6 +92,12 @@ export class MockWebviewHandle implements WebviewHandle {
     return Promise.resolve({ ...this.stateSnapshot });
   }
 
+  windowTitle = "t";
+
+  getWindowTitle(): Promise<string | null> {
+    return Promise.resolve(this.windowTitle);
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;
