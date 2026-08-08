@@ -116,12 +116,14 @@ export interface WebviewHandle {
 }
 
 /** Tray operations translated from Tauri's tray plugin. */
-export type TrayOp = "create" | "set_title" | "set_tooltip" | "destroy";
+export type TrayOp =
+  "create" | "set_title" | "set_tooltip" | "set_icon" | "destroy";
 
 /** Tray payload for `TrayController.apply`. */
 export interface TrayPayload {
   title?: string;
   tooltip?: string;
+  icon?: string;
 }
 
 /** System tray controller provided by the runtime backend. */

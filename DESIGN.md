@@ -794,6 +794,13 @@ ZtronApp.app/Contents/
 - Windows 需 COM IFileDialog(保留为 skeleton 已知限制)
 - 验证:39 项 FULL_OK 回归
 
+## 49. tray 图标(setIcon)
+
+- host op `tray_set_icon`(icon→m->str2):macOS NSImage `alloc`+`initWithContentsOfFile:`(⚠ `imageWithContentsOfFile:` 在新 macOS 被移除,废弃 API 会导致 `unrecognized selector` 崩溃)、Win `LoadImage`+NIF_ICON、Linux `gtk_status_icon_set_from_file`
+- backend tray.apply("set_icon") + api `tray.setIcon(path)`;TrayOp/TrayPayload 加 set_icon/icon
+- spike:backend setup 写 1x1 PNG 到 TMP,前端 setTrayIcon(TRAY_OK 内联验证),39 项 FULL_OK(2 次稳定)
+- 教训:废弃 ObjC API(`imageWithContentsOfFile:`)在现代 macOS 直接崩溃 —— 与 NSString 类型同类的"编译过、运行时崩"风险
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

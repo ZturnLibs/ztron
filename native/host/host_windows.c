@@ -244,6 +244,17 @@ static void tray_set_title(const char *title) {
   }
 }
 static void tray_set_tooltip(const char *tooltip) { tray_set_title(tooltip); }
+static void tray_set_icon(const char *path) {
+  if (g_tray_hwnd && path && path[0]) {
+    HICON icon = (HICON)LoadImageA(NULL, path, IMAGE_ICON, 0, 0,
+                                   LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    if (icon) {
+      g_nid.hIcon = icon;
+      g_nid.uFlags = NIF_ICON;
+      Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+    }
+  }
+}
 static void tray_destroy(void) {
   if (g_tray_hwnd) Shell_NotifyIconW(NIM_DELETE, &g_nid);
   g_tray_hwnd = NULL;
@@ -505,6 +516,7 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
+  if (strcmp(m->type, "tray_set_icon") == 0) { tray_set_icon(m->str2); return 1; }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }

@@ -26,6 +26,11 @@ export async function setTrayTooltip(tooltip: string): Promise<void> {
   await invoke("plugin:tray|set_tooltip", { tooltip });
 }
 
+/** Sets the tray icon from an image file path. */
+export async function setTrayIcon(icon: string): Promise<void> {
+  await invoke("plugin:tray|set_icon", { icon });
+}
+
 export async function destroyTray(): Promise<void> {
   await invoke("plugin:tray|destroy", {});
 }
@@ -41,6 +46,7 @@ export const tray = {
   create: createTray,
   setTitle: setTrayTitle,
   setTooltip: setTrayTooltip,
+  setIcon: setTrayIcon,
   destroy: destroyTray,
   onClick: onTrayClick,
 };

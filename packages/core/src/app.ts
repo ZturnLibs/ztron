@@ -161,6 +161,7 @@ export class App {
       "plugin:tray|create",
       "plugin:tray|set_title",
       "plugin:tray|set_tooltip",
+      "plugin:tray|set_icon",
       "plugin:tray|destroy",
       "plugin:menu|create",
       "plugin:menu|set_as_app_menu",
@@ -363,6 +364,9 @@ export class App {
       },
       "plugin:tray|set_tooltip": (args) => {
         this.#adapter.tray?.apply("set_tooltip", args as { tooltip?: string });
+      },
+      "plugin:tray|set_icon": (args) => {
+        this.#adapter.tray?.apply("set_icon", args as { icon?: string });
       },
       "plugin:tray|destroy": () => {
         this.#adapter.tray?.apply("destroy");

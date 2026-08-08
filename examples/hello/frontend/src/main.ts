@@ -16,6 +16,7 @@ import {
   Window,
   createTray,
   setTrayTooltip,
+  setTrayIcon,
   setAppMenu,
   Database,
   enableAutostart,
@@ -351,6 +352,8 @@ async function main(): Promise<void> {
     await win.setFocus();
     await createTray({ title: "Ztron", tooltip: "Ztron tray" });
     await setTrayTooltip("Ztron tray updated");
+    const trayTmp = await path.tempDir();
+    await setTrayIcon(`${trayTmp}/ztron_tray_icon.png`);
     report("TRAY_OK");
 
     // 8. application menu (creation/install; click is manual)

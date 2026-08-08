@@ -45,6 +45,7 @@ export {
   createTray,
   setTrayTitle,
   setTrayTooltip,
+  setTrayIcon,
   destroyTray,
   onTrayClick,
 } from "./tray.js";

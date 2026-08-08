@@ -196,6 +196,12 @@ export class HostRuntime implements RuntimeAdapter {
             tooltip: payload?.tooltip ?? "",
           });
           break;
+        case "set_icon":
+          this.send({
+            type: "tray_set_icon",
+            icon: payload?.icon ?? "",
+          });
+          break;
         case "destroy":
           this.send({ type: "tray_destroy" });
           break;
