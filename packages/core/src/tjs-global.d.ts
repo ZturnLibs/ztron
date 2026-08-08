@@ -51,14 +51,15 @@ declare const tjs: {
   readFile(p: string, options?: { encoding?: string }): Promise<Uint8Array>;
   writeFile(p: string, data: string | Uint8Array): Promise<void>;
   stat(p: string): Promise<{
-    isFile: boolean;
-    isDirectory: boolean;
     size: number;
-    mtime: number;
+    mode: number;
+    mtime?: string;
   }>;
   readDir(p: string): Promise<DirEntry[]>;
   remove(p: string): Promise<void>;
   makeDir(p: string, mode?: number): Promise<void>;
+  copyFile(src: string, dest: string): Promise<void>;
+  rename(src: string, dest: string): Promise<void>;
   spawn(
     cmd: string[],
     opts?: {

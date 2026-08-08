@@ -20,6 +20,17 @@ export interface DirEntry {
   isFile: boolean;
 }
 
+export interface FileMeta {
+  size: number;
+  isDirectory: boolean;
+  isFile: boolean;
+  modifiedAt: string | null;
+}
+
+function modeIsDir(mode: number): boolean {
+  return (mode & 0o170000) === 0o040000;
+}
+
 export function fsPlugin(options: FsPluginOptions): Plugin {
   const scope = new PathScope(options.scope);
 
@@ -30,6 +41,9 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
     exists: "plugin:fs|exists",
     remove: "plugin:fs|remove",
     make_dir: "plugin:fs|make_dir",
+    copy: "plugin:fs|copy",
+    rename: "plugin:fs|rename",
+    stat: "plugin:fs|stat",
   } as const;
 
   return {
@@ -82,6 +96,37 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         const canon = await scope.check(path);
         await tjs.makeDir(canon);
       },
+      async copy(args) {
+        const { path, dest } = args as { path: string; dest: string };
+        const [src, dst] = await Promise.all([
+          scope.check(path),
+          scope.check(dest),
+        ]);
+        await tjs.copyFile(src, dst);
+      },
+      async rename(args) {
+        const { path, newPath } = args as { path: string; newPath: string };
+        const [src, dst] = await Promise.all([
+          scope.check(path),
+          scope.check(newPath),
+        ]);
+        await tjs.rename(src, dst);
+      },
+      async stat(args) {
+        const { path } = args as { path: string };
+        const canon = await scope.check(path);
+        const s = (await tjs.stat(canon)) as unknown as {
+          size: number;
+          mode: number;
+          mtime?: string;
+        };
+        return {
+          size: s.size ?? 0,
+          isDirectory: modeIsDir(s.mode),
+          isFile: !modeIsDir(s.mode),
+          modifiedAt: s.mtime ?? null,
+        } satisfies FileMeta;
+      },
     },
     permissions: [
       {
@@ -111,6 +156,18 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         commands: [fsCommands.make_dir],
       },
       {
+        identifier: "fs:allow-copy",
+        commands: [fsCommands.copy],
+      },
+      {
+        identifier: "fs:allow-rename",
+        commands: [fsCommands.rename],
+      },
+      {
+        identifier: "fs:allow-stat",
+        commands: [fsCommands.stat],
+      },
+      {
         identifier: "fs:deny-write-text-file",
         description: "Explicitly denies writing text files (overrides allow).",
         commands: [`!${fsCommands.write_text}`],
@@ -135,11 +192,14 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
       },
       {
         name: "fs:full",
-        description: "All filesystem operations including remove.",
+        description: "All filesystem operations including remove/copy/rename.",
         permissions: [
           "fs:default",
           "fs:allow-write-text-file",
           "fs:allow-remove",
+          "fs:allow-copy",
+          "fs:allow-rename",
+          "fs:allow-stat",
         ],
       },
     ],

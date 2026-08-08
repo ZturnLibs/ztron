@@ -40,4 +40,36 @@ export function makeDir(path: string): Promise<void> {
   return invoke<void>("plugin:fs|make_dir", { path });
 }
 
-export const fs = { readText, writeText, readDir, exists, remove, makeDir };
+export interface FileMeta {
+  size: number;
+  isDirectory: boolean;
+  isFile: boolean;
+  modifiedAt: string | null;
+}
+
+/** Copies a file (both source and destination must be in scope). */
+export function copyFile(path: string, dest: string): Promise<void> {
+  return invoke<void>("plugin:fs|copy", { path, dest });
+}
+
+/** Renames/moves a file (both paths must be in scope). */
+export function renameFile(path: string, newPath: string): Promise<void> {
+  return invoke<void>("plugin:fs|rename", { path, newPath });
+}
+
+/** Stats a file, returning size/type/last-modified. */
+export function stat(path: string): Promise<FileMeta> {
+  return invoke<FileMeta>("plugin:fs|stat", { path });
+}
+
+export const fs = {
+  readText,
+  writeText,
+  readDir,
+  exists,
+  remove,
+  makeDir,
+  copyFile,
+  renameFile,
+  stat,
+};

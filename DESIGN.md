@@ -772,6 +772,15 @@ ZtronApp.app/Contents/
 - 修复:按 `strlen(s)*2+64` heap 分配,无截断;OOM 时回退 `zt_reply_null`
 - **验证**:spike 加 100KB 剪贴板往返 `CLIPBOARD_BIG_OK:100000`;37 项 FULL_OK(2 次稳定)
 
+## 46. fs 插件补 copy / rename / stat
+
+- tjs 原生有 `copyFile`/`rename`/`stat`;fs 插件补 `plugin:fs|copy|rename|stat`(双路径均过 PathScope)
+- `stat` 返回 `{size,isDirectory,isFile,modifiedAt}`(mode 位判断目录)
+- 权限:`fs:allow-copy/rename/stat` 加入 `fs:full`;example capability 显式授予
+- api `fs.ts`:`copyFile`/`renameFile`/`stat`
+- 修正 tjs-global.d.ts 的 stat 类型声明(实际返回 `{size,mode,mtime:string}`,非 isFile/isDirectory)
+- spike `FS_COPY_RENAME_OK:8`(copy→rename→stat 往返);38 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

@@ -43,6 +43,7 @@ export {
 export type {
   FsPluginOptions,
   DirEntry,
+  FileMeta,
   HttpPluginOptions,
   HttpResponse,
   OsInfo,

@@ -105,6 +105,16 @@ async function main(): Promise<void> {
     el("fs").textContent = data;
     if (data === "m3-hello") report("FS_OK");
 
+    // 4a. fs copy/rename/stat
+    await fs.copyFile("$TMP/ztron_m3.txt", "$TMP/ztron_m3_copy.txt");
+    const copied = await fs.readText("$TMP/ztron_m3_copy.txt");
+    await fs.renameFile("$TMP/ztron_m3_copy.txt", "$TMP/ztron_m3_renamed.txt");
+    const renamed = await fs.readText("$TMP/ztron_m3_renamed.txt");
+    const meta = await fs.stat("$TMP/ztron_m3_renamed.txt");
+    if (copied === "m3-hello" && renamed === "m3-hello" && meta.size > 0) {
+      report("FS_COPY_RENAME_OK:" + meta.size);
+    }
+
     // 4b. ACL: fs.remove is NOT granted (capability has fs:write-default).
     // Expect the backend to reject with "access denied".
     try {
