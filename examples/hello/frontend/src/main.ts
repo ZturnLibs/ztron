@@ -517,10 +517,19 @@ async function main(): Promise<void> {
     await setTrayIcon(`${trayTmp}/ztron_tray_icon.png`);
     report("TRAY_OK");
 
-    // 8. application menu (creation/install; click is manual)
+    // 8. application menu (creation/install; click is manual) — incl. a
+    //    submenu + check item
     await setAppMenu([
       { id: "new", text: "New Window" },
       { id: "sep", text: "-", separator: true },
+      {
+        id: "view",
+        text: "View",
+        children: [
+          { id: "zoom", text: "Zoom", type: "check", checked: true },
+          { id: "reload", text: "Reload" },
+        ],
+      },
       { id: "quit", text: "Quit" },
     ]);
     report("MENU_OK");

@@ -211,8 +211,9 @@ static void menu_create(const char *menu_id) {
   g_menu_item_count = 0;
 }
 static void menu_add_item(const char *menu_id, const char *item_id,
-                          const char *text, int enabled, int separator) {
+                          const char *text, int enabled, int separator, int checked) {
   (void)menu_id;
+  (void)checked;
   if (!g_menu) return;
   if (separator) {
     gtk_menu_shell_append(GTK_MENU_SHELL(g_menu), gtk_separator_menu_item_new());
@@ -417,7 +418,8 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }
-  if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val); return 1; }
+  if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val, m->checked); return 1; }
+  if (strcmp(m->type, "menu_add_submenu_item") == 0) { return 1; } /* no-op: submenus unsupported */
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "menu_item_set_enabled") == 0) { menu_set_item_enabled(m->str, m->id, m->status); return 1; }

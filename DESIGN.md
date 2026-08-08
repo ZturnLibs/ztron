@@ -924,6 +924,16 @@ ZtronApp.app/Contents/
 - **教训(重要)**:插入 host on_gui 分支时**误删了 `response`/`quit` 分支** → 前端 invoke 永不 resolve、SPIKE terminate 失效(表现为 spike 0 输出,排查了 backend/host 多轮)。修复:恢复 response/quit。**这是"改一处、坏别处"的典型,spike 全绿是唯一防线**
 - spike:CURSOR_OK(含 shadow/enabled/zoom round-trip);53 项 FULL_OK
 
+## 67. menu 子菜单 + 复选(Submenu / CheckItem)
+
+- `MenuItemConfig` 加 `type`(normal/check/radio)、`checked`、`children`
+- host:
+  - `menu_add_item` 加 checked 参数(macOS `setState:NSOnState`;Win/Linux 忽略)
+  - 新 `menu_add_submenu_item(menu_id, submenu_id, text)`(macOS 建 NSMenu + setSubmenu,子项递归;Win/Linux no-op)
+  - Msg 加 `checked` 字段 + `submenu`→m->id 解析
+- backend:menu createMenu 递归构建(子菜单 + check);api MenuItem 支持嵌套/check
+- spike:setAppMenu 含子菜单 View→Zoom(check)+Reload;MENU_OK;53 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

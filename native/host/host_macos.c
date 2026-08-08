@@ -565,7 +565,7 @@ static void menu_create(const char *menu_id) {
     g_menu_count++;
   }
 }
-static void menu_add_item(const char *menu_id, const char *item_id, const char *text, int enabled, int separator) {
+static void menu_add_item(const char *menu_id, const char *item_id, const char *text, int enabled, int separator, int checked) {
   int idx = menu_index(menu_id);
   if (idx < 0) return;
   id menu = g_menus[idx];
@@ -586,7 +586,31 @@ static void menu_add_item(const char *menu_id, const char *item_id, const char *
   OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTarget:"), g_menu_target);
   OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setTag:"), tag);
   OBJC_MSG(void(*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"), enabled);
+  if (checked >= 0) {
+    OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setState:"),
+             checked ? 1 /*NSOnState*/ : 0 /*NSOffState*/);
+  }
   OBJC_MSG(void(*)(id, SEL, id), menu, sel_registerName("addItem:"), item);
+}
+/* Creates a submenu-bearing item; later menu_add_item calls target its menu. */
+static void menu_add_submenu_item(const char *menu_id, const char *submenu_id,
+                                  const char *text) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  if (g_menu_count >= MAX_MENUS) return;
+  id sub = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenu"), sel_registerName("alloc"));
+  sub = OBJC_MSG(id(*)(id, SEL, id), sub, sel_registerName("initWithTitle:"), zt_nsstring(text));
+  int sidx = g_menu_count;
+  strncpy(g_menu_ids[sidx], submenu_id, sizeof(g_menu_ids[0]) - 1);
+  g_menu_ids[sidx][sizeof(g_menu_ids[0]) - 1] = '\0';
+  g_menu_count++;
+  g_menus[sidx] = sub;
+  id item = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenuItem"), sel_registerName("alloc"));
+  item = OBJC_MSG(id(*)(id, SEL, id, SEL, id), item,
+                  sel_registerName("initWithTitle:action:keyEquivalent:"),
+                  zt_nsstring(text), sel_registerName("menuItemClicked:"), zt_nsstring(""));
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setSubmenu:"), sub);
+  OBJC_MSG(void(*)(id, SEL, id), g_menus[idx], sel_registerName("addItem:"), item);
 }
 static void menu_set_app(const char *menu_id) {
   int idx = menu_index(menu_id);
@@ -840,7 +864,8 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }
-  if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val); return 1; }
+  if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val, m->checked); return 1; }
+  if (strcmp(m->type, "menu_add_submenu_item") == 0) { menu_add_submenu_item(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "menu_item_set_enabled") == 0) { menu_set_item_enabled(m->str, m->id, m->status); return 1; }

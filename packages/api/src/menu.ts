@@ -11,6 +11,12 @@ export interface MenuItem {
   text: string;
   enabled?: boolean;
   separator?: boolean;
+  /** Item kind: normal / check / radio. */
+  type?: "normal" | "check" | "radio";
+  /** Initial checked state for check/radio items. */
+  checked?: boolean;
+  /** Nested submenu items. */
+  children?: MenuItem[];
 }
 
 export interface MenuEvent {

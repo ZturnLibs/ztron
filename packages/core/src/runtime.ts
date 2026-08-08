@@ -150,6 +150,12 @@ export interface MenuItemConfig {
   text: string;
   enabled?: boolean;
   separator?: boolean;
+  /** Item kind: normal / check / radio (check toggles a state mark). */
+  type?: "normal" | "check" | "radio";
+  /** Initial checked state for check/radio items. */
+  checked?: boolean;
+  /** Nested submenu items. */
+  children?: MenuItemConfig[];
 }
 
 /** A menu composed of items. */

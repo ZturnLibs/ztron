@@ -161,7 +161,6 @@ export class HostWebviewHandle implements WebviewHandle {
   }
 
   respond(id: string, status: number, result: string): void {
-    
     this.#rt.send({ type: "response", label: this.label, id, status, result });
   }
 
@@ -245,17 +244,40 @@ export class HostRuntime implements RuntimeAdapter {
   /** Application menu controller (implements `RuntimeAdapter.menu`). */
   readonly menu: MenuController = {
     createMenu: (menu) => {
+      const addItems = (
+        menuId: string,
+        items: import("@ztron/core").MenuItemConfig[],
+      ) => {
+        for (const item of items) {
+          if (item.children?.length) {
+            const submenuId = `${menuId}.${item.id}`;
+            this.send({
+              type: "menu_add_submenu_item",
+              menu_id: menuId,
+              text: item.text,
+              submenu: submenuId,
+            });
+            addItems(submenuId, item.children);
+          } else {
+            this.send({
+              type: "menu_add_item",
+              menu_id: menuId,
+              item_id: item.id,
+              text: item.text,
+              enabled: item.enabled ?? true,
+              separator: item.separator ?? false,
+              checked:
+                item.type === "check" || item.type === "radio"
+                  ? item.checked
+                    ? 1
+                    : 0
+                  : -1,
+            });
+          }
+        }
+      };
       this.send({ type: "menu_create", menu_id: menu.id });
-      for (const item of menu.items) {
-        this.send({
-          type: "menu_add_item",
-          menu_id: menu.id,
-          item_id: item.id,
-          text: item.text,
-          enabled: item.enabled ?? true,
-          separator: item.separator ?? false,
-        });
-      }
+      addItems(menu.id, menu.items);
     },
     setAsAppMenu: (menuId) => {
       this.send({ type: "menu_set_app", menu_id: menuId });
@@ -411,7 +433,6 @@ export class HostRuntime implements RuntimeAdapter {
     }
     switch (msg.type) {
       case "request": {
-        
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
         handle?.handleRequest(String(msg.id), msg.req);

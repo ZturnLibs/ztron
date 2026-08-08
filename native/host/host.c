@@ -201,6 +201,8 @@ static void *socket_thread(void *arg) {
     m->bool_val = zt_json_bool(line, "directory", m->bool_val);
     m->opacity_val = zt_json_double(line, "opacity", 0);
     m->opacity_val = zt_json_double(line, "zoom", m->opacity_val);
+    m->checked = zt_json_bool(line, "checked", 0);
+    zt_json_str(line, "submenu", m->id, sizeof(m->id)); /* submenu id */
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_bool(line, "enabled", m->status);
 
