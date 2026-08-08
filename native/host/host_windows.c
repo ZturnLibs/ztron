@@ -59,6 +59,32 @@ void zt_reply_string(int req_id, const char *s) {
 }
 void zt_reply_null(int req_id) { zt_reply_query(req_id, "null"); }
 
+/* JSON-escape a C string into out (quotes, backslash, \n \r \t, ctrl chars). */
+static size_t zt_json_escape(const char *s, char *out, size_t outsz) {
+  size_t n = 0;
+  for (; *s && n + 6 < outsz; s++) {
+    if (*s == '"' || *s == '\\') {
+      out[n++] = '\\';
+      out[n++] = *s;
+    } else if (*s == '\n') {
+      out[n++] = '\\';
+      out[n++] = 'n';
+    } else if (*s == '\r') {
+      out[n++] = '\\';
+      out[n++] = 'r';
+    } else if (*s == '\t') {
+      out[n++] = '\\';
+      out[n++] = 't';
+    } else if ((unsigned char)*s < 0x20) {
+      out[n++] = '?';
+    } else {
+      out[n++] = *s;
+    }
+  }
+  out[n] = '\0';
+  return n;
+}
+
 /* UTF-8 narrow string -> wide for NOTIFYICONDATAW / menus */
 static void to_wide(const char *s, wchar_t *out, int n) {
   MultiByteToWideChar(CP_UTF8, 0, s, -1, out, n);
@@ -276,10 +302,12 @@ static void menu_set_item_title(const char *menu_id, const char *item_id, const 
 static void menu_handle_command(WORD id) {
   int idx = (int)id - 1000;
   if (idx >= 0 && idx < g_menu_item_count) {
-    char buf[512];
+    char ei[256];
+    zt_json_escape(g_menu_items[idx], ei, sizeof(ei));
+    char buf[600];
     snprintf(buf, sizeof(buf),
              "{\"type\":\"menu_event\",\"menu_id\":\"main\",\"item_id\":\"%s\"}",
-             g_menu_items[idx]);
+             ei);
     zt_send_line(buf);
   }
 }

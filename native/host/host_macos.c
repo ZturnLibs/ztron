@@ -62,6 +62,32 @@ void zt_reply_string(int req_id, const char *s) {
 
 void zt_reply_null(int req_id) { zt_reply_query(req_id, "null"); }
 
+/* JSON-escape a C string into out (quotes, backslash, \n \r \t, ctrl chars). */
+static size_t zt_json_escape(const char *s, char *out, size_t outsz) {
+  size_t n = 0;
+  for (; *s && n + 6 < outsz; s++) {
+    if (*s == '"' || *s == '\\') {
+      out[n++] = '\\';
+      out[n++] = *s;
+    } else if (*s == '\n') {
+      out[n++] = '\\';
+      out[n++] = 'n';
+    } else if (*s == '\r') {
+      out[n++] = '\\';
+      out[n++] = 'r';
+    } else if (*s == '\t') {
+      out[n++] = '\\';
+      out[n++] = 't';
+    } else if ((unsigned char)*s < 0x20) {
+      out[n++] = '?';
+    } else {
+      out[n++] = *s;
+    }
+  }
+  out[n] = '\0';
+  return n;
+}
+
 static id zt_nsstring(const char *s); /* defined below */
 
 /* ---- window frame / position (NSPoint/NSRect via objc_msgSend) ---- */
@@ -136,10 +162,12 @@ static OSStatus hotkey_cb(EventHandlerCallRef next, EventRef ev, void *user) {
   }
   for (int i = 0; i < g_hotkey_count; i++) {
     if (g_hotkeys[i].id == (int)hk.id) {
-      char buf[512];
+      char esc[512];
+      zt_json_escape(g_hotkeys[i].name, esc, sizeof(esc));
+      char buf[600];
       snprintf(buf, sizeof(buf),
                "{\"type\":\"shortcut_event\",\"shortcut_id\":\"%s\"}",
-               g_hotkeys[i].name);
+               esc);
       zt_send_line(buf);
       break;
     }
@@ -269,16 +297,11 @@ static OSErr ae_geturl_handler(const AppleEvent *ev, AppleEvent *reply,
       if (buf) {
         AEGetDescData(&desc, buf, len);
         buf[len] = '\0';
-        char out[8192];
-        char *p = out;
-        p += sprintf(p, "{\"type\":\"deep_link\",\"url\":\"");
-        for (char *s = buf; *s; s++) {
-          if (*s == '"' || *s == '\\') *p++ = '\\';
-          *p++ = *s;
-        }
-        *p++ = '"';
-        *p++ = '}';
-        *p = '\0';
+        char esc[8192];
+        zt_json_escape(buf, esc, sizeof(esc));
+        char out[8192 + 64];
+        snprintf(out, sizeof(out), "{\"type\":\"deep_link\",\"url\":\"%s\"}",
+                 esc);
         zt_send_line(out);
         free(buf);
       }
@@ -582,10 +605,13 @@ static void zt_menu_click(id s, SEL c, id sender) {
   (void)s; (void)c;
   long tag = (long)OBJC_MSG(long(*)(id, SEL), sender, sel_registerName("tag"));
   if (tag >= 0 && tag < g_menu_ref_count) {
-    char buf[512];
+    char em[256], ei[256];
+    zt_json_escape(g_menu_refs[tag].menu_id, em, sizeof(em));
+    zt_json_escape(g_menu_refs[tag].item_id, ei, sizeof(ei));
+    char buf[600];
     snprintf(buf, sizeof(buf),
              "{\"type\":\"menu_event\",\"menu_id\":\"%s\",\"item_id\":\"%s\"}",
-             g_menu_refs[tag].menu_id, g_menu_refs[tag].item_id);
+             em, ei);
     zt_send_line(buf);
   }
 }

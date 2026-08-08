@@ -771,3 +771,9 @@ ZtronApp.app/Contents/
 - 上一版 `char buf[65536]` 会把 >64KB 回复(大剪贴板文本/dialog 路径)截断 → 静默数据丢失
 - 修复:按 `strlen(s)*2+64` heap 分配,无截断;OOM 时回退 `zt_reply_null`
 - **验证**:spike 加 100KB 剪贴板往返 `CLIPBOARD_BIG_OK:100000`;37 项 FULL_OK(2 次稳定)
+
+## 45. 修复:host 推送事件未 JSON-escape 用户字符串
+
+- `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
+- 新增 `zt_json_escape`(quote/backslash/`\n`/`\r`/`\t`/ctrl)→ macOS menu/shortcut/deep_link、Windows menu/shortcut;Linux 只推固定 window_event,无需改
+- 验证:37 项 FULL_OK 回归
