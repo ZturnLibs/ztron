@@ -696,3 +696,10 @@ ZtronApp.app/Contents/
 
 - 新增保存 `maximized`/`fullscreen` 标志(save 查询 is_maximized/is_fullscreen,restore 恢复)
 - 单测新增:标志保存 + restore 重新最大化
+
+## 35. 修复:ztron init 脚手架无法打包
+
+- **问题**:模板用内联 `html`、无 frontend 目录,`ztron build` 强制要求 frontend → scaffold 无法打包
+- **修复**:模板生成最小 `frontend/index.html` + `frontend/src/main.ts`(vite,CLI 程序化配置);后端用 `ZTRON_DEV_URL`(devUrl)指向构建产物,内联 html 仅作回退;注册 `hello` 命令示例
+- 验证:模板 typecheck 通过(backend 用 AppBuilder.setup 注册命令,`command()` 在 App 上非 AppBuilder)
+- 注:`@ztron/*` 未发布时 scaffold 需在 monorepo 上下文构建(独立 `pnpm install` 会因依赖未发布而失败)

@@ -441,6 +441,7 @@ function randomKey(): string {
 /** Scaffolds a minimal Ztron project in `target`. */
 async function initProject(target: string): Promise<void> {
   mkdirSync(join(target, "src"), { recursive: true });
+  mkdirSync(join(target, "frontend", "src"), { recursive: true });
   const name = basenameOf(target);
 
   const files: Record<string, string> = {
@@ -468,6 +469,8 @@ async function initProject(target: string): Promise<void> {
     ),
     "ztron.conf.json": JSON.stringify({ entry: "src/main.ts" }, null, 2),
     "src/main.ts": MAIN_TEMPLATE,
+    "frontend/index.html": FRONTEND_HTML,
+    "frontend/src/main.ts": FRONTEND_MAIN,
   };
 
   for (const [rel, content] of Object.entries(files)) {
@@ -485,8 +488,8 @@ function basenameOf(p: string): string {
   return parts[parts.length - 1] ?? "ztron-app";
 }
 
-const MAIN_TEMPLATE = `import { AppBuilder } from "@ztron/core";import { HostRuntime } from "@ztron/runtime-ffi";
-import { fsPlugin } from "@ztron/core";
+const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@ztron/core";
+import { HostRuntime } from "@ztron/runtime-ffi";
 
 declare const tjs: { env: Record<string, string | undefined> };
 
@@ -495,6 +498,10 @@ const runtime = new HostRuntime({
   port: Number(tjs.env.ZTRON_HOST_PORT),
 });
 await runtime.connect();
+
+// The CLI points ZTRON_DEV_URL at the built/development frontend index.html;
+// inline html is only a fallback when no frontend is configured.
+const devUrl = tjs.env.ZTRON_DEV_URL;
 
 const html = \`<!doctype html>
 <html>
@@ -506,9 +513,41 @@ const html = \`<!doctype html>
 
 new AppBuilder(runtime, "com.example.app")
   .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
-  .window({ label: "main", title: "My Ztron App", width: 800, height: 600, html })
+  .setup((app) => {
+    app.command("hello", (args) => {
+      const { name } = (args ?? {}) as { name?: string };
+      return "hello, " + (name ?? "world");
+    });
+  })
+  .window({
+    label: "main",
+    title: "My Ztron App",
+    width: 800,
+    height: 600,
+    ...(devUrl ? { url: devUrl } : { html }),
+  })
   .build()
   .run();
+`;
+
+const FRONTEND_HTML = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>My Ztron App</title>
+  </head>
+  <body style="font-family:system-ui;padding:2rem">
+    <h1>Hello Ztron</h1>
+    <p>invoke: <span id="status">running...</span></p>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+`;
+
+const FRONTEND_MAIN = `import { invoke } from "@ztron/api";
+
+const status = document.getElementById("status")!;
+status.textContent = String(await invoke("hello", { name: "scaffold" }));
 `;
 
 /**
