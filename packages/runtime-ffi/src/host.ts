@@ -234,7 +234,7 @@ export class HostRuntime implements RuntimeAdapter {
         type: "menu_item_set_title",
         menu_id: menuId,
         item_id: itemId,
-        title,
+        text: title, // `title` would collide with item_id on the wire (m->id)
       });
     },
     onEvent: (cb) => {

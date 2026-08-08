@@ -234,7 +234,7 @@ static void menu_set_item_title(const char *menu_id, const char *item_id, const 
 
 static void dialog_open(Msg *m) {
   GtkWidget *dlg = gtk_file_chooser_native_new(
-      m->str, zt_window(), GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", "_Cancel");
+      m->id, zt_window(), GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", "_Cancel");
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
     char *path = gtk_file_chooser_get_filename(
         GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))));
@@ -247,7 +247,7 @@ static void dialog_open(Msg *m) {
 }
 static void dialog_save(Msg *m) {
   GtkWidget *dlg = gtk_file_chooser_native_new(
-      m->str, zt_window(), GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", "_Cancel");
+      m->id, zt_window(), GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", "_Cancel");
   if (m->id[0]) {
     gtk_file_chooser_set_current_name(
         GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))),
@@ -266,7 +266,7 @@ static void dialog_save(Msg *m) {
 static void dialog_message(Msg *m) {
   GtkWidget *dlg = gtk_message_dialog_new(
       zt_window(), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-      "%s", m->str);
+      "%s", m->id);
   gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg), "%s", m->str2);
   gint r = gtk_dialog_run(GTK_DIALOG(dlg));
   gtk_widget_destroy(dlg);
@@ -339,8 +339,8 @@ static int dispatch(Msg *m) {
     if (m->req_id >= 0) zt_reply_query(m->req_id, "false");
     return 1;
   }
-  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
-  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
+  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
+  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 

@@ -589,7 +589,7 @@ static void install_menu_target(void) {
 
 static void dialog_open(Msg *m) {
   id panel = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSOpenPanel"), sel_registerName("openPanel"));
-  OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setTitle:"), zt_nsstring(m->str));
+  OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setTitle:"), zt_nsstring(m->id));
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseFiles:"), YES);
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseDirectories:"), NO);
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setAllowsMultipleSelection:"), NO);
@@ -621,7 +621,7 @@ static void dialog_save(Msg *m) {
 static void dialog_message(Msg *m) {
   id alert = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSAlert"), sel_registerName("alloc"));
   alert = OBJC_MSG(id(*)(id, SEL), alert, sel_registerName("init"));
-  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setMessageText:"), zt_nsstring(m->str));
+  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setMessageText:"), zt_nsstring(m->id));
   OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setInformativeText:"), zt_nsstring(m->str2));
   OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("addButtonWithTitle:"), zt_nsstring("OK"));
   long resp = (long)OBJC_MSG(long(*)(id, SEL), alert, sel_registerName("runModal"));
@@ -694,8 +694,8 @@ static int dispatch(Msg *m) {
     if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
-  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
-  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
+  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
+  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 

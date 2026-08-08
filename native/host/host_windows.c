@@ -282,7 +282,7 @@ static void dialog_open(Msg *m) {
   ofn.hwndOwner = zt_hwnd();
   ofn.lpstrFile = path;
   ofn.nMaxFile = sizeof(path);
-  ofn.lpstrTitle = m->str;
+  ofn.lpstrTitle = m->id;
   ofn.Flags = OFN_FILEMUSTEXIST;
   if (GetOpenFileNameA(&ofn)) zt_reply_string(m->req_id, path);
   else zt_reply_null(m->req_id);
@@ -301,7 +301,7 @@ static void dialog_save(Msg *m) {
   else zt_reply_null(m->req_id);
 }
 static void dialog_message(Msg *m) {
-  int r = MessageBoxA(zt_hwnd(), m->str2[0] ? m->str2 : m->str, m->str,
+  int r = MessageBoxA(zt_hwnd(), m->str2[0] ? m->str2 : m->id, m->id,
                       MB_OKCANCEL);
   char tmp[16];
   snprintf(tmp, sizeof(tmp), "%d", r == IDOK ? 0 : 1);
@@ -452,8 +452,8 @@ static int dispatch(Msg *m) {
     if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
-  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->str); return 1; }
-  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->str); return 1; }
+  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
+  if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 

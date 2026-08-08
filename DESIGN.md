@@ -741,3 +741,11 @@ ZtronApp.app/Contents/
 - core `plugin:process|exit/relaunch` + `ProcessController`;api `process.ts`(`exit`/`relaunch`)
 - **注意**:spike 只验证命令注册(`PROCESS_OK`),不实际调用(会退出应用);relaunch 为 best-effort(宿主自身 respawn,打包 app 由 launcher 完整重启 host+backend)
 - 单测:exit 记录退出码、relaunch 计数;spike 35 项 FULL_OK
+
+## 41. 修复:字段映射 bug(tray 标题 / dialog 标题 / menu 标题)
+
+- **wire 字段映射**(host.c socket_thread):`title→m->id`、`menu_id→m->str`、`item_id→m->id`、`text/tooltip/message/accelerator→m->str2`
+- **tray bug**:`tray_create`/`tray_set_title` 用 `m->str`,但 title 在 m->id → **托盘标题一直是空**(三平台)。修复:改 `m->id`
+- **dialog bug**:`dialog_open`/`dialog_message` 的标题用 `m->str`,但 title 在 m->id → 对话框标题空。修复:macOS/Win/Linux 改 `m->id`(dialog_save 的 title 与 default_name 冲突,标题为装饰性,保留 default_name)
+- **menu 标题 bug**:`menu_item_set_title` 后端发 `title`(与 item_id 同映射 m->id)→ 新标题丢失。修复:后端改发 `text`(→m->str2)
+- 这些 bug 均被"命令能 resolve"的 spike 掩盖;TRAY_OK/MENU_OK/DIALOG_REG_OK 只验证注册
