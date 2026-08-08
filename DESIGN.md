@@ -851,6 +851,13 @@ ZtronApp.app/Contents/
 - 权限 `local-ip:allow-get` 加入 `local-ip:default`
 - spike `LOCAL_IP_OK:192.168.0.134`(真实 LAN IP);45 项 FULL_OK
 
+## 57. shell executeStream(输出流式)
+
+- `plugin:shell|execute_stream`:逐块读 stdout/stderr,推 `tauri://shell-output`/`shell-error` 事件;resolve 退出码
+- api `shell.executeStream(program, args, {onChunk, onError})`;权限 `shell:allow-execute-stream` 加入 `shell:default`
+- **坑**:scope 参数模式 `["*"]` 只匹配单个参数;`sh -c <script>` 需 `["**"]`
+- spike `SHELL_STREAM_OK:3`(`sh -c 'echo one; sleep 1; ...'` 收到 ≥2 个 chunk,证明渐进输出);46 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

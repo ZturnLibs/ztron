@@ -123,6 +123,49 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         void proc;
         return { opened: true };
       },
+      async execute_stream(args, ctx) {
+        const {
+          program,
+          args: cmdArgs,
+          cwd,
+          env,
+        } = args as {
+          program: string;
+          args?: string[];
+          cwd?: string;
+          env?: Record<string, string>;
+        };
+        const allArgs = cmdArgs ?? [];
+        if (!matchScope(options.scope, program, allArgs)) {
+          throw new Error(`shell scope denied: ${program}`);
+        }
+        const proc = tjs.spawn([program, ...allArgs], {
+          stdout: "pipe",
+          stderr: "pipe",
+          ...(cwd ? { cwd } : {}),
+          ...(env ? { env } : {}),
+        });
+        const dec = new TextDecoder();
+        // Stream stdout/stderr chunks as tauri://shell-output / shell-error.
+        const pump = async (
+          stream: ReadableStream<Uint8Array> | null,
+          event: string,
+        ) => {
+          if (!stream) return;
+          const reader = stream.getReader();
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            ctx.app.emit(event, { chunk: dec.decode(value, { stream: true }) });
+          }
+        };
+        const [, , status] = await Promise.all([
+          pump(proc.stdout, "tauri://shell-output"),
+          pump(proc.stderr, "tauri://shell-error"),
+          proc.wait(),
+        ]);
+        return { code: status.exitStatus ?? 0 };
+      },
     },
     permissions: [
       {
@@ -134,6 +177,10 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         commands: ["plugin:shell|open"],
       },
       {
+        identifier: "shell:allow-execute-stream",
+        commands: ["plugin:shell|execute_stream"],
+      },
+      {
         identifier: "shell:deny-execute",
         commands: ["!plugin:shell|execute"],
       },
@@ -142,7 +189,11 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
       {
         name: "shell:default",
         description: "Allows scoped shell execution + opening http(s) URLs.",
-        permissions: ["shell:allow-execute", "shell:allow-open"],
+        permissions: [
+          "shell:allow-execute",
+          "shell:allow-open",
+          "shell:allow-execute-stream",
+        ],
       },
     ],
   };

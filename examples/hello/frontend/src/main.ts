@@ -240,6 +240,19 @@ async function main(): Promise<void> {
     }
     if (openRejected) report("SHELL_OPEN_OK");
 
+    // 5f4. shell executeStream (progressive stdout chunks)
+    const chunks: string[] = [];
+    const code = await shell.executeStream(
+      "sh",
+      ["-c", "echo one; sleep 1; echo two; sleep 1; echo three"],
+      { onChunk: (c) => chunks.push(c) },
+    );
+    if (code.code === 0 && chunks.length >= 2) {
+      report("SHELL_STREAM_OK:" + chunks.length + ":" + chunks.join("|"));
+    } else {
+      report("SHELL_STREAM_FAIL:" + code.code + ":" + chunks.join("|"));
+    }
+
     // 5g. updater (local manifest server + sha256 verify)
     const up = await invoke<{ hasUpdate: boolean; verifyOk: boolean }>(
       "m3:updater-test",
