@@ -461,6 +461,12 @@ static int dispatch(Msg *m) {
     if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     return 1;
   }
+  if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* WM_CLOSE intercept not implemented */
+  if (strcmp(m->type, "window_destroy") == 0) {
+    HWND w = zt_hwnd();
+    if (w) DestroyWindow(w);
+    return 1;
+  }
   if (strcmp(m->type, "window_set_bounds") == 0) {
     HWND w = zt_hwnd();
     if (w) SetWindowPos(w, 0, m->x, m->y, m->width, m->height, SWP_NOZORDER);

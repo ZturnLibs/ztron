@@ -326,6 +326,12 @@ static int dispatch(Msg *m) {
     if (w) gtk_window_move(GTK_WINDOW(w), m->x, m->y);
     return 1;
   }
+  if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* delete-event intercept not implemented */
+  if (strcmp(m->type, "window_destroy") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) gtk_window_close(GTK_WINDOW(w));
+    return 1;
+  }
   if (strcmp(m->type, "window_set_bounds") == 0) {
     GtkWidget *w = zt_window();
     if (w) {

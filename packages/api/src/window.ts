@@ -74,6 +74,19 @@ export class Window {
     await invoke("plugin:window|set_zoom", { label: this.label, zoom });
   }
 
+  /**
+   * Prevents the window from closing; a `tauri://close-requested` event is
+   * emitted instead, letting the frontend confirm (then call destroy()).
+   */
+  async preventClose(prevent: boolean): Promise<void> {
+    await invoke("plugin:window|prevent_close", { label: this.label, prevent });
+  }
+
+  /** Force-closes the window, bypassing preventClose. */
+  async destroy(): Promise<void> {
+    await invoke("plugin:window|destroy", { label: this.label });
+  }
+
   /** Sets the window bounds (position + size in one op). */
   async setBounds(x: number, y: number, width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_bounds", {

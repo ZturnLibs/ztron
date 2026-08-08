@@ -149,6 +149,7 @@ typedef struct {
 
 static HotKeyEntry g_hotkeys[MAX_HOTKEYS];
 static int g_hotkey_count = 0;
+static int g_prevent_close = 0;
 static int g_hotkey_seq = 1;
 static EventHandlerUPP g_hotkey_handler = NULL;
 
@@ -451,7 +452,14 @@ static void zt_evt_move(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_win
 static void zt_evt_focus(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("focus"); }
 static void zt_evt_blur(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("blur"); }
 static void zt_evt_close(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("close"); }
-static BOOL zt_should_close(id s, SEL c, id n) { (void)s; (void)c; (void)n; return YES; }
+static BOOL zt_should_close(id s, SEL c, id n) {
+  (void)s; (void)c; (void)n;
+  if (g_prevent_close) {
+    emit_window_event("close"); /* -> tauri://close-requested */
+    return NO;
+  }
+  return YES;
+}
 
 static void install_window_delegate(void) {
   void *wnd = zt_window();
@@ -767,6 +775,14 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "window_set_position") == 0) {
     void *wnd = zt_window();
     if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);
+    return 1;
+  }
+  if (strcmp(m->type, "set_prevent_close") == 0) {
+    g_prevent_close = m->bool_val;
+    return 1;
+  }
+  if (strcmp(m->type, "window_destroy") == 0) {
+    webview_terminate(zt_w);
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {

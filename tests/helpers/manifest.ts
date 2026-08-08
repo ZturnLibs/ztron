@@ -21,6 +21,8 @@ export const COMMANDS: readonly string[] = [
   "plugin:process|relaunch",
   // ---- window ----
   "plugin:window|close",
+  "plugin:window|prevent_close",
+  "plugin:window|destroy",
   "plugin:window|minimize",
   "plugin:window|unminimize",
   "plugin:window|toggle_maximize",

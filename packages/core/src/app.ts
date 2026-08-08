@@ -126,6 +126,8 @@ export class App {
       "plugin:event|emit",
       "plugin:event|emit_to",
       "plugin:window|close",
+      "plugin:window|prevent_close",
+      "plugin:window|destroy",
       "plugin:window|set_title",
       "plugin:window|set_size",
       "plugin:window|minimize",
@@ -255,6 +257,15 @@ export class App {
       },
       "plugin:window|close": (_args, ctx) => {
         ctx.webview.terminate();
+      },
+      "plugin:window|prevent_close": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_prevent_close",
+          Boolean((args as { prevent?: boolean }).prevent),
+        );
+      },
+      "plugin:window|destroy": (_args, ctx) => {
+        ctx.webview.destroy();
       },
       "plugin:window|set_title": (args, ctx) => {
         const { title } = args as { title: string };

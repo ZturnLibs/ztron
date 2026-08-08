@@ -946,6 +946,14 @@ ZtronApp.app/Contents/
 - **menu radio**:`type:"radio"` 在 wire 层与 check 同走 `checked` 状态(macOS `setState:`);radio 组互斥为 UI 细节,当前为复选标记
 - api `shell.Command` + `MenuItem.type="radio"`;spike `SHELL_CMD_CLASS_OK` + 菜单含 radio 项;54 项 FULL_OK
 
+## 70. window preventClose + destroy
+
+- host:
+  - `set_prevent_close`(macOS `g_prevent_close` 标志;Win/Linux no-op)→ `windowShouldClose:` 拦截:prevent 时发 `window_event close`(→`tauri://close-requested`)+ 返回 NO
+  - `window_destroy`:macOS `webview_terminate`、Win `DestroyWindow`、Linux `gtk_window_close`(绕过 preventClose 强制关闭)
+- core `plugin:window|prevent_close/destroy` + `WebviewHandle.destroy`;api `Window.preventClose()`/`destroy()`
+- 单测:prevent_close 路由 + destroy 计数;spike `PREVENT_CLOSE_OK`;55 项 FULL_OK(真实 close 点击为手动)
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

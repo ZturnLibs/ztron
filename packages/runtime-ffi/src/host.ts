@@ -135,6 +135,10 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "set_zoom", label: this.label, zoom });
   }
 
+  destroy(): void {
+    this.#rt.send({ type: "window_destroy", label: this.label });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

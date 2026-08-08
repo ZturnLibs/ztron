@@ -69,6 +69,11 @@ test("window commands route to the handle", async () => {
   await mock.main.invoke("plugin:window|start_dragging", {});
   assert.equal(w.dragCount, 1);
 
+  await mock.main.invoke("plugin:window|prevent_close", { prevent: true });
+  assert.ok(w.windowStateLog.some((l) => l.op === "set_prevent_close"));
+  await mock.main.invoke("plugin:window|destroy", {});
+  assert.equal(w.destroyCount, 1);
+
   const frame = await mock.main.invoke("plugin:window|get_frame", {});
   assert.equal(frame?.width, 900);
   const pos = await mock.main.invoke("plugin:window|get_position", {});

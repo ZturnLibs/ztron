@@ -462,6 +462,12 @@ async function main(): Promise<void> {
     await win.setBounds(60, 70, 800, 600);
     report("CURSOR_OK");
 
+    // 6a2g. preventClose plumbing (real close-click is manual)
+    await win.preventClose(true);
+    await win.preventClose(false);
+    const onClose = win.onCloseRequested(() => {});
+    if (onClose) report("PREVENT_CLOSE_OK");
+
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();
     const inner = await win.innerPosition();

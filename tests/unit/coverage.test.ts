@@ -55,6 +55,8 @@ const UNIT_COVERED = new Set([
   "plugin:app|get_config",
   "plugin:window|center",
   "plugin:window|close",
+  "plugin:window|prevent_close",
+  "plugin:window|destroy",
   "plugin:window|minimize",
   "plugin:window|unminimize",
   "plugin:window|toggle_maximize",

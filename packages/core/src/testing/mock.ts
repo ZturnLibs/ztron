@@ -128,6 +128,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.zoomLog.push(zoom);
   }
 
+  destroyCount = 0;
+
+  destroy(): void {
+    this.destroyCount += 1;
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;
