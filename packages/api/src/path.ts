@@ -32,6 +32,21 @@ export function extname(path: string): Promise<string> {
   return invoke<string>("plugin:path|extname", { path });
 }
 
+/** The user's home directory. */
+export function homeDir(): Promise<string> {
+  return invoke<string>("plugin:path|home_dir", {});
+}
+
+/** The system temporary directory. */
+export function tempDir(): Promise<string> {
+  return invoke<string>("plugin:path|temp_dir", {});
+}
+
+/** The current working directory. */
+export function cwd(): Promise<string> {
+  return invoke<string>("plugin:path|cwd", {});
+}
+
 export const path = {
   join,
   resolve,
@@ -40,4 +55,7 @@ export const path = {
   basename,
   dirname,
   extname,
+  homeDir,
+  tempDir,
+  cwd,
 };

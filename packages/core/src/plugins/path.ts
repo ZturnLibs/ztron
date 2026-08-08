@@ -40,6 +40,9 @@ export function pathPlugin(): Plugin {
     "dirname",
     "extname",
     "sep",
+    "home_dir",
+    "temp_dir",
+    "cwd",
   ] as const;
   return {
     name: "path",
@@ -62,6 +65,9 @@ export function pathPlugin(): Plugin {
       extname: async (args) =>
         (await path()).extname((args as { path: string }).path),
       sep: async () => (await path()).sep,
+      home_dir: async () => tjs.homeDir,
+      temp_dir: async () => tjs.tmpDir,
+      cwd: async () => tjs.cwd,
     },
     permissions: cmds.map((c) => ({
       identifier: `path:allow-${c.replace(/_/g, "-")}`,

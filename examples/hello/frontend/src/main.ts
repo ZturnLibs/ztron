@@ -120,6 +120,10 @@ async function main(): Promise<void> {
     el("path").textContent = joined;
     if (joined === "/a/b/c") report("PATH_OK");
 
+    // 5a. path special dirs
+    const [home, temp] = await Promise.all([path.homeDir(), path.tempDir()]);
+    if (home && temp) report("PATH_DIRS_OK:" + home + ":" + temp);
+
     // 5b. scoped http: allowed URL works, out-of-scope URL is denied
     try {
       const resp = await http.fetch("https://httpbin.org/get");
