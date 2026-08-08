@@ -500,4 +500,12 @@ static int init(void) {
   return 1;
 }
 
-const HostPlatformOps zt_platform = { dispatch, init };
+static void relaunch(void) {
+  char path[MAX_PATH];
+  if (GetModuleFileNameA(NULL, path, sizeof(path)) > 0) {
+    ShellExecuteA(NULL, "open", path, "0", NULL, SW_SHOWNORMAL);
+  }
+  PostMessageW(zt_hwnd(), WM_CLOSE, 0, 0);
+}
+
+const HostPlatformOps zt_platform = { dispatch, init, relaunch };

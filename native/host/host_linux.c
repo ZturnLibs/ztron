@@ -384,4 +384,19 @@ static int init(void) {
   return 1;
 }
 
-const HostPlatformOps zt_platform = { dispatch, init };
+static void relaunch(void) {
+  char exe[4096];
+  ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+  if (n > 0) {
+    exe[n] = '\0';
+    pid_t pid = fork();
+    if (pid == 0) {
+      setsid();
+      execl(exe, exe, "0", (char *)NULL);
+      _exit(127);
+    }
+  }
+  webview_terminate(zt_w);
+}
+
+const HostPlatformOps zt_platform = { dispatch, init, relaunch };

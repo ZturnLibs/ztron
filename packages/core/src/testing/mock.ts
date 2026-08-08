@@ -192,6 +192,18 @@ export class MockRuntime implements RuntimeAdapter {
     getLastUrl: () => null,
   };
 
+  exitLog: number[] = [];
+  relaunchCount = 0;
+
+  readonly process: import("../runtime.js").ProcessController = {
+    exit: (code) => {
+      this.exitLog.push(code ?? 0);
+    },
+    relaunch: () => {
+      this.relaunchCount += 1;
+    },
+  };
+
   createWindow(config: WindowConfig): WebviewHandle {
     const handle = new MockWebviewHandle(config.label);
     this.handles.push(handle);

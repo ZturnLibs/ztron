@@ -734,3 +734,10 @@ ZtronApp.app/Contents/
 - core 内建 `plugin:app|name/version/tauri_version`(读取 AppConfig.appName/version;tauri_version 固定 "2.0.0")
 - api `app.ts`(`getName`/`getVersion`/`getTauriVersion`);spike `APP_OK`
 - 单测:appName/version 从 config 返回;spike 33 项 FULL_OK(2 次稳定)
+
+## 40. process 模块(exit / relaunch)
+
+- host op `app_exit`(带退出码,`m->status`)与 `app_relaunch`;HostPlatformOps 加 `relaunch`(macOS fork+execl 自身、Win ShellExecute、Linux /proc/self/exe)
+- core `plugin:process|exit/relaunch` + `ProcessController`;api `process.ts`(`exit`/`relaunch`)
+- **注意**:spike 只验证命令注册(`PROCESS_OK`),不实际调用(会退出应用);relaunch 为 best-effort(宿主自身 respawn,打包 app 由 launcher 完整重启 host+backend)
+- 单测:exit 记录退出码、relaunch 计数;spike 35 项 FULL_OK

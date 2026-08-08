@@ -108,6 +108,7 @@ int zt_json_bool(const char *json, const char *key, int def) {
 static int g_fd = -1;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 webview_t zt_w = NULL;
+static int g_exit_code = 0;
 
 static void send_line_unlocked(const char *line) {
   if (g_fd < 0) return;
@@ -144,6 +145,11 @@ static void on_gui(webview_t w, void *arg) {
     webview_return(w, m->id, m->status, m->str);
   } else if (strcmp(m->type, "quit") == 0) {
     webview_terminate(w);
+  } else if (strcmp(m->type, "app_exit") == 0) {
+    g_exit_code = m->status;
+    webview_terminate(w);
+  } else if (strcmp(m->type, "app_relaunch") == 0) {
+    zt_platform.relaunch();
   } else if (zt_platform.dispatch(m)) {
     /* handled by the platform implementation */
   }
@@ -269,5 +275,5 @@ int main(int argc, char **argv) {
   webview_destroy(zt_w);
   close(cfd);
   close(lfd);
-  return 0;
+  return g_exit_code;
 }

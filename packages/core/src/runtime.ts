@@ -210,6 +210,14 @@ export interface DeepLinkController {
   getLastUrl(): string | null;
 }
 
+/** Process control (exit / relaunch) provided by the runtime backend. */
+export interface ProcessController {
+  /** Terminates the app with an exit code. */
+  exit(code?: number): void;
+  /** Restarts the app (best-effort; the host respawns itself then exits). */
+  relaunch(): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -227,4 +235,6 @@ export interface RuntimeAdapter {
   globalShortcut?: GlobalShortcutController;
   /** Optional deep-link (custom URL scheme) support. */
   deepLink?: DeepLinkController;
+  /** Optional process control. */
+  process?: ProcessController;
 }

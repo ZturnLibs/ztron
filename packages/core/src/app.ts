@@ -151,6 +151,8 @@ export class App {
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
+      "plugin:process|exit",
+      "plugin:process|relaunch",
       "plugin:notification|send",
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
@@ -323,6 +325,14 @@ export class App {
         ctx.app.config.appName ?? ctx.app.config.identifier,
       "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
       "plugin:app|tauri_version": () => "2.0.0",
+      "plugin:process|exit": (args) => {
+        this.#adapter.process?.exit(
+          Number((args as { code?: number }).code ?? 0),
+        );
+      },
+      "plugin:process|relaunch": () => {
+        this.#adapter.process?.relaunch();
+      },
       "plugin:notification|send": (args) => {
         const { title, body } = args as { title: string; body?: string };
         this.#adapter.notification?.send({ title, body: body ?? "" });

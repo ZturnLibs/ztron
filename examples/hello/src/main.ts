@@ -156,6 +156,13 @@ new AppBuilder(runtime, "com.ztron.hello")
       );
     });
 
+    app.command("m3:has-process", (_args, ctx) => {
+      return (
+        ctx.app.commands.has("plugin:process|exit") &&
+        ctx.app.commands.has("plugin:process|relaunch")
+      );
+    });
+
     // P5: updater spike — serve a local manifest + verify sha256.
     app.command("m3:updater-test", async () => {
       const server = tjs.serve({
@@ -209,9 +216,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       // 33 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
       // window to become key, which a terminal-launched bare binary cannot
       // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 34) {
+      if (done.size >= 35) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

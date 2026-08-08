@@ -76,6 +76,10 @@ async function main(): Promise<void> {
       report("APP_OK:" + appName + "@" + appVersion);
     }
 
+    // 1c. process module (commands registered; not invoked — they'd exit)
+    const hasProcess = await invoke<boolean>("m3:has-process", {});
+    if (hasProcess) report("PROCESS_OK");
+
     // 2. events (backend emits async ticks)
     let ticks = 0;
     await listen<{ n: number }>("m3:tick", (e) => {

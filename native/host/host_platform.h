@@ -72,6 +72,9 @@ typedef struct {
 
   /* One-time platform setup (install window delegate, tray/menu targets…). */
   int (*init)(void);
+
+  /* Re-launch the host process (used by plugin:process|relaunch). */
+  void (*relaunch)(void);
 } HostPlatformOps;
 
 extern const HostPlatformOps zt_platform;

@@ -80,6 +80,15 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window dragging) */
   }
 
+  readonly process = {
+    exit: () => {
+      /* no-op */
+    },
+    relaunch: () => {
+      /* no-op */
+    },
+  };
+
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
     op: import("@ztron/core").WindowStateOp,

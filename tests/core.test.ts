@@ -95,6 +95,14 @@ test("app metadata commands report config name/version", async () => {
   assert.equal(await mock.main.invoke("plugin:app|tauri_version", {}), "2.0.0");
 });
 
+test("process commands route to the controller", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:process|exit", { code: 7 });
+  assert.deepEqual(mock.exitLog, [7]);
+  await mock.main.invoke("plugin:process|relaunch", {});
+  assert.equal(mock.relaunchCount, 1);
+});
+
 test("window-state plugin saves and restores geometry", async () => {
   // Stub the txiki `tjs` global with an in-memory fs for the plugin.
   const files = new Map<string, string>();

@@ -745,4 +745,18 @@ static int init(void) {
   return 1;
 }
 
-const HostPlatformOps zt_platform = { dispatch, init };
+static void relaunch(void) {
+  char path[4096];
+  uint32_t size = sizeof(path);
+  if (_NSGetExecutablePath(path, &size) == 0) {
+    pid_t pid = fork();
+    if (pid == 0) {
+      setsid();
+      execl(path, path, "0", (char *)NULL);
+      _exit(127);
+    }
+  }
+  webview_terminate(zt_w);
+}
+
+const HostPlatformOps zt_platform = { dispatch, init, relaunch };

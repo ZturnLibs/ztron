@@ -305,6 +305,16 @@ export class HostRuntime implements RuntimeAdapter {
     getLastUrl: () => this.#lastDeepLink,
   };
 
+  /** Process controller (implements `RuntimeAdapter.process`). */
+  readonly process: import("@ztron/core").ProcessController = {
+    exit: (code) => {
+      this.send({ type: "app_exit", label: "main", status: code ?? 0 });
+    },
+    relaunch: () => {
+      this.send({ type: "app_relaunch", label: "main" });
+    },
+  };
+
   constructor(options: HostRuntimeOptions) {
     this.#host = options.host ?? "127.0.0.1";
     this.#port = options.port;
