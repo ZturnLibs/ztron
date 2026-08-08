@@ -402,6 +402,34 @@ static int dispatch(Msg *m) {
     if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     return 1;
   }
+  if (strcmp(m->type, "window_get_state") == 0) {
+    HWND w = zt_hwnd();
+    if (w && m->req_id >= 0) {
+      RECT wr, mr;
+      MONITORINFO mi = { sizeof(mi) };
+      HMONITOR mon = MonitorFromWindow(w, MONITOR_DEFAULTTOPRIMARY);
+      GetMonitorInfo(mon, &mi);
+      GetWindowRect(w, &wr);
+      LONG_PTR style = GetWindowLongPtr(w, GWL_STYLE);
+      LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
+      int fullscreen = wr.left == mi.rcMonitor.left && wr.top == mi.rcMonitor.top &&
+                       wr.right == mi.rcMonitor.right && wr.bottom == mi.rcMonitor.bottom;
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "{\"maximized\":%s,\"minimized\":%s,\"fullscreen\":%s,"
+               "\"always_on_top\":%s,\"visible\":%s,\"resizable\":%s}",
+               IsZoomed(w) ? "true" : "false",
+               IsIconic(w) ? "true" : "false",
+               fullscreen ? "true" : "false",
+               (ex & WS_EX_TOPMOST) ? "true" : "false",
+               IsWindowVisible(w) ? "true" : "false",
+               (style & WS_THICKFRAME) ? "true" : "false");
+      zt_reply_query(m->req_id, buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

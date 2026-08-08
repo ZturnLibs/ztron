@@ -52,6 +52,16 @@ export interface WindowFrame {
   height: number;
 }
 
+/** Snapshot of the native window's boolean state flags. */
+export interface WindowStateSnapshot {
+  maximized: boolean;
+  minimized: boolean;
+  fullscreen: boolean;
+  alwaysOnTop: boolean;
+  visible: boolean;
+  resizable: boolean;
+}
+
 /**
  * A handle to a single window + WebView.
  *
@@ -74,6 +84,8 @@ export interface WebviewHandle {
   setPosition(x: number, y: number): void;
   /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
   setOpacity(opacity: number): void;
+  /** Reads the native window's boolean state flags. */
+  getWindowState(): Promise<WindowStateSnapshot | null>;
   /**
    * Applies a window state operation. Query ops (`is_*`) resolve to the
    * native boolean; mutation ops resolve immediately.

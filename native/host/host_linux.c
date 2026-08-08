@@ -301,6 +301,25 @@ static int dispatch(Msg *m) {
     if (w) gtk_window_move(GTK_WINDOW(w), m->x, m->y);
     return 1;
   }
+  if (strcmp(m->type, "window_get_state") == 0) {
+    GtkWidget *w = zt_window();
+    if (w && m->req_id >= 0) {
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "{\"maximized\":%s,\"minimized\":%s,\"fullscreen\":%s,"
+               "\"always_on_top\":%s,\"visible\":%s,\"resizable\":%s}",
+               gtk_window_is_maximized(GTK_WINDOW(w)) ? "true" : "false",
+               "false",
+               gtk_window_is_fullscreen(GTK_WINDOW(w)) ? "true" : "false",
+               "false",
+               gtk_widget_get_visible(GTK_WIDGET(w)) ? "true" : "false",
+               gtk_window_get_resizable(GTK_WINDOW(w)) ? "true" : "false");
+      zt_reply_query(m->req_id, buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     char cmd[1024];
     snprintf(cmd, sizeof(cmd), "notify-send %s %s", m->id, m->str2);

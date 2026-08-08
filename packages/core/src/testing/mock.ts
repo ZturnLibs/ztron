@@ -72,6 +72,26 @@ export class MockWebviewHandle implements WebviewHandle {
     return Promise.resolve({ ...this.frame });
   }
 
+  stateSnapshot: {
+    maximized: boolean;
+    minimized: boolean;
+    fullscreen: boolean;
+    alwaysOnTop: boolean;
+    visible: boolean;
+    resizable: boolean;
+  } = {
+    maximized: false,
+    minimized: false,
+    fullscreen: false,
+    alwaysOnTop: false,
+    visible: true,
+    resizable: true,
+  };
+
+  getWindowState() {
+    return Promise.resolve({ ...this.stateSnapshot });
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;

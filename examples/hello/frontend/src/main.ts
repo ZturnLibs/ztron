@@ -231,6 +231,22 @@ async function main(): Promise<void> {
     await win.setDecorations(true);
     report("DECORATIONS_OK");
 
+    // 6a2. verify the boolean set_* ops actually took effect (guards the
+    // window-state JSON boolean parsing regression — see DESIGN.md §34)
+    const st = await win.getState();
+    if (
+      st &&
+      st.alwaysOnTop === true &&
+      st.resizable === true &&
+      st.visible === true &&
+      st.maximized === false &&
+      st.fullscreen === false
+    ) {
+      report("STATE_VERIFY_OK:" + JSON.stringify(st));
+    } else {
+      report("STATE_VERIFY_FAIL:" + JSON.stringify(st));
+    }
+
     // 6b. positioner (setPosition/getPosition round trip)
     await setPosition(120, 140);
     const pos = await getPosition();

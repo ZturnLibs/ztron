@@ -72,6 +72,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window opacity) */
   }
 
+  getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
+    return Promise.resolve(null);
+  }
+
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
     op: import("@ztron/core").WindowStateOp,

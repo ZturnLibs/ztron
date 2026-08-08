@@ -145,6 +145,7 @@ export class App {
       "plugin:window|set_decorations",
       "plugin:window|get_frame",
       "plugin:window|get_position",
+      "plugin:window|get_state",
       "plugin:window|set_position",
       "plugin:notification|send",
       "plugin:global-shortcut|register",
@@ -306,6 +307,8 @@ export class App {
         const f = await ctx.webview.getFrame();
         return f ? { x: f.x, y: f.y } : null;
       },
+      "plugin:window|get_state": async (_args, ctx) =>
+        ctx.webview.getWindowState(),
       "plugin:window|set_position": (args, ctx) => {
         const { x, y } = args as { x: number; y: number };
         ctx.webview.setPosition(Number(x), Number(y));

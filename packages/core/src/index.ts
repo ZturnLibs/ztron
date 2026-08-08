@@ -68,6 +68,7 @@ export type {
   WindowConfig,
   WindowEvent,
   WindowFrame,
+  WindowStateSnapshot,
   WindowStateOp,
   TrayController,
   TrayOp,

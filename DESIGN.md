@@ -703,3 +703,10 @@ ZtronApp.app/Contents/
 - **修复**:模板生成最小 `frontend/index.html` + `frontend/src/main.ts`(vite,CLI 程序化配置);后端用 `ZTRON_DEV_URL`(devUrl)指向构建产物,内联 html 仅作回退;注册 `hello` 命令示例
 - 验证:模板 typecheck 通过(backend 用 AppBuilder.setup 注册命令,`command()` 在 App 上非 AppBuilder)
 - 注:`@ztron/*` 未发布时 scaffold 需在 monorepo 上下文构建(独立 `pnpm install` 会因依赖未发布而失败)
+
+## 36. window_get_state 查询 + boolean op 生效验证
+
+- host 新 op `window_get_state`:返回 `{maximized,minimized,fullscreen,always_on_top,visible,resizable}`(macOS isZoomed/isMiniaturized/styleMask/level/isVisible;Win IsZoomed/WS_EX_TOPMOST/...;Linux gtk_window_is_*)
+- core `plugin:window|get_state` + `WebviewHandle.getWindowState()`;api `Window.getState()`
+- **动机**:§34 的 boolean 解析 bug 靠 spike 无法发现(只验证命令 resolve)。`getState` 让 spike _*直接断言 set_* 生效_*
+- spike 新增 `STATE_VERIFY_OK`(alwaysOnTop/resizable/visible=true,maximized/fullscreen=false),阈值 31,3 次稳定 + 打包回归

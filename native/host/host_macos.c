@@ -647,6 +647,26 @@ static int dispatch(Msg *m) {
     if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);
     return 1;
   }
+  if (strcmp(m->type, "window_get_state") == 0) {
+    void *wnd = zt_window();
+    if (wnd && m->req_id >= 0) {
+      long level = (long)OBJC_MSG(long(*)(id, SEL), wnd, sel_registerName("level"));
+      char buf[256];
+      snprintf(buf, sizeof(buf),
+               "{\"maximized\":%s,\"minimized\":%s,\"fullscreen\":%s,"
+               "\"always_on_top\":%s,\"visible\":%s,\"resizable\":%s}",
+               wnd_bool(wnd, "isZoomed") ? "true" : "false",
+               wnd_bool(wnd, "isMiniaturized") ? "true" : "false",
+               (wnd_style_mask(wnd) & NS_FULLSCREEN_MASK) ? "true" : "false",
+               level != 0 ? "true" : "false",
+               wnd_bool(wnd, "isVisible") ? "true" : "false",
+               (wnd_style_mask(wnd) & NS_RESIZABLE_MASK) ? "true" : "false");
+      zt_reply_query(m->req_id, buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

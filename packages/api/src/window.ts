@@ -119,6 +119,18 @@ export class Window {
     });
   }
 
+  /** Reads the window's boolean state flags (maximized/fullscreen/etc). */
+  async getState(): Promise<{
+    maximized: boolean;
+    minimized: boolean;
+    fullscreen: boolean;
+    alwaysOnTop: boolean;
+    visible: boolean;
+    resizable: boolean;
+  } | null> {
+    return invoke("plugin:window|get_state", { label: this.label });
+  }
+
   /** Toggles a transparent window background. */
   async setTransparent(transparent: boolean): Promise<void> {
     await invoke("plugin:window|set_transparent", {

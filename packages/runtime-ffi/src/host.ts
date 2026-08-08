@@ -83,6 +83,23 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
+    return this.#rt.sendRequest("window_get_state").then((r) => {
+      if (r && typeof r === "object") {
+        const s = r as Record<string, unknown>;
+        return {
+          maximized: s.maximized === true,
+          minimized: s.minimized === true,
+          fullscreen: s.fullscreen === true,
+          alwaysOnTop: s.always_on_top === true,
+          visible: s.visible === true,
+          resizable: s.resizable === true,
+        };
+      }
+      return null;
+    });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }
