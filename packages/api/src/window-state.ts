@@ -11,6 +11,7 @@ export interface WindowState {
   height: number;
   maximized: boolean;
   fullscreen: boolean;
+  alwaysOnTop: boolean;
 }
 
 export interface WindowStateOptions {

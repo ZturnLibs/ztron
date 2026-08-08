@@ -110,6 +110,7 @@ test("window-state plugin saves and restores geometry", async () => {
     height: 640,
     maximized: false,
     fullscreen: false,
+    alwaysOnTop: false,
   });
 
   // Move away, restore, and confirm the handle re-applies the saved geometry.
@@ -122,6 +123,7 @@ test("window-state plugin saves and restores geometry", async () => {
     height: 640,
     maximized: false,
     fullscreen: false,
+    alwaysOnTop: false,
   });
   assert.deepEqual(mock.main.positionLog[mock.main.positionLog.length - 1], {
     x: 55,
@@ -148,16 +150,24 @@ test("window-state plugin saves and restores maximized/fullscreen flags", async 
   const { mock } = buildApp((b) =>
     b.plugin(windowStatePlugin({ file: "/tmp/ws-max.json" })),
   );
-  mock.main.windowStateValues["is_maximized"] = true;
+  mock.main.stateSnapshot.maximized = true;
+  mock.main.stateSnapshot.alwaysOnTop = true;
   const saved = await mock.main.invoke("plugin:window-state|save", {});
   assert.equal(saved?.maximized, true);
   assert.equal(saved?.fullscreen, false);
+  assert.equal(saved?.alwaysOnTop, true);
 
   const restored = await mock.main.invoke("plugin:window-state|restore", {});
   assert.equal(restored?.maximized, true);
   assert.ok(
     mock.main.windowStateLog.some((l) => l.op === "toggle_maximize"),
     "restore should re-maximize the window",
+  );
+  assert.ok(
+    mock.main.windowStateLog.some(
+      (l) => l.op === "set_always_on_top" && l.value === true,
+    ),
+    "restore should re-apply alwaysOnTop",
   );
   delete (globalThis as Record<string, unknown>).tjs;
 });

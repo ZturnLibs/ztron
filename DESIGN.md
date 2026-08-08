@@ -721,3 +721,10 @@ ZtronApp.app/Contents/
 - api `Window.startDragging()` + `setupDragRegion()`(监听 `[data-tauri-drag-region]` 元素 mousedown)
 - 单测 + spike:`DRAG_REGION_OK`(32 项 FULL_OK,3 次稳定);真实拖动需鼠标(手动)
 - 完成 frameless 窗口故事:`setDecorations(false)` + drag-region
+
+## 38. window-state 增强:alwaysOnTop 持久化 + getState 复用
+
+- save 改用 `getWindowState()`(单次查询代替两次 is_* 查询),持久化 `maximized`/`fullscreen`/`alwaysOnTop`
+- restore/setup 恢复时重放 three 标志(`toggle_maximize` / `set_fullscreen` / `set_always_on_top`)
+- 单测更新:save 写 alwaysOnTop,restore 重放 set_always_on_top(true)
+- spike 32 项 FULL_OK(2 次稳定)

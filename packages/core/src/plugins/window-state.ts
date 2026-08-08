@@ -22,6 +22,7 @@ export interface WindowState {
   height: number;
   maximized: boolean;
   fullscreen: boolean;
+  alwaysOnTop: boolean;
 }
 
 export function windowStatePlugin(
@@ -46,6 +47,7 @@ export function windowStatePlugin(
           height: parsed.height,
           maximized: parsed.maximized === true,
           fullscreen: parsed.fullscreen === true,
+          alwaysOnTop: parsed.alwaysOnTop === true,
         };
       }
     } catch {
@@ -65,24 +67,24 @@ export function windowStatePlugin(
         return readState();
       },
       async save(_args, ctx) {
-        const frame = await ctx.webview.getFrame();
+        const [frame, state] = await Promise.all([
+          ctx.webview.getFrame(),
+          ctx.webview.getWindowState(),
+        ]);
         if (!frame) {
           throw new Error("window-state: failed to read window frame");
         }
-        const [maximized, fullscreen] = await Promise.all([
-          ctx.webview.windowState("is_maximized"),
-          ctx.webview.windowState("is_fullscreen"),
-        ]);
-        const state: WindowState = {
+        const snapshot: WindowState = {
           x: frame.x,
           y: frame.y,
           width: frame.width,
           height: frame.height,
-          maximized: maximized === true,
-          fullscreen: fullscreen === true,
+          maximized: state?.maximized ?? false,
+          fullscreen: state?.fullscreen ?? false,
+          alwaysOnTop: state?.alwaysOnTop ?? false,
         };
-        await writeState(state);
-        return state;
+        await writeState(snapshot);
+        return snapshot;
       },
       async restore(_args, ctx) {
         const state = await readState();
@@ -98,6 +100,9 @@ export function windowStatePlugin(
         }
         if (state.fullscreen) {
           ctx.webview.windowState("set_fullscreen", true);
+        }
+        if (state.alwaysOnTop) {
+          ctx.webview.windowState("set_always_on_top", true);
         }
         return state;
       },
@@ -145,6 +150,9 @@ export function windowStatePlugin(
               }
               if (state.fullscreen) {
                 wv.windowState("set_fullscreen", true);
+              }
+              if (state.alwaysOnTop) {
+                wv.windowState("set_always_on_top", true);
               }
             }
           });
