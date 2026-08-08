@@ -8,6 +8,7 @@
  */
 import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import {
   copyFileSync,
   cpSync,
@@ -16,7 +17,11 @@ import {
   readFileSync,
   writeFileSync,
   chmodSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
@@ -628,6 +633,68 @@ interface PackOptions {
   tjs: string;
 }
 
+/** Builds AppIcon.icns from a PNG via sips + iconutil (macOS only). */
+function buildIcns(png: string, outIcns: string): void {
+  const base = mkdtempSync(join(tmpdir(), "ztron-iconset-"));
+  const iconset = `${base}.iconset`;
+  renameSync(base, iconset);
+  try {
+    const sizes = [16, 32, 128, 256, 512];
+    for (const s of sizes) {
+      spawnSync(
+        "sips",
+        [
+          "-z",
+          String(s),
+          String(s),
+          png,
+          "--out",
+          join(iconset, `icon_${s}x${s}.png`),
+        ],
+        { stdio: "ignore" },
+      );
+      const d = s * 2;
+      spawnSync(
+        "sips",
+        [
+          "-z",
+          String(d),
+          String(d),
+          png,
+          "--out",
+          join(iconset, `icon_${s}x${s}@2x.png`),
+        ],
+        { stdio: "ignore" },
+      );
+    }
+    for (const s of [16, 32, 128, 256, 512]) {
+      const d = s * 2;
+      spawnSync(
+        "sips",
+        [
+          "-z",
+          String(d),
+          String(d),
+          png,
+          "--out",
+          join(iconset, `icon_${s}x${s}@2x.png`),
+        ],
+        { stdio: "ignore" },
+      );
+    }
+    const r = spawnSync("iconutil", ["-c", "icns", iconset, "-o", outIcns], {
+      encoding: "utf8",
+    });
+    if (r.status !== 0) {
+      throw new Error(
+        `iconutil failed (${r.status}): ${r.stderr || r.error?.message || "unknown"}`,
+      );
+    }
+  } finally {
+    rmSync(iconset, { recursive: true, force: true });
+  }
+}
+
 async function packMacApp(o: PackOptions): Promise<void> {
   const macosDir = join(o.outDir, `${o.appName}.app`, "Contents", "MacOS");
   const resDir = join(o.outDir, `${o.appName}.app`, "Contents", "Resources");
@@ -646,6 +713,15 @@ async function packMacApp(o: PackOptions): Promise<void> {
   copyFileSync(o.hostBin, join(macosDir, "ztron-host"));
   copyFileSync(o.lib, join(macosDir, "libwebview.dylib"));
   cpSync(o.frontendDist, join(resDir, "frontend"), { recursive: true });
+
+  // Build AppIcon.icns from assets/app-icon.png (sips + iconutil) if present.
+  const iconPng = fileURLToPath(
+    new URL("../../../assets/app-icon.png", import.meta.url),
+  );
+  const icns = join(resDir, "AppIcon.icns");
+  if (existsSync(iconPng)) {
+    buildIcns(iconPng, icns);
+  }
 
   writeFileSync(
     join(o.outDir, `${o.appName}.app`, "Contents", "Info.plist"),
@@ -702,6 +778,8 @@ function appInfoPlist(appName: string): string {
   <string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
