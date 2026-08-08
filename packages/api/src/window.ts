@@ -147,6 +147,14 @@ export class Window {
     });
   }
 
+  /**
+   * Starts a native window drag — call from a `mousedown` on a
+   * `data-tauri-drag-region` element of a frameless window.
+   */
+  async startDragging(): Promise<void> {
+    await invoke("plugin:window|start_dragging", { label: this.label });
+  }
+
   // ---- window events (listen to `tauri://*`) ----
 
   private async onEvent<T>(
@@ -177,4 +185,25 @@ export class Window {
   onCloseRequested(handler: () => void) {
     return this.onEvent("close-requested", handler);
   }
+}
+
+/**
+ * Enables window dragging from any element with a `data-tauri-drag-region`
+ * attribute (the Tauri frameless-window convention). Call once per page.
+ */
+export function setupDragRegion(
+  target: Document | HTMLElement = document,
+): () => void {
+  const onMouseDown = (e: Event) => {
+    const ev = e as MouseEvent;
+    const el = (ev.target as HTMLElement | null)?.closest?.(
+      "[data-tauri-drag-region]",
+    );
+    if (el) {
+      ev.preventDefault();
+      void Window.getCurrent().startDragging();
+    }
+  };
+  target.addEventListener("mousedown", onMouseDown);
+  return () => target.removeEventListener("mousedown", onMouseDown);
 }

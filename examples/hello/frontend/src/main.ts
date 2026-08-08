@@ -247,6 +247,11 @@ async function main(): Promise<void> {
       report("STATE_VERIFY_FAIL:" + JSON.stringify(st));
     }
 
+    // 6a3. drag-region: command round-trips (real dragging needs a mouse;
+    // macOS no-ops when [NSApp currentEvent] is not a mouseDown)
+    await win.startDragging();
+    report("DRAG_REGION_OK");
+
     // 6b. positioner (setPosition/getPosition round trip)
     await setPosition(120, 140);
     const pos = await getPosition();

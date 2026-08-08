@@ -430,6 +430,14 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_dragging") == 0) {
+    HWND w = zt_hwnd();
+    if (w) {
+      ReleaseCapture();
+      SendMessage(w, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

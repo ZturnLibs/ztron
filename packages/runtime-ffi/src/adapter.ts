@@ -76,6 +76,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     return Promise.resolve(null);
   }
 
+  startDragging(): void {
+    /* no-op (host adapter provides window dragging) */
+  }
+
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
     op: import("@ztron/core").WindowStateOp,

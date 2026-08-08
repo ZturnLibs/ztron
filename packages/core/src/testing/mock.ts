@@ -104,6 +104,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.opacityLog.push(opacity);
   }
 
+  dragCount = 0;
+
+  startDragging(): void {
+    this.dragCount += 1;
+  }
+
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
     this.windowStateLog.push({ op, value });
     if (op.startsWith("is_")) {

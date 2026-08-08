@@ -708,5 +708,16 @@ ZtronApp.app/Contents/
 
 - host 新 op `window_get_state`:返回 `{maximized,minimized,fullscreen,always_on_top,visible,resizable}`(macOS isZoomed/isMiniaturized/styleMask/level/isVisible;Win IsZoomed/WS_EX_TOPMOST/...;Linux gtk_window_is_*)
 - core `plugin:window|get_state` + `WebviewHandle.getWindowState()`;api `Window.getState()`
-- **动机**:§34 的 boolean 解析 bug 靠 spike 无法发现(只验证命令 resolve)。`getState` 让 spike _*直接断言 set_* 生效_*
+- **动机**:§34 的 boolean 解析 bug 靠 spike 无法发现(只验证命令 resolve)。`getState` 让 spike _\*直接断言 set_* 生效_*
 - spike 新增 `STATE_VERIFY_OK`(alwaysOnTop/resizable/visible=true,maximized/fullscreen=false),阈值 31,3 次稳定 + 打包回归
+
+## 37. drag-region(`startDragging`,命令 round-trip 已验证)
+
+- host op `start_dragging`:
+  - macOS:`performWindowDragWithEvent:[NSApp currentEvent]`(非 mouseDown 事件安全 no-op)
+  - Windows:`ReleaseCapture` + `SendMessage(WM_NCLBUTTONDOWN, HTCAPTION)`
+  - Linux:`gtk_window_begin_move_drag`
+- core `plugin:window|start_dragging` + `WebviewHandle.startDragging()`
+- api `Window.startDragging()` + `setupDragRegion()`(监听 `[data-tauri-drag-region]` 元素 mousedown)
+- 单测 + spike:`DRAG_REGION_OK`(32 项 FULL_OK,3 次稳定);真实拖动需鼠标(手动)
+- 完成 frameless 窗口故事:`setDecorations(false)` + drag-region

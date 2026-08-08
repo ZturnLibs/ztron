@@ -147,6 +147,7 @@ export class App {
       "plugin:window|get_position",
       "plugin:window|get_state",
       "plugin:window|set_position",
+      "plugin:window|start_dragging",
       "plugin:notification|send",
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
@@ -313,6 +314,8 @@ export class App {
         const { x, y } = args as { x: number; y: number };
         ctx.webview.setPosition(Number(x), Number(y));
       },
+      "plugin:window|start_dragging": (_args, ctx) =>
+        ctx.webview.startDragging(),
       "plugin:notification|send": (args) => {
         const { title, body } = args as { title: string; body?: string };
         this.#adapter.notification?.send({ title, body: body ?? "" });

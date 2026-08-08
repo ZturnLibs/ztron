@@ -320,6 +320,13 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_dragging") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) {
+      gtk_window_begin_move_drag(GTK_WINDOW(w), 1, 0, 0, 0);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     char cmd[1024];
     snprintf(cmd, sizeof(cmd), "notify-send %s %s", m->id, m->str2);

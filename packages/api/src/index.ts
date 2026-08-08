@@ -19,6 +19,7 @@ export type {
   UnlistenFn,
 } from "./event.js";
 export { Window } from "./window.js";
+export { setupDragRegion } from "./window.js";
 export {
   fs,
   readText,

@@ -55,6 +55,14 @@ test("positioner commands route through the handle frame", async () => {
   assert.deepEqual(frame, { x: 30, y: 40, width: 900, height: 640 });
 });
 
+test("start_dragging and get_state route through the handle", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:window|start_dragging", {});
+  assert.equal(mock.main.dragCount, 1);
+  const st = await mock.main.invoke("plugin:window|get_state", {});
+  assert.deepEqual(st, mock.main.stateSnapshot);
+});
+
 test("global-shortcut commands route to the controller", async () => {
   const { mock } = buildApp();
   const ok = await mock.main.invoke("plugin:global-shortcut|register", {

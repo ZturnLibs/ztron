@@ -667,6 +667,19 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_dragging") == 0) {
+    void *wnd = zt_window();
+    if (wnd) {
+      /* performWindowDragWithEvent: needs the original mouseDown NSEvent;
+         [NSApp currentEvent] is it when the frontend dispatches mid-drag. */
+      id app = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                        sel_registerName("sharedApplication"));
+      id ev = OBJC_MSG(id(*)(id, SEL), app, sel_registerName("currentEvent"));
+      OBJC_MSG(void(*)(id, SEL, id), wnd,
+               sel_registerName("performWindowDragWithEvent:"), ev);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

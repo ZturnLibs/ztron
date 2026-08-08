@@ -206,10 +206,10 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      // 31 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
+      // 32 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
       // window to become key, which a terminal-launched bare binary cannot
       // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 31) {
+      if (done.size >= 32) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
         );
