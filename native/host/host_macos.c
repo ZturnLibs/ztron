@@ -697,6 +697,42 @@ static int dispatch(Msg *m) {
     if (wnd && m->req_id >= 0) zt_reply_frame(m->req_id, zt_wnd_frame(wnd));
     return 1;
   }
+  if (strcmp(m->type, "window_get_theme") == 0) {
+    id app = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                      sel_registerName("sharedApplication"));
+    id appearance = OBJC_MSG(id(*)(id, SEL), app,
+                             sel_registerName("effectiveAppearance"));
+    id name = appearance
+                  ? OBJC_MSG(id(*)(id, SEL), appearance, sel_registerName("name"))
+                  : NULL;
+    int isDark = name ? OBJC_MSG(BOOL(*)(id, SEL, id), name,
+                                 sel_registerName("containsString:"),
+                                 zt_nsstring("Dark"))
+                      : 0;
+    if (m->req_id >= 0) zt_reply_string(m->req_id, isDark ? "dark" : "light");
+    return 1;
+  }
+  if (strcmp(m->type, "window_get_scale_factor") == 0) {
+    void *wnd = zt_window();
+    double s = wnd
+                   ? OBJC_MSG(double(*)(id, SEL), wnd,
+                              sel_registerName("backingScaleFactor"))
+                   : 1.0;
+    if (m->req_id >= 0) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%g", s);
+      zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
+    void *wnd = zt_window();
+    if (wnd) {
+      OBJC_MSG(void(*)(id, SEL, BOOL), wnd,
+               sel_registerName("setIgnoresMouseEvents:"), m->bool_val);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "window_set_position") == 0) {
     void *wnd = zt_window();
     if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);

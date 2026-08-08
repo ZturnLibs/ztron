@@ -339,6 +339,31 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "window_get_theme") == 0) {
+    if (m->req_id >= 0) {
+      const char *theme = "light";
+      GtkSettings *gs = gtk_settings_get_default();
+      gchar *pref = NULL;
+      if (gs) g_object_get(gs, "gtk-theme-name", &pref, NULL);
+      if (pref && g_strrstr(pref, "dark")) theme = "dark";
+      if (pref) g_free(pref);
+      zt_reply_string(m->req_id, theme);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "window_get_scale_factor") == 0) {
+    if (m->req_id >= 0) {
+      GtkWidget *w = zt_window();
+      gdouble s = w ? gdk_screen_get_scale_factor(gtk_widget_get_screen(w)) : 1.0;
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%g", s);
+      zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
+    return 1; /* GTK: input-pass-through needs extra work; no-op for now */
+  }
   if (strcmp(m->type, "window_get_title") == 0) {
     GtkWidget *w = zt_window();
     if (w && m->req_id >= 0) {

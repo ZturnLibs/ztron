@@ -80,6 +80,18 @@ export class FfiWebviewHandle implements WebviewHandle {
     return Promise.resolve(null);
   }
 
+  getTheme(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  getScaleFactor(): Promise<number | null> {
+    return Promise.resolve(null);
+  }
+
+  setIgnoreCursorEvents(): void {
+    /* no-op */
+  }
+
   startDragging(): void {
     /* no-op (host adapter provides window dragging) */
   }

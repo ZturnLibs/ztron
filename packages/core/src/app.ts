@@ -147,6 +147,9 @@ export class App {
       "plugin:window|get_position",
       "plugin:window|get_state",
       "plugin:window|get_title",
+      "plugin:window|get_theme",
+      "plugin:window|get_scale_factor",
+      "plugin:window|set_ignore_cursor_events",
       "plugin:window|set_position",
       "plugin:window|start_dragging",
       "plugin:app|name",
@@ -320,6 +323,14 @@ export class App {
       "plugin:window|get_title": async (_args, ctx) => {
         const t = await ctx.webview.getWindowTitle();
         return t ?? "";
+      },
+      "plugin:window|get_theme": async (_args, ctx) => ctx.webview.getTheme(),
+      "plugin:window|get_scale_factor": async (_args, ctx) =>
+        ctx.webview.getScaleFactor(),
+      "plugin:window|set_ignore_cursor_events": (args, ctx) => {
+        ctx.webview.setIgnoreCursorEvents(
+          Boolean((args as { ignore?: boolean }).ignore),
+        );
       },
       "plugin:window|set_position": (args, ctx) => {
         const { x, y } = args as { x: number; y: number };

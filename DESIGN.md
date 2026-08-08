@@ -808,6 +808,15 @@ ZtronApp.app/Contents/
 - 权限 `shell:allow-open` 加入 `shell:default`
 - spike `SHELL_OPEN_OK`:验证 `file://` 被拒(不真正打开浏览器);40 项 FULL_OK
 
+## 51. window 小 API:theme / scaleFactor / setIgnoreCursorEvents
+
+- host op:
+  - `window_get_theme`:macOS `NSApp.effectiveAppearance.name` 含 "Dark";Win 注册表 AppsUseLightTheme;Linux gtk-theme-name 含 "dark"
+  - `window_get_scale_factor`:macOS `[window backingScaleFactor]`;Win GetDpiForWindow/96;Linux gdk_screen_get_scale_factor
+  - `set_ignore_cursor_events`:macOS `setIgnoresMouseEvents:`;Win WS_EX_TRANSPARENT;Linux no-op(输入穿透需额外工作)
+- core `plugin:window|get_theme/get_scale_factor/set_ignore_cursor_events` + WebviewHandle 方法;api `Window.getTheme()/scaleFactor()/setIgnoreCursorEvents()`
+- spike `THEME_OK:light@1`(theme 合法 + scaleFactor>0 + ignore 往返);41 项 FULL_OK(2 次稳定)
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

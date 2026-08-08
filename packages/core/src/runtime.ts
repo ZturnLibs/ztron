@@ -88,6 +88,12 @@ export interface WebviewHandle {
   getWindowState(): Promise<WindowStateSnapshot | null>;
   /** Reads the native window title. */
   getWindowTitle(): Promise<string | null>;
+  /** Reads the OS color scheme the window follows ("light" | "dark"). */
+  getTheme(): Promise<string | null>;
+  /** Reads the window's backing scale factor (HiDPI). */
+  getScaleFactor(): Promise<number | null>;
+  /** Toggles whether the window ignores mouse/cursor events. */
+  setIgnoreCursorEvents(ignore: boolean): void;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */
   startDragging(): void;
   /**

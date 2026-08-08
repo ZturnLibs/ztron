@@ -106,6 +106,27 @@ export class HostWebviewHandle implements WebviewHandle {
       .then((r) => (typeof r === "string" ? r : null));
   }
 
+  getTheme(): Promise<string | null> {
+    return this.#rt
+      .sendRequest("window_get_theme")
+      .then((r) => (typeof r === "string" ? r : null));
+  }
+
+  getScaleFactor(): Promise<number | null> {
+    return this.#rt.sendRequest("window_get_scale_factor").then((r) => {
+      const n = Number(r);
+      return Number.isFinite(n) ? n : null;
+    });
+  }
+
+  setIgnoreCursorEvents(ignore: boolean): void {
+    this.#rt.send({
+      type: "set_ignore_cursor_events",
+      label: this.label,
+      value: ignore,
+    });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

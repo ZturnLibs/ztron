@@ -98,6 +98,23 @@ export class MockWebviewHandle implements WebviewHandle {
     return Promise.resolve(this.windowTitle);
   }
 
+  theme: string = "light";
+  scaleFactor: number = 1;
+
+  getTheme(): Promise<string | null> {
+    return Promise.resolve(this.theme);
+  }
+
+  getScaleFactor(): Promise<number | null> {
+    return Promise.resolve(this.scaleFactor);
+  }
+
+  ignoreCursorEventsLog: boolean[] = [];
+
+  setIgnoreCursorEvents(ignore: boolean): void {
+    this.ignoreCursorEventsLog.push(ignore);
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;

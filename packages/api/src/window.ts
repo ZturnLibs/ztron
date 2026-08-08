@@ -43,6 +43,24 @@ export class Window {
     return invoke("plugin:window|get_title", { label: this.label });
   }
 
+  /** The OS color scheme the window follows ("light" | "dark"). */
+  async getTheme(): Promise<string | null> {
+    return invoke("plugin:window|get_theme", { label: this.label });
+  }
+
+  /** The window's backing scale factor (2 on Retina/HiDPI). */
+  async scaleFactor(): Promise<number | null> {
+    return invoke("plugin:window|get_scale_factor", { label: this.label });
+  }
+
+  /** Toggles whether the window ignores mouse/cursor events. */
+  async setIgnoreCursorEvents(ignore: boolean): Promise<void> {
+    await invoke("plugin:window|set_ignore_cursor_events", {
+      label: this.label,
+      ignore,
+    });
+  }
+
   async setSize(width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_size", {
       label: this.label,

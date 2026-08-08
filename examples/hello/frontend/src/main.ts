@@ -308,6 +308,15 @@ async function main(): Promise<void> {
     const t = await win.getTitle();
     if (t === "Ztron Spike") report("TITLE_OK:" + t);
 
+    // 6a2c. theme + scale factor + ignore-cursor round trip
+    const theme = await win.getTheme();
+    const sf = await win.scaleFactor();
+    await win.setIgnoreCursorEvents(true);
+    await win.setIgnoreCursorEvents(false);
+    if ((theme === "light" || theme === "dark") && sf && sf > 0) {
+      report("THEME_OK:" + theme + "@" + sf);
+    }
+
     // 6a3. drag-region: command round-trips (real dragging needs a mouse;
     // macOS no-ops when [NSApp currentEvent] is not a mouseDown)
     await win.startDragging();

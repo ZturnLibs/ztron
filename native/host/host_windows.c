@@ -480,6 +480,39 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "window_get_theme") == 0) {
+    if (m->req_id >= 0) {
+      DWORD apps = 0;
+      DWORD size = sizeof(apps);
+      const char *theme = "light";
+      if (RegGetValueW(HKEY_CURRENT_USER,
+                       L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                       L"AppsUseLightTheme", RRF_RT_DWORD, NULL, &apps, &size) == ERROR_SUCCESS) {
+        theme = apps ? "light" : "dark";
+      }
+      zt_reply_string(m->req_id, theme);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "window_get_scale_factor") == 0) {
+    if (m->req_id >= 0) {
+      UINT dpi = GetDpiForWindow(zt_hwnd());
+      char buf[64];
+      snprintf(buf, sizeof(buf), "%g", (dpi ? dpi : 96) / 96.0);
+      zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
+    HWND w = zt_hwnd();
+    if (w) {
+      LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
+      if (m->bool_val) ex |= WS_EX_TRANSPARENT;
+      else ex &= ~WS_EX_TRANSPARENT;
+      SetWindowLongPtr(w, GWL_EXSTYLE, ex);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "window_get_title") == 0) {
     HWND w = zt_hwnd();
     if (w && m->req_id >= 0) {
