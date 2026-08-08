@@ -57,6 +57,15 @@ pnpm --filter @ztron/example-hello build  # package + ad-hoc sign ZtronApp.app
 node --experimental-strip-types --test tests/core.test.ts  # unit tests
 ```
 
+New project (inside the monorepo so `@ztron/*` resolves):
+
+```bash
+node packages/cli/dist/index.js init my-app   # scaffolds src/main.ts + frontend/
+cd my-app
+node ../packages/cli/dist/index.js dev --entry src/main.ts
+node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
+```
+
 ## Remaining (needs target platforms)
 
 - Windows (WebView2) / Linux (WebKitGTK) host compile + NSIS/AppImage packaging
