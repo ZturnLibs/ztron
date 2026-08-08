@@ -39,6 +39,7 @@ export {
   autostartPlugin,
   windowStatePlugin,
   singleInstancePlugin,
+  websocketPlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,

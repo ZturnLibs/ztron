@@ -825,6 +825,14 @@ ZtronApp.app/Contents/
 - **坑 2**:iconset 文件名必须是合法集合(16/32/128/256/512 + @2x,不能有 64/1024)
 - 验证:打包产物含 AppIcon.icns(78KB)+ CFBundleIconFile;spike 41 项全绿
 
+## 53. websocket 插件
+
+- `plugin:websocket|connect/send/disconnect`;连接池 Map<id, WebSocket>;收消息推 `tauri://websocket-message`,开关推 `tauri://websocket-status`
+- 纯插件层(tjs 原生 WebSocket),无 host 改动;api `websocket.ts`(connect/sendMessage/disconnect/onMessage/onStatus)
+- 权限 `websocket:allow-*` 加入 `websocket:default`
+- spike:`WEBSOCKET_OK:ws-echo-test`(连 postman-echo → 发送 → 收到回显);42 项 FULL_OK(2 次稳定)
+- 注:echo.websocket.org 不回显原消息(返回 "Request served by ..."),故用 ws.postman-echo.com/raw
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

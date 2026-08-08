@@ -122,6 +122,7 @@ export {
   onSecondInstance,
 } from "./single-instance.js";
 export { deepLink, getCurrentUrl, onDeepLink } from "./deep-link.js";
+export { websocket, connect, sendMessage, disconnect } from "./websocket.js";
 export { app, getName, getVersion, getTauriVersion } from "./app.js";
 export {
   process as processApi,

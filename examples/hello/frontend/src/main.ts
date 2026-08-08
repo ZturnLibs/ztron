@@ -35,6 +35,7 @@ import {
   onDeepLink,
   getName,
   getVersion,
+  websocket,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -80,6 +81,27 @@ async function main(): Promise<void> {
     // 1c. process module (commands registered; not invoked — they'd exit)
     const hasProcess = await invoke<boolean>("m3:has-process", {});
     if (hasProcess) report("PROCESS_OK");
+
+    // 1d. websocket (public echo server round trip)
+    try {
+      const echo = new Promise<string>((resolve) => {
+        void websocket.onMessage((e) => resolve(e.message));
+      });
+      const { id } = await websocket.connect("wss://ws.postman-echo.com/raw");
+      await websocket.sendMessage(id, "ws-echo-test");
+      const echoed = await Promise.race([
+        echo,
+        new Promise<string | null>((r) => setTimeout(() => r(null), 8000)),
+      ]);
+      await websocket.disconnect(id);
+      if (echoed && echoed.includes("ws-echo-test")) {
+        report("WEBSOCKET_OK:" + String(echoed).slice(0, 24));
+      } else {
+        report("WEBSOCKET_FAIL:" + String(echoed));
+      }
+    } catch (err) {
+      report("WEBSOCKET_FAIL:" + String(err));
+    }
 
     // 2. events (backend emits async ticks)
     let ticks = 0;
