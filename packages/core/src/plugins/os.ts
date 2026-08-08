@@ -40,6 +40,12 @@ export function osPlugin(): Plugin {
       homedir: () => tjs.homeDir,
       tmpdir: () => tjs.tmpDir,
       sep: () => "/",
+      locale: () => {
+        const raw = tjs.env.LC_ALL ?? tjs.env.LANG ?? tjs.env.LANGUAGE ?? "";
+        // "en_US.UTF-8" -> "en-US"
+        const tag = raw.split(".")[0]?.replace(/_/g, "-");
+        return tag || null;
+      },
     },
     permissions: [
       { identifier: "os:allow-info", commands: ["plugin:os|info"] },
@@ -50,6 +56,7 @@ export function osPlugin(): Plugin {
       { identifier: "os:allow-homedir", commands: ["plugin:os|homedir"] },
       { identifier: "os:allow-tmpdir", commands: ["plugin:os|tmpdir"] },
       { identifier: "os:allow-sep", commands: ["plugin:os|sep"] },
+      { identifier: "os:allow-locale", commands: ["plugin:os|locale"] },
     ],
     permissionSets: [
       {
@@ -64,6 +71,7 @@ export function osPlugin(): Plugin {
           "os:allow-homedir",
           "os:allow-tmpdir",
           "os:allow-sep",
+          "os:allow-locale",
         ],
       },
     ],

@@ -191,6 +191,14 @@ export class Window {
     return f ? { x: f.x, y: f.y } : { x: 0, y: 0 };
   }
 
+  /**
+   * The window's inner position (content top-left). Approximated by the outer
+   * frame origin — exact content origin needs titlebar-height measurement.
+   */
+  async innerPosition(): Promise<{ x: number; y: number }> {
+    return this.outerPosition();
+  }
+
   /** Toggles a transparent window background. */
   async setTransparent(transparent: boolean): Promise<void> {
     await invoke("plugin:window|set_transparent", {

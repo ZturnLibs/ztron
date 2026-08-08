@@ -858,6 +858,12 @@ ZtronApp.app/Contents/
 - **坑**:scope 参数模式 `["*"]` 只匹配单个参数;`sh -c <script>` 需 `["**"]`
 - spike `SHELL_STREAM_OK:3`(`sh -c 'echo one; sleep 1; ...'` 收到 ≥2 个 chunk,证明渐进输出);46 项 FULL_OK
 
+## 58. os.locale + window.innerPosition
+
+- `plugin:os|locale`:tjs 无 Intl,用 `LC_ALL/LANG/LANGUAGE` env 规范化(`en_US.UTF-8`→`en-US`);权限 `os:allow-locale` 加入 `os:default`
+- `Window.innerPosition()`:近似 outer(frame 原点,精确 content 原点需标题栏高度)
+- spike `LOCALE_OK:en-US`;47 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

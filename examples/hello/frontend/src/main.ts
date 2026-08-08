@@ -378,6 +378,13 @@ async function main(): Promise<void> {
       report("WINDOW_GETTERS_OK:" + outer.width + "x" + outer.height);
     }
 
+    // 6a2e. os.locale + window.innerPosition
+    const loc = await os.locale();
+    const inner = await win.innerPosition();
+    if (loc && /^[a-z]{2,3}(-[A-Z]{2})?$/.test(loc) && inner.x >= 0) {
+      report("LOCALE_OK:" + loc);
+    }
+
     // 6a3. drag-region: command round-trips (real dragging needs a mouse;
     // macOS no-ops when [NSApp currentEvent] is not a mouseDown)
     await win.startDragging();

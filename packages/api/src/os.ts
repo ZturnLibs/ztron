@@ -33,4 +33,18 @@ export function tmpdir(): Promise<string> {
   return invoke<string>("plugin:os|tmpdir", {});
 }
 
-export const os = { info, platform, arch, hostname, version, homedir, tmpdir };
+/** The system locale tag (e.g. "en-US"), or null when unknown. */
+export function locale(): Promise<string | null> {
+  return invoke<string | null>("plugin:os|locale", {});
+}
+
+export const os = {
+  info,
+  platform,
+  arch,
+  hostname,
+  version,
+  homedir,
+  tmpdir,
+  locale,
+};
