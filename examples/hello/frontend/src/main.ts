@@ -187,6 +187,13 @@ async function main(): Promise<void> {
       report("SHELL_OK:" + result.stdout.trim());
     }
 
+    // 5f2. shell cwd/env
+    const shellTmpDir = await path.tempDir();
+    const pwd = await shell.execute("pwd", [], { cwd: shellTmpDir });
+    if (pwd.stdout.trim().length > 0) {
+      report("SHELL_CWD_OK:" + pwd.stdout.trim());
+    }
+
     // 5g. updater (local manifest server + sha256 verify)
     const up = await invoke<{ hasUpdate: boolean; verifyOk: boolean }>(
       "m3:updater-test",

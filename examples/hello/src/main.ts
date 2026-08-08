@@ -68,7 +68,11 @@ new AppBuilder(runtime, "com.ztron.hello")
   .plugin(osPlugin())
   .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
   .plugin(logPlugin())
-  .plugin(shellPlugin({ scope: [{ program: "echo", args: ["*"] }] }))
+  .plugin(
+    shellPlugin({
+      scope: [{ program: "echo", args: ["*"] }, { program: "pwd" }],
+    }),
+  )
   .plugin(
     updaterPlugin({
       currentVersion: "0.1.0",
@@ -216,7 +220,7 @@ new AppBuilder(runtime, "com.ztron.hello")
       // 33 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
       // window to become key, which a terminal-launched bare binary cannot
       // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 38) {
+      if (done.size >= 39) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
         );

@@ -59,9 +59,16 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
     name: "shell",
     commands: {
       async execute(args) {
-        const { program, args: cmdArgs } = args as {
+        const {
+          program,
+          args: cmdArgs,
+          cwd,
+          env,
+        } = args as {
           program: string;
           args?: string[];
+          cwd?: string;
+          env?: Record<string, string>;
         };
         const allArgs = cmdArgs ?? [];
         if (!matchScope(options.scope, program, allArgs)) {
@@ -70,6 +77,8 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         const proc = tjs.spawn([program, ...allArgs], {
           stdout: "pipe",
           stderr: "pipe",
+          ...(cwd ? { cwd } : {}),
+          ...(env ? { env } : {}),
         });
         const dec = new TextDecoder();
         const readStream = async (

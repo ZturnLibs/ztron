@@ -781,6 +781,12 @@ ZtronApp.app/Contents/
 - 修正 tjs-global.d.ts 的 stat 类型声明(实际返回 `{size,mode,mtime:string}`,非 isFile/isDirectory)
 - spike `FS_COPY_RENAME_OK:8`(copy→rename→stat 往返);38 项 FULL_OK
 
+## 47. shell execute 补 cwd/env
+
+- `plugin:shell|execute` 透传 `cwd`/`env` 给 `tjs.spawn`(scope 校验仍作用于 program+args)
+- api `shell.execute(program, args, {cwd, env})`
+- spike `SHELL_CWD_OK`(`pwd` 在 tempDir 运行;example scope 加 `pwd`),39 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
