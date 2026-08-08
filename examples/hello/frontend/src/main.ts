@@ -40,6 +40,9 @@ import {
   getLocalIpv4,
   uploader,
   getPersistedScope,
+  getNetworkIpv4,
+  getLocalIpv6,
+  getPublicIp,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -117,6 +120,18 @@ async function main(): Promise<void> {
       report("LOCAL_IP_OK:" + localIp);
     } else {
       report("LOCAL_IP_FAIL:" + String(localIp));
+    }
+
+    // 1e2. network (ipv4 deterministic; ipv6/public best-effort info)
+    const net4 = await getNetworkIpv4();
+    const net6 = await getLocalIpv6();
+    const pub = await getPublicIp();
+    if (net4) {
+      report(
+        "NETWORK_OK:" + net4 + ":" + (net6 ?? "none") + ":" + (pub ?? "none"),
+      );
+    } else {
+      report("NETWORK_FAIL");
     }
 
     // 1f. upload: POST a file to the local echo server and verify the round trip

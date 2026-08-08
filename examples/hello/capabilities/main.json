@@ -22,6 +22,7 @@
     "single-instance:default",
     "websocket:default",
     "local-ip:default",
+    "network:default",
     "upload:default",
     "persisted-scope:default"
   ]

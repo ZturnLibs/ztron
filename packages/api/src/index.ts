@@ -124,6 +124,12 @@ export {
 export { deepLink, getCurrentUrl, onDeepLink } from "./deep-link.js";
 export { websocket, connect, sendMessage, disconnect } from "./websocket.js";
 export { localIp, getLocalIpv4 } from "./local-ip.js";
+export {
+  network,
+  getLocalIpv4 as getNetworkIpv4,
+  getLocalIpv6,
+  getPublicIp,
+} from "./network.js";
 export { uploader, upload } from "./upload.js";
 export type { UploadResult } from "./upload.js";
 export {

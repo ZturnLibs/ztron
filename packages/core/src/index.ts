@@ -41,6 +41,7 @@ export {
   singleInstancePlugin,
   websocketPlugin,
   localIpPlugin,
+  networkPlugin,
   uploadPlugin,
   persistedScopePlugin,
 } from "./plugins/index.js";

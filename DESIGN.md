@@ -886,6 +886,12 @@ ZtronApp.app/Contents/
 - core `plugin:window|set_cursor` + `WebviewHandle.setCursor`;api `Window.setCursor(cursor)`
 - spike `CURSOR_OK`(pointer/text/default round-trip);50 项 FULL_OK(视觉为手动)
 
+## 62. network 插件(ipv4/ipv6/public)
+
+- `plugin:network|get_local_ipv4/6` + `get_public_ip`;local 复用 shell(ipconfig/hostname -I/ifconfig),public 用 `icanhazip.com`(纯文本,比 api.ipify.org 稳)
+- api `network.getLocalIpv4/6`/`getPublicIp`;权限 `network:default`
+- spike `NETWORK_OK:192.168.0.134:none:180.213.154.232`(local+public);51 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
