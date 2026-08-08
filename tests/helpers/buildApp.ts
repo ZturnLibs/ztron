@@ -44,7 +44,7 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
   const builder = new AppBuilder(mock, "com.ztron.test")
     .plugin(persisted)
     .plugin(fsPlugin({ scope: persisted.scope }))
-    .plugin(pathPlugin())
+    .plugin(pathPlugin({ appId: "com.ztron.test" }))
     .plugin(
       httpPlugin({ scope: { allow: [{ url: "https://example.com/*" }] } }),
     )

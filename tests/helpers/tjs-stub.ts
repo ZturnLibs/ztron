@@ -184,6 +184,18 @@ export function installTjs(seed: Record<string, string> = {}): TjsStub {
   const stub = new TjsStub(seed);
   active = stub;
   (globalThis as Record<string, unknown>).tjs = stub;
+  // Simulate a macOS-ish navigator so platform-convention code paths run.
+  const nav = (globalThis as Record<string, unknown>).navigator;
+  if (nav && typeof nav === "object") {
+    try {
+      Object.defineProperty(nav, "platform", {
+        value: "MacIntel",
+        configurable: true,
+      });
+    } catch {
+      /* keep native navigator */
+    }
+  }
   return stub;
 }
 

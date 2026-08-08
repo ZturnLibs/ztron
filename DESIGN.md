@@ -901,6 +901,12 @@ ZtronApp.app/Contents/
 - 发现并修复:`store` 缺 `has` 命令(补上)、api 顶层导出补全(fs copyFile/renameFile/stat、os locale、updater check/verify/download)
 - 设计要点:manifest 即契约 —— 新增命令/API 必须同步更新 manifest,否则测试失败
 
+## 64. path 目录 getter 补全(Tauri 对齐)
+
+- `pathPlugin({ appId })` 新增 ~20 个目录 getter(appData/appConfig/appCache/appLocalData/appLog/baseline/data/config/cache/font/desktop/document/download/picture/audio/video/public/template/runtime/executable/resource dir)
+- 平台约定:macOS `~/Library/Application Support/<appId>` 等;Linux `~/.local/share` 等;Windows APPDATA 等(安全访问,不引用 process)
+- 单测:appId 约定路径 + 常用目录;spike `PATH_APP_DIRS_OK`;52 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

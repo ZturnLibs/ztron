@@ -67,6 +67,7 @@ export type {
   SingleInstancePluginOptions,
   UploadPluginOptions,
   PersistedScopePluginOptions,
+  PathPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";

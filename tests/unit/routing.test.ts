@@ -249,6 +249,15 @@ test("path special-dir commands return the stub paths", async () => {
     "/tmp/ztron-test",
   );
   assert.equal(await mock.main.invoke("plugin:path|cwd", {}), "/work");
+  // platform directory getters (macOS conventions under the stub navigator)
+  const appData = await mock.main.invoke("plugin:path|app_data_dir", {});
+  assert.ok(typeof appData === "string" && appData.includes("com.ztron.test"));
+  const desktop = await mock.main.invoke("plugin:path|desktop_dir", {});
+  assert.ok(desktop.includes("/Desktop"));
+  const document = await mock.main.invoke("plugin:path|document_dir", {});
+  assert.ok(document.includes("/Documents"));
+  const download = await mock.main.invoke("plugin:path|download_dir", {});
+  assert.ok(download.includes("/Downloads"));
 });
 
 test("store commands persist through the tjs stub", async () => {

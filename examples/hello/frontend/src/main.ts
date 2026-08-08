@@ -229,6 +229,12 @@ async function main(): Promise<void> {
     const [home, temp] = await Promise.all([path.homeDir(), path.tempDir()]);
     if (home && temp) report("PATH_DIRS_OK:" + home + ":" + temp);
 
+    // 5a2. path app dirs (appId-convention path)
+    const appData = await path.appDataDir();
+    if (appData && appData.includes("com.ztron.hello")) {
+      report("PATH_APP_DIRS_OK:" + appData.slice(-32));
+    }
+
     // 5b. scoped http: allowed URL works, out-of-scope URL is denied
     try {
       const resp = await http.fetch("https://api.github.com/");
