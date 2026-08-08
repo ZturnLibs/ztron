@@ -758,3 +758,10 @@ ZtronApp.app/Contents/
 - core `plugin:window|get_title` + `WebviewHandle.getWindowTitle()`;api `Window.getTitle()`
 - **验证**:spike `TITLE_OK`(setTitle→getTitle round-trip 直接验证 wire 字段),36 项 FULL_OK(3 次稳定)
 - 教训:`[xxx title]`/`[xxx stringValue]` 返回 NSString*,必须 `UTF8String` 转 C 串 —— 与 boolean 解析、字段映射同类的潜伏 bug
+
+## 43. 修复:zt_reply_string 不完整 JSON 转义
+
+- 旧实现只转义 `"` 和 `\`;**裸换行/控制字符会切断 backend 按行读取**(新行即消息边界)→ JSON.parse 失败 → 查询**挂起**
+- 修复:补 `\n`/`\r`/`\t` 转义 + 其他控制字符替换为 `?` + 缓冲边界(65536-32)
+- 影响面:所有 `zt_reply_string` 响应(clipboard 读、dialog 路径、window_get_title)
+- **验证**:spike clipboard 改为特殊字符往返(`'line1\n"quoted"\\back'`),`CLIPBOARD_OK` round-trip 通过;36 项 FULL_OK

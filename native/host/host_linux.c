@@ -30,11 +30,16 @@ void zt_reply_query(int req_id, const char *json_value) {
 void zt_reply_string(int req_id, const char *s) {
   char buf[65536];
   char *p = buf;
+  char *end = buf + sizeof(buf) - 32;
   p += sprintf(p,
                "{\"type\":\"query_result\",\"req_id\":%d,\"result\":\"",
                req_id);
-  for (; *s; s++) {
+  for (; *s && p < end; s++) {
     if (*s == '"' || *s == '\\') *p++ = '\\';
+    else if (*s == '\n') { *p++ = '\\'; *p++ = 'n'; continue; }
+    else if (*s == '\r') { *p++ = '\\'; *p++ = 'r'; continue; }
+    else if (*s == '\t') { *p++ = '\\'; *p++ = 't'; continue; }
+    else if ((unsigned char)*s < 0x20) { *p++ = '?'; continue; }
     *p++ = *s;
   }
   *p++ = '"';

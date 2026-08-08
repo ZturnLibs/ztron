@@ -220,13 +220,15 @@ async function main(): Promise<void> {
       report("AUTOSTART_FAIL");
     }
 
-    // 5j. clipboard (host NSPasteboard)
-    await writeClipboardText("hello-clipboard");
+    // 5j. clipboard — round trip special chars (guards zt_reply_string JSON
+    // escaping: newline/quote/backslash would otherwise break the wire)
+    const clipText = 'line1\n"quoted"\\back';
+    await writeClipboardText(clipText);
     const clip = await readClipboardText();
-    if (clip === "hello-clipboard") {
-      report("CLIPBOARD_OK:" + clip);
+    if (clip === clipText) {
+      report("CLIPBOARD_OK:" + clip.replace(/\n/g, "\\n"));
     } else {
-      report("CLIPBOARD_FAIL:" + String(clip));
+      report("CLIPBOARD_FAIL:" + JSON.stringify(clip));
     }
 
     // 6. window states + events through the api
