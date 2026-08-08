@@ -19,4 +19,9 @@ export function execute(
   });
 }
 
-export const shell = { execute };
+/** Opens an http(s) URL in the default browser (fire-and-forget). */
+export function open(url: string): Promise<{ opened: boolean }> {
+  return invoke<{ opened: boolean }>("plugin:shell|open", { url });
+}
+
+export const shell = { execute, open };

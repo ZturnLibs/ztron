@@ -195,6 +195,15 @@ async function main(): Promise<void> {
       report("SHELL_CWD_OK:" + pwd.stdout.trim());
     }
 
+    // 5f3. shell.open validates http(s) (rejects file:// without opening)
+    let openRejected = false;
+    try {
+      await shell.open("file:///etc/hosts");
+    } catch {
+      openRejected = true;
+    }
+    if (openRejected) report("SHELL_OPEN_OK");
+
     // 5g. updater (local manifest server + sha256 verify)
     const up = await invoke<{ hasUpdate: boolean; verifyOk: boolean }>(
       "m3:updater-test",

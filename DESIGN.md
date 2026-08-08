@@ -801,6 +801,13 @@ ZtronApp.app/Contents/
 - spike:backend setup 写 1x1 PNG 到 TMP,前端 setTrayIcon(TRAY_OK 内联验证),39 项 FULL_OK(2 次稳定)
 - 教训:废弃 ObjC API(`imageWithContentsOfFile:`)在现代 macOS 直接崩溃 —— 与 NSString 类型同类的"编译过、运行时崩"风险
 
+## 50. shell.open(默认浏览器打开 URL)
+
+- `plugin:shell|open`:校验 `^https?://`,拒绝其他协议;用 tjs.spawn 调平台 opener(macOS `open`/Linux `xdg-open`/Win `cmd start`)
+- 实现于插件层(不经过 host,避免加 adapter 通道);api `shell.open(url)`
+- 权限 `shell:allow-open` 加入 `shell:default`
+- spike `SHELL_OPEN_OK`:验证 `file://` 被拒(不真正打开浏览器);40 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

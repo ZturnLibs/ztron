@@ -105,11 +105,33 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           stderr,
         } satisfies ExecResult;
       },
+      async open(args) {
+        const { url } = args as { url: string };
+        if (!/^https?:\/\//i.test(url)) {
+          throw new Error(`shell open: only http(s) URLs allowed: ${url}`);
+        }
+        const platform = (
+          (globalThis as { navigator?: { platform?: string } }).navigator
+            ?.platform ?? ""
+        ).toLowerCase();
+        const opener = platform.includes("win")
+          ? ["cmd", "/c", "start", "", url]
+          : platform.includes("linux")
+            ? ["xdg-open", url]
+            : ["open", url];
+        const proc = tjs.spawn(opener, { stdout: "ignore", stderr: "ignore" });
+        void proc;
+        return { opened: true };
+      },
     },
     permissions: [
       {
         identifier: "shell:allow-execute",
         commands: ["plugin:shell|execute"],
+      },
+      {
+        identifier: "shell:allow-open",
+        commands: ["plugin:shell|open"],
       },
       {
         identifier: "shell:deny-execute",
@@ -119,9 +141,8 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
     permissionSets: [
       {
         name: "shell:default",
-        description:
-          "Allows scoped shell execution (subject to program+args scope).",
-        permissions: ["shell:allow-execute"],
+        description: "Allows scoped shell execution + opening http(s) URLs.",
+        permissions: ["shell:allow-execute", "shell:allow-open"],
       },
     ],
   };
