@@ -33,3 +33,5 @@ export { websocketPlugin } from "./websocket.js";
 export { localIpPlugin } from "./local-ip.js";
 export { uploadPlugin } from "./upload.js";
 export type { UploadPluginOptions } from "./upload.js";
+export { persistedScopePlugin } from "./persisted-scope.js";
+export type { PersistedScopePluginOptions } from "./persisted-scope.js";

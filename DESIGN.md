@@ -871,6 +871,13 @@ ZtronApp.app/Contents/
 - **HttpScope bug**:`new URL` 无法解析 `*` 端口 → 文档示例 `http://localhost:*` 一直失效。修复:compile 前归一化 `://host:*`,port 用 -1 通配
 - spike:example setup 起本地 echo 服务器(tjs.serve 回显 body),前端写文件→上传→验证回显;`UPLOAD_OK:200`;48 项 FULL_OK
 
+## 60. persisted-scope 插件
+
+- `PathScope` 加 `addAllow`/`serializeAllow`;fsPlugin 接受 PathScope 实例
+- `persistedScopePlugin({file, scope})` 返回 `{...plugin, scope}`:启动时从 JSON 加载持久化 allow 条目合并进 scope;`plugin:persisted-scope|get/save`
+- api `persistedScope.get/save`
+- spike:`PERSISTED_SCOPE_OK`(预置 `$HOME/ztron-persisted-spike/**` 条目 → fs 在 $TMP 之外写读成功,证明持久化生效);49 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

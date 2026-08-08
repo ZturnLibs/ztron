@@ -11,7 +11,8 @@ import type { Plugin } from "../plugin.js";
 const dec = new TextDecoder();
 
 export interface FsPluginOptions {
-  scope: PathScopeConfig;
+  /** A PathScope instance or config (instances may be grown by persisted-scope). */
+  scope: PathScopeConfig | PathScope;
 }
 
 export interface DirEntry {
@@ -32,7 +33,10 @@ function modeIsDir(mode: number): boolean {
 }
 
 export function fsPlugin(options: FsPluginOptions): Plugin {
-  const scope = new PathScope(options.scope);
+  const scope =
+    options.scope instanceof PathScope
+      ? options.scope
+      : new PathScope(options.scope);
 
   const fsCommands = {
     read_text: "plugin:fs|read_text",

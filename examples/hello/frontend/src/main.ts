@@ -39,6 +39,7 @@ import {
   websocket,
   getLocalIpv4,
   uploader,
+  getPersistedScope,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -133,6 +134,26 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       report("UPLOAD_FAIL:" + extractError(err).slice(0, 60));
+    }
+
+    // 1g. persisted-scope: pre-seeded allow entry is loaded + grants a path
+    // outside the base scope ($HOME/...), and fs.write succeeds there.
+    try {
+      const merged = await getPersistedScope();
+      const hasPersisted = merged.allow.some((a) =>
+        a.includes("ztron-persisted-spike"),
+      );
+      await fs.makeDir("$HOME/ztron-persisted-spike");
+      await fs.writeText("$HOME/ztron-persisted-spike/ok.txt", "persisted-ok");
+      await fs.writeText("$HOME/ztron-persisted-spike/ok.txt", "persisted-ok");
+      const back = await fs.readText("$HOME/ztron-persisted-spike/ok.txt");
+      if (hasPersisted && back === "persisted-ok") {
+        report("PERSISTED_SCOPE_OK");
+      } else {
+        report("PERSISTED_SCOPE_FAIL:" + JSON.stringify(merged.allow));
+      }
+    } catch (err) {
+      report("PERSISTED_SCOPE_FAIL:" + extractError(err).slice(0, 60));
     }
 
     // 2. events (backend emits async ticks)

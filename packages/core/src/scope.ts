@@ -82,6 +82,17 @@ export class PathScope {
     }
   }
 
+  /** Adds an allow pattern at runtime (invalidates cached roots). */
+  addAllow(pattern: string): void {
+    this.#allow.push(expandVars(pattern));
+    this.#allowRoots = null;
+  }
+
+  /** The current allow patterns (for persistence). */
+  serializeAllow(): string[] {
+    return [...this.#allow];
+  }
+
   /** Canonicalized scope roots (memoized; the literal prefix of each pattern). */
   #roots(deny: boolean): Promise<string[]> {
     const roots = deny ? this.#deny : this.#allow;

@@ -9,6 +9,7 @@
     "fs:allow-copy",
     "fs:allow-rename",
     "fs:allow-stat",
+    "fs:allow-make-dir",
     "http:default",
     "os:default",
     "store:write",
@@ -21,6 +22,7 @@
     "single-instance:default",
     "websocket:default",
     "local-ip:default",
-    "upload:default"
+    "upload:default",
+    "persisted-scope:default"
   ]
 }

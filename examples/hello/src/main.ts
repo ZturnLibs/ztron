@@ -24,6 +24,7 @@ import {
   websocketPlugin,
   localIpPlugin,
   uploadPlugin,
+  persistedScopePlugin,
   loadCapabilities,
 } from "@ztron/core";
 import { greet, add, echo } from "./commands.js";
@@ -54,9 +55,30 @@ const capabilities = await loadCapabilities(
   tjs.env.ZTRON_CAPABILITIES_DIR ?? "./capabilities",
 );
 
+// Persisted-scope: base fs scope is $TMP/**; pre-seed an extra allow entry so
+// the spike can prove a path outside $TMP is granted after a "restart".
+const persisted = persistedScopePlugin({
+  file: `${tjs.tmpDir}/ztron_persisted_scope.json`,
+  scope: { allow: ["$TMP/**"] },
+});
+const psScope = persisted.scope;
+void (async () => {
+  try {
+    await tjs.writeFile(
+      `${tjs.tmpDir}/ztron_persisted_scope.json`,
+      new TextEncoder().encode(
+        JSON.stringify({ allow: ["$HOME/ztron-persisted-spike/**"] }),
+      ),
+    );
+  } catch {
+    /* non-fatal */
+  }
+})();
+
 new AppBuilder(runtime, "com.ztron.hello")
   .configure({ invokeKey, capabilities })
-  .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
+  .plugin(persisted)
+  .plugin(fsPlugin({ scope: psScope }))
   .plugin(pathPlugin())
   .plugin(
     shellPlugin({
@@ -260,9 +282,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       // 33 deterministic checks. WIN_EVENT_OK is a bonus: it requires the
       // window to become key, which a terminal-launched bare binary cannot
       // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 48) {
+      if (done.size >= 49) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/upload/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog)",
         );
         ctx.webview.terminate();
       }

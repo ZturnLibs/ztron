@@ -42,6 +42,7 @@ export {
   websocketPlugin,
   localIpPlugin,
   uploadPlugin,
+  persistedScopePlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -64,6 +65,7 @@ export type {
   WindowStatePluginOptions,
   SingleInstancePluginOptions,
   UploadPluginOptions,
+  PersistedScopePluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";
