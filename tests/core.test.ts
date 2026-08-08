@@ -193,6 +193,27 @@ test("ACL: command outside capability is denied", async () => {
   );
 });
 
+test("window-state permission set grants get but denies save without write", async () => {
+  const { mock } = buildApp((b) => {
+    b.configure({
+      capabilities: [
+        {
+          identifier: "main",
+          windows: ["main"],
+          permissions: ["core:default", "window-state:default"],
+        },
+      ],
+    });
+    b.plugin(windowStatePlugin({ file: "/tmp/ws-acl.json" }));
+  });
+  // window-state:default only allows get/restore, so save is denied.
+  await assert.rejects(
+    () => mock.main.invoke("plugin:window-state|save", {}),
+    (err: unknown) =>
+      /access denied/i.test(String((err as { error?: unknown })?.error ?? err)),
+  );
+});
+
 test(
   "PathScope allows $TMP and denies /etc",
   { skip: !("tjs" in globalThis) },
