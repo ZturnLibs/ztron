@@ -37,6 +37,7 @@ import {
   getVersion,
   getConfig,
   websocket,
+  getLocalIpv4,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -106,6 +107,14 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       report("WEBSOCKET_FAIL:" + String(err));
+    }
+
+    // 1e. local-ip (primary IPv4)
+    const localIp = await getLocalIpv4();
+    if (localIp && /^\d{1,3}(\.\d{1,3}){3}$/.test(localIp)) {
+      report("LOCAL_IP_OK:" + localIp);
+    } else {
+      report("LOCAL_IP_FAIL:" + String(localIp));
     }
 
     // 2. events (backend emits async ticks)

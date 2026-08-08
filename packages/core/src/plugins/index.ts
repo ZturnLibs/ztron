@@ -30,3 +30,4 @@ export type { WindowStatePluginOptions } from "./window-state.js";
 export { singleInstancePlugin } from "./single-instance.js";
 export type { SingleInstancePluginOptions } from "./single-instance.js";
 export { websocketPlugin } from "./websocket.js";
+export { localIpPlugin } from "./local-ip.js";

@@ -19,6 +19,7 @@
     "autostart:default",
     "window-state:write",
     "single-instance:default",
-    "websocket:default"
+    "websocket:default",
+    "local-ip:default"
   ]
 }

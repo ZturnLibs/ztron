@@ -844,6 +844,13 @@ ZtronApp.app/Contents/
 - `Window.isAlwaysOnTop()/isVisible()/isResizable()`(来自 getState)、`outerSize()/outerPosition()`(来自 getFrame)—— 纯前端,无需新 host 命令
 - spike `WINDOW_GETTERS_OK:900x608`(is* 与 getState 一致 + outerSize>0);44 项 FULL_OK
 
+## 56. local-ip 插件
+
+- `plugin:local-ip|get`:macOS `ipconfig getifaddr en0`(回退 route get default 找接口)、Linux `hostname -I`;正则校验 IPv4,未知返回 null
+- 纯插件层(tjs.spawn),无 host 改动;api `localIp.getLocalIpv4()`
+- 权限 `local-ip:allow-get` 加入 `local-ip:default`
+- spike `LOCAL_IP_OK:192.168.0.134`(真实 LAN IP);45 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

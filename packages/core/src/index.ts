@@ -40,6 +40,7 @@ export {
   windowStatePlugin,
   singleInstancePlugin,
   websocketPlugin,
+  localIpPlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,

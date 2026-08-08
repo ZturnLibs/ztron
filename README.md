@@ -45,7 +45,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P4    | `ztron codegen` typed commands + MockRuntime tests                                                                                | `CODEGEN_OK` + 6/6 unit tests                                                                                                                                               |
 | P5    | updater + macOS signing + Win/Linux host skeletons                                                                                | `UPDATER_OK`                                                                                                                                                                |
 
-Final spike: **44 checks, all pass** (`FULL_OK`).
+Final spike: **45 checks, all pass** (`FULL_OK`).
 
 ## Quick start
 

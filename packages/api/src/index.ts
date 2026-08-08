@@ -123,6 +123,7 @@ export {
 } from "./single-instance.js";
 export { deepLink, getCurrentUrl, onDeepLink } from "./deep-link.js";
 export { websocket, connect, sendMessage, disconnect } from "./websocket.js";
+export { localIp, getLocalIpv4 } from "./local-ip.js";
 export { app, getName, getVersion, getTauriVersion, getConfig } from "./app.js";
 export type { AppInfo } from "./app.js";
 export {
