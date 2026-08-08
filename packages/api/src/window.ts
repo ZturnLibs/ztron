@@ -154,6 +154,43 @@ export class Window {
     return invoke("plugin:window|get_state", { label: this.label });
   }
 
+  /** Whether the window stays on top of other windows. */
+  async isAlwaysOnTop(): Promise<boolean> {
+    return (await this.getState())?.alwaysOnTop ?? false;
+  }
+
+  /** Whether the window is visible. */
+  async isVisible(): Promise<boolean> {
+    return (await this.getState())?.visible ?? false;
+  }
+
+  /** Whether the window is resizable. */
+  async isResizable(): Promise<boolean> {
+    return (await this.getState())?.resizable ?? false;
+  }
+
+  /** The window's outer size (width × height, including decorations). */
+  async outerSize(): Promise<{ width: number; height: number }> {
+    const f = await invoke<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>("plugin:window|get_frame", { label: this.label });
+    return f ? { width: f.width, height: f.height } : { width: 0, height: 0 };
+  }
+
+  /** The window's outer position (top-left origin). */
+  async outerPosition(): Promise<{ x: number; y: number }> {
+    const f = await invoke<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>("plugin:window|get_frame", { label: this.label });
+    return f ? { x: f.x, y: f.y } : { x: 0, y: 0 };
+  }
+
   /** Toggles a transparent window background. */
   async setTransparent(transparent: boolean): Promise<void> {
     await invoke("plugin:window|set_transparent", {

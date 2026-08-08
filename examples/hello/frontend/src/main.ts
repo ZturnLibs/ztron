@@ -344,6 +344,18 @@ async function main(): Promise<void> {
       report("THEME_OK:" + theme + "@" + sf);
     }
 
+    // 6a2d. Window getters (is*/outerSize/outerPosition) agree with state/frame
+    const [isAot, isVis, isRes, outer] = await Promise.all([
+      win.isAlwaysOnTop(),
+      win.isVisible(),
+      win.isResizable(),
+      win.outerSize(),
+      win.outerPosition(),
+    ]).then(([a, b, c, d, e]) => [a, b, c, d, e]);
+    if (isAot === true && isVis === true && isRes === true && outer.width > 0) {
+      report("WINDOW_GETTERS_OK:" + outer.width + "x" + outer.height);
+    }
+
     // 6a3. drag-region: command round-trips (real dragging needs a mouse;
     // macOS no-ops when [NSApp currentEvent] is not a mouseDown)
     await win.startDragging();
