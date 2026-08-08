@@ -61,6 +61,14 @@ export class Window {
     });
   }
 
+  /**
+   * Sets the window cursor (CSS-style name: "default", "pointer", "text",
+   * "crosshair", "move", "not-allowed", resize cursors, …).
+   */
+  async setCursor(cursor: string): Promise<void> {
+    await invoke("plugin:window|set_cursor", { label: this.label, cursor });
+  }
+
   async setSize(width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_size", {
       label: this.label,

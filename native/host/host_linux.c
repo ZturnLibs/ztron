@@ -381,6 +381,18 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "set_cursor") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) {
+      GdkCursor *cur = gdk_cursor_new_from_name(gdk_display_get_default(), m->str2[0] ? m->str2 : "default");
+      GdkWindow *gw = gtk_widget_get_window(w);
+      if (cur && gw) {
+        gdk_window_set_cursor(gw, cur);
+        g_object_unref(cur);
+      }
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     char cmd[1024];
     snprintf(cmd, sizeof(cmd), "notify-send %s %s", m->id, m->str2);

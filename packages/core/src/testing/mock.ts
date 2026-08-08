@@ -115,6 +115,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.ignoreCursorEventsLog.push(ignore);
   }
 
+  cursorLog: string[] = [];
+
+  setCursor(cursor: string): void {
+    this.cursorLog.push(cursor);
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;

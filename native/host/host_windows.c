@@ -532,6 +532,23 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "set_cursor") == 0) {
+    LPCSTR id = IDC_ARROW;
+    const char *name = m->str2;
+    if (strcmp(name, "text") == 0) id = IDC_IBEAM;
+    else if (strcmp(name, "pointer") == 0 || strcmp(name, "hand") == 0) id = IDC_HAND;
+    else if (strcmp(name, "crosshair") == 0) id = IDC_CROSS;
+    else if (strcmp(name, "move") == 0 || strcmp(name, "all-scroll") == 0) id = IDC_SIZEALL;
+    else if (strcmp(name, "not-allowed") == 0) id = IDC_NO;
+    else if (strcmp(name, "wait") == 0 || strcmp(name, "progress") == 0) id = IDC_APPSTARTING;
+    else if (strcmp(name, "n-resize") == 0 || strcmp(name, "s-resize") == 0) id = IDC_SIZENS;
+    else if (strcmp(name, "e-resize") == 0 || strcmp(name, "w-resize") == 0) id = IDC_SIZEWE;
+    else if (strcmp(name, "ne-resize") == 0 || strcmp(name, "sw-resize") == 0) id = IDC_SIZENESW;
+    else if (strcmp(name, "nw-resize") == 0 || strcmp(name, "se-resize") == 0) id = IDC_SIZENWSE;
+    HCURSOR cur = LoadCursorA(NULL, id);
+    if (cur) SetCursor(cur);
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

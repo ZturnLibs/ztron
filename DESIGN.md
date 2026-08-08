@@ -878,6 +878,14 @@ ZtronApp.app/Contents/
 - api `persistedScope.get/save`
 - spike:`PERSISTED_SCOPE_OK`(预置 `$HOME/ztron-persisted-spike/**` 条目 → fs 在 $TMP 之外写读成功,证明持久化生效);49 项 FULL_OK
 
+## 61. window.setCursor
+
+- host op `set_cursor`(cursor→m->str2):CSS 风格名 → 平台光标
+  - macOS:NSCursor 映射(pointer→pointingHandCursor、text→IBeamCursor、resize 系列、grab→openHand 等)+ `[cursor set]`(WKWebView 下 best-effort)
+  - Windows:LoadCursor(IDC_*) + SetCursor;Linux:gdk_cursor_new_from_name + gdk_window_set_cursor
+- core `plugin:window|set_cursor` + `WebviewHandle.setCursor`;api `Window.setCursor(cursor)`
+- spike `CURSOR_OK`(pointer/text/default round-trip);50 项 FULL_OK(视觉为手动)
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

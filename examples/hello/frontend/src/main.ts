@@ -417,6 +417,12 @@ async function main(): Promise<void> {
       report("WINDOW_GETTERS_OK:" + outer.width + "x" + outer.height);
     }
 
+    // 6a2f. setCursor round trip (command resolves; visual is manual)
+    await win.setCursor("pointer");
+    await win.setCursor("text");
+    await win.setCursor("default");
+    report("CURSOR_OK");
+
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();
     const inner = await win.innerPosition();

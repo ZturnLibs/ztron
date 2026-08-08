@@ -94,6 +94,8 @@ export interface WebviewHandle {
   getScaleFactor(): Promise<number | null>;
   /** Toggles whether the window ignores mouse/cursor events. */
   setIgnoreCursorEvents(ignore: boolean): void;
+  /** Sets the window cursor (CSS-style name: "pointer", "text", …). */
+  setCursor(cursor: string): void;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */
   startDragging(): void;
   /**

@@ -127,6 +127,10 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  setCursor(cursor: string): void {
+    this.#rt.send({ type: "set_cursor", label: this.label, cursor });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

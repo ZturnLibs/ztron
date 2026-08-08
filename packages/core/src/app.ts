@@ -150,6 +150,7 @@ export class App {
       "plugin:window|get_theme",
       "plugin:window|get_scale_factor",
       "plugin:window|set_ignore_cursor_events",
+      "plugin:window|set_cursor",
       "plugin:window|set_position",
       "plugin:window|start_dragging",
       "plugin:app|name",
@@ -331,6 +332,11 @@ export class App {
       "plugin:window|set_ignore_cursor_events": (args, ctx) => {
         ctx.webview.setIgnoreCursorEvents(
           Boolean((args as { ignore?: boolean }).ignore),
+        );
+      },
+      "plugin:window|set_cursor": (args, ctx) => {
+        ctx.webview.setCursor(
+          String((args as { cursor?: string }).cursor ?? ""),
         );
       },
       "plugin:window|set_position": (args, ctx) => {

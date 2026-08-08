@@ -785,6 +785,33 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "set_cursor") == 0) {
+    const char *name = m->str2;
+    const char *sel = "arrowCursor"; /* default */
+    if (strcmp(name, "pointer") == 0 || strcmp(name, "hand") == 0)
+      sel = "pointingHandCursor";
+    else if (strcmp(name, "text") == 0) sel = "IBeamCursor";
+    else if (strcmp(name, "crosshair") == 0) sel = "crosshairCursor";
+    else if (strcmp(name, "move") == 0 || strcmp(name, "all-scroll") == 0)
+      sel = "resizeAllCursor";
+    else if (strcmp(name, "not-allowed") == 0)
+      sel = "operationNotAllowedCursor";
+    else if (strcmp(name, "n-resize") == 0 || strcmp(name, "s-resize") == 0)
+      sel = "resizeUpDownCursor";
+    else if (strcmp(name, "e-resize") == 0 || strcmp(name, "w-resize") == 0)
+      sel = "resizeLeftRightCursor";
+    else if (strcmp(name, "grab") == 0) sel = "openHandCursor";
+    else if (strcmp(name, "grabbing") == 0) sel = "closedHandCursor";
+    else if (strcmp(name, "copy") == 0) sel = "dragCopyCursor";
+    else if (strcmp(name, "alias") == 0) sel = "dragLinkCursor";
+    else if (strcmp(name, "help") == 0) sel = "contextualMenuCursor";
+    id cursor = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSCursor"),
+                         sel_registerName(sel));
+    if (cursor) {
+      OBJC_MSG(void(*)(id, SEL), cursor, sel_registerName("set"));
+    }
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;

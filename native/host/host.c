@@ -183,6 +183,7 @@ static void *socket_thread(void *arg) {
     zt_json_str(line, "message", m->str2, sizeof(m->str2));
     zt_json_str(line, "accelerator", m->str2, sizeof(m->str2));
     zt_json_str(line, "icon", m->str2, sizeof(m->str2));
+    zt_json_str(line, "cursor", m->str2, sizeof(m->str2));
     zt_json_str(line, "default_name", m->id, sizeof(m->id));
     zt_json_str(line, "result", m->str, sizeof(m->str));
     m->width = zt_json_int(line, "width", 0);
