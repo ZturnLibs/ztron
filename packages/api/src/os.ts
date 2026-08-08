@@ -38,6 +38,21 @@ export function locale(): Promise<string | null> {
   return invoke<string | null>("plugin:os|locale", {});
 }
 
+/** The OS type (e.g. "Darwin", "Windows_NT", "Linux"). */
+export function type(): Promise<string> {
+  return invoke<string>("plugin:os|type", {});
+}
+
+/** The OS family (e.g. "macos", "windows", "linux"). */
+export function family(): Promise<string> {
+  return invoke<string>("plugin:os|family", {});
+}
+
+/** The end-of-line sequence ("\n" or "\r\n"). */
+export function eol(): Promise<string> {
+  return invoke<string>("plugin:os|eol", {});
+}
+
 export const os = {
   info,
   platform,
@@ -47,4 +62,7 @@ export const os = {
   homedir,
   tmpdir,
   locale,
+  type,
+  family,
+  eol,
 };

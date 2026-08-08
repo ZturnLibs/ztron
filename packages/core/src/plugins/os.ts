@@ -40,6 +40,9 @@ export function osPlugin(): Plugin {
       homedir: () => tjs.homeDir,
       tmpdir: () => tjs.tmpDir,
       sep: () => "/",
+      type: () => normalizeType(navPlatform),
+      family: () => normalizePlatform(navPlatform),
+      eol: () => (normalizePlatform(navPlatform) === "windows" ? "\r\n" : "\n"),
       locale: () => {
         const raw = tjs.env.LC_ALL ?? tjs.env.LANG ?? tjs.env.LANGUAGE ?? "";
         // "en_US.UTF-8" -> "en-US"
@@ -57,6 +60,9 @@ export function osPlugin(): Plugin {
       { identifier: "os:allow-tmpdir", commands: ["plugin:os|tmpdir"] },
       { identifier: "os:allow-sep", commands: ["plugin:os|sep"] },
       { identifier: "os:allow-locale", commands: ["plugin:os|locale"] },
+      { identifier: "os:allow-type", commands: ["plugin:os|type"] },
+      { identifier: "os:allow-family", commands: ["plugin:os|family"] },
+      { identifier: "os:allow-eol", commands: ["plugin:os|eol"] },
     ],
     permissionSets: [
       {
@@ -72,10 +78,21 @@ export function osPlugin(): Plugin {
           "os:allow-tmpdir",
           "os:allow-sep",
           "os:allow-locale",
+          "os:allow-type",
+          "os:allow-family",
+          "os:allow-eol",
         ],
       },
     ],
   };
+}
+
+function normalizeType(nav: string): string {
+  const lower = nav.toLowerCase();
+  if (lower.includes("mac")) return "Darwin";
+  if (lower.includes("win")) return "Windows_NT";
+  if (lower.includes("linux")) return "Linux";
+  return "Unknown";
 }
 
 function normalizePlatform(nav: string): string {

@@ -236,6 +236,9 @@ test("os commands return platform info from the stub", async () => {
   assert.ok(
     typeof (await mock.main.invoke("plugin:os|platform", {})) === "string",
   );
+  assert.equal(await mock.main.invoke("plugin:os|type", {}), "Darwin");
+  assert.equal(await mock.main.invoke("plugin:os|family", {}), "macos");
+  assert.equal(await mock.main.invoke("plugin:os|eol", {}), "\n");
 });
 
 test("path special-dir commands return the stub paths", async () => {

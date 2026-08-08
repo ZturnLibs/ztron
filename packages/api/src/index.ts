@@ -95,6 +95,9 @@ export {
   homedir,
   tmpdir,
   locale,
+  type,
+  family,
+  eol,
 } from "./os.js";
 export type { OsInfo } from "./os.js";
 export { store } from "./store.js";

@@ -265,6 +265,11 @@ async function main(): Promise<void> {
     } else {
       report("OS_OK:" + osInfo.platform);
     }
+    const osType = await os.type();
+    const osEol = await os.eol();
+    if (osType && (osEol === "\n" || osEol === "\r\n")) {
+      report("OS_TYPE_OK:" + osType);
+    }
 
     // 5d. store plugin (KV persistence)
     const tmp = await os.tmpdir();
