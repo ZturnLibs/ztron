@@ -32,6 +32,8 @@ import {
   unregisterShortcut,
   isPrimaryInstance,
   onDeepLink,
+  getName,
+  getVersion,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -66,6 +68,13 @@ async function main(): Promise<void> {
     const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
     el("invoke").textContent = echoed;
     if (echoed === "echo:hello-m3") report("INVOKE_OK");
+
+    // 1b. app metadata
+    const appName = await getName();
+    const appVersion = await getVersion();
+    if (appName === "com.ztron.hello" && appVersion === "0.1.0") {
+      report("APP_OK:" + appName + "@" + appVersion);
+    }
 
     // 2. events (backend emits async ticks)
     let ticks = 0;

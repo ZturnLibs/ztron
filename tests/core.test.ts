@@ -86,6 +86,15 @@ test("deep-link get_last_url routes to the controller", async () => {
   assert.equal(last, null);
 });
 
+test("app metadata commands report config name/version", async () => {
+  const { mock } = buildApp((b) =>
+    b.configure({ appName: "MyApp", version: "3.2.1" }),
+  );
+  assert.equal(await mock.main.invoke("plugin:app|name", {}), "MyApp");
+  assert.equal(await mock.main.invoke("plugin:app|version", {}), "3.2.1");
+  assert.equal(await mock.main.invoke("plugin:app|tauri_version", {}), "2.0.0");
+});
+
 test("window-state plugin saves and restores geometry", async () => {
   // Stub the txiki `tjs` global with an in-memory fs for the plugin.
   const files = new Map<string, string>();

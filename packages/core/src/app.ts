@@ -148,6 +148,9 @@ export class App {
       "plugin:window|get_state",
       "plugin:window|set_position",
       "plugin:window|start_dragging",
+      "plugin:app|name",
+      "plugin:app|version",
+      "plugin:app|tauri_version",
       "plugin:notification|send",
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
@@ -316,6 +319,10 @@ export class App {
       },
       "plugin:window|start_dragging": (_args, ctx) =>
         ctx.webview.startDragging(),
+      "plugin:app|name": (_args, ctx) =>
+        ctx.app.config.appName ?? ctx.app.config.identifier,
+      "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
+      "plugin:app|tauri_version": () => "2.0.0",
       "plugin:notification|send": (args) => {
         const { title, body } = args as { title: string; body?: string };
         this.#adapter.notification?.send({ title, body: body ?? "" });

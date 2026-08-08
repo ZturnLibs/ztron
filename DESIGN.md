@@ -728,3 +728,9 @@ ZtronApp.app/Contents/
 - restore/setup 恢复时重放 three 标志(`toggle_maximize` / `set_fullscreen` / `set_always_on_top`)
 - 单测更新:save 写 alwaysOnTop,restore 重放 set_always_on_top(true)
 - spike 32 项 FULL_OK(2 次稳定)
+
+## 39. app 元数据 API(getName / getVersion / getTauriVersion)
+
+- core 内建 `plugin:app|name/version/tauri_version`(读取 AppConfig.appName/version;tauri_version 固定 "2.0.0")
+- api `app.ts`(`getName`/`getVersion`/`getTauriVersion`);spike `APP_OK`
+- 单测:appName/version 从 config 返回;spike 33 项 FULL_OK(2 次稳定)

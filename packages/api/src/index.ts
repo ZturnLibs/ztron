@@ -121,3 +121,4 @@ export {
   onSecondInstance,
 } from "./single-instance.js";
 export { deepLink, getCurrentUrl, onDeepLink } from "./deep-link.js";
+export { app, getName, getVersion, getTauriVersion } from "./app.js";
