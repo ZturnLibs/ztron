@@ -96,6 +96,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op */
   }
 
+  setZoom(): void {
+    /* no-op */
+  }
+
   startDragging(): void {
     /* no-op (host adapter provides window dragging) */
   }

@@ -69,6 +69,7 @@ static int is_window_op(const char *t) {
       "is_fullscreen",    "set_always_on_top", "center",
       "set_focus",        "set_visible",     "set_resizable",
       "set_opacity",      "set_transparent", "set_decorations",
+      "set_shadow",       "set_enabled",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++)
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -118,6 +119,10 @@ static void handle_window_op(Msg *m) {
     gtk_widget_set_app_paintable(GTK_WIDGET(w), m->bool_val);
   } else if (strcmp(m->type, "set_decorations") == 0) {
     gtk_window_set_decorated(w, m->bool_val);
+  } else if (strcmp(m->type, "set_shadow") == 0) {
+    /* GTK: shadow is compositor-controlled; no direct API */
+  } else if (strcmp(m->type, "set_enabled") == 0) {
+    gtk_widget_set_sensitive(GTK_WIDGET(w), m->bool_val);
   }
 
   if (m->req_id >= 0) zt_reply_query(m->req_id, result ? "true" : "false");

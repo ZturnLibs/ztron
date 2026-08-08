@@ -141,6 +141,11 @@ static void on_gui(webview_t w, void *arg) {
     webview_set_title(w, m->id); /* `title` maps to m->id on the wire */
   } else if (strcmp(m->type, "set_size") == 0) {
     webview_set_size(w, m->width, m->height, 0);
+  } else if (strcmp(m->type, "set_zoom") == 0) {
+    /* CSS zoom via eval (works for WKWebView content) */
+    char js[64];
+    snprintf(js, sizeof(js), "document.body.style.zoom=%g;", m->opacity_val);
+    webview_eval(w, js);
   } else if (strcmp(m->type, "response") == 0) {
     webview_return(w, m->id, m->status, m->str);
   } else if (strcmp(m->type, "quit") == 0) {
@@ -195,6 +200,7 @@ static void *socket_thread(void *arg) {
     m->bool_val = zt_json_bool(line, "separator", m->bool_val);
     m->bool_val = zt_json_bool(line, "directory", m->bool_val);
     m->opacity_val = zt_json_double(line, "opacity", 0);
+    m->opacity_val = zt_json_double(line, "zoom", m->opacity_val);
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_bool(line, "enabled", m->status);
 
@@ -210,6 +216,7 @@ static void *socket_thread(void *arg) {
 
 /* webview_bind callback (GUI thread) -> backend */
 static void ipc_cb(const char *id, const char *req, void *arg) {
+
   char buf[MSG_STR_LEN + 256];
   snprintf(buf, sizeof(buf),
            "{\"type\":\"request\",\"id\":\"%s\",\"label\":\"main\",\"req\":%s}",

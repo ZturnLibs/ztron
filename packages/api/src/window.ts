@@ -69,6 +69,21 @@ export class Window {
     await invoke("plugin:window|set_cursor", { label: this.label, cursor });
   }
 
+  /** Zooms the web content (CSS zoom factor, e.g. 1.5). */
+  async setZoom(zoom: number): Promise<void> {
+    await invoke("plugin:window|set_zoom", { label: this.label, zoom });
+  }
+
+  /** Toggles the native window shadow. */
+  async setShadow(shadow: boolean): Promise<void> {
+    await invoke("plugin:window|set_shadow", { label: this.label, shadow });
+  }
+
+  /** Enables/disables the native window. */
+  async setEnabled(enabled: boolean): Promise<void> {
+    await invoke("plugin:window|set_enabled", { label: this.label, enabled });
+  }
+
   async setSize(width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_size", {
       label: this.label,

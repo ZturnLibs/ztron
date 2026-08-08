@@ -39,7 +39,9 @@ export type WindowStateOp =
   | "set_resizable"
   | "set_opacity"
   | "set_transparent"
-  | "set_decorations";
+  | "set_decorations"
+  | "set_shadow"
+  | "set_enabled";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
@@ -96,6 +98,8 @@ export interface WebviewHandle {
   setIgnoreCursorEvents(ignore: boolean): void;
   /** Sets the window cursor (CSS-style name: "pointer", "text", …). */
   setCursor(cursor: string): void;
+  /** Zooms the web content (CSS zoom factor, e.g. 1.5). */
+  setZoom(zoom: number): void;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */
   startDragging(): void;
   /**

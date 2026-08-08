@@ -447,6 +447,10 @@ async function main(): Promise<void> {
     await win.setCursor("pointer");
     await win.setCursor("text");
     await win.setCursor("default");
+    await win.setShadow(false);
+    await win.setShadow(true);
+    await win.setEnabled(true);
+    await win.setZoom(1.5);
     report("CURSOR_OK");
 
     // 6a2e. os.locale + window.innerPosition

@@ -913,6 +913,17 @@ ZtronApp.app/Contents/
 - 权限 os:allow-type/family/eol 加入 os:default;api os.type()/family()/eol()
 - 单测:type=Darwin/family=macos/eol="\n"(stub navigator);spike `OS_TYPE_OK:Darwin`;53 项 FULL_OK
 
+## 66. window setShadow / setEnabled / setZoom
+
+- host op:
+  - `set_shadow`:macOS `setHasShadow:`;Win CS_DROPSHADOW;Linux no-op
+  - `set_enabled`:Win `EnableWindow`;Linux `gtk_widget_set_sensitive`;**macOS 无 NSWindow setEnabled → no-op**(安全,避免 unrecognized selector 崩溃)
+  - `set_zoom`:CSS zoom via `webview_eval`(host.c on_gui,`zoom`→opacity_val 双精度)
+- core:WindowStateOp 加 set_shadow/set_enabled;WebviewHandle.setZoom;plugin:window|set_zoom/set_shadow/set_enabled
+- api:Window.setShadow()/setEnabled()/setZoom()
+- **教训(重要)**:插入 host on_gui 分支时**误删了 `response`/`quit` 分支** → 前端 invoke 永不 resolve、SPIKE terminate 失效(表现为 spike 0 输出,排查了 backend/host 多轮)。修复:恢复 response/quit。**这是"改一处、坏别处"的典型,spike 全绿是唯一防线**
+- spike:CURSOR_OK(含 shadow/enabled/zoom round-trip);53 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

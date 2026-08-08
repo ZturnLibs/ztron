@@ -103,6 +103,7 @@ static int is_window_op(const char *t) {
       "is_fullscreen",    "set_always_on_top", "center",
       "set_focus",        "set_visible",     "set_resizable",
       "set_opacity",      "set_transparent", "set_decorations",
+      "set_shadow",       "set_enabled",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++)
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -181,6 +182,13 @@ static void handle_window_op(Msg *m) {
     if (m->bool_val) style |= WS_OVERLAPPEDWINDOW;
     else style &= ~WS_OVERLAPPEDWINDOW;
     SetWindowLongPtr(w, GWL_STYLE, style);
+  } else if (strcmp(m->type, "set_shadow") == 0) {
+    LONG_PTR cls = GetClassLongPtr(w, GCL_STYLE);
+    if (m->bool_val) cls |= CS_DROPSHADOW;
+    else cls &= ~CS_DROPSHADOW;
+    SetClassLongPtr(w, GCL_STYLE, cls);
+  } else if (strcmp(m->type, "set_enabled") == 0) {
+    EnableWindow(w, m->bool_val);
   }
 
   if (m->req_id >= 0) zt_reply_query(m->req_id, result ? "true" : "false");

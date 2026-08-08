@@ -59,6 +59,13 @@ test("window commands route to the handle", async () => {
   assert.deepEqual(w.positionLog.at(-1), { x: 10, y: 20 });
   await mock.main.invoke("plugin:window|set_cursor", { cursor: "pointer" });
   assert.deepEqual(w.cursorLog, ["pointer"]);
+  await mock.main.invoke("plugin:window|set_zoom", { zoom: 1.5 });
+  assert.deepEqual(w.zoomLog, [1.5]);
+  await mock.main.invoke("plugin:window|set_shadow", { shadow: true });
+  await mock.main.invoke("plugin:window|set_enabled", { enabled: false });
+  const ops2 = w.windowStateLog.map((l) => l.op);
+  assert.ok(ops2.includes("set_shadow"));
+  assert.ok(ops2.includes("set_enabled"));
   await mock.main.invoke("plugin:window|start_dragging", {});
   assert.equal(w.dragCount, 1);
 

@@ -121,6 +121,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.cursorLog.push(cursor);
   }
 
+  zoomLog: number[] = [];
+
+  setZoom(zoom: number): void {
+    this.zoomLog.push(zoom);
+  }
+
   setPosition(x: number, y: number): void {
     this.positionLog.push({ x, y });
     this.frame.x = x;

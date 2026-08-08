@@ -361,6 +361,7 @@ static int is_window_op(const char *t) {
       "is_fullscreen",  "set_always_on_top", "center",
       "set_focus",      "set_visible",   "set_resizable",
       "set_opacity",    "set_transparent", "set_decorations",
+      "set_shadow",     "set_enabled",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -422,6 +423,12 @@ static void handle_window_op(Msg *m) {
     unsigned long deco_mask = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 15);
     wnd_set_style_mask(wnd, m->bool_val ? (mask | deco_mask)
                                         : (mask & ~deco_mask));
+  } else if (strcmp(m->type, "set_shadow") == 0) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), wnd, sel_registerName("setHasShadow:"),
+             m->bool_val);
+  } else if (strcmp(m->type, "set_enabled") == 0) {
+    /* NSWindow has no setEnabled:; a window is always interactive on macOS.
+       Apps that need this use setIgnoreCursorEvents (see set_ignore). */
   }
 
   if (m->req_id >= 0) {

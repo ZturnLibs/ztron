@@ -102,14 +102,14 @@
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 
-| 项                 | 差距                                                                               | 状态       |
-| ------------------ | ---------------------------------------------------------------------------------- | ---------- |
-| path 目录 getter   | 缺 appDataDir/appCacheDir/documentDir/downloadDir/desktopDir/resourceDir 等 ~20 个 | [ ] 计划中 |
-| os type/family/eol | 缺 3 个查询                                                                        | [ ] 计划中 |
-| window 高级        | setShadow/setZoom/setEnabled/isEnabled/startResizeDragging/setBounds               | [ ] 计划中 |
-| menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [ ] 计划中 |
-| shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [ ] 低优先 |
-| IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先 |
+| 项                 | 差距                                                                               | 状态                                                               |
+| ------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| path 目录 getter   | 缺 appDataDir/appCacheDir/documentDir/downloadDir/desktopDir/resourceDir 等 ~20 个 | [x] 已完成                                                         |
+| os type/family/eol | 缺 3 个查询                                                                        | [x] 已完成                                                         |
+| window 高级        | setShadow/setZoom/setEnabled/startResizeDragging/setBounds                         | [~] setShadow/zoom/enabled 完成;startResizeDragging/setBounds 待做 |
+| menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [ ] 计划中                                                         |
+| shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [ ] 低优先                                                         |
+| IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先                                                         |
 
 ### 5.3 缺失(❌ 深水区/平台/移动端)
 

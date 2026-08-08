@@ -131,6 +131,10 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "set_cursor", label: this.label, cursor });
   }
 
+  setZoom(zoom: number): void {
+    this.#rt.send({ type: "set_zoom", label: this.label, zoom });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }
@@ -157,6 +161,7 @@ export class HostWebviewHandle implements WebviewHandle {
   }
 
   respond(id: string, status: number, result: string): void {
+    
     this.#rt.send({ type: "response", label: this.label, id, status, result });
   }
 
@@ -406,6 +411,7 @@ export class HostRuntime implements RuntimeAdapter {
     }
     switch (msg.type) {
       case "request": {
+        
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
         handle?.handleRequest(String(msg.id), msg.req);

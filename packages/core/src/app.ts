@@ -151,6 +151,9 @@ export class App {
       "plugin:window|get_scale_factor",
       "plugin:window|set_ignore_cursor_events",
       "plugin:window|set_cursor",
+      "plugin:window|set_zoom",
+      "plugin:window|set_shadow",
+      "plugin:window|set_enabled",
       "plugin:window|set_position",
       "plugin:window|start_dragging",
       "plugin:app|name",
@@ -337,6 +340,21 @@ export class App {
       "plugin:window|set_cursor": (args, ctx) => {
         ctx.webview.setCursor(
           String((args as { cursor?: string }).cursor ?? ""),
+        );
+      },
+      "plugin:window|set_zoom": (args, ctx) => {
+        ctx.webview.setZoom(Number((args as { zoom?: number }).zoom ?? 1));
+      },
+      "plugin:window|set_shadow": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_shadow",
+          Boolean((args as { shadow?: boolean }).shadow),
+        );
+      },
+      "plugin:window|set_enabled": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_enabled",
+          Boolean((args as { enabled?: boolean }).enabled),
         );
       },
       "plugin:window|set_position": (args, ctx) => {
