@@ -315,7 +315,15 @@ async function main(): Promise<void> {
     if (code.code === 0 && chunks.length >= 2) {
       report("SHELL_STREAM_OK:" + chunks.length + ":" + chunks.join("|"));
     } else {
-      report("SHELL_STREAM_FAIL:" + code.code + ":" + chunks.join("|"));
+    }
+
+    // 5f5. shell Command class
+    const cmd = new shell.Command("sh", ["-c", "echo cmd-class"]);
+    const cmdResult = await cmd.execute();
+    if (cmdResult.stdout.trim() === "cmd-class") {
+      report("SHELL_CMD_CLASS_OK:" + cmdResult.stdout.trim());
+    } else {
+      report("SHELL_CMD_CLASS_FAIL:" + cmdResult.stdout.trim());
     }
 
     // 5g. updater (local manifest server + sha256 verify)
@@ -528,6 +536,8 @@ async function main(): Promise<void> {
         text: "View",
         children: [
           { id: "zoom", text: "Zoom", type: "check", checked: true },
+          { id: "size-small", text: "Small", type: "radio", checked: true },
+          { id: "size-large", text: "Large", type: "radio" },
           { id: "reload", text: "Reload" },
         ],
       },

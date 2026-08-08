@@ -940,6 +940,12 @@ ZtronApp.app/Contents/
 - core `WebviewHandle.setBounds` + `plugin:window|set_bounds`;api `Window.setBounds(x,y,width,height)`
 - 单测:setBounds 路由 + frame 更新;spike CURSOR_OK(含 setBounds);53 项 FULL_OK
 
+## 69. shell Command 类 + menu radio
+
+- **shell.Command 类**(Tauri 对齐):`new Command(program, args, options)` + `.on("stdout"/"stderr"/"status")` + `.spawn()`(流式)/`.execute()`(收集)/`.status()`;sidecar 不支持(抛错)
+- **menu radio**:`type:"radio"` 在 wire 层与 check 同走 `checked` 状态(macOS `setState:`);radio 组互斥为 UI 细节,当前为复选标记
+- api `shell.Command` + `MenuItem.type="radio"`;spike `SHELL_CMD_CLASS_OK` + 菜单含 radio 项;54 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
