@@ -20,6 +20,12 @@ export function platform(): Promise<string> {
 export function arch(): Promise<string> {
   return invoke<string>("plugin:os|arch", {});
 }
+export function hostname(): Promise<string> {
+  return invoke<string>("plugin:os|hostname", {});
+}
+export function version(): Promise<string> {
+  return invoke<string>("plugin:os|version", {});
+}
 export function homedir(): Promise<string> {
   return invoke<string>("plugin:os|homedir", {});
 }
@@ -27,4 +33,4 @@ export function tmpdir(): Promise<string> {
   return invoke<string>("plugin:os|tmpdir", {});
 }
 
-export const os = { info, platform, arch, homedir, tmpdir };
+export const os = { info, platform, arch, hostname, version, homedir, tmpdir };
