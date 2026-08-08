@@ -139,6 +139,14 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "window_destroy", label: this.label });
   }
 
+  startResizeDragging(direction: string): void {
+    this.#rt.send({
+      type: "start_resize_dragging",
+      label: this.label,
+      direction,
+    });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

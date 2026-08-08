@@ -829,6 +829,11 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_resize_dragging") == 0) {
+    /* macOS resize-dragging needs an NSEvent tracking loop; not implemented
+       (frameless apps can provide CSS resize handles instead). */
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     void *wnd = zt_window();
     if (wnd) {

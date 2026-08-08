@@ -954,6 +954,12 @@ ZtronApp.app/Contents/
 - core `plugin:window|prevent_close/destroy` + `WebviewHandle.destroy`;api `Window.preventClose()`/`destroy()`
 - 单测:prevent_close 路由 + destroy 计数;spike `PREVENT_CLOSE_OK`;55 项 FULL_OK(真实 close 点击为手动)
 
+## 71. window startResizeDragging
+
+- host op `start_resize_dragging`(direction→m->str2):Win `WM_NCLBUTTONDOWN`(HTTOPLEFT/HTRIGHT/…)、Linux `gtk_window_begin_resize_drag`;**macOS no-op**(需 NSEvent 追踪循环,未实现)
+- core `WebviewHandle.startResizeDragging` + `plugin:window|start_resize_dragging`;api `Window.startResizeDragging(direction)`
+- 单测:方向路由;spike `RESIZE_DRAG_OK`;56 项 FULL_OK
+
 ## 45. 修复:host 推送事件未 JSON-escape 用户字符串
 
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)

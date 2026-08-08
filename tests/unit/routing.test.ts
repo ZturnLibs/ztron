@@ -68,6 +68,10 @@ test("window commands route to the handle", async () => {
   assert.ok(ops2.includes("set_enabled"));
   await mock.main.invoke("plugin:window|start_dragging", {});
   assert.equal(w.dragCount, 1);
+  await mock.main.invoke("plugin:window|start_resize_dragging", {
+    direction: "southeast",
+  });
+  assert.deepEqual(w.resizeDragLog, ["southeast"]);
 
   await mock.main.invoke("plugin:window|prevent_close", { prevent: true });
   assert.ok(w.windowStateLog.some((l) => l.op === "set_prevent_close"));

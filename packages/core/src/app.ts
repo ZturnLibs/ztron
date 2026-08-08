@@ -159,6 +159,7 @@ export class App {
       "plugin:window|set_position",
       "plugin:window|set_bounds",
       "plugin:window|start_dragging",
+      "plugin:window|start_resize_dragging",
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
@@ -266,6 +267,11 @@ export class App {
       },
       "plugin:window|destroy": (_args, ctx) => {
         ctx.webview.destroy();
+      },
+      "plugin:window|start_resize_dragging": (args, ctx) => {
+        ctx.webview.startResizeDragging(
+          String((args as { direction?: string }).direction ?? "southeast"),
+        );
       },
       "plugin:window|set_title": (args, ctx) => {
         const { title } = args as { title: string };

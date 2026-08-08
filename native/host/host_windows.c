@@ -544,6 +544,20 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_resize_dragging") == 0) {
+    HWND w = zt_hwnd();
+    if (w) {
+      const char *d = m->str2;
+      int ht = HTBOTTOMRIGHT;
+      if (strstr(d, "north")) ht = strstr(d, "west") ? HTTOPLEFT : (strstr(d, "east") ? HTTOPRIGHT : HTTOP);
+      else if (strstr(d, "south")) ht = strstr(d, "west") ? HTBOTTOMLEFT : (strstr(d, "east") ? HTBOTTOMRIGHT : HTBOTTOM);
+      else if (strstr(d, "east")) ht = HTRIGHT;
+      else if (strstr(d, "west")) ht = HTLEFT;
+      ReleaseCapture();
+      SendMessage(w, WM_NCLBUTTONDOWN, ht, 0);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     HWND w = zt_hwnd();
     if (w) {

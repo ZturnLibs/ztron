@@ -467,6 +467,8 @@ async function main(): Promise<void> {
     await win.preventClose(false);
     const onClose = win.onCloseRequested(() => {});
     if (onClose) report("PREVENT_CLOSE_OK");
+    await win.startResizeDragging("southeast");
+    report("RESIZE_DRAG_OK");
 
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();

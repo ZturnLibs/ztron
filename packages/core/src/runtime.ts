@@ -103,6 +103,8 @@ export interface WebviewHandle {
   setCursor(cursor: string): void;
   /** Force-closes the window, bypassing preventClose. */
   destroy(): void;
+  /** Starts a native resize drag (direction: "north"/"east"/…). */
+  startResizeDragging(direction: string): void;
   /** Zooms the web content (CSS zoom factor, e.g. 1.5). */
   setZoom(zoom: number): void;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */

@@ -394,6 +394,19 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "start_resize_dragging") == 0) {
+    GtkWidget *w = zt_window();
+    if (w) {
+      const char *d = m->str2;
+      GdkWindowEdge edge = GDK_WINDOW_EDGE_SOUTH_EAST;
+      if (strstr(d, "north")) edge = strstr(d, "west") ? GDK_WINDOW_EDGE_NORTH_WEST : (strstr(d, "east") ? GDK_WINDOW_EDGE_NORTH_EAST : GDK_WINDOW_EDGE_NORTH);
+      else if (strstr(d, "south")) edge = strstr(d, "west") ? GDK_WINDOW_EDGE_SOUTH_WEST : (strstr(d, "east") ? GDK_WINDOW_EDGE_SOUTH_EAST : GDK_WINDOW_EDGE_SOUTH);
+      else if (strstr(d, "east")) edge = GDK_WINDOW_EDGE_EAST;
+      else if (strstr(d, "west")) edge = GDK_WINDOW_EDGE_WEST;
+      gtk_window_begin_resize_drag(GTK_WINDOW(w), edge, 1, 0, 0, 0);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "start_dragging") == 0) {
     GtkWidget *w = zt_window();
     if (w) {

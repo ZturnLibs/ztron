@@ -87,6 +87,17 @@ export class Window {
     await invoke("plugin:window|destroy", { label: this.label });
   }
 
+  /**
+   * Starts a native resize drag (direction: "north"/"south"/"east"/"west" or
+   * combinations like "southeast"). macOS is not implemented.
+   */
+  async startResizeDragging(direction = "southeast"): Promise<void> {
+    await invoke("plugin:window|start_resize_dragging", {
+      label: this.label,
+      direction,
+    });
+  }
+
   /** Sets the window bounds (position + size in one op). */
   async setBounds(x: number, y: number, width: number, height: number): Promise<void> {
     await invoke("plugin:window|set_bounds", {

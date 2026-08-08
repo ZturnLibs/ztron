@@ -152,9 +152,14 @@ export class MockWebviewHandle implements WebviewHandle {
   }
 
   dragCount = 0;
+  resizeDragLog: string[] = [];
 
   startDragging(): void {
     this.dragCount += 1;
+  }
+
+  startResizeDragging(direction: string): void {
+    this.resizeDragLog.push(direction);
   }
 
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
