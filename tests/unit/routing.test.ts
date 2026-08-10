@@ -181,6 +181,15 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   const last = await mock.main.invoke("plugin:deep-link|get_last_url", {});
   assert.equal(last, null);
 
+  const imgId = await mock.main.invoke("plugin:image|from_bytes", {
+    base64: "aGk=",
+  });
+  assert.equal(imgId, 1);
+  const imgPath = await mock.main.invoke("plugin:image|from_path", { path: "/x.png" });
+  assert.equal(imgPath, 2);
+  await mock.main.invoke("plugin:image|destroy", { id: 1 });
+  assert.deepEqual(mock.imageLog.map((l) => l.kind), ["bytes", "path", "destroy"]);
+
   await mock.main.invoke("plugin:process|exit", { code: 3 });
   assert.deepEqual(mock.exitLog, [3]);
   await mock.main.invoke("plugin:process|relaunch", {});

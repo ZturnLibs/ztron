@@ -965,3 +965,11 @@ ZtronApp.app/Contents/
 - `menu_event`/`shortcut_event`/`deep_link` 嵌入用户字符串(menu_id/item_id/shortcut_id/url),旧代码只转义部分 → 特殊字符破坏 JSON → 事件丢失(fire-and-forget,不挂起但静默丢事件)
 - 新增 `zt_json_escape`(quote/backslash/`\n`/`\r`/`\t`/ctrl)→ macOS menu/shortcut/deep_link、Windows menu/shortcut;Linux 只推固定 window_event,无需改
 - 验证:37 项 FULL_OK 回归
+
+## 72. Image 模块
+
+- host 图像注册表:`image_from_bytes`(base64→NSData→NSImage)、`image_from_path`、`image_destroy`;`tray_set_icon` 支持 image_id
+- core `ImageController` + `plugin:image|from_bytes/from_path/destroy`;api `Image` 类(`fromPath`/`fromBytes`/`fromRGBA`/`close`)
+- `tray.setIcon` 接受 path 或 Image
+- **坑**:`path` 字段未映射到 m->str → `initWithContentsOfFile:""` 返回 nil。修复:socket_thread 加 `path`→m->str 解析
+- 单测:image 命令路由;spike `IMAGE_OK`(fromPath + fromBytes→tray);57 项 FULL_OK

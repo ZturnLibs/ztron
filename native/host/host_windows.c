@@ -600,7 +600,11 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
-  if (strcmp(m->type, "tray_set_icon") == 0) { tray_set_icon(m->str2); return 1; }
+  if (strcmp(m->type, "tray_set_icon") == 0) {
+    if (m->id[0]) { /* image id: not supported here; ignore */ }
+    else tray_set_icon(m->str2);
+    return 1;
+  }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }

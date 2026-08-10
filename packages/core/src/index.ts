@@ -92,6 +92,7 @@ export type {
   GlobalShortcutController,
   DeepLinkController,
   ProcessController,
+  ImageController,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

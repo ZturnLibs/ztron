@@ -179,6 +179,7 @@ static void *socket_thread(void *arg) {
     zt_json_str(line, "html", m->str, sizeof(m->str));
     zt_json_str(line, "url", m->str, sizeof(m->str));
     zt_json_str(line, "js", m->str, sizeof(m->str));
+    zt_json_str(line, "path", m->str, sizeof(m->str));
     zt_json_str(line, "title", m->id, sizeof(m->id));
     zt_json_str(line, "menu_id", m->str, sizeof(m->str));
     zt_json_str(line, "item_id", m->id, sizeof(m->id));
@@ -203,6 +204,8 @@ static void *socket_thread(void *arg) {
     m->opacity_val = zt_json_double(line, "zoom", m->opacity_val);
     m->checked = zt_json_bool(line, "checked", 0);
     zt_json_str(line, "submenu", m->id, sizeof(m->id)); /* submenu id */
+    zt_json_str(line, "image_id", m->id, sizeof(m->id)); /* image id */
+    zt_json_str(line, "b64", m->str2, sizeof(m->str2)); /* base64 image */
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_bool(line, "enabled", m->status);
 

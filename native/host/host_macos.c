@@ -119,6 +119,30 @@ static void zt_reply_frame(int req_id, ZtRect r) {
   zt_send_line(buf);
 }
 
+/* ---- image registry ---- */
+
+#define MAX_IMAGES 32
+static void *g_images[MAX_IMAGES];
+static int g_image_count = 0;
+
+static int image_add(id nsImage) {
+  if (g_image_count >= MAX_IMAGES) return -1;
+  int id = g_image_count;
+  g_images[id] = nsImage;
+  g_image_count++;
+  return id;
+}
+static void image_destroy(int img_id) {
+  if (img_id >= 0 && img_id < g_image_count) {
+    OBJC_MSG(void(*)(id, SEL), g_images[img_id], sel_registerName("release"));
+    g_images[img_id] = NULL;
+  }
+}
+static id image_by_id(int img_id) {
+  if (img_id >= 0 && img_id < g_image_count) return g_images[img_id];
+  return NULL;
+}
+
 /* ---- notifications (NSUserNotificationCenter) ---- */
 
 static void notification_send(const char *title, const char *body) {
@@ -527,6 +551,14 @@ static void tray_set_icon(const char *path) {
     }
   }
 }
+/* Sets the tray icon from a registered image id (from the image registry). */
+static void tray_set_icon_id(int image_id) {
+  id image = image_by_id(image_id);
+  if (g_status_item && image) {
+    id button = OBJC_MSG(id(*)(id, SEL), g_status_item, sel_registerName("button"));
+    OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setImage:"), image);
+  }
+}
 static void tray_destroy(void) {
   if (g_status_item) {
     void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
@@ -874,6 +906,45 @@ static int dispatch(Msg *m) {
     }
     return 1;
   }
+  if (strcmp(m->type, "image_from_bytes") == 0) {
+    if (m->req_id >= 0) {
+      id data = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSData"),
+                         sel_registerName("alloc"));
+      data = OBJC_MSG(id(*)(id, SEL, id, unsigned long), data,
+                      sel_registerName("initWithBase64EncodedString:options:"),
+                      zt_nsstring(m->str2), 0UL);
+      id image = NULL;
+      if (data) {
+        image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
+                         sel_registerName("alloc"));
+        image = OBJC_MSG(id(*)(id, SEL, id), image,
+                         sel_registerName("initWithData:"), data);
+      }
+      int idn = image ? image_add(image) : -1;
+      if (data) OBJC_MSG(void(*)(id, SEL), data, sel_registerName("release"));
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%d", idn);
+      zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_from_path") == 0) {
+    if (m->req_id >= 0) {
+      id image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
+                          sel_registerName("alloc"));
+      image = OBJC_MSG(id(*)(id, SEL, id), image,
+                       sel_registerName("initWithContentsOfFile:"), zt_nsstring(m->str));
+      int idn = image ? image_add(image) : -1;
+      char buf[32];
+      snprintf(buf, sizeof(buf), "%d", idn);
+      zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_destroy") == 0) {
+    image_destroy(m->id[0] ? atoi(m->id) : -1);
+    return 1;
+  }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
     return 1;
@@ -891,7 +962,11 @@ static int dispatch(Msg *m) {
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
-  if (strcmp(m->type, "tray_set_icon") == 0) { tray_set_icon(m->str2); return 1; }
+  if (strcmp(m->type, "tray_set_icon") == 0) {
+    if (m->id[0]) tray_set_icon_id(atoi(m->id));
+    else tray_set_icon(m->str2);
+    return 1;
+  }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }

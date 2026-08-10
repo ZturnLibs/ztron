@@ -79,6 +79,9 @@ export const COMMANDS: readonly string[] = [
   "plugin:global-shortcut|register",
   "plugin:global-shortcut|unregister",
   "plugin:deep-link|get_last_url",
+  "plugin:image|from_bytes",
+  "plugin:image|from_path",
+  "plugin:image|destroy",
   // ---- fs ----
   "plugin:fs|read_text",
   "plugin:fs|write_text",
@@ -337,6 +340,7 @@ export const API_EXPORTS: readonly string[] = [
   "persistedScope",
   "getPersistedScope",
   "savePersistedScope",
+  "Image",
   "app",
   "getName",
   "getVersion",

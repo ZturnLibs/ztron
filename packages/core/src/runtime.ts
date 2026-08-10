@@ -247,6 +247,16 @@ export interface ProcessController {
   relaunch(): void;
 }
 
+/** Native image registry controller provided by the runtime backend. */
+export interface ImageController {
+  /** Registers a base64-encoded image and returns its id (-1 on failure). */
+  fromBytes(base64: string): Promise<number>;
+  /** Loads an image from a file path and returns its id (-1 on failure). */
+  fromPath(path: string): Promise<number>;
+  /** Releases a registered image. */
+  destroy(id: number): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
@@ -266,4 +276,6 @@ export interface RuntimeAdapter {
   deepLink?: DeepLinkController;
   /** Optional process control. */
   process?: ProcessController;
+  /** Optional native image registry. */
+  image?: ImageController;
 }

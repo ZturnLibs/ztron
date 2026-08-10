@@ -116,6 +116,12 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window dragging) */
   }
 
+  readonly image = {
+    fromBytes: async () => -1,
+    fromPath: async () => -1,
+    destroy: () => {},
+  };
+
   readonly process = {
     exit: () => {
       /* no-op */

@@ -392,6 +392,21 @@ export class HostRuntime implements RuntimeAdapter {
     getLastUrl: () => this.#lastDeepLink,
   };
 
+  /** Image controller (implements `RuntimeAdapter.image`). */
+  readonly image: import("@ztron/core").ImageController = {
+    fromBytes: (base64) =>
+      this.sendRequest("image_from_bytes", { b64: base64 }).then((r) =>
+        typeof r === "string" ? Number(r) : -1,
+      ),
+    fromPath: (path) =>
+      this.sendRequest("image_from_path", { path }).then((r) =>
+        typeof r === "string" ? Number(r) : -1,
+      ),
+    destroy: (id) => {
+      this.send({ type: "image_destroy", label: "main", image_id: String(id) });
+    },
+  };
+
   /** Process controller (implements `RuntimeAdapter.process`). */
   readonly process: import("@ztron/core").ProcessController = {
     exit: (code) => {

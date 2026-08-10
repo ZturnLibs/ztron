@@ -245,6 +245,20 @@ export class MockRuntime implements RuntimeAdapter {
   };
 
   exitLog: number[] = [];
+  imageLog: Array<{ kind: string; id?: number }> = [];
+  readonly image: import("../runtime.js").ImageController = {
+    fromBytes: async () => {
+      this.imageLog.push({ kind: "bytes" });
+      return 1;
+    },
+    fromPath: async () => {
+      this.imageLog.push({ kind: "path" });
+      return 2;
+    },
+    destroy: (id) => {
+      this.imageLog.push({ kind: "destroy", id });
+    },
+  };
   relaunchCount = 0;
 
   readonly process: import("../runtime.js").ProcessController = {

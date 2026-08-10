@@ -164,6 +164,9 @@ export class App {
       "plugin:app|version",
       "plugin:app|tauri_version",
       "plugin:app|get_config",
+      "plugin:image|from_bytes",
+      "plugin:image|from_path",
+      "plugin:image|destroy",
       "plugin:process|exit",
       "plugin:process|relaunch",
       "plugin:notification|send",
@@ -399,6 +402,17 @@ export class App {
         ctx.app.config.appName ?? ctx.app.config.identifier,
       "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
       "plugin:app|tauri_version": () => "2.0.0",
+      "plugin:image|from_bytes": async (args) =>
+        this.#adapter.image?.fromBytes(
+          String((args as { base64?: string }).base64 ?? ""),
+        ) ?? -1,
+      "plugin:image|from_path": async (args) =>
+        this.#adapter.image?.fromPath(
+          String((args as { path?: string }).path ?? ""),
+        ) ?? -1,
+      "plugin:image|destroy": (args) => {
+        this.#adapter.image?.destroy(Number((args as { id?: number }).id ?? -1));
+      },
       "plugin:app|get_config": (_args, ctx) => {
         const { invokeKey, initScript, withGlobalTauri, ...rest } = ctx.app
           .config as AppConfig & Record<string, unknown>;
