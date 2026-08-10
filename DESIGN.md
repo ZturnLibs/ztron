@@ -580,7 +580,12 @@ ZtronApp.app/Contents/
 - 缺 Content-Type header → WKWebView 不解析 HTML/不加载 JS
 - libwebview 是 versioned dylib(`libwebview.0.12.dylib`),cp 需带 symlink 链
 
-**解锁**:自定义协议加载(资产隔离)、convertFileSrc 路径、完整模块级 HMR 的基础
+**解锁**:自定义协议加载(资产隔离)、convertFileSrc、完整模块级 HMR 的基础
+
+**convertFileSrc(随 scheme 落地)**:
+- api `convertFileSrc` 默认 protocol 改为 undefined(原默认 "asset" 会绕过 scheme 检测);bootstrap 在 `location.protocol === "ztron:"` 时返回 `ztron://host/asset/<encodeURIComponent(path)>`
+- scheme handler 识别 `asset/` 前缀 → 百分号解码绝对路径直接服务
+- spike:img 加载 `convertFileSrc()` 转换的文件 → `CONVERT_FILE_SRC_OK`(仅 scheme 模式)
 
 ## 29. 补充:clipboard 插件 + CSP 注入 + tray 崩溃修复(已验证)
 

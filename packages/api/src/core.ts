@@ -123,7 +123,9 @@ export async function invoke<T>(
  * @param protocol The protocol to use. Defaults to `asset`.
  * @returns The URL usable as a source in the WebView.
  */
-export function convertFileSrc(filePath: string, protocol = "asset"): string {
+export function convertFileSrc(filePath: string, protocol?: string): string {
+  // protocol stays undefined so the bootstrap can pick ztron:// when the page
+  // is served through the custom scheme (Tauri defaults to "asset").
   return internals().convertFileSrc(filePath, protocol);
 }
 

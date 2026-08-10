@@ -56,6 +56,11 @@ export function buildInitScript(options: InitScriptOptions): string {
       return window.__TAURI_IPC__({ cmd: cmd, payload: args, options: options, __TAURI_INVOKE_KEY__: __KEY__ })
     },
     convertFileSrc: function (filePath, protocol) {
+      // When served through the ztron:// scheme, map to an asset URL that the
+      // scheme handler serves from the decoded absolute path.
+      if (!protocol && (location.protocol === 'ztron:')) {
+        return 'ztron://host/asset/' + encodeURIComponent(filePath)
+      }
       return (protocol || 'asset') + '://' + encodeURI(filePath)
     },
     postMessage: function (message) {

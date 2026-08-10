@@ -36,6 +36,7 @@ import {
   getName,
   getVersion,
   getConfig,
+  convertFileSrc,
   Image,
   websocket,
   getLocalIpv4,
@@ -547,6 +548,20 @@ async function main(): Promise<void> {
     await setTrayIcon(imgBytes);
     await imgBytes.close();
     report("IMAGE_OK");
+    if (location.protocol === "ztron:") {
+      const imgEl = document.createElement("img");
+      const loaded = new Promise<boolean>((res) => {
+        imgEl.onload = () => res(true);
+        imgEl.onerror = () => res(false);
+      });
+      imgEl.src = convertFileSrc(`${trayTmp}/ztron_tray_icon.png`);
+      const ok = await Promise.race([
+        loaded,
+        new Promise<boolean>((r) => setTimeout(() => r(false), 4000)),
+      ]);
+      if (ok) report("CONVERT_FILE_SRC_OK");
+      else report("CONVERT_FILE_SRC_FAIL");
+    }
     report("TRAY_OK");
 
     // 8. application menu (creation/install; click is manual) — incl. a
