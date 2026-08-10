@@ -33,7 +33,7 @@ import { HostRuntime } from "@ztron/runtime-ffi";
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
 const port = Number(tjs.env.ZTRON_HOST_PORT);
-const devUrl = tjs.env.ZTRON_DEV_URL;
+const devUrl = tjs.env.ZTRON_SCHEME_URL ?? tjs.env.ZTRON_DEV_URL;
 const invokeKey =
   tjs.env.ZTRON_INVOKE_KEY ?? Math.random().toString(36).slice(2);
 

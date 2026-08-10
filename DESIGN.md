@@ -563,6 +563,25 @@ ZtronApp.app/Contents/
 
 - 已默认启用:host `webview_create(1, …)` → `developerExtrasEnabled`(cocoa 后端 window_settings 中设置)
 
+### ✅ 已实现(2026-08):ztron:// 自定义 scheme 端到端
+
+按本蓝图实现并验证通过(spike 经 `ztron://host/index.html` 全量 57 项 FULL_OK):
+
+1. **webview 库**:`webview_set_scheme_handler(webview_t, scheme, root)`(api.h + c_api_impl + engine_base 虚方法 + cocoa 实现)
+2. **WKURLSchemeHandler 动态类**(cocoa_webkit.hh):`ZtronSchemeHandler` 实现 `startURLSchemeTask:`(URL→root 文件→NSHTTPURLResponse+NSData 响应,含 Content-Type MIME)与 `stopURLSchemeTask:`
+3. **注册时机**:window_settings(webview 创建前)读 `ZTRON_SCHEME_ROOT` env 注册 —— **晚注册(webview 创建后 set)被 WKWebView 忽略**(排查确认)
+4. **host**:读取 env 后 `navigate` 到 `ztron://host/index.html`;backend 用 `ZTRON_SCHEME_URL` 作 devUrl
+
+**踩坑记录**:
+
+- 晚注册 scheme handler 无效(须在 config 创建时注册)
+- `NSData dataWithContentsOfFile:` 返回 +0,不可再 `init`(会崩/错)
+- `dictionaryWithObject:forKey:` 类方法构造崩溃 → 改 `NSMutableDictionary dictionary` + `setObject:forKey:`
+- 缺 Content-Type header → WKWebView 不解析 HTML/不加载 JS
+- libwebview 是 versioned dylib(`libwebview.0.12.dylib`),cp 需带 symlink 链
+
+**解锁**:自定义协议加载(资产隔离)、convertFileSrc 路径、完整模块级 HMR 的基础
+
 ## 29. 补充:clipboard 插件 + CSP 注入 + tray 崩溃修复(已验证)
 
 ### clipboard 插件 ✅(`CLIPBOARD_OK:hello-clipboard`)
