@@ -20,6 +20,7 @@ import {
   mkdtempSync,
   renameSync,
   rmSync,
+  symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -711,7 +712,16 @@ async function packMacApp(o: PackOptions): Promise<void> {
   }
 
   copyFileSync(o.hostBin, join(macosDir, "ztron-host"));
-  copyFileSync(o.lib, join(macosDir, "libwebview.dylib"));
+  // libwebview is a versioned dylib (libwebview.0.12.0.dylib with symlinks);
+  // copy the real file and re-create the symlinks so the @rpath install name
+  // resolves inside the bundle.
+  const libReal = resolve(o.lib).replace(/\.dylib$/, "") + ".dylib";
+  copyFileSync(libReal, join(macosDir, "libwebview.dylib"));
+  copyFileSync(libReal, join(macosDir, "libwebview.0.12.0.dylib"));
+  symlinkSync(
+    "libwebview.0.12.0.dylib",
+    join(macosDir, "libwebview.0.12.dylib"),
+  );
   cpSync(o.frontendDist, join(resDir, "frontend"), { recursive: true });
 
   // Build AppIcon.icns from assets/app-icon.png (sips + iconutil) if present.
