@@ -171,7 +171,7 @@ async function startFrontendDevServer(
   const server = await createServer({
     root,
     logLevel: "silent",
-    server: { host: "127.0.0.1", port: 0, hmr: false } as never,
+    server: { host: "127.0.0.1", port: 0, hmr: true } as never,
     plugins: [ztronVitePlugin(invokeKey)],
   });
   await server.listen();
@@ -382,24 +382,35 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // Per-session invoke key shared by the backend and the injected bootstrap.
   const invokeKey = process.env.ZTRON_INVOKE_KEY ?? randomKey();
 
-  // P2: dev uses the reliable watcher (vite build IIFE + file://). On every
-  // frontend rebuild we touch a reload signal file the backend polls, so the
-  // page reloads automatically (near-HMR). Full module HMR needs a custom
-  // ztron:// scheme host (WKURLSchemeHandler) — see DESIGN.md §26.
-  const reloadFile = join(buildDir, "reload");
-  const signalReload = () => {
-    try {
-      writeFileSync(reloadFile, String(Date.now()));
-    } catch {
-      /* ignore */
+  // P2 dev: prefer the Vite dev server (http://localhost) which gives full
+  // module-level HMR; fall back to the build+reload watcher (near-HMR) when
+  // no frontend/index.html exists (inline-html apps).
+  let frontendUrl: string | null = null;
+  let reloadFile: string | null = null;
+  try {
+    const devUrl = await startFrontendDevServer(cwd, invokeKey);
+    if (devUrl) {
+      frontendUrl = devUrl;
     }
-  };
-  const frontendIndex = await startFrontendWatcher(
-    cwd,
-    invokeKey,
-    signalReload,
-  );
-  const frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
+  } catch {
+    /* dev server unavailable -> near-HMR fallback below */
+  }
+  if (!frontendUrl) {
+    reloadFile = join(buildDir, "reload");
+    const signalReload = () => {
+      try {
+        writeFileSync(reloadFile as string, String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+    };
+    const frontendIndex = await startFrontendWatcher(
+      cwd,
+      invokeKey,
+      signalReload,
+    );
+    frontendUrl = frontendIndex ? "file://" + frontendIndex : null;
+  }
 
   console.log(`[ztron] bundling ${entryPath}`);
   await bundle(entryPath, bundlePath);
@@ -417,7 +428,7 @@ async function dev(cwd: string, entry: string): Promise<void> {
     ZTRON_HOST_PORT: String(port),
     ZTRON_INVOKE_KEY: invokeKey,
     ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
-    ZTRON_RELOAD_FILE: reloadFile,
+    ...(reloadFile ? { ZTRON_RELOAD_FILE: reloadFile } : {}),
     ...(existsSync(resolve(cwd, "capabilities"))
       ? { ZTRON_CAPABILITIES_DIR: resolve(cwd, "capabilities") }
       : {}),

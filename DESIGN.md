@@ -589,6 +589,12 @@ ZtronApp.app/Contents/
 - spike:img 加载 `convertFileSrc()` 转换的文件 → `CONVERT_FILE_SRC_OK`(仅 scheme 模式)
 - **打包坑**:libwebview 是 versioned dylib(install name `@rpath/libwebview.0.12.dylib`),packMacApp 只拷 `libwebview.dylib`(symlink)→ 打包 app 缺版本化 dylib。修复:拷真实 `libwebview.0.12.0.dylib` + 重建 symlink 链
 
+**dev 升级:Vite dev server + 完整 HMR**(取代 near-HMR build+reload)
+- CLI dev 优先启动 Vite dev server(`hmr:true`)→ 前端经 `http://localhost:5173` ESM 加载,`@vite/client` 连 WS → **模块级 HMR**
+- 变更探测验证:`[vite] (client) page reload src/main.ts`(非 hot-accept 模块整页 reload;hot-accept 模块就地更新)
+- 无 frontend/index.html 的内联 html app 回退 near-HMR watcher
+- 收益:ESM 源码调试(真 source map/模块名)、无需每次全量 build、HMR 基建就绪
+
 ## 29. 补充:clipboard 插件 + CSP 注入 + tray 崩溃修复(已验证)
 
 ### clipboard 插件 ✅(`CLIPBOARD_OK:hello-clipboard`)
