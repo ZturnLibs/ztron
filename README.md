@@ -21,36 +21,37 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 
 ## Packages
 
-| Package              | Role                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@ztron/api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers    |
-| `@ztron/core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 8 plugins, MockRuntime test infra |
-| `@ztron/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                 |
-| `@ztron/inject`      | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML)                                                               |
-| `@ztron/cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                        |
+| Package              | Role                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `@ztron/api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers     |
+| `@ztron/core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test infra |
+| `@ztron/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                  |
+| `@ztron/inject`      | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML)                                                                |
+| `@ztron/cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                         |
 
 ## Status (M0–P5 complete)
 
-| Phase | Delivered                                                                                                                         | Verified                                                                                                                                                                    |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M0    | FFI + Plan A two-process host (async unlocked)                                                                                    | sync + async round trip                                                                                                                                                     |
-| M1    | events + Channel streaming + window commands                                                                                      | `M1_EVENTS_CHANNEL_WINDOW_OK`                                                                                                                                               |
-| M2    | plugin base + `PathScope` + `ztron init`                                                                                          | `M2_FS_SCOPE_PATH_OK`                                                                                                                                                       |
-| M3    | `@ztron/api` in a real Vite frontend                                                                                              | `M3_API_FRONTEND_OK`                                                                                                                                                        |
-| M4    | `tjs compile` packaging + macOS `.app`                                                                                            | packaged app passes                                                                                                                                                         |
-| P0    | window states/events/opacity/transparent/decorations, tray, menu, dialogs                                                         | `WIN_STATE_OK` `WIN_EVENT_OK` `OPACITY_OK` `TRANSPARENT_OK` `DECORATIONS_OK` `TRAY_OK` `MENU_OK` `DIALOG_REG_OK`                                                            |
-| P1    | ACL permissions, capabilities auto-load, scoped http, CSP                                                                         | `ACL_DENY_OK` `HTTP_SCOPE_DENY_OK`                                                                                                                                          |
-| P2    | near-HMR (auto-reload watcher)                                                                                                    | `page reloaded`                                                                                                                                                             |
-| P3    | plugin ecosystem: os/store/log/shell/sql/autostart/clipboard/positioner/window-state/notification/global-shortcut/single-instance | `OS_OK` `STORE_OK` `LOG_OK` `SHELL_OK` `SQL_OK` `AUTOSTART_OK` `CLIPBOARD_OK` `POSITIONER_OK` `WINDOW_STATE_PLUGIN_OK` `NOTIFICATION_OK` `SHORTCUT_OK` `SINGLE_INSTANCE_OK` |
-| P4    | `ztron codegen` typed commands + MockRuntime tests                                                                                | `CODEGEN_OK` + 6/6 unit tests                                                                                                                                               |
-| P5    | updater + macOS signing + Win/Linux host skeletons                                                                                | `UPDATER_OK`                                                                                                                                                                |
+| Phase | Delivered                                                                                                                                                                                                                  | Verified                                                                                                                                                                                                                                                                                                        |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0    | FFI + Plan A two-process host (async unlocked)                                                                                                                                                                             | sync + async round trip                                                                                                                                                                                                                                                                                         |
+| M1    | events + Channel streaming + window commands                                                                                                                                                                               | `M1_EVENTS_CHANNEL_WINDOW_OK`                                                                                                                                                                                                                                                                                   |
+| M2    | plugin base + `PathScope` + `ztron init`                                                                                                                                                                                   | `M2_FS_SCOPE_PATH_OK`                                                                                                                                                                                                                                                                                           |
+| M3    | `@ztron/api` in a real Vite frontend                                                                                                                                                                                       | `M3_API_FRONTEND_OK`                                                                                                                                                                                                                                                                                            |
+| M4    | `tjs compile` packaging + macOS `.app`                                                                                                                                                                                     | packaged app passes                                                                                                                                                                                                                                                                                             |
+| P0    | window states/events/opacity/transparent/decorations, tray, menu, dialogs                                                                                                                                                  | `WIN_STATE_OK` `WIN_EVENT_OK` `OPACITY_OK` `TRANSPARENT_OK` `DECORATIONS_OK` `TRAY_OK` `MENU_OK` `DIALOG_REG_OK`                                                                                                                                                                                                |
+| P1    | ACL permissions, capabilities auto-load, scoped http, CSP                                                                                                                                                                  | `ACL_DENY_OK` `HTTP_SCOPE_DENY_OK`                                                                                                                                                                                                                                                                              |
+| P2    | `ztron://` custom scheme (WKURLSchemeHandler) + Vite dev server full module-level HMR + convertFileSrc                                                                                                                     | `CONVERT_FILE_SRC_OK`, `[vite] page reload` (hot-accept modules update in place)                                                                                                                                                                                                                                |
+| P3    | plugin ecosystem: os/store/log/shell/sql/autostart/clipboard/positioner/window-state/notification/global-shortcut/single-instance/deep-link/websocket/local-ip/network/upload/persisted-scope/menu/tray/dialog/updater/app | `OS_OK` `STORE_OK` `LOG_OK` `SHELL_OK` `SQL_OK` `AUTOSTART_OK` `CLIPBOARD_OK` `POSITIONER_OK` `WINDOW_STATE_PLUGIN_OK` `NOTIFICATION_OK` `SHORTCUT_OK` `SINGLE_INSTANCE_OK` `DEEP_LINK_OK` `WS_OK` `LOCAL_IP_OK` `NETWORK_OK` `UPLOAD_OK` `PERSISTED_SCOPE_OK` `MENU_OK` `TRAY_OK` `DIALOG_REG_OK` `UPDATER_OK` |
+| P4    | `ztron codegen` typed commands + MockRuntime tests + three-layer 100% coverage                                                                                                                                             | `CODEGEN_OK` + 50/51 unit tests                                                                                                                                                                                                                                                                                 |
+| P5    | updater + macOS signing + versioned-dylib packaging + Win/Linux host skeletons                                                                                                                                             | `UPDATER_OK`, packaged app passes                                                                                                                                                                                                                                                                               |
+| P6    | multi-window architecture: host webview registry + label routing + `WebviewWindow`                                                                                                                                         | `MULTI_WINDOW_OK` (runtime creation of a 2nd webview blocked by the webview lib during run loop — see DESIGN.md)                                                                                                                                                                                                |
 
-Final spike: **53 checks, all pass** (`FULL_OK`).
+Final spike: **58 checks, all pass** (`FULL_OK`).
 
 ## Tests
 
 ```
-pnpm test       # 50 tests: 49 pass / 1 skip (surface + unit + core)
+pnpm test       # 51 tests: 50 pass / 1 skip (surface + unit + core)
 pnpm test:unit  # unit suite only
 ```
 
@@ -61,7 +62,7 @@ Three layers target 100% coverage of features + API:
 - **unit** — every command routed through `MockRuntime` + an in-memory `tjs`
   stub; PathScope/HttpScope and the ACL are exhaustively tested; a coverage
   ledger asserts every command is unit- or spike-covered
-- **integration** — the 51-check spike drives the real host + webview
+- **integration** — the 58-check spike drives the real host + webview
 
 See `tests/README.md` for the design.
 
@@ -84,8 +85,10 @@ node ../packages/cli/dist/index.js dev --entry src/main.ts
 node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
 ```
 
-## Remaining (needs target platforms)
+## Remaining (needs target platforms / deep water)
 
 - Windows (WebView2) / Linux (WebKitGTK) host compile + NSIS/AppImage packaging
 - Developer ID signing / notarization; mobile (Android/iOS)
-- Full Vite HMR (custom `ztron://` scheme host); multi-window; deep-link (bundle Info.plist)
+- Multi-window: runtime creation of a second webview (blocked by the webview lib
+  during the run loop — host registry + API already ship, see DESIGN.md)
+- IPC MessagePack (JSON current)
