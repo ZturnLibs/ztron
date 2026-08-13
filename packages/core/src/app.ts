@@ -125,6 +125,7 @@ export class App {
       "plugin:event|unlisten",
       "plugin:event|emit",
       "plugin:event|emit_to",
+      "plugin:webview|create",
       "plugin:window|close",
       "plugin:window|prevent_close",
       "plugin:window|destroy",
@@ -258,6 +259,9 @@ export class App {
           payload?: unknown;
         };
         this.#eventManager.emit(event, payload, target);
+      },
+      "plugin:webview|create": (args, ctx) => {
+        ctx.app.createWindow(args as import("./runtime.js").WindowConfig);
       },
       "plugin:window|close": (_args, ctx) => {
         ctx.webview.terminate();

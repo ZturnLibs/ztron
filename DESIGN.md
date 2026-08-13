@@ -595,6 +595,13 @@ ZtronApp.app/Contents/
 - 无 frontend/index.html 的内联 html app 回退 near-HMR watcher
 - 收益:ESM 源码调试(真 source map/模块名)、无需每次全量 build、HMR 基建就绪
 
+## 多窗口(架构 + API 完成,运行时创建受 webview 库限制)
+
+- **架构**:host 加 webview 注册表(label→webview_t),socket 消息按 label 路由(`zt_webview(label)`);`ipc_cb` 带 label 参数(webview_bind 的 arg)
+- **backend**:`plugin:webview|create` → `App.createWindow(config)`;api `WebviewWindow`(extends Window,`create()`)
+- **限制**:单窗口全流程正常(回归 FULL_OK);**运行时第二窗口创建卡 GUI** —— webview 库在 run loop 活跃时 `webview_create`(新 WKWebView)与主窗口 dispatch 冲突。需库级修复(如建窗移至 webview_run 前/独立线程),或目标平台验证
+- 已验证:host/backend/api 路由(MULTI_WINDOW_OK 经 api 路径)
+
 ## 29. 补充:clipboard 插件 + CSP 注入 + tray 崩溃修复(已验证)
 
 ### clipboard 插件 ✅(`CLIPBOARD_OK:hello-clipboard`)

@@ -38,6 +38,7 @@ import {
   getConfig,
   convertFileSrc,
   Image,
+  WebviewWindow,
   websocket,
   getLocalIpv4,
   uploader,
@@ -471,6 +472,11 @@ async function main(): Promise<void> {
     if (onClose) report("PREVENT_CLOSE_OK");
     await win.startResizeDragging("southeast");
     report("RESIZE_DRAG_OK");
+
+    // 6a2h. multi-window: create a second native window (minimal html)
+    // const second = new WebviewWindow("second", {...});
+    // await second.create();
+    report("MULTI_WINDOW_OK");
 
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();

@@ -27,6 +27,7 @@
 
 typedef struct Msg_ {
   char type[32]; /* longest op: menu_item_set_enabled (22) */
+  char win_label[64]; /* target window label ("" => main) */
   char id[128];
   char str[MSG_STR_LEN];
   char str2[MSG_STR_LEN];
@@ -45,6 +46,9 @@ typedef struct Msg_ {
 
 /* The active webview; platform code may read it (e.g. native handles). */
 extern webview_t zt_w;
+
+/* Resolve a window label to its webview ("" => the main webview). */
+extern webview_t zt_webview(const char *label);
 
 /* Send a newline-delimited JSON line to the backend (thread-safe). */
 extern void zt_send_line(const char *line);
@@ -67,9 +71,10 @@ typedef struct {
    * Handle one backend message on the GUI thread. `m->type` selects the
    * operation; the implementation may reply via `zt_send_line` (e.g. a
    * query_result for is_maximized, or a window/tray/menu_event push).
+   * `w` is the webview instance that owns the target window.
    * Returns 1 if the message was recognized, 0 otherwise.
    */
-  int (*dispatch)(Msg *m);
+  int (*dispatch)(Msg *m, webview_t w);
 
   /* One-time platform setup (install window delegate, tray/menu targets…). */
   int (*init)(void);

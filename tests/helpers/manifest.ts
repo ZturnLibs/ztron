@@ -20,6 +20,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:process|exit",
   "plugin:process|relaunch",
   // ---- window ----
+  "plugin:webview|create",
   "plugin:window|close",
   "plugin:window|prevent_close",
   "plugin:window|destroy",
@@ -213,6 +214,8 @@ export const API_EXPORTS: readonly string[] = [
   "emit",
   "emitTo",
   "Window",
+  "WebviewWindow",
+  "getCurrentWebviewWindow",
   "setupDragRegion",
   "positioner",
   "getPosition",

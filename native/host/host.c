@@ -110,6 +110,34 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 webview_t zt_w = NULL;
 static int g_exit_code = 0;
 
+/* ---- window registry (label -> webview) ---- */
+
+#define MAX_WEBVIEWS 16
+
+typedef struct {
+  char label[64];
+  webview_t w;
+} ZtWebview;
+
+static ZtWebview g_webviews[MAX_WEBVIEWS];
+static int g_webview_count = 0;
+
+webview_t zt_webview(const char *label) {
+  if (!label || !label[0]) return zt_w;
+  for (int i = 0; i < g_webview_count; i++) {
+    if (strcmp(g_webviews[i].label, label) == 0) return g_webviews[i].w;
+  }
+  return zt_w;
+}
+
+static void add_webview(const char *label, webview_t w) {
+  if (g_webview_count >= MAX_WEBVIEWS) return;
+  strncpy(g_webviews[g_webview_count].label, label ? label : "",
+          sizeof(g_webviews[0].label) - 1);
+  g_webviews[g_webview_count].w = w;
+  g_webview_count++;
+}
+
 static void send_line_unlocked(const char *line) {
   if (g_fd < 0) return;
   size_t n = strlen(line);
@@ -125,16 +153,13 @@ void zt_send_line(const char *line) {
 }
 
 /* runs on the GUI thread (queued via webview_dispatch) */
+static void ipc_cb(const char *id, const char *req, void *arg);
 static void on_gui(webview_t w, void *arg) {
   Msg *m = (Msg *)arg;
   if (strcmp(m->type, "eval") == 0) {
     webview_eval(w, m->str);
   } else if (strcmp(m->type, "set_html") == 0) {
     webview_set_html(w, m->str);
-  } else if (strcmp(m->type, "create_window") == 0) {
-    if (m->width > 0 && m->height > 0) webview_set_size(w, m->width, m->height, 0);
-    if (m->id[0]) webview_set_title(w, m->id);
-    if (m->str[0]) webview_set_html(w, m->str);
   } else if (strcmp(m->type, "navigate") == 0) {
     webview_navigate(w, m->str);
   } else if (strcmp(m->type, "set_title") == 0) {
@@ -155,7 +180,24 @@ static void on_gui(webview_t w, void *arg) {
     webview_terminate(w);
   } else if (strcmp(m->type, "app_relaunch") == 0) {
     zt_platform.relaunch();
-  } else if (zt_platform.dispatch(m)) {
+  } else if (strcmp(m->type, "create_window") == 0) {
+    /* Multi-window: create (or configure) the webview for m->win_label. */
+    webview_t nw = zt_webview(m->win_label);
+    if (nw == zt_w && m->win_label[0] &&
+        strcmp(m->win_label, "main") != 0) {
+      nw = webview_create(1, NULL);
+      if (nw) {
+        add_webview(m->win_label, nw);
+        webview_bind(nw, "__TAURI_IPC__", ipc_cb, (void *)m->win_label);
+      }
+    }
+    if (nw) {
+      if (m->width > 0 && m->height > 0)
+        webview_set_size(nw, m->width, m->height, 0);
+      if (m->id[0]) webview_set_title(nw, m->id);
+      if (m->str[0]) webview_set_html(nw, m->str);
+    }
+  } else if (zt_platform.dispatch(m, w)) {
     /* handled by the platform implementation */
   }
   free(m);
@@ -184,6 +226,7 @@ static void *socket_thread(void *arg) {
     zt_json_str(line, "menu_id", m->str, sizeof(m->str));
     zt_json_str(line, "item_id", m->id, sizeof(m->id));
     zt_json_str(line, "id", m->id, sizeof(m->id)); /* bind/response id */
+    zt_json_str(line, "label", m->win_label, sizeof(m->win_label));
     zt_json_str(line, "text", m->str2, sizeof(m->str2));
     zt_json_str(line, "tooltip", m->str2, sizeof(m->str2));
     zt_json_str(line, "message", m->str2, sizeof(m->str2));
@@ -210,10 +253,10 @@ static void *socket_thread(void *arg) {
     m->status = zt_json_bool(line, "enabled", m->status);
 
     if (strcmp(m->type, "quit") == 0) {
-      webview_dispatch(zt_w, on_gui, m);
+      webview_dispatch(zt_webview(m->win_label), on_gui, m);
       break;
     }
-    webview_dispatch(zt_w, on_gui, m);
+    webview_dispatch(zt_webview(m->win_label), on_gui, m);
   }
   fclose(f);
   return NULL;
@@ -221,11 +264,12 @@ static void *socket_thread(void *arg) {
 
 /* webview_bind callback (GUI thread) -> backend */
 static void ipc_cb(const char *id, const char *req, void *arg) {
-
+  const char *label = (const char *)arg;
+  if (!label || !label[0]) label = "main";
   char buf[MSG_STR_LEN + 256];
   snprintf(buf, sizeof(buf),
-           "{\"type\":\"request\",\"id\":\"%s\",\"label\":\"main\",\"req\":%s}",
-           id, req);
+           "{\"type\":\"request\",\"id\":\"%s\",\"label\":\"%s\",\"req\":%s}",
+           id, label, req);
   zt_send_line(buf);
 }
 
@@ -266,7 +310,7 @@ int main(int argc, char **argv) {
   }
   webview_set_title(zt_w, "Ztron");
   webview_set_size(zt_w, 900, 640, 0);
-  webview_bind(zt_w, "__TAURI_IPC__", ipc_cb, NULL);
+  webview_bind(zt_w, "__TAURI_IPC__", ipc_cb, (void *)"main");
   if (zt_platform.init && !zt_platform.init()) {
     fprintf(stderr, "platform init failed\n");
     webview_destroy(zt_w);

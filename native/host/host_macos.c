@@ -358,6 +358,12 @@ static void *zt_window(void) {
   return webview_get_native_handle(zt_w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
 }
 
+/* Native window for a specific webview instance (multi-window support). */
+static void *zt_window_of(webview_t w) {
+  if (!w) return NULL;
+  return webview_get_native_handle(w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
+}
+
 static unsigned long wnd_style_mask(void *wnd) {
   return (unsigned long)OBJC_MSG(unsigned long(*)(id, SEL), wnd,
                                  sel_registerName("styleMask"));
@@ -394,8 +400,8 @@ static int is_window_op(const char *t) {
   return 0;
 }
 
-static void handle_window_op(Msg *m) {
-  void *wnd = zt_window();
+static void handle_window_op(Msg *m, webview_t w) {
+  void *wnd = zt_window_of(w);
   if (!wnd) return;
 
   int result = 0;
@@ -758,13 +764,13 @@ static void dialog_message(Msg *m) {
 
 /* ---- platform ops ---- */
 
-static int dispatch(Msg *m) {
+static int dispatch(Msg *m, webview_t w) {
   if (is_window_op(m->type)) {
-    handle_window_op(m);
+    handle_window_op(m, w);
     return 1;
   }
   if (strcmp(m->type, "window_get_frame") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd && m->req_id >= 0) zt_reply_frame(m->req_id, zt_wnd_frame(wnd));
     return 1;
   }
@@ -784,7 +790,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "window_get_scale_factor") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     double s = wnd
                    ? OBJC_MSG(double(*)(id, SEL), wnd,
                               sel_registerName("backingScaleFactor"))
@@ -797,7 +803,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd) {
       OBJC_MSG(void(*)(id, SEL, BOOL), wnd,
                sel_registerName("setIgnoresMouseEvents:"), m->bool_val);
@@ -805,7 +811,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "window_set_position") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd) zt_wnd_set_origin(wnd, m->x, m->y);
     return 1;
   }
@@ -818,7 +824,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd) {
       /* [window setFrame:NSMakeRect(x,y,w,h) display:YES] */
       ((void(*)(id, SEL, double, double, double, double, BOOL))objc_msgSend)(
@@ -828,7 +834,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "window_get_state") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd && m->req_id >= 0) {
       long level = (long)OBJC_MSG(long(*)(id, SEL), wnd, sel_registerName("level"));
       char buf[256];
@@ -848,7 +854,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "window_get_title") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd && m->req_id >= 0) {
       id title = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("title"));
       const char *cstr = title
@@ -867,7 +873,7 @@ static int dispatch(Msg *m) {
     return 1;
   }
   if (strcmp(m->type, "start_dragging") == 0) {
-    void *wnd = zt_window();
+    void *wnd = zt_window_of(w);
     if (wnd) {
       /* performWindowDragWithEvent: needs the original mouseDown NSEvent;
          [NSApp currentEvent] is it when the frontend dispatches mid-drag. */

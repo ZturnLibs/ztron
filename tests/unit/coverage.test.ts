@@ -54,6 +54,7 @@ const UNIT_COVERED = new Set([
   "plugin:app|tauri_version",
   "plugin:app|get_config",
   "plugin:window|center",
+  "plugin:webview|create",
   "plugin:window|close",
   "plugin:window|prevent_close",
   "plugin:window|destroy",

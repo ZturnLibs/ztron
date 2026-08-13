@@ -302,7 +302,7 @@ static void dialog_message(Msg *m) {
 
 /* ---- platform ops ---- */
 
-static int dispatch(Msg *m) {
+static int dispatch(Msg *m, webview_t w) {
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
     GtkWidget *w = zt_window();

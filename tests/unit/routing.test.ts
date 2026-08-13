@@ -9,6 +9,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../helpers/buildApp.ts";
 
+test("webview create routes through the app", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:webview|create", {
+    label: "second",
+    title: "Second",
+    width: 300,
+    height: 200,
+  });
+  assert.ok(mock.handles.length >= 2);
+  assert.equal(mock.handles[1]?.label, "second");
+});
+
 test("window commands route to the handle", async () => {
   const { mock } = buildApp();
   const w = mock.main;
