@@ -14,6 +14,23 @@ import {
 export type WindowEventName =
   "resize" | "move" | "focus" | "blur" | "close-requested";
 
+/** Attention request type for {@linkcode Window.requestUserAttention}. */
+export enum UserAttentionType {
+  Critical = "Critical",
+  Informational = "Informational",
+}
+
+/** Title-bar style (macOS only). */
+export type TitleBarStyle = "visible" | "transparent" | "overlay";
+
+/** Window inner-size constraints (logical pixels; undefined = unset). */
+export interface WindowSizeConstraints {
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+}
+
 const WINDOW_EVENT = {
   resize: "tauri://resize",
   move: "tauri://move",
@@ -161,6 +178,50 @@ export class Window {
     });
   }
 
+  /**
+   * Sets the window minimum inner size. `null` unsets the constraint
+   * (dpi types accepted, like `new LogicalSize(300, 200)`).
+   */
+  async setMinSize(size: SizeLike | null | undefined): Promise<void> {
+    const s = size == null ? { width: 0, height: 0 } : normalizeSize(size);
+    await invoke("plugin:window|set_min_size", {
+      label: this.label,
+      width: s.width,
+      height: s.height,
+    });
+  }
+
+  /**
+   * Sets the window maximum inner size. `null` unsets the constraint
+   * (dpi types accepted).
+   */
+  async setMaxSize(size: SizeLike | null | undefined): Promise<void> {
+    const s = size == null ? { width: 0, height: 0 } : normalizeSize(size);
+    await invoke("plugin:window|set_max_size", {
+      label: this.label,
+      width: s.width,
+      height: s.height,
+    });
+  }
+
+  /** Sets min/max inner-size constraints in one call. */
+  async setSizeConstraints(
+    constraints: WindowSizeConstraints | null | undefined,
+  ): Promise<void> {
+    const { minWidth, minHeight, maxWidth, maxHeight } = constraints ?? {};
+    await invoke("plugin:window|set_size_constraints", {
+      label: this.label,
+      min:
+        minWidth || minHeight
+          ? { width: minWidth ?? 0, height: minHeight ?? 0 }
+          : undefined,
+      max:
+        maxWidth || maxHeight
+          ? { width: maxWidth ?? 0, height: maxHeight ?? 0 }
+          : undefined,
+    });
+  }
+
   async close(): Promise<void> {
     await invoke("plugin:window|close", { label: this.label });
   }
@@ -204,6 +265,98 @@ export class Window {
     await invoke("plugin:window|set_always_on_top", {
       label: this.label,
       alwaysOnTop,
+    });
+  }
+
+  /** Keeps the window below all other windows (v2-only). */
+  async setAlwaysOnBottom(alwaysOnBottom: boolean): Promise<void> {
+    await invoke("plugin:window|set_always_on_bottom", {
+      label: this.label,
+      alwaysOnBottom,
+    });
+  }
+
+  /**
+   * Toggles the native minimize button (macOS/Windows; button-mask based).
+   */
+  async setMinimizable(minimizable: boolean): Promise<void> {
+    await invoke("plugin:window|set_minimizable", {
+      label: this.label,
+      minimizable,
+    });
+  }
+
+  /** Whether the native minimize button is enabled. */
+  async isMinimizable(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_minimizable", {
+      label: this.label,
+    });
+  }
+
+  /** Toggles the native maximize/zoom button. */
+  async setMaximizable(maximizable: boolean): Promise<void> {
+    await invoke("plugin:window|set_maximizable", {
+      label: this.label,
+      maximizable,
+    });
+  }
+
+  /** Whether the native maximize/zoom button is enabled. */
+  async isMaximizable(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_maximizable", {
+      label: this.label,
+    });
+  }
+
+  /** Toggles the native close button. */
+  async setClosable(closable: boolean): Promise<void> {
+    await invoke("plugin:window|set_closable", {
+      label: this.label,
+      closable,
+    });
+  }
+
+  /** Whether the native close button is enabled. */
+  async isClosable(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_closable", { label: this.label });
+  }
+
+  /** Whether the window has native decorations (title bar / borders). */
+  async isDecorated(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_decorated", { label: this.label });
+  }
+
+  /** Whether the window is currently focused (key window). */
+  async isFocused(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_focused", { label: this.label });
+  }
+
+  /** Hides the window icon from the taskbar/dock (macOS: whole app). */
+  async setSkipTaskbar(skipTaskbar: boolean): Promise<void> {
+    await invoke("plugin:window|set_skip_taskbar", {
+      label: this.label,
+      skipTaskbar,
+    });
+  }
+
+  /** Prevents the window contents from being captured by other apps. */
+  async setContentProtected(protect: boolean): Promise<void> {
+    await invoke("plugin:window|set_content_protected", {
+      label: this.label,
+      protected: protect,
+    });
+  }
+
+  /**
+   * Bounces the dock icon until activated. `null` cancels the request.
+   * (macOS maps Critical/Informational to the bounce style.)
+   */
+  async requestUserAttention(
+    type: UserAttentionType | null = null,
+  ): Promise<void> {
+    await invoke("plugin:window|request_user_attention", {
+      label: this.label,
+      attentionType: type,
     });
   }
 
@@ -313,6 +466,64 @@ export class Window {
    */
   async startDragging(): Promise<void> {
     await invoke("plugin:window|start_dragging", { label: this.label });
+  }
+
+  // ---- dock/taskbar app-wide extras (v2) ----
+
+  /**
+   * Sets the dock/taskbar progress (`0.0`–`1.0`); `null` clears it.
+   * App-wide on macOS (dock tile), per-window on Windows taskbar.
+   */
+  async setProgressBar(progress: number | null): Promise<void> {
+    await invoke("plugin:window|set_progress_bar", {
+      label: this.label,
+      progress,
+    });
+  }
+
+  /**
+   * Sets the dock badge count. `null`/`undefined` removes the badge.
+   * macOS dock / Windows taskbar; unsupported elsewhere.
+   */
+  async setBadgeCount(count: number | null): Promise<void> {
+    await invoke("plugin:window|set_badge_count", {
+      label: this.label,
+      count,
+    });
+  }
+
+  /**
+   * Sets the dock badge to arbitrary text (macOS only).
+   * `null`/`undefined`/`""` removes the badge.
+   */
+  async setBadgeLabel(badgeLabel: string | null): Promise<void> {
+    await invoke("plugin:window|set_badge_label", {
+      label: this.label,
+      badgeLabel,
+    });
+  }
+
+  /**
+   * Sets the window background color: `"#rrggbb"`, `"#rrggbbaa"` or
+   * `"transparent"`. Takes effect on frameless/transparent windows.
+   */
+  async setBackgroundColor(color: string): Promise<void> {
+    await invoke("plugin:window|set_background_color", {
+      label: this.label,
+      color,
+    });
+  }
+
+  /**
+   * Sets the title-bar style (macOS only): `"visible"` (default),
+   * `"transparent"` (hidden chrome) or `"overlay"` (content under the
+   * traffic lights — the Tauri "transparent + full-size content view").
+   */
+  async setTitleBarStyle(style: TitleBarStyle): Promise<void> {
+    await invoke("plugin:window|set_titlebar_style", {
+      label: this.label,
+      style,
+    });
   }
 
   // ---- window events (listen to `tauri://*`) ----

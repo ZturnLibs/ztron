@@ -162,6 +162,63 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  setMinSize(width: number, height: number): void {
+    this.#rt.send({
+      type: "window_set_min_size",
+      label: this.label,
+      width,
+      height,
+    });
+  }
+
+  setMaxSize(width: number, height: number): void {
+    this.#rt.send({
+      type: "window_set_max_size",
+      label: this.label,
+      width,
+      height,
+    });
+  }
+
+  setProgressBar(progress: number | null): void {
+    /* `opacity` carries the double on the wire (shared parser slot). */
+    this.#rt.send({
+      type: "set_progress_bar",
+      label: this.label,
+      opacity: progress ?? -1,
+    });
+  }
+
+  setBadgeCount(count: number | null): void {
+    /* `width` carries the int on the wire (shared parser slot). */
+    this.#rt.send({
+      type: "set_badge_count",
+      label: this.label,
+      width: count ?? 0,
+    });
+  }
+
+  setBadgeLabel(label: string | null): void {
+    /* `text` carries the string on the wire (shared parser slot). */
+    this.#rt.send({ type: "set_badge_label", label: this.label, text: label ?? "" });
+  }
+
+  setBackgroundColor(color: string): void {
+    this.#rt.send({
+      type: "set_background_color",
+      label: this.label,
+      text: color,
+    });
+  }
+
+  setTitleBarStyle(style: "visible" | "transparent" | "overlay"): void {
+    this.#rt.send({
+      type: "set_titlebar_style",
+      label: this.label,
+      text: style,
+    });
+  }
+
   setOpacity(opacity: number): void {
     this.#rt.send({ type: "set_opacity", label: this.label, opacity });
   }

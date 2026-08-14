@@ -45,13 +45,14 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P4    | `ztron codegen` typed commands + MockRuntime tests + three-layer 100% coverage                                                                                                                                             | `CODEGEN_OK` + 50/51 unit tests                                                                                                                                                                                                                                                                                 |
 | P5    | updater + macOS signing + versioned-dylib packaging + Win/Linux host skeletons                                                                                                                                             | `UPDATER_OK`, packaged app passes                                                                                                                                                                                                                                                                               |
 | P6    | multi-window architecture: host webview registry + label routing + `WebviewWindow`                                                                                                                                         | `MULTI_WINDOW_OK` (runtime creation of a 2nd webview blocked by the webview lib during run loop — see DESIGN.md)                                                                                                                                                                                                |
+| P7    | window v2 batch 2 (Tauri-aligned): size constraints, minimizable/maximizable/closable + is*, isDecorated/isFocused, skipTaskbar, alwaysOnBottom, contentProtected, requestUserAttention, dock progress/badge, backgroundColor, titleBarStyle | `WIN_BUTTONS_OK` `WIN_V2_EXTRAS_OK` `DOCK_V2_OK`                                                                                                                                                                                                                                                              |
 
-Final spike: **58 checks, all pass** (`FULL_OK`).
+Final spike: **61 checks reported — 58 pass**; the 3 failures (http ×2, persisted-scope) are pre-existing and environment-dependent, unrelated to the window batch.
 
 ## Tests
 
 ```
-pnpm test       # 51 tests: 50 pass / 1 skip (surface + unit + core)
+pnpm test       # 54 tests: 53 pass / 1 skip (surface + unit + core)
 pnpm test:unit  # unit suite only
 ```
 

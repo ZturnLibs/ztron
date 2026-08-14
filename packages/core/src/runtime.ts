@@ -33,16 +33,28 @@ export type WindowStateOp =
   | "set_fullscreen"
   | "is_fullscreen"
   | "set_always_on_top"
+  | "set_always_on_bottom"
   | "center"
   | "set_focus"
+  | "is_focused"
   | "set_visible"
   | "set_resizable"
   | "set_opacity"
   | "set_transparent"
   | "set_decorations"
+  | "is_decorated"
   | "set_shadow"
   | "set_enabled"
-  | "set_prevent_close";
+  | "set_minimizable"
+  | "is_minimizable"
+  | "set_maximizable"
+  | "is_maximizable"
+  | "set_closable"
+  | "is_closable"
+  | "set_skip_taskbar"
+  | "set_content_protected"
+  | "set_prevent_close"
+  | "request_user_attention";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
@@ -87,6 +99,20 @@ export interface WebviewHandle {
   setPosition(x: number, y: number): void;
   /** Sets the native window bounds (position + size in one op). */
   setBounds(x: number, y: number, width: number, height: number): void;
+  /** Sets content min size constraint (null/0,0 clears). */
+  setMinSize(width: number, height: number): void;
+  /** Sets content max size constraint (null/0,0 clears). */
+  setMaxSize(width: number, height: number): void;
+  /** Dock/taskbar progress (0..1; null clears). */
+  setProgressBar(progress: number | null): void;
+  /** Dock/taskbar numeric badge (null/0 clears). */
+  setBadgeCount(count: number | null): void;
+  /** Dock/taskbar text badge (null/"" clears). */
+  setBadgeLabel(label: string | null): void;
+  /** Window background color (hex `#rrggbb`/`#rrggbbaa` or `transparent`). */
+  setBackgroundColor(color: string): void;
+  /** Title-bar style: `visible` (default), `transparent`, `overlay`. */
+  setTitleBarStyle(style: "visible" | "transparent" | "overlay"): void;
   /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
   setOpacity(opacity: number): void;
   /** Reads the native window's boolean state flags. */

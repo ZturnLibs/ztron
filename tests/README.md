@@ -8,7 +8,7 @@
 | ----------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------- |
 | **Surface(完整性)**     | `unit/surface.test.ts` + `helpers/manifest.ts`                                             | 框架注册的命令 == 清单;@ztron/api 导出 == 清单(无缺失/无多余)                      | `pnpm test`                                   |
 | **Unit(路由/行为)**     | `unit/routing.test.ts`、`unit/scopes.test.ts`、`unit/acl.test.ts`、`unit/coverage.test.ts` | 每个命令经 MockRuntime 路由到 adapter / tjs stub;PathScope/HttpScope 穷举;ACL 穷举 | `pnpm test`                                   |
-| **Integration(运行时)** | `examples/hello` spike(58 项)                                                              | 真实 host+webview 端到端;tjs:` 模块 / 网络 / 会退出应用的命令                      | 手动 `pnpm --filter @ztron/example-hello dev` |
+| **Integration(运行时)** | `examples/hello` spike(61 项报告)                                                        | 真实 host+webview 端到端;tjs:` 模块 / 网络 / 会退出应用的命令                      | 手动 `pnpm --filter @ztron/example-hello dev` |
 
 ## 覆盖账本(`unit/coverage.test.ts`)
 

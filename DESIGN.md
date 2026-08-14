@@ -1012,3 +1012,17 @@ ZtronApp.app/Contents/
 - `tray.setIcon` 接受 path 或 Image
 - **坑**:`path` 字段未映射到 m->str → `initWithContentsOfFile:""` 返回 nil。修复:socket_thread 加 `path`→m->str 解析
 - 单测:image 命令路由;spike `IMAGE_OK`(fromPath + fromBytes→tray);57 项 FULL_OK
+
+## 73. window v2 批次 2(Tauri 对齐:size 约束/按钮开关/dock 扩展)
+
+- **命令(20)**:`set_size_constraints`/`set_min_size`/`set_max_size`、`set_minimizable`/`is_minimizable`、`set_maximizable`/`is_maximizable`、`set_closable`/`is_closable`、`is_decorated`/`is_focused`、`set_skip_taskbar`、`set_always_on_bottom`、`set_content_protected`、`request_user_attention`、`set_progress_bar`、`set_badge_count`、`set_badge_label`、`set_background_color`、`set_titlebar_style`
+- **macOS 实现**:
+  - 按钮开关走 style mask:`NSMiniaturizableMask`(min)、`standardWindowButton:2`(zoom 按钮 setEnabled)、`NSClosableMask`;查询对应反向读
+  - `set_skip_taskbar` = `NSApplicationActivationPolicyAccessory`(app 级,Dock 图标隐藏);`set_always_on_bottom` = `setLevel:-1`;`set_content_protected` = `setSharingType:`
+  - min/max size:`setContent{Min,Max}Size:`(NSSize 2×double by-value,scalar cast 匹配 arm64 浮点寄存器 ABI,同 §69 setFrameOrigin)
+  - dock:progress = `NSProgressIndicator`(determinate 0–100)塞进 `dockTile.contentView`(tao 对齐;负值清除);badge = `dockTile.badgeLabel`
+  - titlebar style:tao 语义矩阵 —— `overlay` = transparent+fullSizeContentView,`transparent` = 仅 transparent,`visible` = 双 false
+- **坑(set_badge_label 参数冲突)**:payload 的 `label` 字段是窗口路由参数(所有 `plugin:window|*` 都带),handler 若解构 `label` 会拿到窗口标签而非 badge 文本 → 参数名改 `badgeLabel`
+- **requestUserAttention 简化**:Tauri 枚举 → bool(Critical=NSCriticalRequest/Informational=NSInformationalRequest),null 视为 Informational(macOS 取消需持有 request id,未实现)
+- `zt_parse_color`:`transparent`→clearColor、`#rrggbb(aa)`→sRGB NSColor、其他→windowBackgroundColor
+- 单测:20 命令路由(buttons 真值断言 + badgeLabel 冲突回归);spike `WIN_BUTTONS_OK`/`WIN_V2_EXTRAS_OK`/`DOCK_V2_OK`(isFocused 属 key-window bonus);61 项报告 FULL_OK

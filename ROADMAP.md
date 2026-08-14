@@ -105,12 +105,12 @@
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | core api | invoke/transformCallback/Channel/Resource/event/process/app/os/path/window/clipboard/http/shell/dialog/tray/updater/menu/WebviewWindow                                                                                                                         |
 | 插件(25) | store·fs·http·shell(+stream+Command 类)·os·log·sql·clipboard·positioner·window-state·notification·global-shortcut·single-instance·deep-link·updater·autostart·websocket·local-ip·network·upload·persisted-scope·menu·tray·dialog·app/process                   |
-| 窗口     | min/max/fullscreen/alwaysOnTop/decorations/opacity/transparent/drag/resize-drag/position/size/focus/visible/resizable/cursor/ignore-cursor/theme/scaleFactor/title/close/center/preventClose/destroy/setBounds/setShadow/zoom/enabled + 事件 + is*/outer* 查询 |
+| 窗口     | min/max/fullscreen/alwaysOnTop/alwaysOnBottom/decorations/isDecorated/opacity/transparent/drag/resize-drag/position/size/min-max-size+constraints/focus/isFocused/visible/resizable/cursor/ignore-cursor/theme/scaleFactor/title/close/center/preventClose/destroy/setBounds/setShadow/zoom/enabled/minimizable/maximizable/closable+is*/skipTaskbar/contentProtected/requestUserAttention/progress-bar/badge/background-color/titlebar-style + 事件 + is*/outer* 查询 |
 | 安全     | ACL capabilities/deny/覆盖 · PathScope/HttpScope · CSP · IPC key                                                                                                                                                                                               |
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
 | 多窗口   | host webview 注册表 + label 路由 · WebviewWindow api(运行时建窗待库修复)                                                                                                                                                                                       |
-| 测试     | 三层框架(50 单测 + 58 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
+| 测试     | 三层框架(53 单测 + 61 spike 报告,100% 覆盖账本)                                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 
@@ -119,6 +119,7 @@
 | path 目录 getter   | 缺 appDataDir/appCacheDir/documentDir/downloadDir/desktopDir/resourceDir 等 ~20 个 | [x] 已完成                                                       |
 | os type/family/eol | 缺 3 个查询                                                                        | [x] 已完成                                                       |
 | window 高级        | setShadow/setZoom/setEnabled/startResizeDragging/setBounds                         | [x] 已完成                                                       |
+| window v2 批次2    | size 约束/minimizable/closable/maximizable+is*/isDecorated/isFocused/skipTaskbar/alwaysOnBottom/contentProtected/requestUserAttention/进度条/badge/背景色/titlebar 风格 | [x] 已完成(`WIN_BUTTONS_OK`+`WIN_V2_EXTRAS_OK`+`DOCK_V2_OK`，isFocused 为 bonus) |
 | menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [x] 已完成(Submenu + check + radio + preventClose)               |
 | shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [x] 已完成                                                       |
 | IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先                                                       |

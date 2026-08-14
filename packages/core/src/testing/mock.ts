@@ -145,6 +145,45 @@ export class MockWebviewHandle implements WebviewHandle {
     this.frame = { x, y, width, height };
   }
 
+  minSizeLog: Array<{ w: number; h: number }> = [];
+  maxSizeLog: Array<{ w: number; h: number }> = [];
+
+  setMinSize(width: number, height: number): void {
+    this.minSizeLog.push({ w: width, h: height });
+  }
+
+  setMaxSize(width: number, height: number): void {
+    this.maxSizeLog.push({ w: width, h: height });
+  }
+
+  progressBarLog: Array<number | null> = [];
+
+  setProgressBar(progress: number | null): void {
+    this.progressBarLog.push(progress);
+  }
+
+  badgeCountLog: Array<number | null> = [];
+  badgeLabelLog: Array<string | null> = [];
+
+  setBadgeCount(count: number | null): void {
+    this.badgeCountLog.push(count);
+  }
+
+  setBadgeLabel(label: string | null): void {
+    this.badgeLabelLog.push(label);
+  }
+
+  backgroundColorLog: string[] = [];
+  titleBarStyleLog: string[] = [];
+
+  setBackgroundColor(color: string): void {
+    this.backgroundColorLog.push(color);
+  }
+
+  setTitleBarStyle(style: "visible" | "transparent" | "overlay"): void {
+    this.titleBarStyleLog.push(style);
+  }
+
   opacityLog: number[] = [];
 
   setOpacity(opacity: number): void {

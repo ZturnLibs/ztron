@@ -159,6 +159,26 @@ export class App {
       "plugin:window|set_enabled",
       "plugin:window|set_position",
       "plugin:window|set_bounds",
+      "plugin:window|set_size_constraints",
+      "plugin:window|set_min_size",
+      "plugin:window|set_max_size",
+      "plugin:window|set_minimizable",
+      "plugin:window|is_minimizable",
+      "plugin:window|set_maximizable",
+      "plugin:window|is_maximizable",
+      "plugin:window|set_closable",
+      "plugin:window|is_closable",
+      "plugin:window|is_decorated",
+      "plugin:window|is_focused",
+      "plugin:window|set_skip_taskbar",
+      "plugin:window|set_always_on_bottom",
+      "plugin:window|set_content_protected",
+      "plugin:window|set_progress_bar",
+      "plugin:window|set_badge_count",
+      "plugin:window|set_badge_label",
+      "plugin:window|request_user_attention",
+      "plugin:window|set_background_color",
+      "plugin:window|set_titlebar_style",
       "plugin:window|start_dragging",
       "plugin:window|start_resize_dragging",
       "plugin:app|name",
@@ -399,6 +419,110 @@ export class App {
           Number(width),
           Number(height),
         );
+      },
+      "plugin:window|set_size_constraints": (args, ctx) => {
+        const { min, max } = args as {
+          min?: { width: number; height: number };
+          max?: { width: number; height: number };
+        };
+        if (min) {
+          ctx.webview.setMinSize(Number(min.width), Number(min.height));
+        }
+        if (max) {
+          ctx.webview.setMaxSize(Number(max.width), Number(max.height));
+        }
+      },
+      "plugin:window|set_min_size": (args, ctx) => {
+        const { width, height } = args as { width: number; height: number };
+        ctx.webview.setMinSize(Number(width), Number(height));
+      },
+      "plugin:window|set_max_size": (args, ctx) => {
+        const { width, height } = args as { width: number; height: number };
+        ctx.webview.setMaxSize(Number(width), Number(height));
+      },
+      "plugin:window|set_minimizable": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_minimizable",
+          Boolean((args as { minimizable?: boolean }).minimizable),
+        );
+      },
+      "plugin:window|is_minimizable": async (_args, ctx) =>
+        ctx.webview.windowState("is_minimizable"),
+      "plugin:window|set_maximizable": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_maximizable",
+          Boolean((args as { maximizable?: boolean }).maximizable),
+        );
+      },
+      "plugin:window|is_maximizable": async (_args, ctx) =>
+        ctx.webview.windowState("is_maximizable"),
+      "plugin:window|set_closable": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_closable",
+          Boolean((args as { closable?: boolean }).closable),
+        );
+      },
+      "plugin:window|is_closable": async (_args, ctx) =>
+        ctx.webview.windowState("is_closable"),
+      "plugin:window|is_decorated": async (_args, ctx) =>
+        ctx.webview.windowState("is_decorated"),
+      "plugin:window|is_focused": async (_args, ctx) =>
+        ctx.webview.windowState("is_focused"),
+      "plugin:window|set_skip_taskbar": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_skip_taskbar",
+          Boolean((args as { skipTaskbar?: boolean }).skipTaskbar),
+        );
+      },
+      "plugin:window|set_always_on_bottom": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_always_on_bottom",
+          Boolean((args as { alwaysOnBottom?: boolean }).alwaysOnBottom),
+        );
+      },
+      "plugin:window|set_content_protected": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_content_protected",
+          Boolean((args as { protected?: boolean }).protected),
+        );
+      },
+      "plugin:window|request_user_attention": (args, ctx) => {
+        /* Boiled down to Critical vs Informational (macOS NSRequestType);
+         null/undefined cancels the request. */
+        const t = (args as { attentionType?: string | number | null })
+          .attentionType;
+        ctx.webview.windowState(
+          "request_user_attention",
+          t === "Critical" || t === 1,
+        );
+      },
+      "plugin:window|set_progress_bar": (args, ctx) => {
+        const { progress } = args as { progress?: number | null };
+        ctx.webview.setProgressBar(
+          progress === null || progress === undefined ? null : Number(progress),
+        );
+      },
+      "plugin:window|set_badge_count": (args, ctx) => {
+        const { count } = args as { count?: number | null };
+        ctx.webview.setBadgeCount(
+          count === null || count === undefined ? null : Number(count),
+        );
+      },
+      "plugin:window|set_badge_label": (args, ctx) => {
+        /* `badgeLabel` — the payload `label` is the target-window router. */
+        const { badgeLabel } = args as { badgeLabel?: string | null };
+        ctx.webview.setBadgeLabel(badgeLabel ?? null);
+      },
+      "plugin:window|set_background_color": (args, ctx) => {
+        ctx.webview.setBackgroundColor(
+          String((args as { color?: string }).color ?? "transparent"),
+        );
+      },
+      "plugin:window|set_titlebar_style": (args, ctx) => {
+        const style = String(
+          (args as { style?: string }).style ?? "visible",
+        ) as "visible" | "transparent" | "overlay";
+        ctx.webview.setTitleBarStyle(style);
       },
       "plugin:window|start_dragging": (_args, ctx) =>
         ctx.webview.startDragging(),

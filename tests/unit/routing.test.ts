@@ -114,6 +114,82 @@ test("window commands route to the handle", async () => {
   assert.equal(afterBounds?.width, 300);
 });
 
+test("window v2 extras (size constraints, button flags, dock) route", async () => {
+  const { mock } = buildApp();
+  const w = mock.main;
+
+  await mock.main.invoke("plugin:window|set_size_constraints", {
+    min: { width: 300, height: 200 },
+    max: { width: 800, height: 600 },
+  });
+  assert.deepEqual(w.minSizeLog, [{ w: 300, h: 200 }]);
+  assert.deepEqual(w.maxSizeLog, [{ w: 800, h: 600 }]);
+  await mock.main.invoke("plugin:window|set_min_size", { width: 10, height: 20 });
+  await mock.main.invoke("plugin:window|set_max_size", { width: 30, height: 40 });
+  assert.deepEqual(w.minSizeLog.at(-1), { w: 10, h: 20 });
+  assert.deepEqual(w.maxSizeLog.at(-1), { w: 30, h: 40 });
+
+  for (const [cmd, arg, op] of [
+    ["set_minimizable", { minimizable: false }, "set_minimizable"],
+    ["set_maximizable", { maximizable: true }, "set_maximizable"],
+    ["set_closable", { closable: false }, "set_closable"],
+    ["set_skip_taskbar", { skipTaskbar: true }, "set_skip_taskbar"],
+    ["set_always_on_bottom", { alwaysOnBottom: true }, "set_always_on_bottom"],
+    ["set_content_protected", { protected: true }, "set_content_protected"],
+  ] as const) {
+    await mock.main.invoke(`plugin:window|${cmd}`, arg);
+    const hit = w.windowStateLog.find(
+      (l) => l.op === op && l.value === Object.values(arg)[0],
+    );
+    assert.ok(hit, `${op} not routed`);
+  }
+
+  for (const cmd of [
+    "is_minimizable",
+    "is_maximizable",
+    "is_closable",
+    "is_decorated",
+    "is_focused",
+  ]) {
+    const v = await mock.main.invoke(`plugin:window|${cmd}`, {});
+    assert.equal(typeof v, "boolean");
+    assert.ok(w.windowStateLog.some((l) => l.op === cmd));
+  }
+
+  /* request_user_attention: only Critical maps to the flag. */
+  await mock.main.invoke("plugin:window|request_user_attention", {
+    attentionType: "Informational",
+  });
+  await mock.main.invoke("plugin:window|request_user_attention", {
+    attentionType: "Critical",
+  });
+  const attn = w.windowStateLog.filter(
+    (l) => l.op === "request_user_attention",
+  );
+  assert.deepEqual(attn.map((l) => l.value), [false, true]);
+
+  await mock.main.invoke("plugin:window|set_progress_bar", { progress: 0.5 });
+  await mock.main.invoke("plugin:window|set_progress_bar", { progress: null });
+  assert.deepEqual(w.progressBarLog, [0.5, null]);
+  await mock.main.invoke("plugin:window|set_badge_count", { count: 3 });
+  await mock.main.invoke("plugin:window|set_badge_count", { count: null });
+  assert.deepEqual(w.badgeCountLog, [3, null]);
+  /* badge label: `label` stays the window router, `badgeLabel` is the text */
+  await mock.main.invoke("plugin:window|set_badge_label", {
+    label: "other",
+    badgeLabel: "hello",
+  });
+  assert.deepEqual(w.badgeLabelLog, ["hello"]);
+  await mock.main.invoke("plugin:window|set_background_color", {
+    color: "#11223344",
+  });
+  assert.deepEqual(w.backgroundColorLog, ["#11223344"]);
+  await mock.main.invoke("plugin:window|set_titlebar_style", {
+    style: "overlay",
+  });
+  assert.deepEqual(w.titleBarStyleLog, ["overlay"]);
+});
+
 test("tray commands route to the adapter", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:tray|create", { title: "T", tooltip: "tip" });

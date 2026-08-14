@@ -20,6 +20,10 @@
 
 #define NS_FULLSCREEN_MASK 16384 /* NSFullScreenWindowMask = 1<<14 */
 #define NS_RESIZABLE_MASK 8      /* NSResizableWindowMask = 1<<3 */
+#define NS_TITLED_MASK 1         /* NSTitledWindowMask = 1<<0 */
+#define NS_CLOSABLE_MASK 2       /* NSClosableWindowMask = 1<<1 */
+#define NS_MINIATURIZABLE_MASK 4 /* NSMiniaturizableWindowMask = 1<<2 */
+#define NS_FULLSIZECONTENTVIEW_MASK 32768 /* 1<<15 */
 #define NS_NORMAL_LEVEL 0
 #define NS_MODAL_OK 1 /* NSModalResponseOK */
 
@@ -354,6 +358,11 @@ static void install_deep_link_handler(void) {
 
 /* ---- helpers ---- */
 
+static id zt_nsapp(void) {
+  return OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                  sel_registerName("sharedApplication"));
+}
+
 static void *zt_window(void) {
   return webview_get_native_handle(zt_w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
 }
@@ -383,16 +392,93 @@ static id zt_nsstring(const char *s) {
                   sel_registerName("stringWithUTF8String:"), s);
 }
 
+/* Parses a window background color: "transparent" → clearColor,
+   "#rrggbb"/"#rrggbbaa" hex → sRGB NSColor, anything else → window bg. */
+static id zt_parse_color(const char *s) {
+  id cls = (id)objc_getClass("NSColor");
+  if (!s || strcmp(s, "transparent") == 0) {
+    return OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("clearColor"));
+  }
+  if (s[0] == '#' && (strlen(s) == 7 || strlen(s) == 9)) {
+    unsigned int r = 0, g = 0, b = 0, a = 255;
+    if (strlen(s) == 9) {
+      sscanf(s, "#%2x%2x%2x%2x", &r, &g, &b, &a);
+    } else {
+      sscanf(s, "#%2x%2x%2x", &r, &g, &b);
+    }
+    return OBJC_MSG(id(*)(id, SEL, double, double, double, double), cls,
+                    sel_registerName("colorWithSRGBRed:green:blue:alpha:"),
+                    r / 255.0, g / 255.0, b / 255.0, a / 255.0);
+  }
+  return OBJC_MSG(id(*)(id, SEL), cls,
+                  sel_registerName("windowBackgroundColor"));
+}
+
+/* ---- dock tile (app-wide badge / progress, tao-aligned) ---- */
+
+static id zt_dock_tile(void) {
+  return OBJC_MSG(id(*)(id, SEL), zt_nsapp(), sel_registerName("dockTile"));
+}
+
+static void dock_set_badge(const char *text) {
+  id tile = zt_dock_tile();
+  if (!tile) return;
+  id s = (text && text[0]) ? zt_nsstring(text) : NULL;
+  OBJC_MSG(void(*)(id, SEL, id), tile, sel_registerName("setBadgeLabel:"), s);
+}
+
+static void dock_set_progress(double progress) {
+  id tile = zt_dock_tile();
+  if (!tile) return;
+  if (progress < 0) {
+    OBJC_MSG(void(*)(id, SEL, id), tile, sel_registerName("setContentView:"),
+             (id)NULL);
+    OBJC_MSG(void(*)(id, SEL), tile, sel_registerName("display"));
+    return;
+  }
+  /* Layout a determinate NSProgressIndicator inside the dock tile
+     (mirrors tao's Window::set_progress_bar). */
+  typedef struct { double x, y, w, h; } ZtNSRect;
+  ZtNSRect full = {0, 0, 128, 128};
+  id v = OBJC_MSG(id(*)(id, SEL, ZtNSRect), (id)objc_getClass("NSView"),
+                  sel_registerName("alloc"), full);
+  v = OBJC_MSG(id(*)(id, SEL, ZtNSRect), v,
+               sel_registerName("initWithFrame:"), full);
+  if (!v) return;
+  ZtNSRect bar = {0, 0, full.w, 20};
+  id pi = OBJC_MSG(id(*)(id, SEL, ZtNSRect), (id)objc_getClass("NSProgressIndicator"),
+                   sel_registerName("alloc"), bar);
+  pi = OBJC_MSG(id(*)(id, SEL, ZtNSRect), pi,
+                sel_registerName("initWithFrame:"), bar);
+  if (!pi) return;
+  OBJC_MSG(void(*)(id, SEL, BOOL), pi, sel_registerName("setIndeterminate:"),
+           NO);
+  OBJC_MSG(void(*)(id, SEL, double), pi, sel_registerName("setDoubleValue:"),
+           progress * 100.0);
+  OBJC_MSG(void(*)(id, SEL, BOOL), pi, sel_registerName("setBezeled:"), NO);
+  OBJC_MSG(void(*)(id, SEL, long), pi, sel_registerName("setControlSize:"),
+           1 /* NSSmallControlSize */);
+  OBJC_MSG(void(*)(id, SEL, BOOL), pi,
+           sel_registerName("setDisplayedWhenStopped:"), YES);
+  OBJC_MSG(void(*)(id, SEL, id), v, sel_registerName("addSubview:"), pi);
+  OBJC_MSG(void(*)(id, SEL, id), tile, sel_registerName("setContentView:"), v);
+  OBJC_MSG(void(*)(id, SEL), tile, sel_registerName("display"));
+}
+
 /* ---- window states ---- */
 
 static int is_window_op(const char *t) {
   static const char *ops[] = {
       "minimize",       "unminimize",    "toggle_maximize",
       "is_maximized",   "is_minimized",  "set_fullscreen",
-      "is_fullscreen",  "set_always_on_top", "center",
-      "set_focus",      "set_visible",   "set_resizable",
-      "set_opacity",    "set_transparent", "set_decorations",
-      "set_shadow",     "set_enabled",
+      "is_fullscreen",  "set_always_on_top", "set_always_on_bottom",
+      "center",         "set_focus",     "is_focused",
+      "set_visible",    "set_resizable", "set_opacity",
+      "set_transparent", "set_decorations", "is_decorated",
+      "set_shadow",     "set_enabled",   "set_minimizable",
+      "is_minimizable", "set_maximizable", "is_maximizable",
+      "set_closable",   "is_closable",   "set_skip_taskbar",
+      "set_content_protected", "request_user_attention",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -460,6 +546,52 @@ static void handle_window_op(Msg *m, webview_t w) {
   } else if (strcmp(m->type, "set_enabled") == 0) {
     /* NSWindow has no setEnabled:; a window is always interactive on macOS.
        Apps that need this use setIgnoreCursorEvents (see set_ignore). */
+  } else if (strcmp(m->type, "set_minimizable") == 0) {
+    unsigned long mask = wnd_style_mask(wnd);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_MINIATURIZABLE_MASK)
+                                        : (mask & ~NS_MINIATURIZABLE_MASK));
+  } else if (strcmp(m->type, "is_minimizable") == 0) {
+    result = (wnd_style_mask(wnd) & NS_MINIATURIZABLE_MASK) != 0;
+  } else if (strcmp(m->type, "set_closable") == 0) {
+    unsigned long mask = wnd_style_mask(wnd);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_CLOSABLE_MASK)
+                                        : (mask & ~NS_CLOSABLE_MASK));
+  } else if (strcmp(m->type, "is_closable") == 0) {
+    result = (wnd_style_mask(wnd) & NS_CLOSABLE_MASK) != 0;
+  } else if (strcmp(m->type, "set_maximizable") == 0) {
+    /* the zoom button (NSWindowZoomButton = 2) */
+    id btn = OBJC_MSG(id(*)(id, SEL, long), wnd,
+                      sel_registerName("standardWindowButton:"), 2);
+    if (btn) {
+      OBJC_MSG(void(*)(id, SEL, BOOL), btn, sel_registerName("setEnabled:"),
+               m->bool_val);
+    }
+  } else if (strcmp(m->type, "is_maximizable") == 0) {
+    id btn = OBJC_MSG(id(*)(id, SEL, long), wnd,
+                      sel_registerName("standardWindowButton:"), 2);
+    result = btn ? wnd_bool(btn, "isEnabled") : 0;
+  } else if (strcmp(m->type, "is_decorated") == 0) {
+    result = (wnd_style_mask(wnd) & NS_TITLED_MASK) != 0;
+  } else if (strcmp(m->type, "is_focused") == 0) {
+    result = wnd_bool(wnd, "isKeyWindow");
+  } else if (strcmp(m->type, "set_skip_taskbar") == 0) {
+    /* hiding from the Dock: accessory activation policy */
+    OBJC_MSG(void(*)(id, SEL, long), zt_nsapp(),
+             sel_registerName("setActivationPolicy:"),
+             m->bool_val ? 1 /* NSApplicationActivationPolicyAccessory */
+                         : 0 /* NSApplicationActivationPolicyRegular */);
+  } else if (strcmp(m->type, "set_always_on_bottom") == 0) {
+    OBJC_MSG(void(*)(id, SEL, long), wnd, sel_registerName("setLevel:"),
+             m->bool_val ? -1 : NS_NORMAL_LEVEL);
+  } else if (strcmp(m->type, "set_content_protected") == 0) {
+    OBJC_MSG(void(*)(id, SEL, unsigned long), wnd,
+             sel_registerName("setSharingType:"),
+             m->bool_val ? 2 /* NSWindowSharingNone */
+                         : 0 /* NSWindowSharingReadOnly */);
+  } else if (strcmp(m->type, "request_user_attention") == 0) {
+    OBJC_MSG(void(*)(id, SEL, long), zt_nsapp(),
+             sel_registerName("requestUserAttention:"),
+             m->bool_val ? 1 /* NSCriticalRequest */ : 0 /* NSInformationalRequest */);
   }
 
   if (m->req_id >= 0) {
@@ -830,6 +962,59 @@ static int dispatch(Msg *m, webview_t w) {
       ((void(*)(id, SEL, double, double, double, double, BOOL))objc_msgSend)(
           (id)wnd, sel_registerName("setFrame:display:"), (double)m->x,
           (double)m->y, (double)m->width, (double)m->height, YES);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "window_set_min_size") == 0 ||
+      strcmp(m->type, "window_set_max_size") == 0) {
+    void *wnd = zt_window_of(w);
+    if (wnd) {
+      /* setContent{Min,Max}Size: take NSSize (2 doubles) by value — the
+         scalar cast matches the SysV/arm64 float-register ABI. */
+      SEL sel = sel_registerName(strcmp(m->type, "window_set_min_size") == 0
+                                     ? "setContentMinSize:"
+                                     : "setContentMaxSize:");
+      ((void(*)(id, SEL, double, double))objc_msgSend)(
+          (id)wnd, sel, (double)m->width, (double)m->height);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_progress_bar") == 0) {
+    dock_set_progress(m->opacity_val);
+    return 1;
+  }
+  if (strcmp(m->type, "set_badge_count") == 0) {
+    char buf[32];
+    if (m->width > 0) {
+      snprintf(buf, sizeof(buf), "%d", m->width);
+      dock_set_badge(buf);
+    } else {
+      dock_set_badge("");
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_badge_label") == 0) {
+    dock_set_badge(m->str2);
+    return 1;
+  }
+  if (strcmp(m->type, "set_background_color") == 0) {
+    void *wnd = zt_window_of(w);
+    if (wnd) {
+      OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setBackgroundColor:"),
+               zt_parse_color(m->str2));
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_titlebar_style") == 0) {
+    void *wnd = zt_window_of(w);
+    if (wnd) {
+      int overlay = strcmp(m->str2, "overlay") == 0;
+      int transparent = overlay || strcmp(m->str2, "transparent") == 0;
+      OBJC_MSG(void(*)(id, SEL, BOOL), wnd,
+               sel_registerName("setTitlebarAppearsTransparent:"), transparent);
+      unsigned long mask = wnd_style_mask(wnd);
+      wnd_set_style_mask(wnd, overlay ? (mask | NS_FULLSIZECONTENTVIEW_MASK)
+                                      : (mask & ~NS_FULLSIZECONTENTVIEW_MASK));
     }
     return 1;
   }

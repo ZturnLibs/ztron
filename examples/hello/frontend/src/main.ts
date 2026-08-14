@@ -473,6 +473,58 @@ async function main(): Promise<void> {
     await win.startResizeDragging("southeast");
     report("RESIZE_DRAG_OK");
 
+    // 6a2i. window v2 batch 2: button flags (deterministic is* round trips)
+    await win.setMinimizable(false);
+    const min1 = await win.isMinimizable();
+    await win.setMinimizable(true);
+    const min2 = await win.isMinimizable();
+    await win.setMaximizable(false);
+    const max1 = await win.isMaximizable();
+    await win.setMaximizable(true);
+    await win.setClosable(false);
+    const close1 = await win.isClosable();
+    await win.setClosable(true);
+    const close2 = await win.isClosable();
+    if (min1 === false && min2 === true && max1 === false && close1 === false && close2 === true) {
+      report("WIN_BUTTONS_OK");
+    } else {
+      report("WIN_BUTTONS_FAIL:" + JSON.stringify({ min1, min2, max1, close1, close2 }));
+    }
+
+    // 6a2j. isDecorated / isFocused (deterministic while the spike runs)
+    const deco = await win.isDecorated();
+    const foc = await win.isFocused();
+    if (deco === true && foc === true) report("WIN_QUERY2_OK");
+
+    // 6a2k. size constraints + attention + protection (round trips)
+    await win.setMinSize(300, 200);
+    await win.setMaxSize(1600, 1200);
+    await win.setSizeConstraints({ minWidth: 320, minHeight: 240 });
+    await win.setMinSize(null);
+    await win.setMaxSize(null);
+    await win.setAlwaysOnBottom(true);
+    await win.setAlwaysOnBottom(false);
+    await win.setContentProtected(true);
+    await win.setContentProtected(false);
+    await win.setSkipTaskbar(true);
+    await win.setSkipTaskbar(false);
+    await win.requestUserAttention("Critical");
+    await win.requestUserAttention(null);
+    report("WIN_V2_EXTRAS_OK");
+
+    // 6a2l. dock progress/badge + background/titlebar styles (round trips)
+    await win.setProgressBar(0.5);
+    await win.setProgressBar(null);
+    await win.setBadgeCount(5);
+    await win.setBadgeCount(null);
+    await win.setBadgeLabel("hi");
+    await win.setBadgeLabel(null);
+    await win.setBackgroundColor("#1a2b3c");
+    await win.setBackgroundColor("transparent");
+    await win.setTitleBarStyle("overlay");
+    await win.setTitleBarStyle("visible");
+    report("DOCK_V2_OK");
+
     // 6a2h. multi-window: create a second native window (minimal html)
     // const second = new WebviewWindow("second", {...});
     // await second.create();

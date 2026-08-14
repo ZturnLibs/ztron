@@ -76,6 +76,34 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window opacity) */
   }
 
+  setMinSize(): void {
+    /* no-op (host adapter provides size constraints) */
+  }
+
+  setMaxSize(): void {
+    /* no-op (host adapter provides size constraints) */
+  }
+
+  setProgressBar(): void {
+    /* no-op (host adapter provides dock progress) */
+  }
+
+  setBadgeCount(): void {
+    /* no-op (host adapter provides dock badge) */
+  }
+
+  setBadgeLabel(): void {
+    /* no-op (host adapter provides dock badge) */
+  }
+
+  setBackgroundColor(): void {
+    /* no-op (host adapter provides background color) */
+  }
+
+  setTitleBarStyle(): void {
+    /* no-op (host adapter provides title-bar styling) */
+  }
+
   getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
     return Promise.resolve(null);
   }
