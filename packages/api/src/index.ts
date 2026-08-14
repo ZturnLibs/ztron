@@ -22,6 +22,13 @@ export { Window } from "./window.js";
 export { WebviewWindow, getCurrentWebviewWindow } from "./webview-window.js";
 export { setupDragRegion } from "./window.js";
 export {
+  LogicalSize,
+  PhysicalSize,
+  LogicalPosition,
+  PhysicalPosition,
+} from "./dpi.js";
+export type { SizeLike, PositionLike } from "./dpi.js";
+export {
   fs,
   readText,
   writeText,

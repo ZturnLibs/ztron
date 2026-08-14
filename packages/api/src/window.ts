@@ -4,6 +4,12 @@
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
+import {
+  normalizePosition,
+  normalizeSize,
+  type PositionLike,
+  type SizeLike,
+} from "./dpi.js";
 
 export type WindowEventName =
   "resize" | "move" | "focus" | "blur" | "close-requested";
@@ -98,14 +104,24 @@ export class Window {
     });
   }
 
-  /** Sets the window bounds (position + size in one op). */
-  async setBounds(x: number, y: number, width: number, height: number): Promise<void> {
+  /** Sets the window bounds (position + size in one op, dpi types accepted). */
+  async setBounds(
+    x: PositionLike,
+    y: number | SizeLike,
+    width?: number,
+    height?: number,
+  ): Promise<void> {
+    const p = normalizePosition(x, typeof y === "number" ? y : undefined);
+    const s = normalizeSize(
+      typeof y === "number" ? (width ?? 0) : y,
+      typeof y === "number" ? height : undefined,
+    );
     await invoke("plugin:window|set_bounds", {
       label: this.label,
-      x,
-      y,
-      width,
-      height,
+      x: p.x,
+      y: p.y,
+      width: s.width,
+      height: s.height,
     });
   }
 
@@ -119,11 +135,29 @@ export class Window {
     await invoke("plugin:window|set_enabled", { label: this.label, enabled });
   }
 
-  async setSize(width: number, height: number): Promise<void> {
+  /**
+   * Sets the window size. Accepts plain numbers, a `LogicalSize` /
+   * `PhysicalSize`, or a plain `{ width, height }` object.
+   */
+  async setSize(width: SizeLike, height?: number): Promise<void> {
+    const s = normalizeSize(width, height);
     await invoke("plugin:window|set_size", {
       label: this.label,
-      width,
-      height,
+      width: s.width,
+      height: s.height,
+    });
+  }
+
+  /**
+   * Moves the window. Accepts plain numbers, a `LogicalPosition` /
+   * `PhysicalPosition`, or a plain `{ x, y }` object.
+   */
+  async setPosition(x: PositionLike, y?: number): Promise<void> {
+    const p = normalizePosition(x, y);
+    await invoke("plugin:window|set_position", {
+      label: this.label,
+      x: p.x,
+      y: p.y,
     });
   }
 
