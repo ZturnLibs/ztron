@@ -7,6 +7,18 @@ dist/
 !.env.example
 coverage/
 
+# editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # M0 native tooling (rebuilt via scripts/build-native.sh)
 native/txiki.js/
 native/webview/
