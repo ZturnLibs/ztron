@@ -122,6 +122,10 @@ export {
 export type { LogLevel } from "./log.js";
 export { shell } from "./shell.js";
 export type { ExecResult } from "./shell.js";
+export { Command } from "./shell.js";
+export { getMatches, getArgv } from "./cli.js";
+export type { CliMatches } from "./cli.js";
+export { openUrl, openPath, revealItemInDir } from "./opener.js";
 export {
   updater,
   check as checkUpdate,

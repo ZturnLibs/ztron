@@ -18,6 +18,7 @@ class TjsStub {
   cwd = "/work";
   pid = 1234;
   exePath = "/usr/bin/ztron-host";
+  args: string[] = ["/usr/bin/ztron-host"];
   #files = new Map<string, TjsFile>();
 
   constructor(seed: Record<string, string> = {}) {

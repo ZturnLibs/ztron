@@ -374,3 +374,51 @@ test("persisted-scope returns the merged allowlist", async () => {
   const saved = await mock.main.invoke("plugin:persisted-scope|save", {});
   assert.equal(saved?.saved, true);
 });
+
+test("cli plugin parses argv into matches", async () => {
+  const { mock, tjs } = buildApp();
+  tjs.args = [
+    "/usr/bin/ztron-host",
+    "serve",
+    "--port=8080",
+    "--verbose",
+    "-n",
+    "4",
+    "--",
+    "raw arg",
+  ];
+  const argv = (await mock.main.invoke("plugin:cli|get_argv", {})) as string[];
+  assert.equal(argv.length, 8);
+  const m = (await mock.main.invoke("plugin:cli|get_matches", {})) as {
+    args: Record<string, unknown>;
+    subcommand: { name: string; matches: { args: Record<string, unknown> } };
+  };
+  assert.equal(m.subcommand?.name, "serve");
+  assert.equal(m.subcommand?.matches.args.port, 8080);
+  assert.equal(m.subcommand?.matches.args.verbose, true);
+  assert.equal(m.subcommand?.matches.args.n, 4);
+  assert.deepEqual(m.subcommand?.matches.args._, ["raw arg"]);
+});
+
+test("opener plugin opens URLs/paths and denies foreign schemes", async () => {
+  const { mock } = buildApp();
+  const r = (await mock.main.invoke("plugin:opener|open_url", {
+    url: "https://example.com",
+  })) as { opened: boolean };
+  assert.equal(r.opened, true);
+  const p = (await mock.main.invoke("plugin:opener|open_path", {
+    path: "/tmp/ztron-test",
+  })) as { opened: boolean };
+  assert.equal(p.opened, true);
+  const rev = (await mock.main.invoke("plugin:opener|reveal_item_in_dir", {
+    path: "/tmp/ztron-test/file.txt",
+  })) as { revealed: boolean };
+  assert.equal(rev.revealed, true);
+  await assert.rejects(
+    mock.main.invoke("plugin:opener|open_url", { url: "file:///etc/passwd" }),
+    (e: unknown) =>
+      String((e as { error?: string }).error ?? e).includes(
+        "scheme not allowed",
+      ),
+  );
+});

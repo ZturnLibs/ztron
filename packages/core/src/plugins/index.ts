@@ -16,6 +16,10 @@ export type {
   ShellScopeEntry,
   ExecResult,
 } from "./shell.js";
+export { cliPlugin, parseArgv } from "./cli.js";
+export type { CliPluginOptions, CliMatches } from "./cli.js";
+export { openerPlugin } from "./opener.js";
+export type { OpenerPluginOptions } from "./opener.js";
 export { updaterPlugin, compareVersions } from "./updater.js";
 export type {
   UpdaterManifest,

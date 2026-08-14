@@ -162,6 +162,13 @@ export const COMMANDS: readonly string[] = [
   "plugin:shell|execute",
   "plugin:shell|execute_stream",
   "plugin:shell|open",
+  // ---- cli ----
+  "plugin:cli|get_argv",
+  "plugin:cli|get_matches",
+  // ---- opener ----
+  "plugin:opener|open_url",
+  "plugin:opener|open_path",
+  "plugin:opener|reveal_item_in_dir",
   // ---- sql ----
   "plugin:sql|load",
   "plugin:sql|execute",
@@ -289,6 +296,12 @@ export const API_EXPORTS: readonly string[] = [
   "logError",
   "shell",
   "open",
+  "Command",
+  "getMatches",
+  "getArgv",
+  "openUrl",
+  "openPath",
+  "revealItemInDir",
   "updater",
   "checkUpdate",
   "verifyUpdate",

@@ -42,6 +42,8 @@ declare module "tjs:sqlite" {
 
 declare const tjs: {
   env: Record<string, string | undefined>;
+  /** Full argv (including the executable as argv[0]). */
+  args: string[];
   homeDir: string;
   tmpDir: string;
   cwd: string;

@@ -16,6 +16,8 @@ import {
   pathPlugin,
   persistedScopePlugin,
   shellPlugin,
+  cliPlugin,
+  openerPlugin,
   singleInstancePlugin,
   sqlPlugin,
   storePlugin,
@@ -59,6 +61,10 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
         ],
       }),
     )
+    .plugin(
+      cliPlugin({ subcommands: ["serve"], booleans: ["verbose", "v"] }),
+    )
+    .plugin(openerPlugin())
     .plugin(
       updaterPlugin({
         currentVersion: "0.1.0",
