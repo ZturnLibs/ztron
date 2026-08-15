@@ -47,6 +47,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P6    | multi-window architecture: host webview registry + label routing + `WebviewWindow`                                                                                                                                         | `MULTI_WINDOW_OK` (runtime creation of a 2nd webview blocked by the webview lib during run loop — see DESIGN.md)                                                                                                                                                                                                |
 | P7    | window v2 batch 2 (Tauri-aligned): size constraints, minimizable/maximizable/closable + is*, isDecorated/isFocused, skipTaskbar, alwaysOnBottom, contentProtected, requestUserAttention, dock progress/badge, backgroundColor, titleBarStyle | `WIN_BUTTONS_OK` `WIN_V2_EXTRAS_OK` `DOCK_V2_OK`                                                                                                                                                                                                                                                              |
 | P8    | spike ledger repair (httpPlugin registration, persisted-scope seed race, fs.makeDir recursive, HttpScope root-path glob) + `transformImage`/`ImageLike` + tray icon-by-rid fix | `HTTP_OK` `HTTP_SCOPE_DENY_OK` `PERSISTED_SCOPE_OK` `TRANSFORM_IMAGE_OK` — 62/62 deterministic                                                                                                                                                |
+| P9    | multi-window runtime unlock (P6.3): GUI-thread label re-resolution, per-window events/preventClose, registry cleanup on close, per-handle query routing; `examples/multiwin` e2e | `SECOND_WINDOW_OK label=second` `SECOND_OPS_OK` `MULTI_WINDOW_RUNTIME_OK` — hello spike 62/62 no regression                                                                                                                                  |
 
 Final spike: **62 deterministic checks, all pass** (`FULL_OK`; `WIN_EVENT_OK`/`WIN_QUERY2_OK` are key-window bonuses on top).
 
@@ -91,6 +92,7 @@ node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your c
 
 - Windows (WebView2) / Linux (WebKitGTK) host compile + NSIS/AppImage packaging
 - Developer ID signing / notarization; mobile (Android/iOS)
-- Multi-window: runtime creation of a second webview (blocked by the webview lib
-  during the run loop — host registry + API already ship, see DESIGN.md)
+- Multi-window runtime: second window creation works end-to-end
+  (`examples/multiwin`); per-window events + preventClose + registry cleanup
+  ship (see DESIGN.md §75)
 - IPC MessagePack (JSON current)

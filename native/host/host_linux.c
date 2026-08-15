@@ -504,4 +504,4 @@ static void relaunch(void) {
   webview_terminate(zt_w);
 }
 
-const HostPlatformOps zt_platform = { dispatch, init, relaunch };
+const HostPlatformOps zt_platform = { dispatch, init, NULL, relaunch };

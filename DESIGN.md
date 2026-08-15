@@ -1036,3 +1036,15 @@ ZtronApp.app/Contents/
 - **transformImage/ImageLike**(api):`string→path`、`Image→rid`、`bytes→fromBytes 注册`;`setTrayIcon` 接受 `ImageLike` 并统一经 transformImage 归一
 - **修复 tray icon-by-rid 被静默丢弃**:FFI host `set_icon` 分支只转发 `payload.icon`,不透传 `image_id` —— host.c 明明解析了该字段(真 bug,spike 只验命令往返所以从未暴露)。`TrayPayload` 补 `image_id` 字段
 - 验证:55 tests(54 pass/1 skip);spike 62 项确定性全过(`HTTP_OK`/`HTTP_SCOPE_DENY_OK`/`PERSISTED_SCOPE_OK`/`TRANSFORM_IMAGE_OK`),连续两轮无状态污染;`WIN_QUERY2_OK` 归入 key-window bonus
+
+## 75. 多窗口运行时解锁(P6.3)
+
+- **原"卡 GUI"诊断推翻**:webview 库第二实例创建路径(cocoa engine `window_init_proceed` 直调,无 run-loop 等待)本身不死锁。真因是 **label 时序 bug**:socket 线程在**入队时**解析 `zt_webview(label)`,此时 `create_window` 尚未在 GUI 队列执行 → 注册表空 → `set_html(second)` 回落主窗(第二页加载进主窗,表象即"第二窗口永远出不来/像挂死")
+- **修复:on_gui 内 GUI 线程重解析目标 webview**(`m->win_label[0] ? zt_webview(label) : w`)。主队列 FIFO 保证 create_window 先执行,后续 label 消息重解析即命中新注册表项
+- **UAF 修复**:`webview_bind(nw, ..., m->win_label)` 存了 Msg 内指针,`on_gui` 末尾 `free(m)` 后即悬空 → `strdup` 
+- **per-window 事件**:窗口事件回调从通知 `object` 取 NSWindow → `zt_label_for_window(wnd)` 反查注册表 label(不再硬编码 "main");第二窗口的 resize/move/focus/blur/close 事件带正确 label 路由到对应 handle
+- **per-window preventClose**:`g_prevent_close` 全局旗标 → label 键控表(≤8 窗口);`set_prevent_close` 用 `m->win_label`
+- **attach_webview 钩子**(HostPlatformOps 新增):runtime 建窗后给新 NSWindow 装 ZtronWindowDelegate(动态查类,已注册则复用);Win/Linux 传 NULL
+- **关闭清理**:非 main 窗 `windowWillClose` → 注册表移除 + `webview_dispatch` 延迟 `webview_destroy`(不在 delegate 回调里直接销毁,避免重入 run loop);`window_destroy` op 对非 main 窗只 close 该窗(main 保持 terminate 语义)
+- **backend**:`HostRuntime.sendRequest/sendQuery` 增加 `from` label 参数(原硬编码 `"main"`,第二窗口查询会打到主窗);`HostWebviewHandle` 的 frame/state/title/theme/scaleFactor/windowState 全部传 `this.label`
+- **验证**:`examples/multiwin` 端到端 —— 创建→第二页 invoke(label=second)→minimize/unminimize/setTitle/is_minimized→destroy→注册表清理(`SECOND_WINDOW_OK`+`SECOND_OPS_OK`+`MULTI_WINDOW_RUNTIME_OK`);hello spike 62 项零回归

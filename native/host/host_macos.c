@@ -177,7 +177,6 @@ typedef struct {
 
 static HotKeyEntry g_hotkeys[MAX_HOTKEYS];
 static int g_hotkey_count = 0;
-static int g_prevent_close = 0;
 static int g_hotkey_seq = 1;
 static EventHandlerUPP g_hotkey_handler = NULL;
 
@@ -601,42 +600,129 @@ static void handle_window_op(Msg *m, webview_t w) {
 
 /* ---- window events (NSWindow delegate) ---- */
 
-static void emit_window_event(const char *event) {
-  char buf[256];
+/* Per-window prevent-close flags (multi-window; "main" + runtime labels). */
+#define ZT_MAX_PREVENT 8
+static struct {
+  char label[64];
+  int on;
+} g_prevent_map[ZT_MAX_PREVENT];
+
+static int prevent_close_of(const char *label) {
+  for (int i = 0; i < ZT_MAX_PREVENT; i++) {
+    if (g_prevent_map[i].label[0] && strcmp(g_prevent_map[i].label, label) == 0)
+      return g_prevent_map[i].on;
+  }
+  return 0;
+}
+
+static void set_prevent_close_of(const char *label, int on) {
+  int slot = -1;
+  for (int i = 0; i < ZT_MAX_PREVENT; i++) {
+    if (g_prevent_map[i].label[0] && strcmp(g_prevent_map[i].label, label) == 0) {
+      slot = i;
+      break;
+    }
+    if (slot < 0 && !g_prevent_map[i].label[0]) slot = i;
+  }
+  if (slot < 0) return;
+  snprintf(g_prevent_map[slot].label, sizeof(g_prevent_map[slot].label), "%s",
+           label);
+  g_prevent_map[slot].on = on;
+}
+
+/* The window of a delegate notification ([note object]). */
+static void *wnd_of_note(id n) {
+  return OBJC_MSG(id(*)(id, SEL), n, sel_registerName("object"));
+}
+
+static void emit_window_event_labeled(const char *label, const char *event) {
+  char buf[320];
   snprintf(buf, sizeof(buf),
-           "{\"type\":\"window_event\",\"label\":\"main\",\"event\":\"%s\"}",
-           event);
+           "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"%s\"}",
+           label, event);
   zt_send_line(buf);
 }
 
-static void zt_evt_resize(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("resize"); }
-static void zt_evt_move(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("move"); }
-static void zt_evt_focus(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("focus"); }
-static void zt_evt_blur(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("blur"); }
-static void zt_evt_close(id s, SEL c, id n) { (void)s; (void)c; (void)n; emit_window_event("close"); }
+static void zt_evt_resize(id s, SEL c, id n) {
+  (void)s; (void)c;
+  emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "resize");
+}
+static void zt_evt_move(id s, SEL c, id n) {
+  (void)s; (void)c;
+  emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "move");
+}
+static void zt_evt_focus(id s, SEL c, id n) {
+  (void)s; (void)c;
+  emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "focus");
+}
+static void zt_evt_blur(id s, SEL c, id n) {
+  (void)s; (void)c;
+  emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "blur");
+}
+
+/* Deferred engine teardown for runtime-created windows (GUI thread). */
+static void destroy_later(webview_t w, void *arg);
+static void zt_evt_close(id s, SEL c, id n) {
+  (void)s; (void)c;
+  void *wnd = wnd_of_note(n);
+  const char *label = zt_label_for_window(wnd);
+  emit_window_event_labeled(label, "close");
+  /* Runtime-created windows leave the registry when they close so stale
+     webview_t handles are not routed to. Destroy is deferred to the main
+     queue (destroying inside windowWillClose would reenter the run loop). */
+  if (strcmp(label, "main") != 0) {
+    webview_t w = zt_webview(label);
+    zt_remove_webview_label(label);
+    if (w) webview_dispatch(w, destroy_later, (void *)w);
+  }
+}
+
+/* Deferred engine teardown for runtime-created windows (GUI thread). */
+static void destroy_later(webview_t w, void *arg) {
+  (void)arg;
+  webview_destroy(w);
+}
+
 static BOOL zt_should_close(id s, SEL c, id n) {
-  (void)s; (void)c; (void)n;
-  if (g_prevent_close) {
-    emit_window_event("close"); /* -> tauri://close-requested */
+  (void)s; (void)c;
+  const char *label = zt_label_for_window(wnd_of_note(n));
+  if (prevent_close_of(label)) {
+    emit_window_event_labeled(label, "close"); /* -> tauri://close-requested */
     return NO;
   }
   return YES;
 }
 
-static void install_window_delegate(void) {
-  void *wnd = zt_window();
+static void install_window_delegate_on(void *wnd) {
   if (!wnd) return;
-  Class cls = objc_allocateClassPair(
-      (Class)objc_getClass("NSObject"), "ZtronWindowDelegate", 0);
-  class_addMethod(cls, sel_registerName("windowDidResize:"), (IMP)zt_evt_resize, "v@:@");
-  class_addMethod(cls, sel_registerName("windowDidMove:"), (IMP)zt_evt_move, "v@:@");
-  class_addMethod(cls, sel_registerName("windowDidBecomeKey:"), (IMP)zt_evt_focus, "v@:@");
-  class_addMethod(cls, sel_registerName("windowDidResignKey:"), (IMP)zt_evt_blur, "v@:@");
-  class_addMethod(cls, sel_registerName("windowWillClose:"), (IMP)zt_evt_close, "v@:@");
-  class_addMethod(cls, sel_registerName("windowShouldClose:"), (IMP)zt_should_close, "B@:@");
-  objc_registerClassPair(cls);
+  Class cls = (Class)objc_getClass("ZtronWindowDelegate");
+  if (!cls) {
+    cls = objc_allocateClassPair(
+        (Class)objc_getClass("NSObject"), "ZtronWindowDelegate", 0);
+    class_addMethod(cls, sel_registerName("windowDidResize:"), (IMP)zt_evt_resize, "v@:@");
+    class_addMethod(cls, sel_registerName("windowDidMove:"), (IMP)zt_evt_move, "v@:@");
+    class_addMethod(cls, sel_registerName("windowDidBecomeKey:"), (IMP)zt_evt_focus, "v@:@");
+    class_addMethod(cls, sel_registerName("windowDidResignKey:"), (IMP)zt_evt_blur, "v@:@");
+    class_addMethod(cls, sel_registerName("windowWillClose:"), (IMP)zt_evt_close, "v@:@");
+    class_addMethod(cls, sel_registerName("windowShouldClose:"), (IMP)zt_should_close, "B@:@");
+    objc_registerClassPair(cls);
+  }
   id delegate = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
   OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setDelegate:"), delegate);
+}
+
+static void install_window_delegate(void) {
+  install_window_delegate_on(zt_window());
+}
+
+/* Attaches platform handlers to a runtime-created webview (multi-window). */
+static int attach_webview_impl(webview_t w) {
+  void *wnd = w ? webview_get_native_handle(
+                     w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW)
+                : NULL;
+  if (!wnd) return 0;
+  install_window_delegate_on(wnd);
+  return 1;
 }
 
 /* ---- system tray (NSStatusItem) ---- */
@@ -948,11 +1034,19 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "set_prevent_close") == 0) {
-    g_prevent_close = m->bool_val;
+    set_prevent_close_of(
+        m->win_label[0] ? m->win_label : "main", m->bool_val);
     return 1;
   }
   if (strcmp(m->type, "window_destroy") == 0) {
-    webview_terminate(zt_w);
+    if (w && w != zt_w) {
+      /* Runtime-created window: close just this window (registry cleanup
+         happens in the windowWillClose delegate, shared with user closes). */
+      void *wnd = zt_window_of(w);
+      if (wnd) OBJC_MSG(void(*)(id, SEL), wnd, sel_registerName("close"));
+    } else {
+      webview_terminate(zt_w);
+    }
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {
@@ -1221,4 +1315,4 @@ static void relaunch(void) {
   webview_terminate(zt_w);
 }
 
-const HostPlatformOps zt_platform = { dispatch, init, relaunch };
+const HostPlatformOps zt_platform = { dispatch, init, attach_webview_impl, relaunch };

@@ -130,6 +130,33 @@ webview_t zt_webview(const char *label) {
   return zt_w;
 }
 
+/* Maps a native window handle to its registry label ("main" if unknown). */
+const char *zt_label_for_window(void *wnd) {
+  if (!wnd) return "main";
+  if (webview_get_native_handle(zt_w, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW) ==
+      wnd)
+    return "main";
+  for (int i = 0; i < g_webview_count; i++) {
+    if (webview_get_native_handle(g_webviews[i].w,
+                                  WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW) ==
+        wnd)
+      return g_webviews[i].label;
+  }
+  return "main";
+}
+
+/* Drops a label from the webview registry (window closed). */
+void zt_remove_webview_label(const char *label) {
+  if (!label || !label[0] || strcmp(label, "main") == 0) return;
+  for (int i = 0; i < g_webview_count; i++) {
+    if (strcmp(g_webviews[i].label, label) == 0) {
+      for (int j = i; j < g_webview_count - 1; j++) g_webviews[j] = g_webviews[j + 1];
+      g_webview_count--;
+      return;
+    }
+  }
+}
+
 static void add_webview(const char *label, webview_t w) {
   if (g_webview_count >= MAX_WEBVIEWS) return;
   strncpy(g_webviews[g_webview_count].label, label ? label : "",
@@ -156,6 +183,15 @@ void zt_send_line(const char *line) {
 static void ipc_cb(const char *id, const char *req, void *arg);
 static void on_gui(webview_t w, void *arg) {
   Msg *m = (Msg *)arg;
+  /* Resolve the TARGET webview here, on the GUI thread: the socket thread
+     resolves labels when ENQUEUEING, but the registry is only populated by
+     create_window (which itself runs later on this queue) — so early
+     label-routed messages would otherwise fall back to the main window
+     (e.g. the new page's set_html loading into main). FIFO order on the
+     main queue makes the re-resolution here correct. */
+  webview_t target = m->win_label[0] ? zt_webview(m->win_label) : w;
+  if (!target) target = w;
+  w = target;
   if (strcmp(m->type, "eval") == 0) {
     webview_eval(w, m->str);
   } else if (strcmp(m->type, "set_html") == 0) {
@@ -188,7 +224,9 @@ static void on_gui(webview_t w, void *arg) {
       nw = webview_create(1, NULL);
       if (nw) {
         add_webview(m->win_label, nw);
-        webview_bind(nw, "__TAURI_IPC__", ipc_cb, (void *)m->win_label);
+        /* strdup: the bind arg must outlive this Msg (freed below). */
+        webview_bind(nw, "__TAURI_IPC__", ipc_cb, strdup(m->win_label));
+        if (zt_platform.attach_webview) zt_platform.attach_webview(nw);
       }
     }
     if (nw) {

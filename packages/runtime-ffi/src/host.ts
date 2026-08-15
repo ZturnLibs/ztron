@@ -69,7 +69,7 @@ export class HostWebviewHandle implements WebviewHandle {
   }
 
   getFrame(): Promise<WindowFrame | null> {
-    return this.#rt.sendRequest("window_get_frame").then((r) => {
+    return this.#rt.sendRequest("window_get_frame", {}, this.label).then((r) => {
       if (r && typeof r === "object") {
         const f = r as Record<string, unknown>;
         return {
@@ -84,7 +84,7 @@ export class HostWebviewHandle implements WebviewHandle {
   }
 
   getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
-    return this.#rt.sendRequest("window_get_state").then((r) => {
+    return this.#rt.sendRequest("window_get_state", {}, this.label).then((r) => {
       if (r && typeof r === "object") {
         const s = r as Record<string, unknown>;
         return {
@@ -102,18 +102,20 @@ export class HostWebviewHandle implements WebviewHandle {
 
   getWindowTitle(): Promise<string | null> {
     return this.#rt
-      .sendRequest("window_get_title")
+      .sendRequest("window_get_title", {}, this.label)
       .then((r) => (typeof r === "string" ? r : null));
   }
 
   getTheme(): Promise<string | null> {
     return this.#rt
-      .sendRequest("window_get_theme")
+      .sendRequest("window_get_theme", {}, this.label)
       .then((r) => (typeof r === "string" ? r : null));
   }
 
   getScaleFactor(): Promise<number | null> {
-    return this.#rt.sendRequest("window_get_scale_factor").then((r) => {
+    return this.#rt
+      .sendRequest("window_get_scale_factor", {}, this.label)
+      .then((r) => {
       const n = Number(r);
       return Number.isFinite(n) ? n : null;
     });
@@ -230,7 +232,7 @@ export class HostWebviewHandle implements WebviewHandle {
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
     const query = op.startsWith("is_");
     if (query) {
-      return this.#rt.sendQuery(op);
+      return this.#rt.sendQuery(op, this.label);
     }
     this.#rt.send({ type: op, label: this.label, value: Boolean(value) });
     return true;
@@ -594,17 +596,19 @@ export class HostRuntime implements RuntimeAdapter {
   sendRequest(
     op: string,
     payload: Record<string, unknown> = {},
+    from = "main",
   ): Promise<unknown> {
     const id = this.#nextReqId++;
     return new Promise<unknown>((resolve) => {
       this.#requests.set(id, resolve);
-      this.send({ type: op, label: "main", req_id: id, ...payload });
+      /* Route to the issuing window (`from`), not always main. */
+      this.send({ type: op, label: from, req_id: id, ...payload });
     });
   }
 
   /** Window-state query (the host replies with a boolean). */
-  sendQuery(op: WindowStateOp): Promise<boolean> {
-    return this.sendRequest(op).then((r) => r === true);
+  sendQuery(op: WindowStateOp, from = "main"): Promise<boolean> {
+    return this.sendRequest(op, {}, from).then((r) => r === true);
   }
 
   #sendNow(msg: WireMessage): void {

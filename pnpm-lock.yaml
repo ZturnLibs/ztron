@@ -34,6 +34,22 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  examples/multiwin:
+    dependencies:
+      '@ztron/api':
+        specifier: workspace:*
+        version: link:../../packages/api
+      '@ztron/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@ztron/runtime-ffi':
+        specifier: workspace:*
+        version: link:../../packages/runtime-ffi
+    devDependencies:
+      '@ztron/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   packages/api:
     devDependencies:
       typescript:
@@ -48,6 +64,9 @@ importers:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
       vite:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@22.20.1)
@@ -55,9 +74,6 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
 
   packages/core:
     dependencies:

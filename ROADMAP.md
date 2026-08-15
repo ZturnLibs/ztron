@@ -1,6 +1,6 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P8 + 多窗口架构 全部可在本机验证的项(spike 62 项确定性 FULL_OK,
+> Ztron 已完成 M0–M4 + P0–P9 + 运行时多窗口 全部可在本机验证的项(spike 62 项确定性 FULL_OK,
 > 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
@@ -10,7 +10,7 @@
 | ----------------- | -------------------------------------------------------------------------- | ----------------------------------- | ---- | ------------------ | ------------ |
 | 窗口状态          | minimize/maximize/fullscreen/always-on-top/decorations/opacity/drag-region | 全能力 + is*/outer* 查询            | ~无  | tao                | C(host)      |
 | 窗口事件          | resize/move/focus/blur/close/destroyed/scale-change                        | resize/move/focus/blur/close        | ~无  | event/mod.rs       | C+core       |
-| 多窗口/多 webview | WebviewWindow × N                                                          | 架构+API 完成,运行时建窗受库限制    | 小   | wry                | C(库修复)    |
+| 多窗口/多 webview | WebviewWindow × N                                                          | ✅ 运行时多窗口落地(per-window 事件/close) | ~无  | wry                | C            |
 | 系统集成          | tray/menu/dialog/clipboard/notification/global-shortcut                    | 全部实现                            | ~无  | 各插件 + tao       | C            |
 | 自定义协议        | `tauri://` 资产服务 + 隔离                                                 | `ztron://` + convertFileSrc + HMR   | ~无  | wry scheme handler | C            |
 | ACL/权限          | capabilities/permissions/scope                                             | ACL + PathScope + HttpScope + CSP   | 小   | tauri ACL crates   | core TS      |
@@ -26,7 +26,7 @@
 ## 2. 关键架构决策
 
 - **D1 原生窗口能力**:`webview/webview` C API 只到 get_native_handle。窗口状态/tray/menu 由 **host 直接调平台 API**(经 native handle:NSWindow / HWND / GTKWindow),本质是"自己写最小 tao"。**已落地**。
-- **D2 多窗口**:webview 库单实例限制 → host 自管理多 WKWebView/WebView2 实例。**架构已落地**(host 注册表 + label 路由 + WebviewWindow api);运行时第二实例创建卡 GUI,待库级修复。
+- **D2 多窗口**:host 自管理多 WKWebView/WebView2 实例。**已全部落地**(host 注册表 + label 路由 + WebviewWindow api + 运行时建窗;原"卡 GUI"实为 label 时序 bug,见 DESIGN.md §75)。
 - **D3 自定义协议**:host 注册 `ztron://` scheme → 解锁生产资产隔离 + dev HMR(替代 file://)。**已落地**。
 
 ## 3. 分阶段路径
@@ -75,11 +75,11 @@
 - [ ] Windows/Linux 编译验证 + NSIS/AppImage 打包(需目标平台)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 
-### P6 多窗口(架构完成,运行时待库级修复)
+### P6 多窗口(✅ 全部落地)
 
 - [x] **P6.1** host webview 注册表 + label 路由 + `ipc_cb` 带 label(`MULTI_WINDOW_OK` 经 api 路径)
 - [x] **P6.2** backend `plugin:webview|create` + api `WebviewWindow`(extends Window)
-- [ ] **P6.3** 运行时第二窗口创建(webview 库在 run loop 活跃时卡 GUI,需库级修复/延迟建窗/独立线程)
+- [x] **P6.3** 运行时第二窗口创建(`examples/multiwin` 端到端:创建→label 路由→窗口 ops→destroy→注册表清理;原"卡 GUI"实为 label 时序 bug —— set_html 早于建窗入队时回落主窗,详见 DESIGN.md §75)
 
 ## 4. 优先级(投入产出比)
 
@@ -90,7 +90,7 @@
 | 3      | P2 自定义 scheme + HMR    | ✅ 完成             |
 | 4      | P3 store/http/dialog 插件 | ✅ 完成(25 插件)    |
 | 5      | P5 打包扩展 + 测试        | ✅ 完成(本机面)     |
-| 6      | 多窗口运行时解锁          | 架构完成,待库级修复 |
+| 6      | 多窗口运行时解锁          | ✅ 完成(P6.3)       |
 | 7      | IPC MessagePack           | 低优先              |
 | 8      | 多平台/移动端             | 需目标平台          |
 
@@ -109,7 +109,7 @@
 | 安全     | ACL capabilities/deny/覆盖 · PathScope/HttpScope · CSP · IPC key                                                                                                                                                                                               |
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
-| 多窗口   | host webview 注册表 + label 路由 · WebviewWindow api(运行时建窗待库修复)                                                                                                                                                                                       |
+| 多窗口   | host webview 注册表 + GUI 线程 label 重解析 · WebviewWindow api · 运行时建窗/ops/destroy · per-window 事件+preventClose                                                                                                                                               |
 | 测试     | 三层框架(54 单测 + 62 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
@@ -129,7 +129,6 @@
 
 | 项                                                                                        | 原因                                     |
 | ----------------------------------------------------------------------------------------- | ---------------------------------------- |
-| 多窗口运行时第二实例创建                                                                  | webview 库 run loop 冲突,架构+API 已就绪 |
 | Win/Linux 编译 + NSIS/AppImage/dmg                                                        | 需目标平台                               |
 | 移动端 + 移动/硬件插件(barcode/biometric/haptics/nfc/bluetooth/authenticator/geolocation) | 整个构建链未启动                         |
 | stronghold / fps / server 插件                                                            | 需原生绑定/偏门                          |

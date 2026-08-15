@@ -50,6 +50,12 @@ extern webview_t zt_w;
 /* Resolve a window label to its webview ("" => the main webview). */
 extern webview_t zt_webview(const char *label);
 
+/* Maps a native window handle to its registry label ("main" if unknown). */
+extern const char *zt_label_for_window(void *wnd);
+
+/* Drops a label from the webview registry (window closed). */
+extern void zt_remove_webview_label(const char *label);
+
 /* Send a newline-delimited JSON line to the backend (thread-safe). */
 extern void zt_send_line(const char *line);
 
@@ -78,6 +84,10 @@ typedef struct {
 
   /* One-time platform setup (install window delegate, tray/menu targets…). */
   int (*init)(void);
+
+  /* Attach platform handlers to a runtime-created webview (window delegate,
+   * per-window event/close handling). May be NULL when not applicable. */
+  int (*attach_webview)(webview_t w);
 
   /* Re-launch the host process (used by plugin:process|relaunch). */
   void (*relaunch)(void);

@@ -659,4 +659,4 @@ static void relaunch(void) {
   PostMessageW(zt_hwnd(), WM_CLOSE, 0, 0);
 }
 
-const HostPlatformOps zt_platform = { dispatch, init, relaunch };
+const HostPlatformOps zt_platform = { dispatch, init, NULL, relaunch };
