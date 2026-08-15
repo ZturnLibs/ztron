@@ -43,6 +43,14 @@ export async function destroyTray(): Promise<void> {
   await invoke("plugin:tray|destroy", {});
 }
 
+/**
+ * Attaches a registered menu to the tray (left-click shows it on macOS,
+ * per NSStatusItem convention — the standard place for Quit/Preferences).
+ */
+export async function setTrayMenu(menuId: string): Promise<void> {
+  await invoke("plugin:tray|set_menu", { menuId });
+}
+
 /** Listens to tray clicks. */
 export async function onTrayClick(
   handler: () => void,
@@ -55,6 +63,7 @@ export const tray = {
   setTitle: setTrayTitle,
   setTooltip: setTrayTooltip,
   setIcon: setTrayIcon,
+  setMenu: setTrayMenu,
   destroy: destroyTray,
   onClick: onTrayClick,
 };

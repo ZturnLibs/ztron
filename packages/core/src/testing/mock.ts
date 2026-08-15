@@ -364,6 +364,21 @@ export class MockRuntime implements RuntimeAdapter {
         payload: { menuId, itemId, title },
       });
     },
+    setItemChecked: (menuId, itemId, checked) => {
+      this.menuLog.push({
+        op: "set_item_checked",
+        payload: { menuId, itemId, checked },
+      });
+    },
+    setItemAccelerator: (menuId, itemId, accelerator) => {
+      this.menuLog.push({
+        op: "set_item_accel",
+        payload: { menuId, itemId, accelerator },
+      });
+    },
+    popup: (menuId, x, y) => {
+      this.menuLog.push({ op: "popup", payload: { menuId, x, y } });
+    },
     onEvent: () => {},
   };
 

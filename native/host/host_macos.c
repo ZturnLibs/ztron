@@ -1024,6 +1024,84 @@ static void menu_set_item_title(const char *menu_id, const char *item_id, const 
   id item = menu_find_item(menu_id, item_id);
   if (item) OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"), zt_nsstring(title));
 }
+static void menu_set_item_checked(const char *menu_id, const char *item_id, int checked) {
+  id item = menu_find_item(menu_id, item_id);
+  if (item) OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setState:"),
+                     checked ? 1 /*NSOnState*/ : 0 /*NSOffState*/);
+}
+/* Parses a Tauri-style accelerator ("CmdOrCtrl+Shift+K") into an NSMenu
+   keyEquivalent string + NSEventModifierFlags mask. Reuses the token names
+   of the Carbon parse_accelerator (shared convention). */
+static void menu_parse_accel(const char *accel, unsigned long *mask, char *key,
+                             size_t keysz) {
+  *mask = 0;
+  key[0] = '\0';
+  char tmp[128];
+  snprintf(tmp, sizeof(tmp), "%s", accel);
+  char *save = NULL;
+  for (char *tok = strtok_r(tmp, "+", &save); tok;
+       tok = strtok_r(NULL, "+", &save)) {
+    if (!strcasecmp(tok, "cmd") || !strcasecmp(tok, "command") ||
+        !strcasecmp(tok, "super") || !strcasecmp(tok, "meta") ||
+        !strcasecmp(tok, "cmdorctrl") || !strcasecmp(tok, "mod")) {
+      /* "CmdOrCtrl" is Command on macOS. */
+      *mask |= (1UL << 20); /* NSEventModifierFlagCommand */
+      continue;
+    }
+    if (!strcasecmp(tok, "ctrl") || !strcasecmp(tok, "control")) {
+      *mask |= (1UL << 18); /* NSEventModifierFlagControl */
+      continue;
+    }
+    if (!strcasecmp(tok, "alt") || !strcasecmp(tok, "option")) {
+      *mask |= (1UL << 19); /* NSEventModifierFlagOption */
+      continue;
+    }
+    if (!strcasecmp(tok, "shift")) {
+      *mask |= (1UL << 17); /* NSEventModifierFlagShift */
+      continue;
+    }
+    snprintf(key, keysz, "%s", tok);
+  }
+}
+static void menu_set_item_accel(const char *menu_id, const char *item_id,
+                                const char *accel) {
+  id item = menu_find_item(menu_id, item_id);
+  if (!item || !accel || !accel[0]) return;
+  unsigned long mask;
+  char key[8];
+  menu_parse_accel(accel, &mask, key, sizeof(key));
+  if (!key[0]) return;
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setKeyEquivalent:"),
+           zt_nsstring(key));
+  OBJC_MSG(void(*)(id, SEL, unsigned long), item,
+           sel_registerName("setKeyEquivalentModifierMask:"), mask);
+}
+/* Pops a menu as a context menu at window coords (0,0 = current cursor). */
+static void menu_popup(const char *menu_id, webview_t w, int x, int y) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  void *wnd = zt_window_of(w);
+  if (!wnd) return;
+  id view = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("contentView"));
+  if (!view) return;
+  ZtPoint loc;
+  if (x != 0 || y != 0) {
+    loc.x = (double)x;
+    loc.y = (double)y;
+  } else {
+    loc = zt_screen_to_base(wnd, zt_mouse_screen());
+  }
+  OBJC_MSG(void(*)(id, SEL, id, ZtPoint, id), g_menus[idx],
+           sel_registerName("popUpMenuPositioningItem:atLocation:inView:"),
+           (id)NULL, loc, view);
+}
+/* Attaches a registered menu to the tray (left-click shows it on macOS). */
+static void tray_set_menu(const char *menu_id) {
+  int idx = menu_index(menu_id);
+  if (idx < 0 || !g_status_item) return;
+  OBJC_MSG(void(*)(id, SEL, id), g_status_item, sel_registerName("setMenu:"),
+           g_menus[idx]);
+}
 static void zt_menu_click(id s, SEL c, id sender) {
   (void)s; (void)c;
   long tag = (long)OBJC_MSG(long(*)(id, SEL), sender, sel_registerName("tag"));
@@ -1437,6 +1515,10 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "menu_item_set_enabled") == 0) { menu_set_item_enabled(m->str, m->id, m->status); return 1; }
   if (strcmp(m->type, "menu_item_set_title") == 0) { menu_set_item_title(m->str, m->id, m->str2); return 1; }
+  if (strcmp(m->type, "menu_item_set_checked") == 0) { menu_set_item_checked(m->str, m->id, m->checked); return 1; }
+  if (strcmp(m->type, "menu_item_set_accel") == 0) { menu_set_item_accel(m->str, m->id, m->str2); return 1; }
+  if (strcmp(m->type, "menu_popup") == 0) { menu_popup(m->str, w, m->x, m->y); return 1; }
+  if (strcmp(m->type, "tray_set_menu") == 0) { tray_set_menu(m->str); return 1; }
 
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }

@@ -273,7 +273,24 @@ test("menu commands route to the adapter", async () => {
     itemId: "i1",
     title: "Uno",
   });
+  await mock.main.invoke("plugin:menu|set_item_checked", {
+    menuId: "m",
+    itemId: "i1",
+    checked: true,
+  });
+  await mock.main.invoke("plugin:menu|set_item_accel", {
+    menuId: "m",
+    itemId: "i1",
+    accelerator: "CmdOrCtrl+K",
+  });
+  await mock.main.invoke("plugin:menu|popup", { menuId: "m" });
+  await mock.main.invoke("plugin:tray|set_menu", { menuId: "m" });
   await mock.main.invoke("plugin:menu|destroy", { menuId: "m" });
+  /* tray set_menu routes to the TRAY adapter with the menu id. */
+  assert.deepEqual(mock.trayLog.at(-1), {
+    op: "set_menu",
+    payload: { menuId: "m" },
+  });
   assert.deepEqual(
     mock.menuLog.map((l) => l.op),
     [
@@ -281,6 +298,9 @@ test("menu commands route to the adapter", async () => {
       "set_as_app_menu",
       "set_item_enabled",
       "set_item_title",
+      "set_item_checked",
+      "set_item_accel",
+      "popup",
       "destroy",
     ],
   );

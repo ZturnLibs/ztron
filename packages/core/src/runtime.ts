@@ -177,7 +177,7 @@ export interface WebviewHandle {
 
 /** Tray operations translated from Tauri's tray plugin. */
 export type TrayOp =
-  "create" | "set_title" | "set_tooltip" | "set_icon" | "destroy";
+  "create" | "set_title" | "set_tooltip" | "set_icon" | "set_menu" | "destroy";
 
 /** Tray payload for `TrayController.apply`. */
 export interface TrayPayload {
@@ -187,6 +187,8 @@ export interface TrayPayload {
   icon?: string;
   /** Host image registry id (from `plugin:image|*`) — wins over `icon`. */
   image_id?: number | string;
+  /** Registered menu id to attach (from `plugin:menu|create`). */
+  menuId?: string;
 }
 
 /** System tray controller provided by the runtime backend. */
@@ -205,6 +207,8 @@ export interface MenuItemConfig {
   type?: "normal" | "check" | "radio";
   /** Initial checked state for check/radio items. */
   checked?: boolean;
+  /** Shortcut displayed on the item ("CmdOrCtrl+Shift+K"; parsed host-side). */
+  accelerator?: string;
   /** Nested submenu items. */
   children?: MenuItemConfig[];
 }
@@ -222,6 +226,12 @@ export interface MenuController {
   destroyMenu(menuId: string): void;
   setItemEnabled(menuId: string, itemId: string, enabled: boolean): void;
   setItemTitle(menuId: string, itemId: string, title: string): void;
+  /** Sets the state mark of a check/radio item. */
+  setItemChecked(menuId: string, itemId: string, checked: boolean): void;
+  /** Sets the item shortcut ("CmdOrCtrl+K" — parsed host-side). */
+  setItemAccelerator(menuId: string, itemId: string, accelerator: string): void;
+  /** Pops the menu as a context menu at window coords (omitted = cursor). */
+  popup(menuId: string, x?: number, y?: number): void;
   onEvent(cb: (event: { menuId: string; itemId: string }) => void): void;
 }
 

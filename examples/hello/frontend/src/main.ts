@@ -18,6 +18,8 @@ import {
   setTrayTooltip,
   setTrayIcon,
   setAppMenu,
+  Menu as MenuClass,
+  tray,
   Database,
   enableAutostart,
   disableAutostart,
@@ -680,7 +682,7 @@ async function main(): Promise<void> {
 
     // 8. application menu (creation/install; click is manual) — incl. a
     //    submenu + check item
-    await setAppMenu([
+    const appMenu = await setAppMenu([
       { id: "new", text: "New Window" },
       { id: "sep", text: "-", separator: true },
       {
@@ -696,6 +698,23 @@ async function main(): Promise<void> {
       { id: "quit", text: "Quit" },
     ]);
     report("MENU_OK");
+
+    // 8a. menu v2: accelerators, checked toggle, popup (context menu), tray menu
+    await appMenu.setItemAccelerator("quit", "CmdOrCtrl+Q");
+    await appMenu.setItemChecked("zoom", false);
+    await appMenu.setItemChecked("zoom", true);
+    /* context menu pops at the cursor (visual check is manual) */
+    await appMenu.popup();
+    report("MENU_ACCEL_CHECKED_OK");
+
+    const trayMenu = new MenuClass("tray-menu", [
+      { id: "tray-open", text: "Open" },
+      { id: "tray-sep", text: "-", separator: true },
+      { id: "tray-quit", text: "Quit" },
+    ]);
+    await trayMenu.create();
+    await tray.setMenu(trayMenu.id);
+    report("TRAY_MENU_OK");
 
     // 9. native dialogs (commands registered; modal interaction is manual)
     const hasDialogs = await invoke<boolean>("m3:has-dialogs");

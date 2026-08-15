@@ -1077,3 +1077,11 @@ ZtronApp.app/Contents/
 - **max-size 清除 bug**(重):`setMaxSize(null)` 走 `(0,0)` → `setContentMaxSize:(0,0)` 是**上限为零**而非清除 → 后续 zoom 把窗口钳成 1×32 标题栏残桩(hello WINDOW_STATE_PLUGIN_FAIL + inner=1x0 的根因;multiwin 定向复现 setMaxSize(1600,1200)→(0,0)→maximize 即现)。修复:两侧 ≤0 时发 FLT_MAX 清除。min (0,0) 天然无约束,不动
 - 调试法:multiwin 加 `probe` 命令读 frame/inner + 页面驱动的定向 op 链,二分定位交互 bug
 - 验证:hello 64 report/0 FAIL/FULL_OK/EXIT 0(含 simpleFullscreen 往返);multiwin 4 检查;55 单测绿
+
+## 78. menu v2(托盘菜单 / popup / accelerator / setChecked)
+
+- **host(4 op)**:`menu_popup`(`popUpMenuPositioningItem:atLocation:inView:`,x/y 省略取光标:`NSEvent mouseLocation`→`convertScreenToBase`)、`tray_set_menu`(`NSStatusItem setMenu:`——macOS 左键弹菜单的标准位,挂 Quit/Preferences;挂菜单后 click target 不再触发,系平台约定)、`menu_item_set_checked`(`setState:`)、`menu_item_set_accel`(新 `menu_parse_accel`:令牌→NSEventModifierFlags mask + keyEquivalent 字符;`CmdOrCtrl` 在 macOS 取 Command;与 Carbon 版 parse_accelerator 同令牌集)
+- **core**:4 命令(`plugin:menu|popup/set_item_checked/set_item_accel` + `plugin:tray|set_menu`)+ `MenuItemConfig.accelerator`(create 时对带 accel 的 item 追发 set_item_accel)+ MenuController 扩 3 方法 + `TrayOp`/`TrayPayload` 增 set_menu/menuId
+- **api**:`Menu.setItemChecked/setItemAccelerator/popup(x?,y?)`(popup 配 DOM `contextmenu` 事件:`e.preventDefault()` 后 `popup(e.x,e.y)`)、`MenuItem.accelerator`、`tray.setMenu(menuId)`、`setTrayMenu`
+- **坑**:`menu_item_set_title` 的 wire 字段 `text`(title 会撞 item_id 的 m->id 槽),set_accel 同样走 text
+- 验证:hello `MENU_ACCEL_CHECKED_OK`(accel+checked 往返+popup)+`TRAY_MENU_OK`(托盘真挂菜单),66 项/FULL_OK/EXIT 0;56 单测绿

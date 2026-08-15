@@ -231,6 +231,10 @@ export class App {
       "plugin:menu|set_as_app_menu",
       "plugin:menu|set_item_enabled",
       "plugin:menu|set_item_title",
+      "plugin:menu|set_item_checked",
+      "plugin:menu|set_item_accel",
+      "plugin:menu|popup",
+      "plugin:tray|set_menu",
       "plugin:menu|destroy",
       "plugin:dialog|open",
       "plugin:dialog|save",
@@ -682,6 +686,35 @@ export class App {
           title: string;
         };
         this.#adapter.menu?.setItemTitle(menuId, itemId, title);
+      },
+      "plugin:menu|set_item_checked": (args) => {
+        const { menuId, itemId, checked } = args as {
+          menuId: string;
+          itemId: string;
+          checked: boolean;
+        };
+        this.#adapter.menu?.setItemChecked(menuId, itemId, checked);
+      },
+      "plugin:menu|set_item_accel": (args) => {
+        const { menuId, itemId, accelerator } = args as {
+          menuId: string;
+          itemId: string;
+          accelerator: string;
+        };
+        this.#adapter.menu?.setItemAccelerator(menuId, itemId, accelerator);
+      },
+      "plugin:menu|popup": (args) => {
+        const { menuId, x, y } = args as {
+          menuId: string;
+          x?: number;
+          y?: number;
+        };
+        this.#adapter.menu?.popup(menuId, x, y);
+      },
+      "plugin:tray|set_menu": (args) => {
+        this.#adapter.tray?.apply("set_menu", {
+          menuId: String((args as { menuId?: string }).menuId ?? ""),
+        });
       },
       "plugin:menu|destroy": (args) => {
         this.#adapter.menu?.destroyMenu((args as { menuId: string }).menuId);

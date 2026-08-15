@@ -354,6 +354,13 @@ export class HostRuntime implements RuntimeAdapter {
               payload?.image_id != null ? String(payload.image_id) : "",
           });
           break;
+        case "set_menu": {
+          const menuId = String(
+            (payload as { menuId?: string } | undefined)?.menuId ?? "",
+          );
+          if (menuId) this.send({ type: "tray_set_menu", menu_id: menuId });
+          break;
+        }
         case "destroy":
           this.send({ type: "tray_destroy" });
           break;
@@ -396,6 +403,14 @@ export class HostRuntime implements RuntimeAdapter {
                     : 0
                   : -1,
             });
+            if (item.accelerator) {
+              this.send({
+                type: "menu_item_set_accel",
+                menu_id: menuId,
+                item_id: item.id,
+                text: item.accelerator,
+              });
+            }
           }
         }
       };
@@ -422,6 +437,31 @@ export class HostRuntime implements RuntimeAdapter {
         menu_id: menuId,
         item_id: itemId,
         text: title, // `title` would collide with item_id on the wire (m->id)
+      });
+    },
+    setItemChecked: (menuId, itemId, checked) => {
+      this.send({
+        type: "menu_item_set_checked",
+        menu_id: menuId,
+        item_id: itemId,
+        checked,
+      });
+    },
+    setItemAccelerator: (menuId, itemId, accelerator) => {
+      this.send({
+        type: "menu_item_set_accel",
+        menu_id: menuId,
+        item_id: itemId,
+        text: accelerator,
+      });
+    },
+    popup: (menuId, x, y) => {
+      this.send({
+        type: "menu_popup",
+        menu_id: menuId,
+        label: "main",
+        x: x ?? 0,
+        y: y ?? 0,
       });
     },
     onEvent: (cb) => {

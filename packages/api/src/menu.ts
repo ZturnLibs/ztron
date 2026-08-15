@@ -15,6 +15,8 @@ export interface MenuItem {
   type?: "normal" | "check" | "radio";
   /** Initial checked state for check/radio items. */
   checked?: boolean;
+  /** Item shortcut ("CmdOrCtrl+Shift+K"; shown on the item, parsed host-side). */
+  accelerator?: string;
   /** Nested submenu items. */
   children?: MenuItem[];
 }
@@ -57,6 +59,36 @@ export class Menu {
       itemId,
       title,
     });
+  }
+
+  /** Sets the state mark of a check/radio item. */
+  async setItemChecked(itemId: string, checked: boolean): Promise<void> {
+    await invoke("plugin:menu|set_item_checked", {
+      menuId: this.id,
+      itemId,
+      checked,
+    });
+  }
+
+  /** Sets the shortcut shown on an item ("CmdOrCtrl+K"). */
+  async setItemAccelerator(
+    itemId: string,
+    accelerator: string,
+  ): Promise<void> {
+    await invoke("plugin:menu|set_item_accel", {
+      menuId: this.id,
+      itemId,
+      accelerator,
+    });
+  }
+
+  /**
+   * Pops this menu as a context menu at window coordinates — call from a
+   * `contextmenu` DOM event (`e.preventDefault()` then `popup(e.x, e.y)`).
+   * Omitting the position uses the current cursor location.
+   */
+  async popup(x?: number, y?: number): Promise<void> {
+    await invoke("plugin:menu|popup", { menuId: this.id, x, y });
   }
 
   async destroy(): Promise<void> {
