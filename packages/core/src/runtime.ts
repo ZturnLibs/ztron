@@ -21,6 +21,33 @@ export interface WindowConfig {
   html?: string;
   /** Enable developer tools if supported by the backend. */
   debug?: boolean;
+  /** Startup x/y (logical px; center when both omitted). */
+  x?: number;
+  y?: number;
+  /** Startup size constraints (logical px). */
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  /** Startup booleans (host applies them right after create). */
+  resizable?: boolean;
+  maximizable?: boolean;
+  minimizable?: boolean;
+  closable?: boolean;
+  maximized?: boolean;
+  fullscreen?: boolean;
+  visible?: boolean;
+  decorations?: boolean;
+  alwaysOnTop?: boolean;
+  alwaysOnBottom?: boolean;
+  transparent?: boolean;
+  skipTaskbar?: boolean;
+  contentProtected?: boolean;
+  center?: boolean;
+  /** "visible" (default) | "transparent" | "overlay" (macOS). */
+  titleBarStyle?: "visible" | "transparent" | "overlay";
+  /** App-wide theme at startup: "dark" | "light" | omitted (system). */
+  theme?: "dark" | "light";
 }
 
 /** Window state operations translated from Tauri's `tao`/window plugin. */

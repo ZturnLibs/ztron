@@ -45,6 +45,10 @@ interface ProjectConfig {
   appName?: string;
   /** Content-Security-Policy header/value; defaults to a permissive-but-sane one. */
   csp?: string;
+  identifier?: string;
+  version?: string;
+  /** Declarative startup windows (label/title/size/position/startup states). */
+  windows?: Array<Record<string, unknown>>;
 }
 
 /** Default CSP injected into the built index.html. */
@@ -134,12 +138,49 @@ function readProjectConfig(cwd: string): ProjectConfig {
   const file = join(cwd, "ztron.conf.json");
   try {
     if (existsSync(file)) {
-      return JSON.parse(readFileSync(file, "utf8")) as ProjectConfig;
+      const conf = JSON.parse(readFileSync(file, "utf8")) as ProjectConfig;
+      validateWindows(conf);
+      return conf;
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("ztron.conf.json:")) {
+      throw err;
+    }
     /* ignore malformed config */
   }
   return {};
+}
+
+/** Fail-fast window schema check (mirrors core's validateProjectConfig). */
+function validateWindows(conf: ProjectConfig): void {
+  if (conf.windows === undefined) return;
+  if (!Array.isArray(conf.windows)) {
+    throw new Error("ztron.conf.json: windows must be an array");
+  }
+  const seen = new Set<string>();
+  for (const [i, w] of conf.windows.entries()) {
+    if (typeof w !== "object" || w === null) {
+      throw new Error(`ztron.conf.json: windows[${i}] must be an object`);
+    }
+    const label = String(w.label ?? "main");
+    if (!/^[a-zA-Z0-9_-]+$/.test(label)) {
+      throw new Error(
+        `ztron.conf.json: windows[${i}].label "${label}" must be alphanumeric/-/_`,
+      );
+    }
+    if (seen.has(label)) {
+      throw new Error(`ztron.conf.json: duplicate window label "${label}"`);
+    }
+    seen.add(label);
+    for (const k of ["width", "height", "x", "y"]) {
+      const v = w[k];
+      if (v !== undefined && (typeof v !== "number" || v < 0)) {
+        throw new Error(
+          `ztron.conf.json: windows[${i}].${k} must be a non-negative number`,
+        );
+      }
+    }
+  }
 }
 
 /** Resolves the entry file: --entry > ztron.conf.json.entry > src/main.ts. */
@@ -433,6 +474,8 @@ async function dev(cwd: string, entry: string): Promise<void> {
     ZTRON_HOST: "127.0.0.1",
     ZTRON_HOST_PORT: String(port),
     ZTRON_INVOKE_KEY: invokeKey,
+    /* Declarative config (windows/identifier/version) for AppBuilder.fromConfig */
+    ZTRON_CONF: JSON.stringify(readProjectConfig(cwd)),
     ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
     ...(reloadFile ? { ZTRON_RELOAD_FILE: reloadFile } : {}),
     ...(existsSync(resolve(cwd, "capabilities"))
@@ -490,7 +533,16 @@ async function initProject(target: string): Promise<void> {
       null,
       2,
     ),
-    "ztron.conf.json": JSON.stringify({ entry: "src/main.ts" }, null, 2),
+    "ztron.conf.json": JSON.stringify(
+      {
+        entry: "src/main.ts",
+        identifier: "com.example.app",
+        version: "0.1.0",
+        windows: [{ label: "main", title: "Ztron App", width: 800, height: 600 }],
+      },
+      null,
+      2,
+    ),
     "src/main.ts": MAIN_TEMPLATE,
     "frontend/index.html": FRONTEND_HTML,
     "frontend/src/main.ts": FRONTEND_MAIN,

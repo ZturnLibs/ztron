@@ -1,4 +1,30 @@
 {
   "entry": "src/main.ts",
-  "frontend": "frontend"
+  "frontend": "frontend",
+  "identifier": "com.ztron.hello",
+  "version": "0.1.0",
+  "windows": [
+    {
+      "label": "main",
+      "title": "Ztron M3",
+      "width": 900,
+      "height": 640,
+      "minWidth": 400,
+      "minHeight": 300,
+      "url": "frontend",
+      "titleBarStyle": "visible",
+      "resizable": true
+    },
+    {
+      "label": "conf-second",
+      "title": "From Config",
+      "width": 360,
+      "height": 240,
+      "html": "<p style=\"font-family:system-ui\">declared in ztron.conf.json</p>",
+      "resizable": false,
+      "alwaysOnTop": true,
+      "x": 120,
+      "y": 120
+    }
+  ]
 }

@@ -843,7 +843,8 @@ export class App {
     }
 
     for (const cfg of this.config.windows) {
-      this.createWindow(cfg);
+      const handle = this.createWindow(cfg);
+      this.#applyStartupWindowState(cfg, handle);
     }
     await Promise.all(
       [...this.#windows.values()].map(({ handle }) => handle.run()),
@@ -892,6 +893,35 @@ export class App {
       handle.loadUrl(cfg.url ?? "about:blank");
     }
     return handle;
+  }
+
+  /** Applies a WindowConfig's startup booleans/styles to a fresh handle. */
+  #applyStartupWindowState(cfg: WindowConfig, handle: WebviewHandle): void {
+    const flag = (v: boolean | undefined, op: import("./runtime.js").WindowStateOp) => {
+      if (v !== undefined) handle.windowState(op, v);
+    };
+    flag(cfg.resizable, "set_resizable");
+    flag(cfg.maximizable, "set_maximizable");
+    flag(cfg.minimizable, "set_minimizable");
+    flag(cfg.closable, "set_closable");
+    if (cfg.maximized === true) handle.windowState("maximize");
+    flag(cfg.fullscreen, "set_fullscreen");
+    flag(cfg.visible, "set_visible");
+    flag(cfg.decorations, "set_decorations");
+    flag(cfg.alwaysOnTop, "set_always_on_top");
+    flag(cfg.alwaysOnBottom, "set_always_on_bottom");
+    flag(cfg.transparent, "set_transparent");
+    flag(cfg.skipTaskbar, "set_skip_taskbar");
+    flag(cfg.contentProtected, "set_content_protected");
+    if (cfg.center) handle.windowState("center");
+    if (cfg.minWidth && cfg.minHeight)
+      handle.setMinSize(cfg.minWidth, cfg.minHeight);
+    if (cfg.maxWidth && cfg.maxHeight)
+      handle.setMaxSize(cfg.maxWidth, cfg.maxHeight);
+    if (cfg.titleBarStyle) handle.setTitleBarStyle(cfg.titleBarStyle);
+    if (cfg.theme) handle.setTheme(cfg.theme);
+    if (cfg.x !== undefined && cfg.y !== undefined)
+      handle.setPosition(cfg.x, cfg.y);
   }
 
   /** Convenience: register a single command. */
@@ -977,7 +1007,89 @@ export class AppBuilder {
     return this;
   }
 
+  /**
+   * Applies a `ztron.conf.json` payload: identifier/appName/version/windows.
+   * Windows declared here are created at startup with their startup states
+   * (validated; throws on schema violations). `url` may reference the
+   * frontend root via `"frontend://<path>"` (the CLI resolves it to the dev
+   * server / built index) or any absolute URL.
+   */
+  fromConfig(conf: ProjectConfigFile, opts?: { frontendUrl?: string }): this {
+    validateProjectConfig(conf);
+    if (conf.identifier) this.#config.identifier = conf.identifier;
+    if (conf.appName) this.#config.appName = conf.appName;
+    if (conf.version) this.#config.version = conf.version;
+    for (const w of conf.windows ?? []) {
+      const { url, ...rest } = w;
+      /* "frontend" resolves to the dev server / built index (dev flow),
+         any other string loads as an absolute URL, absent falls back to
+         the app's existing devUrl/inline-html handling. */
+      const resolvedUrl =
+        url === "frontend"
+          ? opts?.frontendUrl
+          : typeof url === "string"
+            ? url
+            : undefined;
+      this.window({
+        ...rest,
+        ...(resolvedUrl ? { url: resolvedUrl } : {}),
+        label: w.label ?? "main",
+        title: w.title ?? w.label ?? "main",
+        width: w.width ?? 800,
+        height: w.height ?? 600,
+      });
+    }
+    return this;
+  }
+
   build(): App {
     return new App(this.#config, this.#options);
+  }
+}
+
+/** The `ztron.conf.json` shape (CLI-validated, consumed via fromConfig). */
+export interface ProjectConfigFile {
+  entry?: string;
+  frontend?: string;
+  identifier?: string;
+  appName?: string;
+  version?: string;
+  csp?: string;
+  windows?: Array<Partial<WindowConfig> & { label?: string }>;
+  [key: string]: unknown;
+}
+
+/** Throws on invalid ztron.conf.json content (schema check). */
+export function validateProjectConfig(conf: ProjectConfigFile): void {
+  if (conf.windows !== undefined) {
+    if (!Array.isArray(conf.windows)) {
+      throw new Error("ztron.conf.json: windows must be an array");
+    }
+    const seen = new Set<string>();
+    for (const [i, w] of conf.windows.entries()) {
+      if (typeof w !== "object" || w === null) {
+        throw new Error(`ztron.conf.json: windows[${i}] must be an object`);
+      }
+      const label = (w as { label?: string }).label ?? "main";
+      if (!/^[a-zA-Z0-9_-]+$/.test(label)) {
+        throw new Error(
+          `ztron.conf.json: windows[${i}].label "${label}" must be alphanumeric/-/_`,
+        );
+      }
+      if (seen.has(label)) {
+        throw new Error(
+          `ztron.conf.json: duplicate window label "${label}"`,
+        );
+      }
+      seen.add(label);
+      for (const k of ["width", "height", "x", "y"] as const) {
+        const v = (w as Record<string, unknown>)[k];
+        if (v !== undefined && (typeof v !== "number" || v < 0)) {
+          throw new Error(
+            `ztron.conf.json: windows[${i}].${k} must be a non-negative number`,
+          );
+        }
+      }
+    }
   }
 }

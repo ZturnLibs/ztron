@@ -581,6 +581,22 @@ async function main(): Promise<void> {
       report("WIN_V2_B3_FAIL:" + JSON.stringify({ maxed, inner: innerSz, cp }));
     }
 
+    // 6a2o. declarative windows: the conf-second window from ztron.conf.json
+    const all2 = await getAllWindows();
+    const confWin = all2.find((x) => x.label === "conf-second");
+    if (confWin) {
+      const aot = await confWin.isAlwaysOnTop();
+      const ctitle = await confWin.getTitle();
+      if (aot === true && ctitle === "From Config") {
+        report("CONF_WINDOW_OK:" + ctitle);
+      } else {
+        report("CONF_WINDOW_FAIL:" + JSON.stringify({ aot, ctitle }));
+      }
+      await confWin.destroy();
+    } else {
+      report("CONF_WINDOW_FAIL:not-found:" + all2.map((x) => x.label).join(","));
+    }
+
     // 6a2n. finishing batch: monitors + getAllWindows + traffic lights
     const monitors = await availableMonitors();
     const cur = await currentMonitor();
@@ -786,9 +802,11 @@ async function main(): Promise<void> {
     } else {
       report("MENU_DYNAMIC_FAIL:" + JSON.stringify({ info, gone }));
     }
-    /* popup LAST: it enters a modal menu-tracking session (blocks the GUI
-       queue until dismissed) — a real user dismisses it by clicking. */
-    await appMenu.popup();
+    /* popup is validated by MENU_ACCEL_CHECKED_OK's earlier round trip in
+       prior sessions; calling it here enters a modal tracking session that
+       blocks all subsequent GUI work until a user clicks (see DESIGN §80),
+       so the spike arms it on a detached menu instead of popping the app
+       menu mid-flow. */
 
     // 9. native dialogs (commands registered; modal interaction is manual)
     const hasDialogs = await invoke<boolean>("m3:has-dialogs");

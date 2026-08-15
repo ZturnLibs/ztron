@@ -667,3 +667,54 @@ test("opener plugin opens URLs/paths and denies foreign schemes", async () => {
       ),
   );
 });
+
+test("AppBuilder.fromConfig: declarative windows + validation", async () => {
+  const core = await import("../../packages/core/dist/index.js");
+  const rt = new core.MockRuntime();
+  const AppBuilder = core.AppBuilder;
+
+  // valid: two declared windows, defaults applied
+  const a = new AppBuilder(rt as never, "com.test")
+    .fromConfig({
+      identifier: "com.test.app",
+      version: "2.0.0",
+      windows: [
+        { label: "main", title: "Main", width: 640, height: 480 },
+        { label: "aux", width: 300 },
+      ],
+    })
+    .build();
+  assert.equal(a.config.identifier, "com.test.app");
+  assert.equal(a.config.version, "2.0.0");
+  assert.deepEqual(
+    a.config.windows.map((w) => w.label),
+    ["main", "aux"],
+  );
+  assert.equal(a.config.windows[1]?.title, "aux");
+  assert.equal(a.config.windows[1]?.width, 300);
+
+  // invalid: duplicate label
+  assert.throws(
+    () =>
+      new AppBuilder(rt as never, "x").fromConfig({
+        windows: [{ label: "dup" }, { label: "dup" }],
+      }),
+    /duplicate window label "dup"/,
+  );
+  // invalid: bad label chars
+  assert.throws(
+    () =>
+      new AppBuilder(rt as never, "x").fromConfig({
+        windows: [{ label: "bad label!" }],
+      }),
+    /must be alphanumeric/,
+  );
+  // invalid: negative width
+  assert.throws(
+    () =>
+      new AppBuilder(rt as never, "x").fromConfig({
+        windows: [{ label: "w", width: -5 }],
+      }),
+    /width must be a non-negative number/,
+  );
+});

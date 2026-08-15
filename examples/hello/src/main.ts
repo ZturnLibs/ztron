@@ -74,8 +74,26 @@ const persisted = persistedScopePlugin({
 });
 const psScope = persisted.scope;
 
+const confJson = tjs.env.ZTRON_CONF;
+const conf = confJson
+  ? (JSON.parse(confJson) as Parameters<AppBuilder["fromConfig"]>[0])
+  : {};
+/* No dev server (offline dev): the declared frontend window falls back to
+   the inline spike html. */
+if (!devUrl) {
+  for (const w of conf.windows ?? []) {
+    if (w.url === "frontend") {
+      delete w.url;
+      w.html = inlineHtml;
+    }
+  }
+}
+
 new AppBuilder(runtime, "com.ztron.hello")
   .configure({ invokeKey, capabilities })
+  .fromConfig(conf, {
+    frontendUrl: devUrl ?? undefined,
+  })
   .plugin(persisted)
   .plugin(fsPlugin({ scope: psScope }))
   .plugin(
@@ -131,13 +149,7 @@ new AppBuilder(runtime, "com.ztron.hello")
       urlScope: { allow: [{ url: "http://localhost:*/*" }] },
     }),
   )
-  .window({
-    label: "main",
-    title: "Ztron M3",
-    width: 900,
-    height: 640,
-    ...(devUrl ? { url: devUrl } : { html: inlineHtml }),
-  })
+
   .setup((app) => {
     let reloadTimer: ReturnType<typeof setInterval> | undefined;
     // Local echo server for the upload spike (deterministic, no external dep).
@@ -296,7 +308,7 @@ new AppBuilder(runtime, "com.ztron.hello")
       // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
       // require the window to become key, which a terminal-launched bare
       // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
-      if (done.size >= 68) {
+      if (done.size >= 69) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras)",
         );

@@ -1109,3 +1109,12 @@ ZtronApp.app/Contents/
 - **popup 模态性(sample 实证)**:`popUpMenuPositioningItem:` 在主线程进入菜单跟踪会话(NSMenuTrackingSession startRunningMenuEventLoop),**阻塞后续 GUI dispatch** 直到用户点击/关闭——产品语义正确(用户会点),但程序化流程须把 popup 放最后;spike 已按此排布
 - insert 用 `autorelease pool` 包裹 + NSUInteger 显式 cast;wire:at → m->x
 - 验证:hello 68 项/FULL_OK/EXIT 0(`MENU_DYNAMIC_OK:Second` 含 predefined copy 项 + item_info 真值回读 + remove);58 单测绿
+
+## 81. ztron.conf.json 声明式多窗口 + schema 校验
+
+- **ProjectConfigFile**(core):identifier/appName/version/csp/windows[];窗口项对齐 Tauri WindowConfig 可落地面(label/title/width/height/x/y/min-max 尺寸/resizable/maximizable/minimizable/closable/maximized/fullscreen/visible/decorations/alwaysOnTop/alwaysOnBottom/transparent/skipTaskbar/contentProtected/center/titleBarStyle/theme/url/html)
+- **url: "frontend" 占位符**:fromConfig 第二参 `frontendUrl` 把声明窗口接到 dev server/构建产物;backend 侧无 dev server 时由用户代码回落(注入 inline html)
+- **校验(双层)**:CLI 读取时 fail-fast + core `validateProjectConfig`(label 字符集 `[a-zA-Z0-9_-]+`、重复 label、width/height/x/y 非负)——Tauri 同款约束
+- **启动态应用**:`App.run()` 创建声明窗口后统一走 `#applyStartupWindowState`(flag→windowState、center、min/max 尺寸、titleBarStyle、theme、x/y);maximized 用 `maximize`(非 toggle)
+- **管线**:CLI `readProjectConfig` → `ZTRON_CONF` 环境变量(JSON)→ backend `AppBuilder.fromConfig(JSON.parse(...), {frontendUrl})`;`ztron init` 脚手架模板同步升级
+- 验证:hello conf 声明 main(frontend url + minWidth) + conf-second(alwaysOnTop + 定位 + inline html)→ `CONF_WINDOW_OK:From Config`(api 侧读回启动态并 destroy);69 项/FULL_OK/EXIT 0;59 单测(fromConfig 默认值/重复 label/非法字符/负宽 4 断言组)
