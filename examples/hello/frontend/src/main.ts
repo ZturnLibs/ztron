@@ -19,6 +19,7 @@ import {
   setTrayIcon,
   setAppMenu,
   Menu as MenuClass,
+  TrayIcon,
   getAllWindows,
   availableMonitors,
   currentMonitor,
@@ -765,6 +766,20 @@ async function main(): Promise<void> {
       { id: "quit", text: "Quit" },
     ]);
     report("MENU_OK");
+
+    // 7z. TrayIcon class: create/template icon/visible round trips
+    const trayTmp2 = await path.tempDir();
+    const tray2 = await TrayIcon.create({
+      title: "Z2",
+      tooltip: "class tray",
+      icon: `${trayTmp2}/ztron_tray_icon.png`,
+    });
+    await tray2.setIconAsTemplate(true);
+    await tray2.setIconAsTemplate(false);
+    await tray2.setVisible(false);
+    await tray2.setVisible(true);
+    await tray2.destroy();
+    report("TRAY_CLASS_OK");
 
     // 8a. menu v2: accelerators, checked toggle, popup (context menu), tray menu
     await appMenu.setItemAccelerator("quit", "CmdOrCtrl+Q");

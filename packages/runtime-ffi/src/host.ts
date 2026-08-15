@@ -397,6 +397,21 @@ export class HostRuntime implements RuntimeAdapter {
           if (menuId) this.send({ type: "tray_set_menu", menu_id: menuId });
           break;
         }
+        case "set_visible": {
+          this.send({
+            type: "tray_set_visible",
+            value: (payload as { visible?: boolean } | undefined)?.visible ?? true,
+          });
+          break;
+        }
+        case "set_icon_template": {
+          this.send({
+            type: "tray_set_icon_template",
+            value:
+              (payload as { asTemplate?: boolean } | undefined)?.asTemplate ?? true,
+          });
+          break;
+        }
         case "destroy":
           this.send({ type: "tray_destroy" });
           break;

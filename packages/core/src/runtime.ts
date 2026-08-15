@@ -219,7 +219,14 @@ export interface WebviewHandle {
 
 /** Tray operations translated from Tauri's tray plugin. */
 export type TrayOp =
-  "create" | "set_title" | "set_tooltip" | "set_icon" | "set_menu" | "destroy";
+  | "create"
+  | "set_title"
+  | "set_tooltip"
+  | "set_icon"
+  | "set_menu"
+  | "set_visible"
+  | "set_icon_template"
+  | "destroy";
 
 /** Tray payload for `TrayController.apply`. */
 export interface TrayPayload {
@@ -231,6 +238,10 @@ export interface TrayPayload {
   image_id?: number | string;
   /** Registered menu id to attach (from `plugin:menu|create`). */
   menuId?: string;
+  /** Show/hide the status item (macOS `visible` property). */
+  visible?: boolean;
+  /** Mark the current icon as a template image (light/dark adaptive). */
+  asTemplate?: boolean;
 }
 
 /** System tray controller provided by the runtime backend. */

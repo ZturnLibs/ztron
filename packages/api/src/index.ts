@@ -97,6 +97,7 @@ export {
 } from "./tray.js";
 export type { TrayOptions } from "./tray.js";
 export { Image, transformImage, type ImageLike } from "./image.js";
+export { TrayIcon } from "./tray.js";
 export { Menu, setAppMenu, onMenuEvent } from "./menu.js";
 export type { MenuItem, MenuEvent } from "./menu.js";
 export { dialog, open, save, message } from "./dialog.js";

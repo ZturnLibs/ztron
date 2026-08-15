@@ -1098,6 +1098,27 @@ static void tray_destroy(void) {
     g_status_item = NULL;
   }
 }
+/* NSStatusItem has a settable `visible` property (10.12+). */
+static void tray_set_visible(int visible) {
+  if (g_status_item) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), g_status_item,
+             sel_registerName("setVisible:"), visible ? 1 : 0);
+  }
+}
+/* Marks the CURRENT button image as a template (adapts to light/dark bars).
+   Must run after setIcon (the image is copied per call). */
+static void tray_set_icon_template(int on) {
+  if (!g_status_item) return;
+  id button = OBJC_MSG(id(*)(id, SEL), g_status_item, sel_registerName("button"));
+  id image = OBJC_MSG(id(*)(id, SEL), button, sel_registerName("image"));
+  if (!image) return;
+  /* setImage: copies the image? No — the button retains the SAME instance,
+     so setTemplate: on it persists until the next setImage:. */
+  OBJC_MSG(void(*)(id, SEL, BOOL), image, sel_registerName("setTemplate:"),
+           on ? 1 : 0);
+  /* refresh so the template rendering takes effect immediately */
+  OBJC_MSG(void(*)(id, SEL, BOOL), button, sel_registerName("setNeedsDisplay:"), 1);
+}
 static void install_tray_target(void) {
   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
@@ -1911,6 +1932,8 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "menu_item_set_accel") == 0) { menu_set_item_accel(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_popup") == 0) { menu_popup(m->str, w, m->x, m->y); return 1; }
   if (strcmp(m->type, "tray_set_menu") == 0) { tray_set_menu(m->str); return 1; }
+  if (strcmp(m->type, "tray_set_visible") == 0) { tray_set_visible(m->bool_val); return 1; }
+  if (strcmp(m->type, "tray_set_icon_template") == 0) { tray_set_icon_template(m->bool_val); return 1; }
 
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }

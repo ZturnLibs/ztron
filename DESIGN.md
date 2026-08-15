@@ -1118,3 +1118,10 @@ ZtronApp.app/Contents/
 - **启动态应用**:`App.run()` 创建声明窗口后统一走 `#applyStartupWindowState`(flag→windowState、center、min/max 尺寸、titleBarStyle、theme、x/y);maximized 用 `maximize`(非 toggle)
 - **管线**:CLI `readProjectConfig` → `ZTRON_CONF` 环境变量(JSON)→ backend `AppBuilder.fromConfig(JSON.parse(...), {frontendUrl})`;`ztron init` 脚手架模板同步升级
 - 验证:hello conf 声明 main(frontend url + minWidth) + conf-second(alwaysOnTop + 定位 + inline html)→ `CONF_WINDOW_OK:From Config`(api 侧读回启动态并 destroy);69 项/FULL_OK/EXIT 0;59 单测(fromConfig 默认值/重复 label/非法字符/负宽 4 断言组)
+
+## 82. TrayIcon 类 + setVisible/template 图标
+
+- **host 2 op**:`tray_set_visible`(`NSStatusItem setVisible:` 10.12+,隐藏时保留 item 可复显——优于 removeStatusItem+重建)、`tray_set_icon_template`(对**当前** button image `setTemplate:` + `setNeedsDisplay:` 即时刷新;button retain 同一 NSImage 实例,标记持续到下次 setImage)
+- **core**:TrayOp 扩 `set_visible/set_icon_template` + `plugin:tray|set_visible|set_icon_as_template` 命令;**ACL 重复注册防御**:duplicate permission 现在显式报错(顺带清掉 P8 遗留的 set_menu 双注册)
+- **api**:`TrayIcon` 类(create/setTitle/setTooltip/setIcon/setMenu/setVisible/setIconAsTemplate/onClick/destroy)对齐 Tauri 类形态;函数式 API 保留为薄层
+- 验证:hello `TRAY_CLASS_OK`(类创建 + template 往返 + visible 往返 + destroy),70 项/FULL_OK/EXIT 0

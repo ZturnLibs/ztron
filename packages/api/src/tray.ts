@@ -67,3 +67,63 @@ export const tray = {
   destroy: destroyTray,
   onClick: onTrayClick,
 };
+
+/**
+ * Class-based tray API — a port of `@tauri-apps/api/tray` `TrayIcon`.
+ * Wraps the functional surface; one tray per app (the host keeps a single
+ * NSStatusItem / Shell_NotifyIcon / StatusNotifier).
+ */
+export class TrayIcon {
+  /** Creates the native tray item (title/tooltip optional). */
+  static async create(options: {
+    title?: string;
+    tooltip?: string;
+    icon?: ImageLike;
+  } = {}): Promise<TrayIcon> {
+    await createTray({ title: options.title ?? "", tooltip: options.tooltip ?? "" });
+    if (options.icon !== undefined) {
+      await setTrayIcon(options.icon);
+    }
+    return new TrayIcon();
+  }
+
+  async setTitle(title: string): Promise<void> {
+    return setTrayTitle(title);
+  }
+
+  async setTooltip(tooltip: string): Promise<void> {
+    return setTrayTooltip(tooltip);
+  }
+
+  async setIcon(icon: ImageLike): Promise<void> {
+    return setTrayIcon(icon);
+  }
+
+  /** Attaches a registered menu (left-click shows it on macOS). */
+  async setMenu(menuId: string): Promise<void> {
+    return setTrayMenu(menuId);
+  }
+
+  /** Shows/hides the tray item. */
+  async setVisible(visible: boolean): Promise<void> {
+    await invoke("plugin:tray|set_visible", { visible });
+  }
+
+  /**
+   * Marks the current icon as a template image — macOS renders it
+   * adaptively in light/dark menu bars (monochrome alpha-only art).
+   */
+  async setIconAsTemplate(asTemplate: boolean): Promise<void> {
+    await invoke("plugin:tray|set_icon_as_template", { asTemplate });
+  }
+
+  /** Listens for clicks (only when no menu is attached). */
+  onClick(handler: () => void): Promise<() => Promise<void>> {
+    return onTrayClick(handler);
+  }
+
+  /** Removes the tray item. */
+  async destroy(): Promise<void> {
+    return destroyTray();
+  }
+}

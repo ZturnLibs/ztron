@@ -111,6 +111,8 @@ export const COMMANDS: readonly string[] = [
   "plugin:menu|remove_item",
   "plugin:menu|item_info",
   "plugin:tray|set_menu",
+  "plugin:tray|set_visible",
+  "plugin:tray|set_icon_as_template",
   "plugin:menu|destroy",
   // ---- dialog ----
   "plugin:dialog|open",
@@ -412,6 +414,7 @@ export const API_EXPORTS: readonly string[] = [
   "savePersistedScope",
   "Image",
   "transformImage",
+  "TrayIcon",
   "app",
   "getName",
   "getVersion",

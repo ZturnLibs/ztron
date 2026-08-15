@@ -142,6 +142,8 @@ const UNIT_COVERED = new Set([
   "plugin:menu|remove_item",
   "plugin:menu|item_info",
   "plugin:tray|set_menu",
+  "plugin:tray|set_visible",
+  "plugin:tray|set_icon_as_template",
   "plugin:menu|destroy",
   "plugin:dialog|open",
   "plugin:dialog|save",

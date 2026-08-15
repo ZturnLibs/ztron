@@ -232,6 +232,9 @@ export class App {
       "plugin:tray|set_title",
       "plugin:tray|set_tooltip",
       "plugin:tray|set_icon",
+      "plugin:tray|set_menu",
+      "plugin:tray|set_visible",
+      "plugin:tray|set_icon_as_template",
       "plugin:tray|destroy",
       "plugin:menu|create",
       "plugin:menu|set_as_app_menu",
@@ -243,7 +246,6 @@ export class App {
       "plugin:menu|add_item",
       "plugin:menu|remove_item",
       "plugin:menu|item_info",
-      "plugin:tray|set_menu",
       "plugin:menu|destroy",
       "plugin:dialog|open",
       "plugin:dialog|save",
@@ -763,6 +765,17 @@ export class App {
       "plugin:tray|set_menu": (args) => {
         this.#adapter.tray?.apply("set_menu", {
           menuId: String((args as { menuId?: string }).menuId ?? ""),
+        });
+      },
+      "plugin:tray|set_visible": (args, ctx) => {
+        ctx.app; /* app-wide tray */
+        this.#adapter.tray?.apply("set_visible", {
+          visible: Boolean((args as { visible?: boolean }).visible),
+        });
+      },
+      "plugin:tray|set_icon_as_template": (args) => {
+        this.#adapter.tray?.apply("set_icon_template", {
+          asTemplate: Boolean((args as { asTemplate?: boolean }).asTemplate),
         });
       },
       "plugin:menu|destroy": (args) => {
