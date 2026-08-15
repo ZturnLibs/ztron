@@ -1056,3 +1056,14 @@ ZtronApp.app/Contents/
 - **hello 真 MULTI_WINDOW 检查**:页面驱动 `WebviewWindow.create()` + 第二页经自身 IPC 报 `SECOND_PAGE_OK`(label 路由实证);**不在 hello 里 destroy 第二窗**——销毁与后续高强度 GUI 操作交错时撞 WKWebView 异步 script-message 回调 UAF(上游析构不移除 message handler,TODO 注释自认);destroy 链路由 multiwin 专项覆盖(EXIT 0 干净退出)
 - **hello 退出链**:echo server 关闭 + near-HMR 轮询 clearInterval + FULL_OK 后 `tjs.exit(0)`(keep-alive fetch 连接会拖住 txiki 事件循环);hello 现也 EXIT 0
 - 最终:hello 63 report/0 FAIL/FULL_OK/EXIT 0;multiwin 全检查/EXIT 0;54 tests pass
+
+## 76. 多窗口三连修复:label 命令路由 + delegate 链式转发 + 引擎析构 UAF
+
+**症状**:hello 第二窗口 destroy 后 app 随机崩溃/挂起(卡点漂移:51→54→56),multiwin 却全过。
+
+1. **命令层 label 路由(真凶,系统性缺陷)**:`plugin:window|*` 全部 handler 用 `ctx.webview`(发起窗口)而非 `args.label`(目标窗口)。主页面调 `second.destroy()` → **主窗被 terminate**,app 中途死亡(ZT_TRACE 实证 `window_destroy label=main`)。此前"跨窗操作成功"全是巧合(ops 打在主窗上、查询碰巧同值)。修复:构造器里统一包装 window 命令——按 args.label 解析 `getWebview(label)`(找不到报 `window not found`,Tauri 语义),重写 ctx.webview/ctx.label
+2. **delegate 链式转发**:host 的 ZtronWindowDelegate `setDelegate:` 直接**替换**了引擎的 WebviewNSWindowDelegate → 引擎错过 `windowWillClose`(本应置空 m_window/m_webview、让 dtor 跳过重复 close/over-release)。修复:`objc_setAssociatedObject(delegate, "orig", prev, ...)` 保存原 delegate,每个回调先 `fwd_to_orig`(class_respondsSelector 探测)
+3. **引擎析构 UAF(库补丁)**:dtor 释放 WKWebView 前未摘 script-message handler(handler 持 `this` 回指针,in-flight WKScriptMessage 回调撞已释放引擎;上游 TODO 自认 m_manager 泄漏)。修复:dtor 先 `removeAllUserScripts` + `removeScriptMessageHandlerForName:`(新增 WKUserContentController_removeScriptMessageHandler 封装)
+
+- 调试利器:host.c 加 `ZT_TRACE=1` 环境门控的 on_gui 消息日志(零开销,本次定位主靠它)
+- 验证:hello 63 report/0 FAIL/FULL_OK/**EXIT 0**(真实 destroy + 主窗持续操作);multiwin 4 检查含 STRESS_OK(10 轮建窗-狂发 invoke-销毁竞态);54 单测绿;库补丁已入 scripts/patches/webview-local.patch

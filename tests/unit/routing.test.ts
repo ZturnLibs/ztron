@@ -174,12 +174,24 @@ test("window v2 extras (size constraints, button flags, dock) route", async () =
   await mock.main.invoke("plugin:window|set_badge_count", { count: 3 });
   await mock.main.invoke("plugin:window|set_badge_count", { count: null });
   assert.deepEqual(w.badgeCountLog, [3, null]);
-  /* badge label: `label` stays the window router, `badgeLabel` is the text */
+  /* badge label: `label` stays the window router, `badgeLabel` is the text.
+     Since the label-routing fix, an unknown window label errors out
+     (Tauri semantics); use the issuing window here. */
   await mock.main.invoke("plugin:window|set_badge_label", {
-    label: "other",
     badgeLabel: "hello",
   });
   assert.deepEqual(w.badgeLabelLog, ["hello"]);
+  await assert.rejects(
+    () =>
+      mock.main.invoke("plugin:window|set_badge_label", {
+        label: "other",
+        badgeLabel: "x",
+      }),
+    (err: unknown) =>
+      String((err as { error?: string }).error ?? "").includes(
+        "window not found: other",
+      ),
+  );
   await mock.main.invoke("plugin:window|set_background_color", {
     color: "#11223344",
   });

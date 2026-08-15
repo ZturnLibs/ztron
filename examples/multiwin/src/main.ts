@@ -62,6 +62,10 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
       console.log("[multiwin] createWindow returned");
       return { ok: true };
     });
+    app.command("stress_ping", (args, ctx) => {
+      /* just needs to exist; response races the destroy */
+      return { pong: (args as { n?: number }).n ?? -1, from: ctx.label };
+    });
     app.command("second_loaded", async (_args, ctx) => {
       console.log("SECOND_WINDOW_OK from label=" + ctx.label);
       if (ctx.label !== "second") {
@@ -85,12 +89,36 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
       setTimeout(() => {
         console.log("SECOND_DESTROY_SENT");
         second.destroy();
-        setTimeout(() => {
+        /* Stress: N rounds of create(page spamming invokes) + destroy,
+           racing WKWebView's async script-message callbacks — guards the
+           UAF fix (handler detached before webview release, DESIGN §76). */
+        const spamHtml = (n: number) => `<!doctype html>
+<html><body><p>stress ${n}</p></body></html>
+<script>
+  var n = 0;
+  setInterval(function () {
+    window.__TAURI_INTERNALS__.invoke("stress_ping", { n: n++ }).catch(function () {});
+  }, 25);
+</script>`;
+        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+        void (async () => {
+          for (let i = 0; i < 10; i++) {
+            const label = `stress-${i}`;
+            app.createWindow({
+              label,
+              title: label,
+              width: 240,
+              height: 120,
+              html: spamHtml(i),
+            });
+            await sleep(600);
+            app.getWebview(label)?.destroy();
+            await sleep(350);
+          }
+          console.log("STRESS_OK");
           console.log("MULTI_WINDOW_RUNTIME_OK");
-          console.log("[multiwin] calling terminate");
           quitMain();
-          console.log("[multiwin] terminate sent");
-        }, 800);
+        })();
       }, 500);
     });
   })

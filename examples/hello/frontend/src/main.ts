@@ -540,10 +540,13 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 800));
     await second.setTitle("Spike Second 2");
     const secondMin = await second.isMinimizable();
-    /* NOTE: no destroy here — teardown of a runtime window races WKWebView's
-       async script-message callbacks (upstream engine dtor keeps the message
-       handler); the destroy path is covered end-to-end by examples/multiwin. */
-    if (secondMin === true || secondMin === false) {
+    /* destroy immediately, then keep hammering the main window with ops —
+       this exact sequence crashed pre-fix (racing WKWebView async script
+       message callbacks); see DESIGN §76. */
+    await second.destroy();
+    await win.setPosition(80, 90);
+    const f = await win.outerSize();
+    if ((secondMin === true || secondMin === false) && f.width > 0) {
       report("MULTI_WINDOW_OK");
     } else {
       report("MULTI_WINDOW_FAIL:" + JSON.stringify(secondMin));

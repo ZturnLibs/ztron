@@ -79,7 +79,7 @@
 
 - [x] **P6.1** host webview 注册表 + label 路由 + `ipc_cb` 带 label(`MULTI_WINDOW_OK` 经 api 路径)
 - [x] **P6.2** backend `plugin:webview|create` + api `WebviewWindow`(extends Window)
-- [x] **P6.3** 运行时第二窗口创建(`examples/multiwin` 端到端:创建→label 路由→窗口 ops→destroy→注册表清理;原"卡 GUI"实为 label 时序 bug —— set_html 早于建窗入队时回落主窗,详见 DESIGN.md §75)
+- [x] **P6.3** 运行时第二窗口创建(`examples/multiwin` 端到端 + hello 真实跨窗操作/destroy;三连修复:GUI 线程 label 重解析 + 命令层按 label 路由 + delegate 链式转发 + 引擎析构 UAF 库补丁,详见 DESIGN.md §75/§76)
 
 ## 4. 优先级(投入产出比)
 

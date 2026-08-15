@@ -75,6 +75,11 @@ export class IpcHub {
     this.#commands.set(cmd, handler);
   }
 
+  /** Live command entries (for wrapping/re-binding registered handlers). */
+  entries(): IterableIterator<[string, InvokeHandler]> {
+    return this.#commands.entries();
+  }
+
   has(cmd: string): boolean {
     return this.#commands.has(cmd);
   }

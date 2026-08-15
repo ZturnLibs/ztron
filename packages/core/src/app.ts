@@ -109,6 +109,23 @@ export class App {
     for (const [cmd, handler] of this.pluginCommandEntries()) {
       this.#hub.register(cmd, handler);
     }
+    /* Tauri window-plugin semantics: `plugin:window|*` commands address a
+       window by payload `label` (any window may invoke them — e.g. the main
+       page controlling a second window). Wrap each handler so `ctx.webview`
+       is the TARGET handle, not merely the issuing one (pre-fix, invoking
+       `second.destroy()` from the main page destroyed the MAIN window). */
+    for (const [cmd, handler] of this.#hub.entries()) {
+      if (!cmd.startsWith("plugin:window|")) continue;
+      this.#hub.register(cmd, (args, ctx) => {
+        const label = (args as { label?: string } | null)?.label;
+        if (!label || label === ctx.label) return handler(args, ctx);
+        const target = this.getWebview(label);
+        if (!target) {
+          throw new Error(`window not found: ${label}`);
+        }
+        return handler(args, { ...ctx, webview: target, label });
+      });
+    }
 
     this.buildAcl(options.plugins ?? []);
   }

@@ -192,6 +192,8 @@ static void on_gui(webview_t w, void *arg) {
   webview_t target = m->win_label[0] ? zt_webview(m->win_label) : w;
   if (!target) target = w;
   w = target;
+  if (getenv("ZT_TRACE"))
+    fprintf(stderr, "[zt] on_gui %s label=%s\n", m->type, m->win_label);
   if (strcmp(m->type, "eval") == 0) {
     webview_eval(w, m->str);
   } else if (strcmp(m->type, "set_html") == 0) {

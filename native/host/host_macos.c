@@ -643,27 +643,40 @@ static void emit_window_event_labeled(const char *label, const char *event) {
   zt_send_line(buf);
 }
 
+/* Forwards a delegate notification to the delegate we replaced (the
+   engine's WebviewNSWindowDelegate) — replacing it outright starves the
+   engine of windowWillClose, and its destructor then re-closes/releases an
+   already-closed window (over-release → delayed crash). */
+static void fwd_to_orig(id self, SEL cmd, id note) {
+  id orig = objc_getAssociatedObject(self, "orig");
+  if (orig && class_respondsToSelector(object_getClass(orig), cmd)) {
+    ((void(*)(id, SEL, id))objc_msgSend)(orig, cmd, note);
+  }
+}
+
 static void zt_evt_resize(id s, SEL c, id n) {
-  (void)s; (void)c;
+  fwd_to_orig(s, c, n);
   emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "resize");
 }
 static void zt_evt_move(id s, SEL c, id n) {
-  (void)s; (void)c;
+  fwd_to_orig(s, c, n);
   emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "move");
 }
 static void zt_evt_focus(id s, SEL c, id n) {
-  (void)s; (void)c;
+  fwd_to_orig(s, c, n);
   emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "focus");
 }
 static void zt_evt_blur(id s, SEL c, id n) {
-  (void)s; (void)c;
+  fwd_to_orig(s, c, n);
   emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "blur");
 }
 
 /* Deferred engine teardown for runtime-created windows (GUI thread). */
 static void destroy_later(webview_t w, void *arg);
 static void zt_evt_close(id s, SEL c, id n) {
-  (void)s; (void)c;
+  /* The engine's windowWillClose nulls its m_window/m_widget/m_webview so its
+     destructor skips re-closing the (already closed) window — forward FIRST. */
+  fwd_to_orig(s, c, n);
   void *wnd = wnd_of_note(n);
   const char *label = zt_label_for_window(wnd);
   emit_window_event_labeled(label, "close");
@@ -684,11 +697,16 @@ static void destroy_later(webview_t w, void *arg) {
 }
 
 static BOOL zt_should_close(id s, SEL c, id n) {
-  (void)s; (void)c;
   const char *label = zt_label_for_window(wnd_of_note(n));
   if (prevent_close_of(label)) {
     emit_window_event_labeled(label, "close"); /* -> tauri://close-requested */
     return NO;
+  }
+  /* The engine delegate does not implement windowShouldClose:, but forward
+     for correctness if it ever does. */
+  id orig = objc_getAssociatedObject(s, "orig");
+  if (orig && class_respondsToSelector(object_getClass(orig), c)) {
+    return ((BOOL(*)(id, SEL, id))objc_msgSend)(orig, c, n);
   }
   return YES;
 }
@@ -708,6 +726,10 @@ static void install_window_delegate_on(void *wnd) {
     objc_registerClassPair(cls);
   }
   id delegate = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+  /* Chain: remember the delegate we are replacing (the engine's) so its
+     notifications still fire — see fwd_to_orig. */
+  id prev = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("delegate"));
+  objc_setAssociatedObject(delegate, "orig", prev, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
   OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setDelegate:"), delegate);
 }
 
