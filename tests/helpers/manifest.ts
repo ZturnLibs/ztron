@@ -139,6 +139,8 @@ export const COMMANDS: readonly string[] = [
   "plugin:fs|copy",
   "plugin:fs|rename",
   "plugin:fs|stat",
+  "plugin:fs|watch",
+  "plugin:fs|unwatch",
   // ---- path ----
   "plugin:path|join",
   "plugin:path|resolve",

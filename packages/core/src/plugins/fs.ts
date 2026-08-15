@@ -48,7 +48,12 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
     copy: "plugin:fs|copy",
     rename: "plugin:fs|rename",
     stat: "plugin:fs|stat",
+    watch: "plugin:fs|watch",
+    unwatch: "plugin:fs|unwatch",
   } as const;
+
+  /* Live watchers (id -> tjs FileWatcher); closed by unwatch or app exit. */
+  const watchers = new Map<string, { close(): void }>();
 
   return {
     name: "fs",
@@ -119,6 +124,30 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         ]);
         await tjs.rename(src, dst);
       },
+      async watch(args, ctx) {
+        const { path, id, ch } = args as {
+          path: string;
+          id: string;
+          ch?: { kind: "channel"; id: number };
+        };
+        const canon = await scope.check(path);
+        const channel = ch ? ctx.getChannel(ch.id) : undefined;
+        if (!channel) throw new Error("fs.watch requires a channel");
+        const w = tjs.watch(canon, (filename, event) => {
+          channel.send({
+            type: event === "rename" ? "rename" : "modify",
+            path: filename,
+          });
+        });
+        watchers.set(id, w);
+        return { watching: canon };
+      },
+      async unwatch(args) {
+        const { id } = args as { id: string };
+        watchers.get(id)?.close();
+        watchers.delete(id);
+        return { closed: true };
+      },
       async stat(args) {
         const { path } = args as { path: string };
         const canon = await scope.check(path);
@@ -145,6 +174,11 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         identifier: "fs:allow-write-text-file",
         description: "Allows writing text files via plugin:fs|write_text.",
         commands: [fsCommands.write_text],
+      },
+      {
+        identifier: "fs:allow-watch",
+        description: "Allows watching paths for changes via plugin:fs|watch.",
+        commands: [fsCommands.watch, fsCommands.unwatch],
       },
       {
         identifier: "fs:allow-read-dir",

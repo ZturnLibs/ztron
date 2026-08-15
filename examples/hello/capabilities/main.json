@@ -1,7 +1,9 @@
 {
   "identifier": "main",
   "description": "Main window: core + path + fs + http + os + store + log + shell.",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "path:default",
@@ -24,6 +26,7 @@
     "local-ip:default",
     "network:default",
     "upload:default",
-    "persisted-scope:default"
+    "persisted-scope:default",
+    "fs:allow-watch"
   ]
 }

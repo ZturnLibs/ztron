@@ -206,6 +206,37 @@ async function main(): Promise<void> {
     el("fs").textContent = data;
     if (data === "m3-hello") report("FS_OK");
 
+    // 3b. fs.watch: real FSEvents round trip (write -> modify event -> unwatch)
+    try {
+      await fs.writeText("$TMP/ztron_watch.txt", "v1");
+      const firstEvent = new Promise<fs.WatchEvent>((resolve) => {
+        let settled = false;
+        void fs.watch("$TMP/ztron_watch.txt", (ev) => {
+          if (!settled && ev.type === "modify") {
+            settled = true;
+            resolve(ev);
+          }
+        }).then((unwatch) => {
+          /* give the watcher a beat to arm, then touch the file */
+          setTimeout(async () => {
+            await fs.writeText("$TMP/ztron_watch.txt", "v2");
+            setTimeout(() => void unwatch(), 1500);
+          }, 400);
+        });
+      });
+      const ev = await Promise.race([
+        firstEvent,
+        new Promise<null>((r) => setTimeout(() => r(null), 6000)),
+      ]);
+      if (ev && ev.type === "modify" && ev.path.includes("ztron_watch")) {
+        report("FS_WATCH_OK:" + ev.type);
+      } else {
+        report("FS_WATCH_FAIL:" + JSON.stringify(ev));
+      }
+    } catch (err) {
+      report("FS_WATCH_FAIL:" + extractError(err).slice(0, 50));
+    }
+
     // 4a. fs copy/rename/stat
     await fs.copyFile("$TMP/ztron_m3.txt", "$TMP/ztron_m3_copy.txt");
     const copied = await fs.readText("$TMP/ztron_m3_copy.txt");

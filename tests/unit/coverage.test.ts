@@ -17,6 +17,8 @@ import { COMMAND_SET, API_EXPORT_SET } from "../helpers/manifest.ts";
  *    exit/relaunch, shell.open)
  */
 const INTEGRATION_ONLY = new Set([
+  "plugin:fs|watch",
+  "plugin:fs|unwatch",
   "plugin:path|join",
   "plugin:path|resolve",
   "plugin:path|normalize",

@@ -71,7 +71,35 @@ export function stat(path: string): Promise<FileMeta> {
   return invoke<FileMeta>("plugin:fs|stat", { path });
 }
 
+/** A filesystem watch event (aligned with Tauri's watchEvent). */
+export interface WatchEvent {
+  /** "modify" (content change) | "rename" (create/delete/move). */
+  type: "modify" | "rename";
+  /** Path of the changed entry (relative to the watched dir when the dir was
+   *  watched; the file itself when a file was watched). */
+  path: string;
+}
+
+/**
+ * Watches a path for changes. Resolves with an unwatch function once the
+ * backend watcher is armed; events stream through `handler` afterwards.
+ * The path must be inside the app's fs scope (like every fs API).
+ */
+export async function watch(
+  path: string,
+  handler: (event: WatchEvent) => void,
+): Promise<() => Promise<void>> {
+  const { Channel } = await import("./core.js");
+  const channel = new Channel<WatchEvent>((msg: WatchEvent) => handler(msg));
+  const id = `fs-watch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await invoke("plugin:fs|watch", { path, id, ch: channel });
+  return async () => {
+    await invoke("plugin:fs|unwatch", { id });
+  };
+}
+
 export const fs = {
+  watch,
   readText,
   writeText,
   readDir,

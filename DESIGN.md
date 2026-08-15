@@ -1125,3 +1125,11 @@ ZtronApp.app/Contents/
 - **core**:TrayOp 扩 `set_visible/set_icon_template` + `plugin:tray|set_visible|set_icon_as_template` 命令;**ACL 重复注册防御**:duplicate permission 现在显式报错(顺带清掉 P8 遗留的 set_menu 双注册)
 - **api**:`TrayIcon` 类(create/setTitle/setTooltip/setIcon/setMenu/setVisible/setIconAsTemplate/onClick/destroy)对齐 Tauri 类形态;函数式 API 保留为薄层
 - 验证:hello `TRAY_CLASS_OK`(类创建 + template 往返 + visible 往返 + destroy),70 项/FULL_OK/EXIT 0
+
+## 83. fs.watch(FSEvents 端到端)
+
+- **实现**:core `plugin:fs|watch/unwatch`——PathScope 校验后 `tjs.watch`(libuv FSEvents/kqueue/inotify 封装)→ 事件经 **Channel 流**推前端(与 m3:stream 同管线;事件 `{type:"modify"|"rename", path}`;txiki 的 `rename` 涵盖 create/delete/move,对齐 Tauri WatchEventKind 粗分类)
+- **watcher 注册表**:插件工厂闭包内 Map(id→FileWatcher),unwatch 显式 close;id 由 api 层生成(`fs-watch-<ts>-<rand>`)
+- **api**:`fs.watch(path, handler)` → 返回 unwatch 闭包;`fs.WatchEvent` 类型
+- **覆盖账本**:watch/unwatch 归 INTEGRATION_ONLY(需真实 tjs.watch,Node 侧无实现)
+- 验证:hello `FS_WATCH_OK:modify`(watch→arm→writeText v2→FSEvents 事件回流→unwatch),71 项/FULL_OK/EXIT 0
