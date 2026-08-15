@@ -754,18 +754,41 @@ async function main(): Promise<void> {
     await appMenu.setItemAccelerator("quit", "CmdOrCtrl+Q");
     await appMenu.setItemChecked("zoom", false);
     await appMenu.setItemChecked("zoom", true);
-    /* context menu pops at the cursor (visual check is manual) */
-    await appMenu.popup();
     report("MENU_ACCEL_CHECKED_OK");
 
     const trayMenu = new MenuClass("tray-menu", [
       { id: "tray-open", text: "Open" },
       { id: "tray-sep", text: "-", separator: true },
-      { id: "tray-quit", text: "Quit" },
+      { id: "tray-quit", text: "Quit", predefined: "quit" },
     ]);
     await trayMenu.create();
     await tray.setMenu(trayMenu.id);
     report("TRAY_MENU_OK");
+
+    // 8b. menu dynamic ops: append/predefined/insert/remove + item_info
+    const dyn = new MenuClass("dyn-menu", [
+      { id: "d1", text: "First" },
+    ]);
+    await dyn.create();
+    await dyn.append({ id: "d2", text: "Second" });
+    await dyn.append({ id: "d0", text: "Inserted" }, 0);
+    await dyn.append({ id: "dpre", text: "Copy", predefined: "copy" });
+    const info = await dyn.getItemInfo("d2");
+    const gone = await dyn.getItemInfo("nope");
+    await dyn.remove("d1");
+    if (
+      info &&
+      info.title === "Second" &&
+      info.enabled === true &&
+      gone === null
+    ) {
+      report("MENU_DYNAMIC_OK:" + info.title);
+    } else {
+      report("MENU_DYNAMIC_FAIL:" + JSON.stringify({ info, gone }));
+    }
+    /* popup LAST: it enters a modal menu-tracking session (blocks the GUI
+       queue until dismissed) — a real user dismisses it by clicking. */
+    await appMenu.popup();
 
     // 9. native dialogs (commands registered; modal interaction is manual)
     const hasDialogs = await invoke<boolean>("m3:has-dialogs");

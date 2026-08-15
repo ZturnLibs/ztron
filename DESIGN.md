@@ -1098,3 +1098,14 @@ ZtronApp.app/Contents/
   2. **fwd_to_orig 时序坑(核心)**:引擎的 windowWillClose 处理器会把 m_window **置空** → 之后再经 native handle 反查 label 全部失败回落 "main" → 注册表永不清理(wins 残留)。修复:**先解析 label 再转发**。指针级 trace(note vs registry handle)定位
   3. 假象甄别:plain `close` 一直有触发 willClose,只是 label 解析失败;真实修好后 multiwin 的 second/stress-0 标签全部正确
 - 验证:hello 67 项/FULL_OK/EXIT 0(`MONITORS_OK:1:Built-in Retina Display@2 workArea=3840x2312` 真实数据);multiwin 4 检查/EXIT 0;58 单测绿(monitors/getAllWindows/trafficLight 路由 + scale/theme payload 事件)
+
+## 80. menu 动态增删 + PredefinedMenuItem
+
+- **4 命令**:`add_item`(at 省略追加 / 带则为 `insertItem:atIndex:`)、`remove_item`(`[menu removeItem:]`)、`item_info`(查询 `{enabled,checked,title}`,null=不存在)、`create` 循环支持 `predefined`
+- **PredefinedMenuItem(macOS 落地面)**:copy/cut/paste/selectAll/undo/redo/minimize/maximize/fullscreen/hide/hideOthers/showAll/closeWindow/quit/bringAllToFront/about —— `initWithTitle:action:keyEquivalent:` + **nil target**(首响应者路由,系统行为)+ 惯用快捷键(Cmd+C/X/V/A/Z、Shift+Cmd+Z/F/H…);`services` 需 NSApp.servicesMenu 布线,暂不支持
+- **两个 API 陷阱(崩溃实证录)**:
+  1. **macOS 无 `+[NSMenuItem standardItem:]`**(想当然记错,ObjC 实测 `NSInvalidArgumentException`)——全部走 selector 构造
+  2. **NSMenuItem 无 `removeFromMenu:`**(同因 doesNotRecognizeSelector 杀死 host)——正确姿势 `[menu removeItem:item]`
+- **popup 模态性(sample 实证)**:`popUpMenuPositioningItem:` 在主线程进入菜单跟踪会话(NSMenuTrackingSession startRunningMenuEventLoop),**阻塞后续 GUI dispatch** 直到用户点击/关闭——产品语义正确(用户会点),但程序化流程须把 popup 放最后;spike 已按此排布
+- insert 用 `autorelease pool` 包裹 + NSUInteger 显式 cast;wire:at → m->x
+- 验证:hello 68 项/FULL_OK/EXIT 0(`MENU_DYNAMIC_OK:Second` 含 predefined copy 项 + item_info 真值回读 + remove);58 单测绿

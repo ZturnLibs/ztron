@@ -348,12 +348,39 @@ test("menu commands route to the adapter", async () => {
   });
   await mock.main.invoke("plugin:menu|popup", { menuId: "m" });
   await mock.main.invoke("plugin:tray|set_menu", { menuId: "m" });
+  await mock.main.invoke("plugin:menu|add_item", {
+    menuId: "m",
+    item: { id: "i2", text: "Two" },
+  });
+  await mock.main.invoke("plugin:menu|add_item", {
+    menuId: "m",
+    item: { id: "i0", text: "Zero" },
+    at: 0,
+  });
+  await mock.main.invoke("plugin:menu|add_item", {
+    menuId: "m",
+    item: { id: "pd", text: "Quit", predefined: "quit" },
+  });
+  await mock.main.invoke("plugin:menu|remove_item", {
+    menuId: "m",
+    itemId: "i1",
+  });
+  mock.itemInfoValue = { enabled: true, checked: false, title: "Uno" };
+  const info = await mock.main.invoke("plugin:menu|item_info", {
+    menuId: "m",
+    itemId: "i1",
+  });
+  assert.deepEqual(info, { enabled: true, checked: false, title: "Uno" });
   await mock.main.invoke("plugin:menu|destroy", { menuId: "m" });
   /* tray set_menu routes to the TRAY adapter with the menu id. */
   assert.deepEqual(mock.trayLog.at(-1), {
     op: "set_menu",
     payload: { menuId: "m" },
   });
+  const pd = mock.menuLog.find(
+    (l) => l.op === "add_item" && (l.payload as { item?: { id?: string } }).item?.id === "pd",
+  );
+  assert.equal((pd?.payload as { item?: { predefined?: string } }).item?.predefined, "quit");
   assert.deepEqual(
     mock.menuLog.map((l) => l.op),
     [
@@ -364,6 +391,11 @@ test("menu commands route to the adapter", async () => {
       "set_item_checked",
       "set_item_accel",
       "popup",
+      "add_item",
+      "insert_item",
+      "add_item",
+      "remove_item",
+      "item_info",
       "destroy",
     ],
   );

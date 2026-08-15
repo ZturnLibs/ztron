@@ -369,6 +369,8 @@ export class MockRuntime implements RuntimeAdapter {
   };
 
   menuLog: Array<{ op: string; payload?: unknown }> = [];
+  itemInfoValue: { enabled: boolean; checked: boolean; title: string } | null =
+    null;
   readonly menu: import("../runtime.js").MenuController = {
     createMenu: (menu) => {
       this.menuLog.push({ op: "create", payload: menu });
@@ -405,6 +407,16 @@ export class MockRuntime implements RuntimeAdapter {
     },
     popup: (menuId, x, y) => {
       this.menuLog.push({ op: "popup", payload: { menuId, x, y } });
+    },
+    addItem: (menuId, item, at) => {
+      this.menuLog.push({ op: at == null ? "add_item" : "insert_item", payload: { menuId, item, at } });
+    },
+    removeItem: (menuId, itemId) => {
+      this.menuLog.push({ op: "remove_item", payload: { menuId, itemId } });
+    },
+    getItemInfo: (menuId, itemId) => {
+      this.menuLog.push({ op: "item_info", payload: { menuId, itemId } });
+      return Promise.resolve(this.itemInfoValue);
     },
     onEvent: () => {},
   };

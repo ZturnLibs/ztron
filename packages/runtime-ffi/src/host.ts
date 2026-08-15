@@ -424,6 +424,14 @@ export class HostRuntime implements RuntimeAdapter {
               submenu: submenuId,
             });
             addItems(submenuId, item.children);
+          } else if (item.predefined) {
+            this.send({
+              type: "menu_add_predefined",
+              menu_id: menuId,
+              item_id: item.id,
+              text: item.predefined,
+              enabled: item.enabled ?? true,
+            });
           } else {
             this.send({
               type: "menu_add_item",
@@ -500,6 +508,43 @@ export class HostRuntime implements RuntimeAdapter {
         y: y ?? 0,
       });
     },
+    addItem: (menuId, item, at) => {
+      if (item.predefined) {
+        this.send({
+          type: "menu_add_predefined",
+          menu_id: menuId,
+          item_id: item.id,
+          text: item.predefined,
+          enabled: item.enabled ?? true,
+        });
+      } else {
+        this.send({
+          type: at == null ? "menu_add_item" : "menu_insert_item",
+          menu_id: menuId,
+          item_id: item.id,
+          text: item.text,
+          enabled: item.enabled ?? true,
+          separator: item.separator ?? false,
+          checked:
+            item.type === "check" || item.type === "radio"
+              ? item.checked
+                ? 1
+                : 0
+              : -1,
+          ...(at == null ? {} : { x: at }),
+        });
+      }
+    },
+    removeItem: (menuId, itemId) => {
+      this.send({ type: "menu_remove_item", menu_id: menuId, item_id: itemId });
+    },
+    getItemInfo: (menuId, itemId) =>
+      this.sendRequest("menu_item_info", { menu_id: menuId, item_id: itemId })
+        .then((r) =>
+          r && typeof r === "object"
+            ? (r as { enabled: boolean; checked: boolean; title: string })
+            : null,
+        ),
     onEvent: (cb) => {
       this.#menuEventCb = cb;
     },

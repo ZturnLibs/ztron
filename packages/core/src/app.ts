@@ -240,6 +240,9 @@ export class App {
       "plugin:menu|set_item_checked",
       "plugin:menu|set_item_accel",
       "plugin:menu|popup",
+      "plugin:menu|add_item",
+      "plugin:menu|remove_item",
+      "plugin:menu|item_info",
       "plugin:tray|set_menu",
       "plugin:menu|destroy",
       "plugin:dialog|open",
@@ -734,6 +737,28 @@ export class App {
           y?: number;
         };
         this.#adapter.menu?.popup(menuId, x, y);
+      },
+      "plugin:menu|add_item": (args) => {
+        const { menuId, item, at } = args as {
+          menuId: string;
+          item: import("./runtime.js").MenuItemConfig;
+          at?: number;
+        };
+        this.#adapter.menu?.addItem(menuId, item, at);
+      },
+      "plugin:menu|remove_item": (args) => {
+        const { menuId, itemId } = args as {
+          menuId: string;
+          itemId: string;
+        };
+        this.#adapter.menu?.removeItem(menuId, itemId);
+      },
+      "plugin:menu|item_info": (args) => {
+        const { menuId, itemId } = args as {
+          menuId: string;
+          itemId: string;
+        };
+        return this.#adapter.menu?.getItemInfo(menuId, itemId) ?? null;
       },
       "plugin:tray|set_menu": (args) => {
         this.#adapter.tray?.apply("set_menu", {

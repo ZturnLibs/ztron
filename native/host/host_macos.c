@@ -1164,6 +1164,157 @@ static void menu_add_item(const char *menu_id, const char *item_id, const char *
   }
   OBJC_MSG(void(*)(id, SEL, id), menu, sel_registerName("addItem:"), item);
 }
+/* ---- predefined items (system behaviors) ----
+
+   forward decls (defined later in this file) */
+static id menu_find_item(const char *menu_id, const char *item_id);
+
+/* map: kind -> (selector, keyEquivalent, modifierMask).
+   NOTE: there is NO +[NSMenuItem standardItem:] on macOS (verified: raises
+   NSInvalidArgumentException) — items are built with initWithTitle +
+   first-responder selectors + the conventional key equivalents. */
+static int predefined_map(const char *kind, const char **sel, const char **key,
+                          unsigned long *mask) {
+  *sel = NULL;
+  *key = "";
+  *mask = 0;
+  const unsigned long cmd = 1UL << 20;      /* NSEventModifierFlagCommand */
+  const unsigned long shift = 1UL << 17;    /* NSEventModifierFlagShift */
+  if (!kind || !kind[0]) return 0;
+  if (strcmp(kind, "copy") == 0) { *sel = "copy:"; *key = "c"; *mask = cmd; return 1; }
+  if (strcmp(kind, "cut") == 0) { *sel = "cut:"; *key = "x"; *mask = cmd; return 1; }
+  if (strcmp(kind, "paste") == 0) { *sel = "paste:"; *key = "v"; *mask = cmd; return 1; }
+  if (strcmp(kind, "selectAll") == 0) { *sel = "selectAll:"; *key = "a"; *mask = cmd; return 1; }
+  if (strcmp(kind, "undo") == 0) { *sel = "undo:"; *key = "z"; *mask = cmd; return 1; }
+  if (strcmp(kind, "redo") == 0) { *sel = "redo:"; *key = "Z"; *mask = cmd | shift; return 1; }
+  if (strcmp(kind, "minimize") == 0) { *sel = "performMiniaturize:"; *key = "m"; *mask = cmd; return 1; }
+  if (strcmp(kind, "maximize") == 0) { *sel = "performZoom:"; return 1; }
+  if (strcmp(kind, "fullscreen") == 0) { *sel = "toggleFullScreen:"; *key = "f"; *mask = cmd | shift; return 1; }
+  if (strcmp(kind, "hide") == 0) { *sel = "hide:"; *key = "h"; *mask = cmd; return 1; }
+  if (strcmp(kind, "hideOthers") == 0) { *sel = "hideOtherApplications:"; *key = "h"; *mask = cmd | shift; return 1; }
+  if (strcmp(kind, "showAll") == 0) { *sel = "unhideAllApplications:"; return 1; }
+  if (strcmp(kind, "closeWindow") == 0) { *sel = "performClose:"; *key = "w"; *mask = cmd; return 1; }
+  if (strcmp(kind, "quit") == 0) { *sel = "terminate:"; *key = "q"; *mask = cmd; return 1; }
+  if (strcmp(kind, "bringAllToFront") == 0) { *sel = "arrangeInFront:"; return 1; }
+  if (strcmp(kind, "about") == 0) { *sel = "orderFrontStandardAboutPanel:"; return 1; }
+  return 0; /* separator handled by menu_add_item; services unsupported */
+}
+
+/* Adds a predefined (system-behavior) item to a registered menu. */
+static void menu_add_predefined(const char *menu_id, const char *item_id,
+                                const char *kind, const char *text,
+                                int enabled) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  const char *sel_name;
+  const char *key;
+  unsigned long mask;
+  if (!predefined_map(kind, &sel_name, &key, &mask)) return;
+  id item = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenuItem"),
+                     sel_registerName("alloc"));
+  item = OBJC_MSG(id(*)(id, SEL, id, SEL, id), item,
+                  sel_registerName("initWithTitle:action:keyEquivalent:"),
+                  zt_nsstring(text), sel_registerName(sel_name),
+                  zt_nsstring(key));
+  if (!item) return;
+  /* nil target -> first responder: system routes copy:/terminate:/… to the
+     right object (key window, NSApp, …) at click time. */
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTarget:"),
+           (id)NULL);
+  if (mask)
+    OBJC_MSG(void(*)(id, SEL, unsigned long), item,
+             sel_registerName("setKeyEquivalentModifierMask:"), mask);
+  OBJC_MSG(void(*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"),
+           enabled);
+  if (g_menu_ref_count < MAX_MENU_REFS) {
+    int tag = g_menu_ref_count;
+    strncpy(g_menu_refs[tag].menu_id, menu_id,
+            sizeof(g_menu_refs[tag].menu_id) - 1);
+    strncpy(g_menu_refs[tag].item_id, item_id,
+            sizeof(g_menu_refs[tag].item_id) - 1);
+    g_menu_ref_count++;
+    OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setTag:"), tag);
+  }
+  OBJC_MSG(void(*)(id, SEL, id), g_menus[idx], sel_registerName("addItem:"),
+           item);
+}
+
+/* Inserts an item at an index within the menu. */
+static void menu_insert_item(const char *menu_id, const char *item_id,
+                             const char *text, int enabled, int checked,
+                             long at) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  if (g_menu_ref_count >= MAX_MENU_REFS) return;
+  if (getenv("ZT_TRACE"))
+    fprintf(stderr, "[zt] insert_item at=%ld into=%s\n", at, menu_id);
+  id pool = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSAutoreleasePool"),
+                     sel_registerName("new"));
+  id item = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenuItem"),
+                     sel_registerName("alloc"));
+  item = OBJC_MSG(id(*)(id, SEL, id, SEL, id), item,
+                  sel_registerName("initWithTitle:action:keyEquivalent:"),
+                  zt_nsstring(text), sel_registerName("menuItemClicked:"),
+                  zt_nsstring(""));
+  int tag = g_menu_ref_count;
+  strncpy(g_menu_refs[tag].menu_id, menu_id,
+          sizeof(g_menu_refs[tag].menu_id) - 1);
+  strncpy(g_menu_refs[tag].item_id, item_id,
+          sizeof(g_menu_refs[tag].item_id) - 1);
+  g_menu_ref_count++;
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTarget:"),
+           g_menu_target);
+  OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setTag:"), tag);
+  OBJC_MSG(void(*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"),
+           enabled);
+  if (checked >= 0)
+    OBJC_MSG(void(*)(id, SEL, long), item, sel_registerName("setState:"),
+             checked ? 1 : 0);
+  /* insertItem:atIndex: takes NSUInteger; menu retains the item. */
+  ((void(*)(id, SEL, id, unsigned long))objc_msgSend)(
+      (id)g_menus[idx], sel_registerName("insertItem:atIndex:"), item,
+      (unsigned long)at);
+  OBJC_MSG(void(*)(id, SEL), pool, sel_registerName("release"));
+}
+
+/* Removes an item (by ref lookup) from its menu. */
+static void menu_remove_item(const char *menu_id, const char *item_id) {
+  int idx = menu_index(menu_id);
+  id item = menu_find_item(menu_id, item_id);
+  if (!item || idx < 0) return;
+  /* [menu removeItem:] — NSMenuItem has NO removeFromMenu: (that selector
+     raises doesNotRecognizeSelector and killed the host). */
+  OBJC_MSG(void(*)(id, SEL, id), g_menus[idx], sel_registerName("removeItem:"),
+           item);
+  OBJC_MSG(void(*)(id, SEL), item, sel_registerName("release"));
+}
+
+/* Reads item states: {enabled, checked, title} or null when absent. */
+static void menu_item_info(const char *menu_id, const char *item_id,
+                           int req_id) {
+  id item = menu_find_item(menu_id, item_id);
+  if (!item || req_id < 0) {
+    if (req_id >= 0) zt_reply_null(req_id);
+    return;
+  }
+  int enabled = wnd_bool(item, "isEnabled");
+  long state = (long)OBJC_MSG(long(*)(id, SEL), item, sel_registerName("state"));
+  id title = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("title"));
+  const char *u = title
+                      ? (const char *)OBJC_MSG(const char *(*)(id, SEL), title,
+                                               sel_registerName("UTF8String"))
+                      : "";
+  char esc[512];
+  zt_json_escape(u ? u : "", esc, sizeof(esc));
+  char buf[700];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+           "{\"enabled\":%s,\"checked\":%s,\"title\":\"%s\"}}",
+           req_id, enabled ? "true" : "false",
+           state == 1 ? "true" : "false", esc);
+  zt_send_line(buf);
+}
+
 /* Creates a submenu-bearing item; later menu_add_item calls target its menu. */
 static void menu_add_submenu_item(const char *menu_id, const char *submenu_id,
                                   const char *text) {
@@ -1742,6 +1893,15 @@ static int dispatch(Msg *m, webview_t w) {
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }
   if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val, m->checked); return 1; }
+  if (strcmp(m->type, "menu_add_predefined") == 0) {
+    /* wire: str2 = "kind" for standard selectors; text overrides title via
+       a follow-up set_title. Keep it simple: str2 carries the kind only. */
+    menu_add_predefined(m->str, m->id, m->str2, "", m->status);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_insert_item") == 0) { menu_insert_item(m->str, m->id, m->str2, m->status, m->checked, m->x); return 1; }
+  if (strcmp(m->type, "menu_remove_item") == 0) { menu_remove_item(m->str, m->id); return 1; }
+  if (strcmp(m->type, "menu_item_info") == 0) { menu_item_info(m->str, m->id, m->req_id); return 1; }
   if (strcmp(m->type, "menu_add_submenu_item") == 0) { menu_add_submenu_item(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }

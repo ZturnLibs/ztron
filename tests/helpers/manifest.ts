@@ -107,6 +107,9 @@ export const COMMANDS: readonly string[] = [
   "plugin:menu|set_item_checked",
   "plugin:menu|set_item_accel",
   "plugin:menu|popup",
+  "plugin:menu|add_item",
+  "plugin:menu|remove_item",
+  "plugin:menu|item_info",
   "plugin:tray|set_menu",
   "plugin:menu|destroy",
   // ---- dialog ----

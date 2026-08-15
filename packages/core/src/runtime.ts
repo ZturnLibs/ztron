@@ -224,6 +224,8 @@ export interface MenuItemConfig {
   checked?: boolean;
   /** Shortcut displayed on the item ("CmdOrCtrl+Shift+K"; parsed host-side). */
   accelerator?: string;
+  /** Predefined system behavior: separator/copy/cut/paste/selectAll/undo/redo/minimize/maximize/fullscreen/hide/hideOthers/showAll/closeWindow/quit/about/bringAllToFront. */
+  predefined?: string;
   /** Nested submenu items. */
   children?: MenuItemConfig[];
 }
@@ -257,6 +259,19 @@ export interface MenuController {
   setItemAccelerator(menuId: string, itemId: string, accelerator: string): void;
   /** Pops the menu as a context menu at window coords (omitted = cursor). */
   popup(menuId: string, x?: number, y?: number): void;
+  /** Appends / inserts an item at runtime (at omitted = end). */
+  addItem(
+    menuId: string,
+    item: MenuItemConfig,
+    at?: number,
+  ): void;
+  /** Removes a runtime item by id. */
+  removeItem(menuId: string, itemId: string): void;
+  /** Reads item state: {enabled, checked, title} or null when absent. */
+  getItemInfo(
+    menuId: string,
+    itemId: string,
+  ): Promise<{ enabled: boolean; checked: boolean; title: string } | null>;
   onEvent(cb: (event: { menuId: string; itemId: string }) => void): void;
 }
 

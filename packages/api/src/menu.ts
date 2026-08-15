@@ -17,6 +17,8 @@ export interface MenuItem {
   checked?: boolean;
   /** Item shortcut ("CmdOrCtrl+Shift+K"; shown on the item, parsed host-side). */
   accelerator?: string;
+  /** Predefined system behavior ("copy"/"paste"/"quit"/"about"/…). */
+  predefined?: string;
   /** Nested submenu items. */
   children?: MenuItem[];
 }
@@ -89,6 +91,23 @@ export class Menu {
    */
   async popup(x?: number, y?: number): Promise<void> {
     await invoke("plugin:menu|popup", { menuId: this.id, x, y });
+  }
+
+  /** Appends an item at runtime (or inserts at `at`). */
+  async append(item: MenuItem, at?: number): Promise<void> {
+    await invoke("plugin:menu|add_item", { menuId: this.id, item, at });
+  }
+
+  /** Removes a runtime item by id. */
+  async remove(itemId: string): Promise<void> {
+    await invoke("plugin:menu|remove_item", { menuId: this.id, itemId });
+  }
+
+  /** Reads an item's live state (null when the id is unknown). */
+  async getItemInfo(
+    itemId: string,
+  ): Promise<{ enabled: boolean; checked: boolean; title: string } | null> {
+    return invoke("plugin:menu|item_info", { menuId: this.id, itemId });
   }
 
   async destroy(): Promise<void> {
