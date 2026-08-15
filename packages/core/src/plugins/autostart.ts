@@ -38,7 +38,7 @@ function macosBackend(id: string): AutostartBackend {
   const file = `${dir}/${id}.plist`;
   return {
     async enable(exec) {
-      await tjs.makeDir(dir, 0o755).catch(() => {});
+      await tjs.makeDir(dir, { mode: 0o755, recursive: true }).catch(() => {});
       const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -68,7 +68,7 @@ function linuxBackend(id: string): AutostartBackend {
   const file = `${dir}/${id}.desktop`;
   return {
     async enable(exec) {
-      await tjs.makeDir(dir, 0o755).catch(() => {});
+      await tjs.makeDir(dir, { mode: 0o755, recursive: true }).catch(() => {});
       const desktop = `[Desktop Entry]
 Type=Application
 Name=${id}

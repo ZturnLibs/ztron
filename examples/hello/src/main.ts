@@ -58,28 +58,36 @@ const capabilities = await loadCapabilities(
 
 // Persisted-scope: base fs scope is $TMP/**; pre-seed an extra allow entry so
 // the spike can prove a path outside $TMP is granted after a "restart".
+// NOTE: the seed must complete BEFORE the plugin is constructed — the plugin
+// loads the file in its constructor; a fire-and-forget write here races the
+// load and loses on a cold start (file not yet there → scope not applied).
+await tjs.writeFile(
+  `${tjs.tmpDir}/ztron_persisted_scope.json`,
+  new TextEncoder().encode(
+    JSON.stringify({ allow: ["$HOME/ztron-persisted-spike/**"] }),
+  ),
+);
+
 const persisted = persistedScopePlugin({
   file: `${tjs.tmpDir}/ztron_persisted_scope.json`,
   scope: { allow: ["$TMP/**"] },
 });
 const psScope = persisted.scope;
-void (async () => {
-  try {
-    await tjs.writeFile(
-      `${tjs.tmpDir}/ztron_persisted_scope.json`,
-      new TextEncoder().encode(
-        JSON.stringify({ allow: ["$HOME/ztron-persisted-spike/**"] }),
-      ),
-    );
-  } catch {
-    /* non-fatal */
-  }
-})();
 
 new AppBuilder(runtime, "com.ztron.hello")
   .configure({ invokeKey, capabilities })
   .plugin(persisted)
   .plugin(fsPlugin({ scope: psScope }))
+  .plugin(
+    httpPlugin({
+      scope: {
+        allow: [
+          { url: "https://api.github.com/*" },
+          { url: "http://localhost:*/*" },
+        ],
+      },
+    }),
+  )
   .plugin(pathPlugin({ appId: "com.ztron.hello" }))
   .plugin(
     shellPlugin({
@@ -281,11 +289,11 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      // 37 deterministic checks. WIN_EVENT_OK + WIN_QUERY2_OK are bonus:
-      // both require the window to become key, which a terminal-launched
-      // bare binary cannot reliably do (macOS activation restrictions) —
-      // see DESIGN.md §31.
-      if (done.size >= 61) {
+      // 38 deterministic checks (62 incl. the restored HTTP ×2 + persisted
+      // scope). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both require the
+      // window to become key, which a terminal-launched bare binary cannot
+      // reliably do (macOS activation restrictions) — see DESIGN.md §31.
+      if (done.size >= 62) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras)",
         );

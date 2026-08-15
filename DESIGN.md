@@ -1026,3 +1026,13 @@ ZtronApp.app/Contents/
 - **requestUserAttention 简化**:Tauri 枚举 → bool(Critical=NSCriticalRequest/Informational=NSInformationalRequest),null 视为 Informational(macOS 取消需持有 request id,未实现)
 - `zt_parse_color`:`transparent`→clearColor、`#rrggbb(aa)`→sRGB NSColor、其他→windowBackgroundColor
 - 单测:20 命令路由(buttons 真值断言 + badgeLabel 冲突回归);spike `WIN_BUTTONS_OK`/`WIN_V2_EXTRAS_OK`/`DOCK_V2_OK`(isFocused 属 key-window bonus);61 项报告 FULL_OK
+
+## 74. spike 账本修复 + transformImage(P8)
+
+- **httpPlugin 从未注册**(spike 历史遗留):`git log -S` 证实 AppBuilder 链上一直缺 `.plugin(httpPlugin(...))` → `plugin:http|fetch not found`。补注册(api.github.com + localhost scope)
+- **persisted-scope 种子竞态**:旧代码先构造插件(构造器内 fire-and-forget 读文件)、后异步 IIFE 写种子文件 → 冷启动时读先于写完成,scope 未生效(access denied);重跑时又因目录残留 EEXIST。修复:种子写入 `await` 前置到插件构造之前 + `fs.makeDir(recursive)`
+- **fs.make_dir recursive**(Tauri mkdir 对齐):core 命令 + api `MakeDirOptions` + tjs 声明从 `(p, mode?)` 改为 options 对象(txiki `MakeDirOptions`);顺带修正 autostart 两处旧签名调用
+- **HttpScope 根路径 glob**:`https://host/*` 应匹配 `https://host/`(尾 `*` 段可匹配空,对齐 Tauri url pattern);`**` 分支保持"任意深度 ≥ prefix"。新增单测回归
+- **transformImage/ImageLike**(api):`string→path`、`Image→rid`、`bytes→fromBytes 注册`;`setTrayIcon` 接受 `ImageLike` 并统一经 transformImage 归一
+- **修复 tray icon-by-rid 被静默丢弃**:FFI host `set_icon` 分支只转发 `payload.icon`,不透传 `image_id` —— host.c 明明解析了该字段(真 bug,spike 只验命令往返所以从未暴露)。`TrayPayload` 补 `image_id` 字段
+- 验证:55 tests(54 pass/1 skip);spike 62 项确定性全过(`HTTP_OK`/`HTTP_SCOPE_DENY_OK`/`PERSISTED_SCOPE_OK`/`TRANSFORM_IMAGE_OK`),连续两轮无状态污染;`WIN_QUERY2_OK` 归入 key-window bonus

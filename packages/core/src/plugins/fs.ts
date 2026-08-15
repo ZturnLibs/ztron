@@ -96,9 +96,12 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         await tjs.remove(canon);
       },
       async make_dir(args) {
-        const { path } = args as { path: string };
+        const { path, recursive } = args as {
+          path: string;
+          recursive?: boolean;
+        };
         const canon = await scope.check(path);
-        await tjs.makeDir(canon);
+        await tjs.makeDir(canon, recursive ? { recursive: true } : undefined);
       },
       async copy(args) {
         const { path, dest } = args as { path: string; dest: string };

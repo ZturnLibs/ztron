@@ -168,7 +168,10 @@ export type TrayOp =
 export interface TrayPayload {
   title?: string;
   tooltip?: string;
+  /** Icon file path. */
   icon?: string;
+  /** Host image registry id (from `plugin:image|*`) — wins over `icon`. */
+  image_id?: number | string;
 }
 
 /** System tray controller provided by the runtime backend. */

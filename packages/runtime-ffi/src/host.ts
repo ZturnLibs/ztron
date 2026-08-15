@@ -309,6 +309,8 @@ export class HostRuntime implements RuntimeAdapter {
           this.send({
             type: "tray_set_icon",
             icon: payload?.icon ?? "",
+            image_id:
+              payload?.image_id != null ? String(payload.image_id) : "",
           });
           break;
         case "destroy":

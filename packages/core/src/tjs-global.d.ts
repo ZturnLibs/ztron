@@ -59,7 +59,7 @@ declare const tjs: {
   }>;
   readDir(p: string): Promise<DirEntry[]>;
   remove(p: string): Promise<void>;
-  makeDir(p: string, mode?: number): Promise<void>;
+  makeDir(p: string, options?: { mode?: number; recursive?: boolean }): Promise<void>;
   copyFile(src: string, dest: string): Promise<void>;
   rename(src: string, dest: string): Promise<void>;
   spawn(

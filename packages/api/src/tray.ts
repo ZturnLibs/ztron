@@ -4,6 +4,7 @@
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
+import { transformImage, type ImageLike } from "./image.js";
 
 export interface TrayOptions {
   title: string;
@@ -26,15 +27,16 @@ export async function setTrayTooltip(tooltip: string): Promise<void> {
   await invoke("plugin:tray|set_tooltip", { tooltip });
 }
 
-/** Sets the tray icon from an image file path or a registered Image. */
-export async function setTrayIcon(
-  icon: string | import("./image.js").Image,
-): Promise<void> {
-  if (typeof icon === "string") {
-    await invoke("plugin:tray|set_icon", { icon });
-  } else {
-    await invoke("plugin:tray|set_icon", { image_id: String(icon.rid) });
-  }
+/**
+ * Sets the tray icon from a file path, a registered `Image`, or raw bytes
+ * (`transformImage` normalizes the argument).
+ */
+export async function setTrayIcon(icon: ImageLike): Promise<void> {
+  const t = await transformImage(icon);
+  await invoke("plugin:tray|set_icon", {
+    icon: t?.path ?? "",
+    image_id: t?.image_id != null ? String(t.image_id) : "",
+  });
 }
 
 export async function destroyTray(): Promise<void> {

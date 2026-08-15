@@ -1,7 +1,7 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P5 + 多窗口架构 全部可在本机验证的项(spike 58 项确定性 FULL_OK,
-> 另有 WIN_EVENT_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
+> Ztron 已完成 M0–M4 + P0–P8 + 多窗口架构 全部可在本机验证的项(spike 62 项确定性 FULL_OK,
+> 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
 ## 1. 能力差距矩阵
@@ -110,7 +110,7 @@
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
 | 多窗口   | host webview 注册表 + label 路由 · WebviewWindow api(运行时建窗待库修复)                                                                                                                                                                                       |
-| 测试     | 三层框架(53 单测 + 61 spike 报告,100% 覆盖账本)                                                                                                                                                                                                                     |
+| 测试     | 三层框架(54 单测 + 62 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 
@@ -123,7 +123,7 @@
 | menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [x] 已完成(Submenu + check + radio + preventClose)               |
 | shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [x] 已完成                                                       |
 | IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先                                                       |
-| Image 模块         | transformImage                                                                     | [x] fromBytes/fromPath/fromRGBA + tray 集成(transformImage 待做) |
+| Image 模块         | transformImage                                                                     | [x] 已完成(fromBytes/fromPath/fromRGBA + `transformImage`/`ImageLike` + tray 集成;修复 icon-by-rid 被丢弃) |
 
 ### 5.3 缺失(❌ 深水区/平台/移动端)
 

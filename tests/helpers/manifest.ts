@@ -382,6 +382,7 @@ export const API_EXPORTS: readonly string[] = [
   "getPersistedScope",
   "savePersistedScope",
   "Image",
+  "transformImage",
   "app",
   "getName",
   "getVersion",

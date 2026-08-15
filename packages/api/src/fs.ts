@@ -35,9 +35,18 @@ export function remove(path: string): Promise<void> {
   return invoke<void>("plugin:fs|remove", { path });
 }
 
+/** Options for {@linkcode makeDir}. */
+export interface MakeDirOptions {
+  /** Create parent directories as needed; no error if the dir exists. */
+  recursive?: boolean;
+}
+
 /** Creates a directory. */
-export function makeDir(path: string): Promise<void> {
-  return invoke<void>("plugin:fs|make_dir", { path });
+export function makeDir(
+  path: string,
+  options?: MakeDirOptions,
+): Promise<void> {
+  return invoke<void>("plugin:fs|make_dir", { path, ...options });
 }
 
 export interface FileMeta {

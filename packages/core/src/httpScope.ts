@@ -136,11 +136,20 @@ function matchPath(segments: string[], p: CompiledPattern): boolean {
   if (p.pathPrefix.length === 0) {
     return true;
   }
-  if (!p.pathGlobstar && segments.length !== p.pathPrefix.length) {
-    return false;
-  }
-  if (segments.length < p.pathPrefix.length) {
-    return false;
+  if (p.pathGlobstar) {
+    /* `**` matches any depth at or beyond the prefix. */
+    if (segments.length < p.pathPrefix.length) {
+      return false;
+    }
+  } else {
+    /* A trailing `*` segment also matches the empty path (glob semantics:
+       `https://host/*` matches `https://host/`), like Tauri's url patterns. */
+    const optionalTail =
+      p.pathPrefix[p.pathPrefix.length - 1] === "*" ? 1 : 0;
+    const maxLen = p.pathPrefix.length;
+    if (segments.length < maxLen - optionalTail || segments.length > maxLen) {
+      return false;
+    }
   }
   for (let i = 0; i < p.pathPrefix.length; i++) {
     if (p.pathPrefix[i] !== "*" && p.pathPrefix[i] !== segments[i]) {

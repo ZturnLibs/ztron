@@ -51,6 +51,13 @@ test("HttpScope: port wildcard", async () => {
   assert.equal(scope.permits("https://localhost:8080/x"), false);
 });
 
+test("HttpScope: trailing `*` matches the root path (glob semantics)", async () => {
+  const scope = new HttpScope({ allow: [{ url: "https://api.example.com/*" }] });
+  assert.equal(scope.permits("https://api.example.com/"), true);
+  assert.equal(scope.permits("https://api.example.com/users"), true);
+  assert.equal(scope.permits("https://api.example.com/users/1"), false);
+});
+
 test("HttpScope: deny wins over allow", async () => {
   const scope = new HttpScope({
     allow: [{ url: "https://api.example.com/*" }],
