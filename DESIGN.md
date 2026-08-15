@@ -1133,3 +1133,12 @@ ZtronApp.app/Contents/
 - **api**:`fs.watch(path, handler)` → 返回 unwatch 闭包;`fs.WatchEvent` 类型
 - **覆盖账本**:watch/unwatch 归 INTEGRATION_ONLY(需真实 tjs.watch,Node 侧无实现)
 - 验证:hello `FS_WATCH_OK:modify`(watch→arm→writeText v2→FSEvents 事件回流→unwatch),71 项/FULL_OK/EXIT 0
+
+## 84. dmg 打包 + 可签名 Mach-O launcher(修复打包签名链)
+
+- **dmg**:`hdiutil create -format UDZO` + 拖拽布局(staging: .app + /Applications symlink),默认产出 `dist/<App>.dmg`(ZTRON_NO_DMG=1 关闭);挂载/结构实测通过
+- **签名链修复(核心)**:原 shell 脚本作 CFBundleExecutable → app 为 "generic" 格式,**codesign strict validation 永远失败**(整个 app 实际未签名——M0 以来隐性存在)。两层修复:
+  1. **launcher 换 Mach-O**:`native/host/launcher_macos.c`(posix_spawn host→轮询 .host.log 的 PORT=→spawn backend→wait→kill),invokeKey 经 -D 编译期烘焙;cc 缺失时回落 shell 脚本
+  2. **ztron-backend 移入 Resources**:tjs compile 产物(linker-signed adhoc)对独立重签也报 strict validation(连 /tmp 副本都过不了——产物固有特性);Resources 内嵌套二进制**不在 app 主签名链内**,验证即通过。launcher 从 Resources spawn
+- 顺序:内层(ztron-host/launcher/dylib)→ app 外层;`--deep` 弃用(对 tjs 产物必失败)
+- 验证:`codesign --verify` exit 0;实跑安装副本:launcher→host→Resources/ztron-backend 三层进程全起、干净退出;hello 71 项/FULL_OK/EXIT 0 零回归;59 单测绿

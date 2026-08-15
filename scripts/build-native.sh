@@ -54,6 +54,11 @@ case "$(uname -s)" in
       -pthread -Wl,-rpath,@loader_path \
       -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist" \
       -framework Foundation -framework AppKit -framework Carbon
+    # Mach-O app launcher (signing-friendly main executable for .app builds;
+    # `ztron build` recompiles it with the real invoke key baked in).
+    cc -Wall -Werror -O2 "$NATIVE/host/launcher_macos.c" \
+      -o "$NATIVE/libs/ztron-launcher" \
+      -framework Foundation
     ;;
   Linux)
     cc -Wall -Werror "$NATIVE/host/host.c" "$NATIVE/host/host_linux.c" \

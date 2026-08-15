@@ -20,6 +20,7 @@ import {
   mkdtempSync,
   renameSync,
   rmSync,
+  statSync,
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -771,8 +772,11 @@ async function packMacApp(o: PackOptions): Promise<void> {
   mkdirSync(macosDir, { recursive: true });
   mkdirSync(resDir, { recursive: true });
 
-  // compile the backend bundle into a standalone executable
-  const backendBin = join(macosDir, "ztron-backend");
+  // compile the backend bundle into a standalone executable.
+  // NOTE: it goes to RESOURCES, not MacOS — tjs-compiled binaries fail
+  // codesign strict validation, and a nested resource binary stays outside
+  // the app's main signature chain (the launcher spawns it from there).
+  const backendBin = join(resDir, "ztron-backend");
   const compiled = spawnSync(o.tjs, ["compile", o.backendBundle, backendBin], {
     encoding: "utf8",
   });
@@ -806,25 +810,72 @@ async function packMacApp(o: PackOptions): Promise<void> {
     join(o.outDir, `${o.appName}.app`, "Contents", "Info.plist"),
     appInfoPlist(o.appName),
   );
-  writeFileSync(
-    join(macosDir, "ztron"),
-    launcherScript(o.appName, o.invokeKey),
+  /* Mach-O launcher (signing-friendly: a shell-script CFBundleExecutable
+     cannot pass codesign strict validation). Recompiled with the real
+     invoke key baked in; falls back to the shell script when cc is missing. */
+  const launcherOut = join(macosDir, "ztron");
+  const launcherSrc = fileURLToPath(
+    new URL("../../../native/host/launcher_macos.c", import.meta.url),
   );
-  chmodSync(join(macosDir, "ztron"), 0o755);
+  if (existsSync(launcherSrc)) {
+    const cc = spawnSync(
+      "cc",
+      [
+        "-O2",
+        `-DZTRON_INVOKE_KEY="${o.invokeKey}"`,
+        launcherSrc,
+        "-o",
+        launcherOut,
+        "-framework",
+        "Foundation",
+      ],
+      { encoding: "utf8" },
+    );
+    if (cc.status === 0) {
+      chmodSync(launcherOut, 0o755);
+    } else {
+      console.warn(
+        `[ztron] launcher compile failed, falling back to sh: ${(cc.stderr ?? "").slice(0, 160)}`,
+      );
+      writeFileSync(launcherOut, launcherScript(o.appName, o.invokeKey));
+      chmodSync(launcherOut, 0o755);
+    }
+  } else {
+    writeFileSync(launcherOut, launcherScript(o.appName, o.invokeKey));
+    chmodSync(launcherOut, 0o755);
+  }
 
-  // Optional ad-hoc signing (no Apple identity): makes the bundle runnable
+  // Optional signing (no Apple identity): makes the bundle runnable
   // on the same machine without gatekeeper prompts. Set ZTRON_SIGN_IDENTITY
   // to a real identity (e.g. "Developer ID Application: …") for distribution.
+  // Sign inner binaries FIRST, then the bundle — `--deep` fails on the
+  // tjs-compiled backend (strict validation), leaving the app unsigned.
   if (process.platform === "darwin") {
     const identity = process.env.ZTRON_SIGN_IDENTITY ?? "-";
+    const appPath = join(o.outDir, `${o.appName}.app`);
+    /* inner binaries that must sign cleanly (launcher + host); ztron-backend
+       keeps its linker-signed adhoc signature in Resources. */
+    for (const inner of ["ztron-host"]) {
+      const bin = join(macosDir, inner);
+      if (!existsSync(bin)) continue;
+      const r = spawnSync(
+        "codesign",
+        ["--force", "--sign", identity, bin],
+        { encoding: "utf8" },
+      );
+      if (r.status !== 0) {
+        console.warn(
+          `[ztron] codesign warning (${inner}): ${(r.stderr ?? "").trim().slice(0, 160)}`,
+        );
+      }
+    }
     const codesign = spawnSync(
       "codesign",
       [
         "--force",
-        "--deep",
         "--sign",
         identity,
-        join(o.outDir, `${o.appName}.app`),
+        appPath,
       ],
       { encoding: "utf8" },
     );
@@ -840,6 +891,58 @@ async function packMacApp(o: PackOptions): Promise<void> {
   }
 
   console.log(`[ztron] packaged: ${join(o.outDir, `${o.appName}.app`)}`);
+
+  /* dmg disk image (default on; opt out via ZTRON_NO_DMG=1) — the standard
+     drag-to-install distribution artifact. */
+  if (process.env.ZTRON_NO_DMG !== "1") {
+    await packDmg(o.outDir, o.appName);
+  }
+}
+
+/**
+ * Builds a .app -> .dmg image with a drag-to-Applications layout.
+ * `hdiutil create` with a source folder containing the .app + an
+ * /Applications symlink; UDZO (zlib) compression keeps it small.
+ */
+async function packDmg(outDir: string, appName: string): Promise<void> {
+  const staging = join(outDir, "dmg-staging");
+  rmSync(staging, { recursive: true, force: true });
+  mkdirSync(staging, { recursive: true });
+  cpSync(join(outDir, `${appName}.app`), join(staging, `${appName}.app`), {
+    recursive: true,
+  });
+  /* the classic drag target */
+  symlinkSync("/Applications", join(staging, "Applications"));
+
+  const dmg = join(outDir, `${appName}.dmg`);
+  rmSync(dmg, { force: true });
+  const volName = appName; // volume name shown when mounted
+  const create = spawnSync(
+    "hdiutil",
+    [
+      "create",
+      "-volname",
+      volName,
+      "-srcfolder",
+      staging,
+      "-ov",
+      "-format",
+      "UDZO",
+      dmg,
+    ],
+    { encoding: "utf8" },
+  );
+  rmSync(staging, { recursive: true, force: true });
+  if (create.status !== 0) {
+    console.warn(
+      `[ztron] dmg warning: ${(create.stderr ?? "").trim().slice(0, 200)}`,
+    );
+    return;
+  }
+  const size = statSync(dmg).size;
+  console.log(
+    `[ztron] disk image: ${dmg} (${(size / 1024 / 1024).toFixed(1)} MB)`,
+  );
 }
 
 function appInfoPlist(appName: string): string {
