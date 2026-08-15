@@ -176,9 +176,15 @@ async function startFrontendDevServer(
   });
   await server.listen();
   const addr = server.httpServer?.address();
-  const port = typeof addr === "object" && addr ? addr.port : 5173;
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  if (!port) {
+    await server.close();
+    return null;
+  }
   console.log(`[ztron] vite dev server: http://127.0.0.1:${port}`);
-  return `http://localhost:${port}`;
+  /* Bind the URL to the literal IP: `localhost` may resolve to ::1 first and
+     hit an unrelated IPv6 listener on the same port. */
+  return `http://127.0.0.1:${port}`;
 }
 
 /**

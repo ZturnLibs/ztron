@@ -184,6 +184,30 @@ export class MockWebviewHandle implements WebviewHandle {
     this.titleBarStyleLog.push(style);
   }
 
+  themeLog: Array<"dark" | "light" | null> = [];
+
+  setTheme(theme: "dark" | "light" | null): void {
+    this.themeLog.push(theme);
+  }
+
+  innerSizeValue: { width: number; height: number } | null = null;
+
+  getInnerSize(): Promise<{ width: number; height: number } | null> {
+    return Promise.resolve(this.innerSizeValue);
+  }
+
+  cursorPositionValue: { x: number; y: number } | null = null;
+
+  getCursorPosition(): Promise<{ x: number; y: number } | null> {
+    return Promise.resolve(this.cursorPositionValue);
+  }
+
+  cursorPositionLog: Array<{ x: number; y: number }> = [];
+
+  setCursorPosition(x: number, y: number): void {
+    this.cursorPositionLog.push({ x, y });
+  }
+
   opacityLog: number[] = [];
 
   setOpacity(opacity: number): void {

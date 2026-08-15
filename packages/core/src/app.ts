@@ -196,6 +196,17 @@ export class App {
       "plugin:window|request_user_attention",
       "plugin:window|set_background_color",
       "plugin:window|set_titlebar_style",
+      "plugin:window|maximize",
+      "plugin:window|unmaximize",
+      "plugin:window|is_enabled",
+      "plugin:window|inner_size",
+      "plugin:window|set_focusable",
+      "plugin:window|set_cursor_visible",
+      "plugin:window|cursor_position",
+      "plugin:window|set_cursor_position",
+      "plugin:window|set_theme",
+      "plugin:window|set_visible_on_all_workspaces",
+      "plugin:window|set_simple_fullscreen",
       "plugin:window|start_dragging",
       "plugin:window|start_resize_dragging",
       "plugin:app|name",
@@ -540,6 +551,50 @@ export class App {
           (args as { style?: string }).style ?? "visible",
         ) as "visible" | "transparent" | "overlay";
         ctx.webview.setTitleBarStyle(style);
+      },
+      "plugin:window|maximize": (_args, ctx) =>
+        ctx.webview.windowState("maximize"),
+      "plugin:window|unmaximize": (_args, ctx) =>
+        ctx.webview.windowState("unmaximize"),
+      "plugin:window|is_enabled": async (_args, ctx) =>
+        ctx.webview.windowState("is_enabled"),
+      "plugin:window|inner_size": async (_args, ctx) =>
+        ctx.webview.getInnerSize(),
+      "plugin:window|set_focusable": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_focusable",
+          Boolean((args as { focusable?: boolean }).focusable),
+        );
+      },
+      "plugin:window|set_cursor_visible": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_cursor_visible",
+          Boolean((args as { visible?: boolean }).visible),
+        );
+      },
+      "plugin:window|cursor_position": async (_args, ctx) =>
+        ctx.webview.getCursorPosition(),
+      "plugin:window|set_cursor_position": (args, ctx) => {
+        const { x, y } = args as { x: number; y: number };
+        ctx.webview.setCursorPosition(Number(x), Number(y));
+      },
+      "plugin:window|set_theme": (args, ctx) => {
+        const theme = (args as { theme?: string | null }).theme;
+        ctx.webview.setTheme(
+          theme === "dark" || theme === "light" ? theme : null,
+        );
+      },
+      "plugin:window|set_visible_on_all_workspaces": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_visible_on_all_workspaces",
+          Boolean((args as { visible?: boolean }).visible),
+        );
+      },
+      "plugin:window|set_simple_fullscreen": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_simple_fullscreen",
+          Boolean((args as { fullscreen?: boolean }).fullscreen),
+        );
       },
       "plugin:window|start_dragging": (_args, ctx) =>
         ctx.webview.startDragging(),

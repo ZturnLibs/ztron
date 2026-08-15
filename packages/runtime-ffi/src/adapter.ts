@@ -104,6 +104,22 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides title-bar styling) */
   }
 
+  setTheme(): void {
+    /* no-op (host adapter provides theme override) */
+  }
+
+  getInnerSize(): Promise<import("@ztron/core").WindowFrame | null> {
+    return Promise.resolve(null);
+  }
+
+  getCursorPosition(): Promise<{ x: number; y: number } | null> {
+    return Promise.resolve(null);
+  }
+
+  setCursorPosition(): void {
+    /* no-op */
+  }
+
   getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
     return Promise.resolve(null);
   }

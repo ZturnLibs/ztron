@@ -66,9 +66,50 @@ export class Window {
     return invoke("plugin:window|get_title", { label: this.label });
   }
 
+  /** Sets the window title (alias of setTitle for Tauri v2 parity). */
+  async title(): Promise<string> {
+    return this.getTitle();
+  }
+
+  /** Whether the window is enabled (macOS: always true — no NSWindow state). */
+  async isEnabled(): Promise<boolean> {
+    return invoke<boolean>("plugin:window|is_enabled", { label: this.label });
+  }
+
+  /**
+   * The window's inner (content) size in points — excludes title bar.
+   */
+  async innerSize(): Promise<{ width: number; height: number }> {
+    return (
+      (await invoke<{ width: number; height: number } | null>(
+        "plugin:window|inner_size",
+        { label: this.label },
+      )) ?? { width: 0, height: 0 }
+    );
+  }
+
   /** The OS color scheme the window follows ("light" | "dark"). */
   async getTheme(): Promise<string | null> {
     return invoke("plugin:window|get_theme", { label: this.label });
+  }
+
+  /** The OS color scheme, alias of getTheme (Tauri v2 parity). */
+  async theme(): Promise<string | null> {
+    return this.getTheme();
+  }
+
+  /** App-wide theme override (`"dark"`/`"light"`; `null` follows system). */
+  async setTheme(theme: "dark" | "light" | null): Promise<void> {
+    await invoke("plugin:window|set_theme", { label: this.label, theme });
+  }
+
+  /** Alias of setVisible(true) / setVisible(false) (Tauri v2 parity). */
+  async show(): Promise<void> {
+    await invoke("plugin:window|show", { label: this.label });
+  }
+
+  async hide(): Promise<void> {
+    await invoke("plugin:window|hide", { label: this.label });
   }
 
   /** The window's backing scale factor (2 on Retina/HiDPI). */
@@ -90,6 +131,44 @@ export class Window {
    */
   async setCursor(cursor: string): Promise<void> {
     await invoke("plugin:window|set_cursor", { label: this.label, cursor });
+  }
+
+  /** Alias of setCursor (Tauri v2 name). */
+  async setCursorIcon(icon: string): Promise<void> {
+    return this.setCursor(icon);
+  }
+
+  /**
+   * Hides/shows the system cursor (app-global hide counter — pair calls).
+   */
+  async setCursorVisible(visible: boolean): Promise<void> {
+    await invoke("plugin:window|set_cursor_visible", {
+      label: this.label,
+      visible,
+    });
+  }
+
+  /** The cursor position in window coordinates. */
+  async cursorPosition(): Promise<{ x: number; y: number }> {
+    return (
+      (await invoke<{ x: number; y: number } | null>(
+        "plugin:window|cursor_position",
+        { label: this.label },
+      )) ?? { x: 0, y: 0 }
+    );
+  }
+
+  /** Warps the cursor to window coordinates (dpi types accepted). */
+  async setCursorPosition(
+    x: PositionLike,
+    y?: number,
+  ): Promise<void> {
+    const p = normalizePosition(x, y);
+    await invoke("plugin:window|set_cursor_position", {
+      label: this.label,
+      x: p.x,
+      y: p.y,
+    });
   }
 
   /** Zooms the web content (CSS zoom factor, e.g. 1.5). */
@@ -238,6 +317,16 @@ export class Window {
 
   async toggleMaximize(): Promise<void> {
     await invoke("plugin:window|toggle_maximize", { label: this.label });
+  }
+
+  /** Sets the native maximize state without toggling (Tauri v2 split). */
+  async maximize(): Promise<void> {
+    await invoke("plugin:window|maximize", { label: this.label });
+  }
+
+  /** Restores a maximized window (no-op when not zoomed). */
+  async unmaximize(): Promise<void> {
+    await invoke("plugin:window|unmaximize", { label: this.label });
   }
 
   async isMaximized(): Promise<boolean> {
@@ -545,12 +634,51 @@ export class Window {
     return this.onEvent("move", handler);
   }
 
+  /** Toggles whether the window can take keyboard focus. */
+  async setFocusable(focusable: boolean): Promise<void> {
+    await invoke("plugin:window|set_focusable", {
+      label: this.label,
+      focusable,
+    });
+  }
+
+  /** Shows the window on all workspaces / virtual desktops (macOS). */
+  async setVisibleOnAllWorkspaces(visible: boolean): Promise<void> {
+    await invoke("plugin:window|set_visible_on_all_workspaces", {
+      label: this.label,
+      visible,
+    });
+  }
+
+  /**
+   * Borderless "simple" fullscreen: content fills the screen without the
+   * native fullscreen space transition (frame + decorations restored on off).
+   */
+  async setSimpleFullscreen(fullscreen: boolean): Promise<void> {
+    await invoke("plugin:window|set_simple_fullscreen", {
+      label: this.label,
+      fullscreen,
+    });
+  }
+
   onFocused(handler: () => void) {
     return this.onEvent("focus", handler);
   }
 
   onBlurred(handler: () => void) {
     return this.onEvent("blur", handler);
+  }
+
+  /** Focus + blur combined (Tauri v2 sugar). */
+  async onFocusChanged(
+    handler: (focused: boolean) => void,
+  ): Promise<() => void> {
+    const unFocus = await this.onEvent("focus", () => handler(true));
+    const unBlur = await this.onEvent("blur", () => handler(false));
+    return () => {
+      unFocus();
+      unBlur();
+    };
   }
 
   onCloseRequested(handler: () => void) {

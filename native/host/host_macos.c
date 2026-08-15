@@ -14,6 +14,8 @@
 #include <Carbon/Carbon.h>
 #include <mach-o/dyld.h>
 
+/* CGWarpMouseCursorPosition is declared via Carbon's CoreGraphics umbrella. */
+
 #include "host_platform.h"
 
 #define OBJC_MSG(cast, obj, ...) ((cast)objc_msgSend)((id)(obj), __VA_ARGS__)
@@ -105,6 +107,39 @@ static ZtRect zt_wnd_frame(void *wnd) {
 #else
   ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
       (id)wnd, sel_registerName("frame"), &r);
+#endif
+  return r;
+}
+
+/* NSPoint-sized struct returns (2 doubles) never need stret on either arch
+   (x86_64 SSE-struct returns in xmm0/1); NSPoint args pass as 2 doubles. */
+typedef struct { double x, y; } ZtPoint;
+
+static ZtPoint zt_mouse_screen(void) {
+  return ((ZtPoint(*)(id, SEL))objc_msgSend)((id)objc_getClass("NSEvent"),
+                                             sel_registerName("mouseLocation"));
+}
+
+static ZtPoint zt_screen_to_base(void *wnd, ZtPoint p) {
+  return ((ZtPoint(*)(id, SEL, double, double))objc_msgSend)(
+      (id)wnd, sel_registerName("convertScreenToBase:"), p.x, p.y);
+}
+
+static ZtPoint zt_base_to_screen(void *wnd, ZtPoint p) {
+  return ((ZtPoint(*)(id, SEL, double, double))objc_msgSend)(
+      (id)wnd, sel_registerName("convertBaseToScreen:"), p.x, p.y);
+}
+
+/* [NSScreen mainScreen] frame (32-byte struct -> arch-specific return). */
+static ZtRect zt_main_screen_frame(void) {
+  id screen = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSScreen"),
+                       sel_registerName("mainScreen"));
+  ZtRect r;
+#if defined(__aarch64__)
+  r = ((ZtRect(*)(id, SEL))objc_msgSend)(screen, sel_registerName("frame"));
+#else
+  ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+      screen, sel_registerName("frame"), &r);
 #endif
   return r;
 }
@@ -478,6 +513,9 @@ static int is_window_op(const char *t) {
       "is_minimizable", "set_maximizable", "is_maximizable",
       "set_closable",   "is_closable",   "set_skip_taskbar",
       "set_content_protected", "request_user_attention",
+      "maximize",         "unmaximize",     "is_enabled",
+      "set_focusable",    "set_cursor_visible",
+      "set_visible_on_all_workspaces", "set_simple_fullscreen",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     if (strcmp(t, ops[i]) == 0) return 1;
@@ -591,6 +629,59 @@ static void handle_window_op(Msg *m, webview_t w) {
     OBJC_MSG(void(*)(id, SEL, long), zt_nsapp(),
              sel_registerName("requestUserAttention:"),
              m->bool_val ? 1 /* NSCriticalRequest */ : 0 /* NSInformationalRequest */);
+  } else if (strcmp(m->type, "maximize") == 0) {
+    if (!wnd_bool(wnd, "isZoomed")) wnd_void(wnd, "zoom:");
+  } else if (strcmp(m->type, "unmaximize") == 0) {
+    if (wnd_bool(wnd, "isZoomed")) wnd_void(wnd, "zoom:");
+  } else if (strcmp(m->type, "is_enabled") == 0) {
+    /* NSWindow has no enabled state; always interactive on macOS. */
+    result = 1;
+  } else if (strcmp(m->type, "set_focusable") == 0) {
+    /* NSNonactivatingPanelMask = 1<<7: window won't activate the app. */
+    unsigned long mask = wnd_style_mask(wnd);
+    wnd_set_style_mask(wnd, m->bool_val ? (mask & ~(1UL << 7))
+                                        : (mask | (1UL << 7)));
+  } else if (strcmp(m->type, "set_cursor_visible") == 0) {
+    static int g_cursor_hidden = 0;
+    id cls = (id)objc_getClass("NSCursor");
+    if (m->bool_val && g_cursor_hidden) {
+      OBJC_MSG(void(*)(id, SEL), cls, sel_registerName("unhide"));
+      g_cursor_hidden = 0;
+    } else if (!m->bool_val && !g_cursor_hidden) {
+      OBJC_MSG(void(*)(id, SEL), cls, sel_registerName("hide"));
+      g_cursor_hidden = 1;
+    }
+  } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
+    /* CanJoinAllSpaces = 1<<0, FullScreenAuxiliary = 1<<9. */
+    unsigned long cb = (unsigned long)OBJC_MSG(
+        unsigned long(*)(id, SEL), wnd, sel_registerName("collectionBehavior"));
+    const unsigned long bits = (1UL << 0) | (1UL << 9);
+    cb = m->bool_val ? (cb | bits) : (cb & ~bits);
+    OBJC_MSG(void(*)(id, SEL, unsigned long), wnd,
+             sel_registerName("setCollectionBehavior:"), cb);
+  } else if (strcmp(m->type, "set_simple_fullscreen") == 0) {
+    static ZtRect g_simple_prev = {0, 0, 0, 0};
+    static int g_simple_on = 0;
+    if (m->bool_val && !g_simple_on) {
+      g_simple_prev = zt_wnd_frame(wnd);
+      g_simple_on = 1;
+      unsigned long mask = wnd_style_mask(wnd);
+      wnd_set_style_mask(
+          wnd, mask & ~((1UL << 0) | (1UL << 1) | (1UL << 2) | (1UL << 3)));
+      ZtRect f = zt_main_screen_frame();
+      ((void(*)(id, SEL, double, double, double, double, BOOL))objc_msgSend)(
+          (id)wnd, sel_registerName("setFrame:display:"), f.x, f.y, f.width,
+          f.height, YES);
+    } else if (!m->bool_val && g_simple_on) {
+      g_simple_on = 0;
+      unsigned long mask = wnd_style_mask(wnd);
+      wnd_set_style_mask(
+          wnd, mask | ((1UL << 0) | (1UL << 1) | (1UL << 2) | (1UL << 3)));
+      ZtRect f = g_simple_prev;
+      ((void(*)(id, SEL, double, double, double, double, BOOL))objc_msgSend)(
+          (id)wnd, sel_registerName("setFrame:display:"), f.x, f.y, f.width,
+          f.height, YES);
+    }
   }
 
   if (m->req_id >= 0) {
@@ -1086,12 +1177,18 @@ static int dispatch(Msg *m, webview_t w) {
     void *wnd = zt_window_of(w);
     if (wnd) {
       /* setContent{Min,Max}Size: take NSSize (2 doubles) by value — the
-         scalar cast matches the SysV/arm64 float-register ABI. */
-      SEL sel = sel_registerName(strcmp(m->type, "window_set_min_size") == 0
-                                     ? "setContentMinSize:"
-                                     : "setContentMaxSize:");
+         scalar cast matches the SysV/arm64 float-register ABI.
+         Max (0,0) would CLAMP the window to zero, not clear the constraint
+         (repro: 1x32 titlebar stub after zoom) — use FLT_MAX to clear. */
+      int is_max = strcmp(m->type, "window_set_max_size") == 0;
+      double cw = (double)m->width, ch = (double)m->height;
+      if (is_max && cw <= 0 && ch <= 0) {
+        cw = ch = 3.4028234663852886e38; /* FLT_MAX */
+      }
+      SEL sel = sel_registerName(is_max ? "setContentMaxSize:"
+                                        : "setContentMinSize:");
       ((void(*)(id, SEL, double, double))objc_msgSend)(
-          (id)wnd, sel, (double)m->width, (double)m->height);
+          (id)wnd, sel, cw, ch);
     }
     return 1;
   }
@@ -1132,6 +1229,63 @@ static int dispatch(Msg *m, webview_t w) {
       wnd_set_style_mask(wnd, overlay ? (mask | NS_FULLSIZECONTENTVIEW_MASK)
                                       : (mask & ~NS_FULLSIZECONTENTVIEW_MASK));
     }
+    return 1;
+  }
+  if (strcmp(m->type, "inner_size") == 0) {
+    void *wnd = zt_window_of(w);
+    if (wnd && m->req_id >= 0) {
+      id cv = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("contentView"));
+      ZtRect b;
+#if defined(__aarch64__)
+      b = ((ZtRect(*)(id, SEL))objc_msgSend)(cv, sel_registerName("bounds"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          cv, sel_registerName("bounds"), &b);
+#endif
+      char buf[96];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"width\":%g,\"height\":%g}}",
+               m->req_id, b.width, b.height);
+      zt_send_line(buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "cursor_position") == 0) {
+    void *wnd = zt_window_of(w);
+    if (m->req_id >= 0) {
+      ZtPoint p = wnd ? zt_screen_to_base(wnd, zt_mouse_screen())
+                      : zt_mouse_screen();
+      char buf[96];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"x\":%g,\"y\":%g}}",
+               m->req_id, p.x, p.y);
+      zt_send_line(buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_cursor_position") == 0) {
+    void *wnd = zt_window_of(w);
+    /* wire x/y are window-base coords; CG wants screen coords (top-left). */
+    ZtPoint base = {(double)m->x, (double)m->y};
+    ZtPoint screen = wnd ? zt_base_to_screen(wnd, base) : base;
+    CGPoint cg = {screen.x, screen.y};
+    CGWarpMouseCursorPosition(cg);
+    return 1;
+  }
+  if (strcmp(m->type, "set_theme") == 0) {
+    /* App-wide on macOS: NSApp.appearance = DarkAqua/Aqua/nil(follow system). */
+    id appearance = NULL;
+    if (strcmp(m->str2, "dark") == 0 || strcmp(m->str2, "light") == 0) {
+      const char *name =
+          m->str2[0] == 'd' ? "NSAppearanceNameDarkAqua" : "NSAppearanceNameAqua";
+      appearance =
+          OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSAppearance"),
+                   sel_registerName("appearanceNamed:"), zt_nsstring(name));
+    }
+    OBJC_MSG(void(*)(id, SEL, id), zt_nsapp(), sel_registerName("setAppearance:"),
+             appearance);
     return 1;
   }
   if (strcmp(m->type, "window_get_state") == 0) {

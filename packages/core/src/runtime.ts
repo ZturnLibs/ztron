@@ -54,7 +54,14 @@ export type WindowStateOp =
   | "set_skip_taskbar"
   | "set_content_protected"
   | "set_prevent_close"
-  | "request_user_attention";
+  | "request_user_attention"
+  | "maximize"
+  | "unmaximize"
+  | "is_enabled"
+  | "set_focusable"
+  | "set_cursor_visible"
+  | "set_visible_on_all_workspaces"
+  | "set_simple_fullscreen";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
@@ -113,6 +120,14 @@ export interface WebviewHandle {
   setBackgroundColor(color: string): void;
   /** Title-bar style: `visible` (default), `transparent`, `overlay`. */
   setTitleBarStyle(style: "visible" | "transparent" | "overlay"): void;
+  /** App-wide theme override: `"dark"` / `"light"` / `null` (follow system). */
+  setTheme(theme: "dark" | "light" | null): void;
+  /** Reads the inner (content) size — `{width,height}` in points. */
+  getInnerSize(): Promise<{ width: number; height: number } | null>;
+  /** Reads the cursor position in window coordinates (`{x,y}`). */
+  getCursorPosition(): Promise<{ x: number; y: number } | null>;
+  /** Warps the cursor to window coordinates (x, y). */
+  setCursorPosition(x: number, y: number): void;
   /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
   setOpacity(opacity: number): void;
   /** Reads the native window's boolean state flags. */

@@ -221,6 +221,45 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  setTheme(theme: "dark" | "light" | null): void {
+    this.#rt.send({
+      type: "set_theme",
+      label: this.label,
+      text: theme ?? "",
+    });
+  }
+
+  getInnerSize(): Promise<{ width: number; height: number } | null> {
+    return this.#rt
+      .sendRequest("inner_size", {}, this.label)
+      .then((r) => {
+        if (r && typeof r === "object") {
+          const s = r as Record<string, unknown>;
+          return {
+            width: Number(s.width ?? 0),
+            height: Number(s.height ?? 0),
+          };
+        }
+        return null;
+      });
+  }
+
+  getCursorPosition(): Promise<{ x: number; y: number } | null> {
+    return this.#rt
+      .sendRequest("cursor_position", {}, this.label)
+      .then((r) => {
+        if (r && typeof r === "object") {
+          const p = r as Record<string, unknown>;
+          return { x: Number(p.x ?? 0), y: Number(p.y ?? 0) };
+        }
+        return null;
+      });
+  }
+
+  setCursorPosition(x: number, y: number): void {
+    this.#rt.send({ type: "set_cursor_position", label: this.label, x, y });
+  }
+
   setOpacity(opacity: number): void {
     this.#rt.send({ type: "set_opacity", label: this.label, opacity });
   }

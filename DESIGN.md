@@ -1067,3 +1067,13 @@ ZtronApp.app/Contents/
 
 - 调试利器:host.c 加 `ZT_TRACE=1` 环境门控的 on_gui 消息日志(零开销,本次定位主靠它)
 - 验证:hello 63 report/0 FAIL/FULL_OK/**EXIT 0**(真实 destroy + 主窗持续操作);multiwin 4 检查含 STRESS_OK(10 轮建窗-狂发 invoke-销毁竞态);54 单测绿;库补丁已入 scripts/patches/webview-local.patch
+
+## 77. window v2 批次 3(maximize/innerSize/cursor/theme/workspaces/simple-fs)
+
+- **13 命令**:`maximize`/`unmaximize`(条件 zoom:,区别于 toggle)、`is_enabled`(macOS 恒 true)、`inner_size`(contentView bounds)、`cursor_position`(NSEvent mouseLocation→convertScreenToBase)、`set_cursor_position`(convertBaseToScreen→CGWarpMouseCursorPosition)、`set_cursor_visible`(NSCursor hide/unhide,平衡计数)、`set_focusable`(NSNonactivatingPanelMask 1<<7)、`set_theme`(app 级 NSApp.appearance)、`set_visible_on_all_workspaces`(collectionBehavior CanJoinAllSpaces|FullScreenAuxiliary)、`set_simple_fullscreen`(存 frame→去 titled 位→整屏 setFrame;off 反向)
+- api 糖:`show/hide/title/theme/setCursorIcon` 别名 + `onFocusChanged`(focus+blur 合并)、`setCursorPosition` 接受 dpi 类型
+- **NSPoint ABI 心得**:2×double 结构在 arm64 与 x86_64 都走寄存器(x86_64 SSE 结构 xmm0/1 非 stret),标量强转两平台通用;NSRect 32B arm64 靠 cast 类型触发 sret(x8)
+- **CLI dev server URL bug**:返回 `localhost` 可能先解析 ::1 打到无关 IPv6 监听者 → 改回绑定 IP `127.0.0.1`;port 取不到时关闭 server 返回 null(不再回退 5173)
+- **max-size 清除 bug**(重):`setMaxSize(null)` 走 `(0,0)` → `setContentMaxSize:(0,0)` 是**上限为零**而非清除 → 后续 zoom 把窗口钳成 1×32 标题栏残桩(hello WINDOW_STATE_PLUGIN_FAIL + inner=1x0 的根因;multiwin 定向复现 setMaxSize(1600,1200)→(0,0)→maximize 即现)。修复:两侧 ≤0 时发 FLT_MAX 清除。min (0,0) 天然无约束,不动
+- 调试法:multiwin 加 `probe` 命令读 frame/inner + 页面驱动的定向 op 链,二分定位交互 bug
+- 验证:hello 64 report/0 FAIL/FULL_OK/EXIT 0(含 simpleFullscreen 往返);multiwin 4 检查;55 单测绿

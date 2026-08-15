@@ -202,6 +202,48 @@ test("window v2 extras (size constraints, button flags, dock) route", async () =
   assert.deepEqual(w.titleBarStyleLog, ["overlay"]);
 });
 
+test("window v2 batch 3 (maximize/cursor/theme/workspaces) routes", async () => {
+  const { mock } = buildApp();
+  const w = mock.main;
+
+  for (const [cmd, arg, op, value] of [
+    ["maximize", {}, "maximize", undefined],
+    ["unmaximize", {}, "unmaximize", undefined],
+    ["set_focusable", { focusable: false }, "set_focusable", false],
+    ["set_cursor_visible", { visible: false }, "set_cursor_visible", false],
+    [
+      "set_visible_on_all_workspaces",
+      { visible: true },
+      "set_visible_on_all_workspaces",
+      true,
+    ],
+    ["set_simple_fullscreen", { fullscreen: true }, "set_simple_fullscreen", true],
+  ] as const) {
+    await mock.main.invoke(`plugin:window|${cmd}`, arg);
+    const hit = w.windowStateLog.find(
+      (l) => l.op === op && (value === undefined || l.value === value),
+    );
+    assert.ok(hit, `${op} not routed`);
+  }
+
+  const enabled = await mock.main.invoke("plugin:window|is_enabled", {});
+  assert.equal(typeof enabled, "boolean");
+
+  w.innerSizeValue = { width: 800, height: 600 };
+  const inner = await mock.main.invoke("plugin:window|inner_size", {});
+  assert.deepEqual(inner, { width: 800, height: 600 });
+
+  w.cursorPositionValue = { x: 12, y: 34 };
+  const cur = await mock.main.invoke("plugin:window|cursor_position", {});
+  assert.deepEqual(cur, { x: 12, y: 34 });
+  await mock.main.invoke("plugin:window|set_cursor_position", { x: 5, y: 6 });
+  assert.deepEqual(w.cursorPositionLog, [{ x: 5, y: 6 }]);
+
+  await mock.main.invoke("plugin:window|set_theme", { theme: "dark" });
+  await mock.main.invoke("plugin:window|set_theme", { theme: null });
+  assert.deepEqual(w.themeLog, ["dark", null]);
+});
+
 test("tray commands route to the adapter", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:tray|create", { title: "T", tooltip: "tip" });

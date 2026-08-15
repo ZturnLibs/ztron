@@ -552,6 +552,28 @@ async function main(): Promise<void> {
       report("MULTI_WINDOW_FAIL:" + JSON.stringify(secondMin));
     }
 
+    // 6a2m. window v2 batch 3 (maximize/innerSize/cursor/theme/workspaces)
+    await win.maximize();
+    const maxed = await win.isMaximized();
+    await win.unmaximize();
+    const innerSz = await win.innerSize();
+    await win.setTheme("dark");
+    await win.setTheme(null);
+    await win.setVisibleOnAllWorkspaces(true);
+    await win.setVisibleOnAllWorkspaces(false);
+    await win.setCursorVisible(false);
+    await win.setCursorVisible(true);
+    const cp = await win.cursorPosition();
+    await win.setCursorPosition(120, 120);
+    await win.setFocusable(true);
+    await win.setSimpleFullscreen(true);
+    await win.setSimpleFullscreen(false);
+    if (maxed === true && innerSz.width > 0 && typeof cp.x === "number") {
+      report("WIN_V2_B3_OK:inner=" + innerSz.width + "x" + innerSz.height);
+    } else {
+      report("WIN_V2_B3_FAIL:" + JSON.stringify({ maxed, inner: innerSz, cp }));
+    }
+
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();
     const inner = await win.innerPosition();
