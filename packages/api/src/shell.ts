@@ -61,7 +61,7 @@ export interface CommandOptions {
   env?: Record<string, string>;
 }
 
-type CommandEvent = "stdout" | "stderr" | "status";
+type CommandEvent = "stdout" | "stderr" | "status" | "terminated";
 
 /**
  * A command builder mirroring Tauri's `Command` class. Streams stdout/stderr
@@ -115,6 +115,48 @@ export class Command {
       await unsubOut();
       await unsubErr();
     }
+  }
+
+  /**
+   * Long-lived spawn: resolves with a command id once started; output keeps
+   * streaming through `on("stdout"/"stderr")`, termination through
+   * `on("terminated")` ({cid, code}). Use {@linkcode write} and
+   * {@linkcode kill} to drive interactive processes.
+   */
+  async spawnInteractive(): Promise<string> {
+    /* wire the output streams BEFORE spawning so no early chunk is missed */
+    const unsubOut = await listen<{ chunk: string }>(
+      "tauri://shell-output",
+      (e) => this.#emit("stdout", e.payload.chunk),
+    );
+    const unsubErr = await listen<{ chunk: string }>(
+      "tauri://shell-error",
+      (e) => this.#emit("stderr", e.payload.chunk),
+    );
+    const unsubTerm = await listen<{ cid: string; code: number }>(
+      "tauri://shell-terminated",
+      (e) => {
+        this.#emit("terminated", e.payload);
+        unsubOut();
+        unsubErr();
+        unsubTerm();
+      },
+    );
+    const { cid } = await invoke<{ cid: string }>(
+      "plugin:shell|spawn_stream",
+      { program: this.program, args: this.args, ...this.options },
+    );
+    return cid;
+  }
+
+  /** Writes to a spawned command's stdin (spawnInteractive cid). */
+  async write(cid: string, data: string): Promise<void> {
+    await invoke("plugin:shell|write_stdin", { cid, data });
+  }
+
+  /** Kills a spawned command (SIGTERM by default). */
+  async kill(cid: string, signal = 15): Promise<void> {
+    await invoke("plugin:shell|kill", { cid, signal });
   }
 
   /** Runs the command, collecting full output, and resolves with it. */

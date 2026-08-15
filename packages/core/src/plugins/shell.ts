@@ -55,6 +55,11 @@ function matchScope(
 }
 
 export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
+  /* Live command instances (cid -> tjs Process); reaped on process exit. */
+  type TjsProcess = ReturnType<typeof tjs.spawn>;
+  const procs = new Map<string, TjsProcess>();
+  let nextCid = 1;
+
   return {
     name: "shell",
     commands: {
@@ -142,6 +147,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         const proc = tjs.spawn([program, ...allArgs], {
           stdout: "pipe",
           stderr: "pipe",
+          stdin: "pipe",
           ...(cwd ? { cwd } : {}),
           ...(env ? { env } : {}),
         });
@@ -166,6 +172,73 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         ]);
         return { code: status.exitStatus ?? 0 };
       },
+      /* Long-lived command instances: spawn returns a cid; write/kill target
+         it. The registry lives in the plugin closure (auto-reaped on exit). */
+      async spawn_stream(args, ctx) {
+        const {
+          program,
+          args: cmdArgs,
+          cwd,
+          env,
+        } = args as {
+          program: string;
+          args?: string[];
+          cwd?: string;
+          env?: Record<string, string>;
+        };
+        const allArgs = cmdArgs ?? [];
+        if (!matchScope(options.scope, program, allArgs)) {
+          throw new Error(`shell scope denied: ${program}`);
+        }
+        const proc = tjs.spawn([program, ...allArgs], {
+          stdout: "pipe",
+          stderr: "pipe",
+          stdin: "pipe",
+          ...(cwd ? { cwd } : {}),
+          ...(env ? { env } : {}),
+        });
+        const cid = `cmd-${nextCid++}`;
+        procs.set(cid, proc);
+        const dec = new TextDecoder();
+        const pump = async (
+          stream: ReadableStream<Uint8Array> | null,
+          event: string,
+        ) => {
+          if (!stream) return;
+          const reader = stream.getReader();
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            ctx.app.emit(event, { chunk: dec.decode(value, { stream: true }) });
+          }
+        };
+        void pump(proc.stdout, "tauri://shell-output");
+        void pump(proc.stderr, "tauri://shell-error");
+        void proc.wait().then((status) => {
+          procs.delete(cid);
+          ctx.app.emit("tauri://shell-terminated", {
+            cid,
+            code: status.exitStatus ?? 0,
+          });
+        });
+        return { cid };
+      },
+      async write_stdin(args) {
+        const { cid, data } = args as { cid: string; data: string };
+        const proc = procs.get(cid);
+        if (!proc?.stdin) throw new Error(`no such command: ${cid}`);
+        const w = proc.stdin.getWriter();
+        await w.write(new TextEncoder().encode(data));
+        w.releaseLock();
+        return { written: true };
+      },
+      async kill(args) {
+        const { cid, signal } = args as { cid: string; signal?: number };
+        const proc = procs.get(cid);
+        if (!proc) throw new Error(`no such command: ${cid}`);
+        proc.kill(signal ?? 15 /* SIGTERM */);
+        return { killed: true };
+      },
     },
     permissions: [
       {
@@ -181,6 +254,14 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         commands: ["plugin:shell|execute_stream"],
       },
       {
+        identifier: "shell:allow-spawn-stream",
+        commands: [
+          "plugin:shell|spawn_stream",
+          "plugin:shell|write_stdin",
+          "plugin:shell|kill",
+        ],
+      },
+      {
         identifier: "shell:deny-execute",
         commands: ["!plugin:shell|execute"],
       },
@@ -193,6 +274,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           "shell:allow-execute",
           "shell:allow-open",
           "shell:allow-execute-stream",
+          "shell:allow-spawn-stream",
         ],
       },
     ],

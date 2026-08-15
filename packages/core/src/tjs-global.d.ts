@@ -69,15 +69,18 @@ declare const tjs: {
   spawn(
     cmd: string[],
     opts?: {
+      stdin?: "pipe" | "inherit" | "ignore";
       stdout?: "pipe" | "inherit" | "ignore";
       stderr?: "pipe" | "inherit" | "ignore";
       cwd?: string;
       env?: Record<string, string>;
     },
   ): {
+    pid: number;
+    stdin: WritableStream<Uint8Array> | null;
     stdout: ReadableStream<Uint8Array> | null;
     stderr: ReadableStream<Uint8Array> | null;
-    wait(): Promise<{ exitStatus: number | null }>;
+    wait(): Promise<{ exitStatus: number | null }>; 
     kill(sig?: number): void;
   };
   serve(options: {

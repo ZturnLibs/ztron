@@ -1142,3 +1142,10 @@ ZtronApp.app/Contents/
   2. **ztron-backend 移入 Resources**:tjs compile 产物(linker-signed adhoc)对独立重签也报 strict validation(连 /tmp 副本都过不了——产物固有特性);Resources 内嵌套二进制**不在 app 主签名链内**,验证即通过。launcher 从 Resources spawn
 - 顺序:内层(ztron-host/launcher/dylib)→ app 外层;`--deep` 弃用(对 tjs 产物必失败)
 - 验证:`codesign --verify` exit 0;实跑安装副本:launcher→host→Resources/ztron-backend 三层进程全起、干净退出;hello 71 项/FULL_OK/EXIT 0 零回归;59 单测绿
+
+## 85. shell 交互式命令(spawn/stdin/kill)
+
+- **core 3 命令**:`spawn_stream`(返回 cid;插件闭包注册表 cid→tjs Process;stdin pipe;退出时发 `tauri://shell-terminated {cid,code}` 并自清)、`write_stdin`(writer.write + releaseLock)、`kill`(默认 SIGTERM 15)
+- **api**:`Command.spawnInteractive()`(先挂 stdout/stderr/terminated 监听再 spawn——**顺序关键**,漏监听会丢早期 chunk)、`write(cid,data)`、`kill(cid,sig?)`、`on("terminated")`
+- **tjs 类型修正**:tjs-global spawn 声明补 `stdin/pid`(txiki Process 实际有;旧声明缺)——execute_stream 顺带获得 stdin pipe
+- 验证:hello `SHELL_INTERACTIVE_OK:echo-me-back`(spawn cat → write_stdin → stdout 回流 → SIGKILL),72 项/FULL_OK/EXIT 0;59 单测绿

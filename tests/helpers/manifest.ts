@@ -209,6 +209,9 @@ export const COMMANDS: readonly string[] = [
   // ---- shell ----
   "plugin:shell|execute",
   "plugin:shell|execute_stream",
+  "plugin:shell|spawn_stream",
+  "plugin:shell|write_stdin",
+  "plugin:shell|kill",
   "plugin:shell|open",
   // ---- cli ----
   "plugin:cli|get_argv",

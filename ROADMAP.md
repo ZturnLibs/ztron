@@ -1,6 +1,6 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P9 + 运行时多窗口 全部可在本机验证的项(spike 71 项确定性 FULL_OK/EXIT 0,
+> Ztron 已完成 M0–M4 + P0–P9 + 运行时多窗口 全部可在本机验证的项(spike 72 项确定性 FULL_OK/EXIT 0,
 > 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
@@ -110,7 +110,7 @@
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
 | 多窗口   | host webview 注册表 + GUI 线程 label 重解析 · WebviewWindow api · 运行时建窗/ops/destroy · per-window 事件+preventClose                                                                                                                                               |
-| 测试     | 三层框架(58 单测 + 71 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
+| 测试     | 三层框架(58 单测 + 72 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 

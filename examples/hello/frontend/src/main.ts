@@ -367,6 +367,39 @@ async function main(): Promise<void> {
       report("SHELL_CMD_CLASS_FAIL:" + cmdResult.stdout.trim());
     }
 
+    // 5f6. shell interactive: spawn cat, write stdin, stream stdout, kill
+    try {
+      const lines: string[] = [];
+      const interactive = new shell.Command("cat", []);
+      interactive.on("stdout", (chunk) => {
+        lines.push(String(chunk));
+      });
+      const cid = await interactive.spawnInteractive();
+      await interactive.write(cid, "echo-me-back\n");
+      const echoed = await Promise.race([
+        new Promise<string | null>((r) =>
+          setTimeout(() => r(lines.length ? lines.join("") : null), 2500),
+        ),
+        new Promise<string | null>((resolve) => {
+          const iv = setInterval(() => {
+            if (lines.length) {
+              clearInterval(iv);
+              resolve(lines.join(""));
+            }
+          }, 100);
+          setTimeout(() => clearInterval(iv), 2500);
+        }),
+      ]);
+      await interactive.kill(cid, 9).catch(() => {});
+      if (echoed && echoed.includes("echo-me-back")) {
+        report("SHELL_INTERACTIVE_OK:" + echoed.trim().slice(0, 20));
+      } else {
+        report("SHELL_INTERACTIVE_FAIL:" + JSON.stringify(lines).slice(0, 60));
+      }
+    } catch (err) {
+      report("SHELL_INTERACTIVE_FAIL:" + extractError(err).slice(0, 50));
+    }
+
     // 5g. updater (local manifest server + sha256 verify)
     const up = await invoke<{ hasUpdate: boolean; verifyOk: boolean }>(
       "m3:updater-test",
