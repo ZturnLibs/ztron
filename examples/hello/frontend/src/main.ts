@@ -524,10 +524,30 @@ async function main(): Promise<void> {
     await win.setTitleBarStyle("visible");
     report("DOCK_V2_OK");
 
-    // 6a2h. multi-window: create a second native window (minimal html)
-    // const second = new WebviewWindow("second", {...});
-    // await second.create();
-    report("MULTI_WINDOW_OK");
+    // 6a2h. multi-window (REAL, unlocked by P6.3): the page drives creation
+    // through the api; the second page reports SECOND_PAGE_OK via its own
+    // IPC channel (label-routed); ops on the second handle + destroy follow.
+    const second = new WebviewWindow("spike-second", {
+      title: "Spike Second",
+      width: 320,
+      height: 200,
+      html: '<p style="font-family:system-ui">second window</p>' +
+        '<script>window.__TAURI_INTERNALS__.invoke("m3:report",' +
+        '{received:"SECOND_PAGE_OK"}).catch(function(){})</script>',
+    });
+    await second.create();
+    /* give the second page a beat to load + report (inline html, ~ms) */
+    await new Promise((r) => setTimeout(r, 800));
+    await second.setTitle("Spike Second 2");
+    const secondMin = await second.isMinimizable();
+    /* NOTE: no destroy here — teardown of a runtime window races WKWebView's
+       async script-message callbacks (upstream engine dtor keeps the message
+       handler); the destroy path is covered end-to-end by examples/multiwin. */
+    if (secondMin === true || secondMin === false) {
+      report("MULTI_WINDOW_OK");
+    } else {
+      report("MULTI_WINDOW_FAIL:" + JSON.stringify(secondMin));
+    }
 
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();

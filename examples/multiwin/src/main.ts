@@ -46,8 +46,6 @@ const secondHtml = `<!doctype html>
   <script>${bootstrap("second_loaded")}</script>
 </body></html>`;
 
-let mainHandle: { terminate(): void } | null = null;
-
 const app = new AppBuilder(runtime, "com.ztron.multiwin")
   .configure({ invokeKey })
   .window({ label: "main", title: "multiwin", width: 480, height: 320, html: mainHtml })
@@ -68,13 +66,13 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
       console.log("SECOND_WINDOW_OK from label=" + ctx.label);
       if (ctx.label !== "second") {
         console.log("SECOND_LABEL_FAIL: expected second, got " + ctx.label);
-        mainHandle?.terminate();
+        quitMain();
         return;
       }
       const second = app.getWebview("second");
       if (!second) {
         console.log("SECOND_HANDLE_FAIL: no handle");
-        mainHandle?.terminate();
+        quitMain();
         return;
       }
       /* window ops routed by label (host resolves on the GUI thread) */
@@ -89,11 +87,14 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
         second.destroy();
         setTimeout(() => {
           console.log("MULTI_WINDOW_RUNTIME_OK");
-          mainHandle?.terminate();
+          console.log("[multiwin] calling terminate");
+          quitMain();
+          console.log("[multiwin] terminate sent");
         }, 800);
       }, 500);
     });
   })
   .build();
-mainHandle = app.getWebview("main") ?? null;
+/* NOTE: windows register during run(); fetch the handle lazily. */
+const quitMain = () => app.getWebview("main")?.terminate();
 await app.run().catch((e) => console.log("[multiwin] ERROR", String(e)));

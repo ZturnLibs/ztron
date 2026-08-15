@@ -8,4 +8,5 @@ declare const tjs: {
     listenIp?: string;
     fetch: (req: { url: string; text(): Promise<string> }) => Promise<Response>;
   }): { port: number; close(): void };
+  exit(code?: number): void;
 };

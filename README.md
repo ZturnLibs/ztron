@@ -49,7 +49,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P8    | spike ledger repair (httpPlugin registration, persisted-scope seed race, fs.makeDir recursive, HttpScope root-path glob) + `transformImage`/`ImageLike` + tray icon-by-rid fix | `HTTP_OK` `HTTP_SCOPE_DENY_OK` `PERSISTED_SCOPE_OK` `TRANSFORM_IMAGE_OK` — 62/62 deterministic                                                                                                                                                |
 | P9    | multi-window runtime unlock (P6.3): GUI-thread label re-resolution, per-window events/preventClose, registry cleanup on close, per-handle query routing; `examples/multiwin` e2e | `SECOND_WINDOW_OK label=second` `SECOND_OPS_OK` `MULTI_WINDOW_RUNTIME_OK` — hello spike 62/62 no regression                                                                                                                                  |
 
-Final spike: **62 deterministic checks, all pass** (`FULL_OK`; `WIN_EVENT_OK`/`WIN_QUERY2_OK` are key-window bonuses on top).
+Final spike: **63 deterministic checks, all pass** (`FULL_OK`, clean `exit 0`; `WIN_EVENT_OK`/`WIN_QUERY2_OK` are key-window bonuses on top). The second window is created for real via `WebviewWindow` (P6.3).
 
 ## Tests
 

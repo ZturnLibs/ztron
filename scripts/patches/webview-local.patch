@@ -1,0 +1,282 @@
+diff --git a/core/include/webview/api.h b/core/include/webview/api.h
+index aecc050..66d1cb0 100644
+--- a/core/include/webview/api.h
++++ b/core/include/webview/api.h
+@@ -73,6 +73,15 @@ WEBVIEW_API webview_error_t webview_destroy(webview_t w);
+  */
+ WEBVIEW_API webview_error_t webview_run(webview_t w);
+ 
++/**
++ * Registers a custom URL scheme handler that serves files from `root_dir`.
++ * Must be called before the window is shown. Requests to
++ * `scheme://<host>/<path>` are mapped to `<root_dir>/<path>`.
++ */
++WEBVIEW_API webview_error_t webview_set_scheme_handler(webview_t w,
++                                                       const char *scheme,
++                                                       const char *root_dir);
++
+ /**
+  * Stops the main loop. It is safe to call this function from another
+  * background thread.
+diff --git a/core/include/webview/c_api_impl.hh b/core/include/webview/c_api_impl.hh
+index 8ee1d94..169bf24 100644
+--- a/core/include/webview/c_api_impl.hh
++++ b/core/include/webview/c_api_impl.hh
+@@ -115,6 +115,16 @@ WEBVIEW_API webview_error_t webview_run(webview_t w) {
+   return api_filter([=] { return cast_to_webview(w)->run(); });
+ }
+ 
++WEBVIEW_API webview_error_t webview_set_scheme_handler(webview_t w,
++                                                       const char *scheme,
++                                                       const char *root_dir) {
++  using namespace webview::detail;
++  return api_filter([=] {
++    return cast_to_webview(w)->set_scheme_handler(
++        std::string(scheme ? scheme : ""), std::string(root_dir ? root_dir : ""));
++  });
++}
++
+ WEBVIEW_API webview_error_t webview_terminate(webview_t w) {
+   using namespace webview::detail;
+   return api_filter([=] { return cast_to_webview(w)->terminate(); });
+diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
+index 1a0a2c6..b923d32 100755
+--- a/core/include/webview/detail/backends/cocoa_webkit.hh
++++ b/core/include/webview/detail/backends/cocoa_webkit.hh
+@@ -177,6 +177,28 @@ protected:
+     return {};
+   }
+ 
++  void deplete_run_loop_event_queue() override {
++    objc::autoreleasepool arp;
++    /* Non-blocking drain: `nextEventMatchingMask` with a `distantPast`
++       expiration returns immediately when nothing is pending. The base
++       implementation (dispatch a done-flag + wait) deadlocks on this
++       backend when called from a main-queue block: the completion block
++       sits behind the occupied main queue, and manual NSApp event pumping
++       does not drain GCD blocks — sampled stuck exactly there (DESIGN §75). */
++    auto distant_past{objc::msg_send<id>(objc::get_class("NSDate"),
++                                        objc::selector("distantPast"))};
++    for (int i = 0; i < 256; i++) {
++      objc::autoreleasepool arp2;
++      if (auto event{NSApplication_nextEventMatchingMask(
++              m_app, NSEventMaskAny, distant_past,
++              NSRunLoopMode::NSDefaultRunLoopMode(), true)}) {
++        NSApplication_sendEvent(m_app, event);
++        continue;
++      }
++      break;
++    }
++  }
++
+   noresult dispatch_impl(std::function<void()> f) override {
+     dispatch_async_f(dispatch_get_main_queue(), new dispatch_fn_t(f),
+                      (dispatch_function_t)([](void *arg) {
+@@ -444,11 +466,57 @@ private:
+     m_window = nullptr;
+     dispatch([this] { on_window_destroyed(); });
+   }
++
++  // ---- custom URL scheme handler (serves files from a root directory) ----
++
++  static void scheme_start(id /*self*/, SEL /*cmd*/, id /*webview*/,
++                           id task) noexcept;
++  static void scheme_stop(id /*self*/, SEL /*cmd*/, id /*webview*/,
++                          id /*task*/) noexcept;
++
++  static std::string scheme_root; // set when the handler is registered
++
++  void install_scheme_handler(id config) {
++    if (m_scheme.empty() || m_scheme_root.empty()) {
++      return;
++    }
++    scheme_root = m_scheme_root;
++    auto cls = objc_allocateClassPair(objc::get_class("NSObject"),
++                                      "ZtronSchemeHandler", 0);
++    class_addMethod(cls, objc::selector("webView:startURLSchemeTask:"),
++                    reinterpret_cast<IMP>(&scheme_start), "v@:@@");
++    class_addMethod(cls, objc::selector("webView:stopURLSchemeTask:"),
++                    reinterpret_cast<IMP>(&scheme_stop), "v@:@@");
++    objc_registerClassPair(cls);
++    m_scheme_handler = objc::Class_new(cls);
++    objc::msg_send<void>(
++        config, objc::selector("setURLSchemeHandler:forURLScheme:"),
++        m_scheme_handler, NSString_stringWithUTF8String(m_scheme.c_str()));
++  }
++
++  noresult set_scheme_handler_impl(const std::string &scheme,
++                                   const std::string &root_dir) override {
++    // Only meaningful before the engine is constructed (window_settings reads
++    // ZTRON_SCHEME_ROOT); store so a pre-create call works too.
++    m_scheme = scheme;
++    m_scheme_root = root_dir;
++    return {};
++  }
++
+   void window_settings(bool debug) {
+     objc::autoreleasepool arp;
+ 
+     auto config{objc::autorelease(WKWebViewConfiguration_new())};
+ 
++    // Register the optional custom scheme (ztron://) BEFORE the webview is
++    // created; late registration on an existing configuration is ignored.
++    const char *scheme_root_env = getenv("ZTRON_SCHEME_ROOT");
++    if (scheme_root_env && scheme_root_env[0] && m_scheme.empty()) {
++      m_scheme = "ztron";
++      m_scheme_root = scheme_root_env;
++    }
++    install_scheme_handler(config);
++
+     m_manager = WKWebViewConfiguration_get_userContentController(config);
+ 
+     auto preferences = WKWebViewConfiguration_get_preferences(config);
+@@ -612,8 +680,111 @@ private:
+   id m_webview{};
+   id m_manager{};
+   bool m_is_window_shown{};
++  std::string m_scheme{};
++  std::string m_scheme_root{};
++  id m_scheme_handler{};
+ };
+ 
++std::string cocoa_wkwebview_engine::scheme_root;
++
++inline void cocoa_wkwebview_engine::scheme_stop(id /*self*/, SEL /*cmd*/,
++                                                id /*webview*/,
++                                                id /*task*/) noexcept {
++  // No incremental streaming: nothing to cancel.
++}
++
++inline void cocoa_wkwebview_engine::scheme_start(id /*self*/, SEL /*cmd*/,
++                                                 id /*webview*/,
++                                                 id task) noexcept {
++  objc::autoreleasepool arp;
++  try {
++    id request = objc::msg_send<id>(task, objc::selector("request"));
++    id url = objc::msg_send<id>(request, objc::selector("URL"));
++    id url_str = objc::msg_send<id>(url, objc::selector("absoluteString"));
++    const char *url_c =
++        objc::msg_send<const char *>(url_str, objc::selector("UTF8String"));
++    std::string url_text = url_c ? url_c : "";
++
++    // Map scheme://host/<path> onto <root>/<path>; `asset/<url-encoded abs
++    // path>` (convertFileSrc) serves the decoded absolute path directly.
++    std::string path = url_text;
++    auto pos = path.find("://");
++    if (pos != std::string::npos) {
++      path = path.substr(pos + 3);
++      auto slash = path.find('/');
++      path = slash == std::string::npos ? "" : path.substr(slash + 1);
++    }
++    std::string full;
++    if (path.rfind("asset/", 0) == 0) {
++      std::string enc = path.substr(6);
++      // Basic percent-decoding (%20 -> space, %2F -> /).
++      std::string dec;
++      for (size_t i = 0; i < enc.size(); ++i) {
++        if (enc[i] == '%' && i + 2 < enc.size()) {
++          auto hex = [](char c) -> int {
++            if (c >= '0' && c <= '9') return c - '0';
++            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
++            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
++            return 0;
++          };
++          dec += static_cast<char>((hex(enc[i + 1]) << 4) | hex(enc[i + 2]));
++          i += 2;
++        } else {
++          dec += enc[i];
++        }
++      }
++      full = dec;
++    } else {
++      if (path.empty()) {
++        path = "index.html";
++      }
++      full = scheme_root + "/" + path;
++    }
++
++    // dataWithContentsOfFile: returns +0 (autoreleased); do not init.
++    id data = objc::msg_send<id>(
++        objc::get_class("NSData"), objc::selector("dataWithContentsOfFile:"),
++        NSString_stringWithUTF8String(full.c_str()));
++    long data_len =
++        data ? objc::msg_send<unsigned long>(data, objc::selector("length")) : 0;
++
++    // Minimal MIME detection so WKWebView parses HTML/CSS/JS.
++    std::string mime = "application/octet-stream";
++    if (path.rfind(".html") != std::string::npos ||
++        path.rfind(".htm") != std::string::npos) {
++      mime = "text/html";
++    } else if (path.rfind(".js") != std::string::npos) {
++      mime = "application/javascript";
++    } else if (path.rfind(".css") != std::string::npos) {
++      mime = "text/css";
++    } else if (path.rfind(".png") != std::string::npos) {
++      mime = "image/png";
++    } else if (path.rfind(".svg") != std::string::npos) {
++      mime = "image/svg+xml";
++    }
++    id headers = objc::msg_send<id>(objc::get_class("NSMutableDictionary"),
++                                    objc::selector("dictionary"));
++    objc::msg_send<void>(
++        headers, objc::selector("setObject:forKey:"),
++        NSString_stringWithUTF8String(mime.c_str()),
++        NSString_stringWithUTF8String("Content-Type"));
++    id response = objc::msg_send<id>(
++        objc::msg_send<id>(objc::get_class("NSHTTPURLResponse"),
++                           objc::selector("alloc")),
++        objc::selector("initWithURL:statusCode:HTTPVersion:headerFields:"), url,
++        static_cast<long>(data ? 200 : 404),
++        NSString_stringWithUTF8String("HTTP/1.1"), headers);
++    objc::msg_send<void>(task, objc::selector("didReceiveResponse:"), response);
++    if (data) {
++      objc::msg_send<void>(task, objc::selector("didReceiveData:"), data);
++    }
++    objc::msg_send<void>(task, objc::selector("didFinish"));
++  } catch (const std::exception &e) {
++  } catch (...) {
++    // Never throw into ObjC.
++  }
++}
++
+ } // namespace cocoa_webkit
+ } // namespace detail
+ 
+diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
+index 01c8d29..8165fe6 100644
+--- a/core/include/webview/detail/engine_base.hh
++++ b/core/include/webview/detail/engine_base.hh
+@@ -137,6 +137,11 @@ window.__webview__.onUnbind(" +
+   noresult dispatch(std::function<void()> f) { return dispatch_impl(f); }
+   noresult set_title(const std::string &title) { return set_title_impl(title); }
+ 
++  noresult set_scheme_handler(const std::string &scheme,
++                              const std::string &root_dir) {
++    return set_scheme_handler_impl(scheme, root_dir);
++  }
++
+   noresult set_size(int width, int height, webview_hint_t hints) {
+     auto res = set_size_impl(width, height, hints);
+     m_is_size_set = true;
+@@ -165,6 +170,8 @@ protected:
+                                  webview_hint_t hints) = 0;
+   virtual noresult set_html_impl(const std::string &html) = 0;
+   virtual noresult eval_impl(const std::string &js) = 0;
++  virtual noresult set_scheme_handler_impl(const std::string &scheme,
++                                           const std::string &root_dir) = 0;
+ 
+   virtual user_script *add_user_script(const std::string &js) {
+     return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
+@@ -324,7 +331,11 @@ protected:
+   }
+ 
+   // Runs the event loop until the currently queued events have been processed.
+-  void deplete_run_loop_event_queue() {
++  // Virtual: backends whose dispatch targets a queue that manual event
++  // pumping cannot drain (macOS GCD main queue) must override with a
++  // non-blocking drain — the dispatch-then-wait scheme below never
++  // completes when called from a main-queue block.
++  virtual void deplete_run_loop_event_queue() {
+     bool done{};
+     dispatch([&] { done = true; });
+     run_event_loop_while([&] { return !done; });

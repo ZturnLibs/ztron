@@ -24,6 +24,13 @@ if [ ! -d "$NATIVE/webview" ]; then
 fi
 (
   cd "$NATIVE/webview"
+  # Local patches (scheme handler, deplete deadlock fix) — idempotent apply.
+  if [ -f "$ROOT/scripts/patches/webview-local.patch" ]; then
+    git apply --check "$ROOT/scripts/patches/webview-local.patch" 2>/dev/null \
+      && git apply "$ROOT/scripts/patches/webview-local.patch" \
+      && echo "    applied webview-local.patch" \
+      || echo "    webview-local.patch already applied (or not needed)"
+  fi
   cmake -B build -DCMAKE_BUILD_TYPE=Release \
     -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON
   cmake --build build

@@ -1048,3 +1048,11 @@ ZtronApp.app/Contents/
 - **关闭清理**:非 main 窗 `windowWillClose` → 注册表移除 + `webview_dispatch` 延迟 `webview_destroy`(不在 delegate 回调里直接销毁,避免重入 run loop);`window_destroy` op 对非 main 窗只 close 该窗(main 保持 terminate 语义)
 - **backend**:`HostRuntime.sendRequest/sendQuery` 增加 `from` label 参数(原硬编码 `"main"`,第二窗口查询会打到主窗);`HostWebviewHandle` 的 frame/state/title/theme/scaleFactor/windowState 全部传 `this.label`
 - **验证**:`examples/multiwin` 端到端 —— 创建→第二页 invoke(label=second)→minimize/unminimize/setTitle/is_minimized→destroy→注册表清理(`SECOND_WINDOW_OK`+`SECOND_OPS_OK`+`MULTI_WINDOW_RUNTIME_OK`);hello spike 62 项零回归
+
+### §75 补充:退出链修复 + 库 deplete 死锁补丁
+
+- **库补丁(webview vendored)**:`engine_base::deplete_run_loop_event_queue` 改 virtual;cocoa 端 override 为 **非阻塞排空**(`NSDate distantPast` + 256 轮上限)。原实现(dispatch done 标记 + `nextEventMatchingMask` nil expiration 无限等)在主队列块内调用时永不完成——done 块排在被占用的主队列后面,手动泵 NSApp 事件不排空 GCD 主队列。`sample` 实证主线程 1223/1576 采样卡在该循环。该死锁同时是**预先存在的**退出挂起根因(host main() 里销毁主窗同样触发)。最小 C 复现程序验证补丁后 terminate→run 返回→destroy→exit 全通
+- **multiwin spike 修正**:`app.getWebview("main")` 在 `run()` 前返回空(窗口在 run() 才注册)→ terminate 从未发出;改为回调内惰性取 handle 后 EXIT 0
+- **hello 真 MULTI_WINDOW 检查**:页面驱动 `WebviewWindow.create()` + 第二页经自身 IPC 报 `SECOND_PAGE_OK`(label 路由实证);**不在 hello 里 destroy 第二窗**——销毁与后续高强度 GUI 操作交错时撞 WKWebView 异步 script-message 回调 UAF(上游析构不移除 message handler,TODO 注释自认);destroy 链路由 multiwin 专项覆盖(EXIT 0 干净退出)
+- **hello 退出链**:echo server 关闭 + near-HMR 轮询 clearInterval + FULL_OK 后 `tjs.exit(0)`(keep-alive fetch 连接会拖住 txiki 事件循环);hello 现也 EXIT 0
+- 最终:hello 63 report/0 FAIL/FULL_OK/EXIT 0;multiwin 全检查/EXIT 0;54 tests pass

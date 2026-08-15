@@ -139,8 +139,10 @@ new AppBuilder(runtime, "com.ztron.hello")
     ...(devUrl ? { url: devUrl } : { html: inlineHtml }),
   })
   .setup((app) => {
+    let reloadTimer: ReturnType<typeof setInterval> | undefined;
     // Local echo server for the upload spike (deterministic, no external dep).
     let echoPort = 0;
+    let echoServer: { close(): void } | null = null;
     void (async () => {
       try {
         const server = (await tjs.serve({
@@ -150,8 +152,9 @@ new AppBuilder(runtime, "com.ztron.hello")
             const body = await req.text();
             return new Response(body, { status: 200 });
           },
-        })) as { port: number };
+        })) as { port: number; close(): void };
         echoPort = server.port;
+        echoServer = server;
       } catch {
         /* non-fatal */
       }
@@ -179,7 +182,7 @@ new AppBuilder(runtime, "com.ztron.hello")
     const reloadFile = tjs.env.ZTRON_RELOAD_FILE;
     if (reloadFile && devUrl) {
       let last = "";
-      setInterval(async () => {
+      reloadTimer = setInterval(async () => {
         try {
           const bytes = await tjs.readFile(reloadFile);
           const stamp = new TextDecoder().decode(bytes);
@@ -289,15 +292,25 @@ new AppBuilder(runtime, "com.ztron.hello")
       if (tag) {
         done.add(tag);
       }
-      // 38 deterministic checks (62 incl. the restored HTTP ×2 + persisted
-      // scope). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both require the
-      // window to become key, which a terminal-launched bare binary cannot
-      // reliably do (macOS activation restrictions) — see DESIGN.md §31.
-      if (done.size >= 62) {
+      // 39 deterministic checks (63 incl. the real SECOND_PAGE_OK from the
+      // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
+      // require the window to become key, which a terminal-launched bare
+      // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
+      if (done.size >= 63) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras)",
         );
+        /* Close the echo server so the tjs event loop drains and the backend
+           exits once the host run loop stops (otherwise EXIT hangs on the
+           listening socket). */
+        echoServer?.close();
+        /* Stop the near-HMR reload poller so the tjs event loop drains. */
+        if (reloadTimer) clearInterval(reloadTimer);
         ctx.webview.terminate();
+        /* Exit the backend explicitly: lingering keep-alive sockets
+           (updater/upload fetch) would otherwise keep the loop alive. The
+           graceful drain path is covered by examples/multiwin. */
+        setTimeout(() => tjs.exit(0), 300);
       }
     });
   })
