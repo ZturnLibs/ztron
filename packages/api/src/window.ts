@@ -12,7 +12,13 @@ import {
 } from "./dpi.js";
 
 export type WindowEventName =
-  "resize" | "move" | "focus" | "blur" | "close-requested";
+  | "resize"
+  | "move"
+  | "focus"
+  | "blur"
+  | "close-requested"
+  | "scale-change"
+  | "theme-changed";
 
 /** Attention request type for {@linkcode Window.requestUserAttention}. */
 export enum UserAttentionType {
@@ -37,13 +43,30 @@ const WINDOW_EVENT = {
   focus: "tauri://focus",
   blur: "tauri://blur",
   "close-requested": "tauri://close-requested",
+  "scale-change": "tauri://scale-change",
+  "theme-changed": "tauri://theme-changed",
 } as const;
+
+/** A physical display (values in physical pixels). */
+export interface Monitor {
+  name: string | null;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  /** Usable area (excludes menu bar / dock / taskbar). */
+  workArea: { x: number; y: number; width: number; height: number };
+  scaleFactor: number;
+}
 
 export class Window {
   readonly label: string;
 
   constructor(label: string) {
     this.label = label;
+  }
+
+  /** Looks up a live window by label (null when it doesn't exist). */
+  static async getByLabel(label: string): Promise<Window | null> {
+    return (await getAllWindows()).find((w) => w.label === label) ?? null;
   }
 
   /** The current window (v1: single window, label `main`). */
@@ -684,6 +707,65 @@ export class Window {
   onCloseRequested(handler: () => void) {
     return this.onEvent("close-requested", handler);
   }
+
+  /** Fires when the backing scale factor changes (Retina display moves). */
+  onScaleChanged(
+    handler: (payload: { scaleFactor: number; size: { width: number; height: number } }) => void,
+  ) {
+    return this.onEvent("scale-change", handler);
+  }
+
+  /** Fires when the system theme changes (payload: "dark" | "light"). */
+  onThemeChanged(handler: (theme: string) => void) {
+    return this.onEvent("theme-changed", handler);
+  }
+
+  /**
+   * Moves the traffic-light buttons (close/minimize/zoom) — for frameless
+   * macOS windows with `titleBarStyle: "overlay"`.
+   */
+  async setTrafficLightPosition(x: number, y: number): Promise<void> {
+    await invoke("plugin:window|set_traffic_light_position", {
+      label: this.label,
+      x,
+      y,
+    });
+  }
+}
+
+/** All live window labels as `Window` handles. */
+export async function getAllWindows(): Promise<Window[]> {
+  const labels = await invoke<string[]>("plugin:window|get_all_windows", {});
+  return labels.map((l) => new Window(l));
+}
+
+/** The list of all monitors (physical px). */
+export async function availableMonitors(): Promise<Monitor[]> {
+  return (await invoke<Monitor[] | null>(
+    "plugin:window|available_monitors",
+    {},
+  )) ?? [];
+}
+
+/** The monitor containing the window (or null off-screen). */
+export async function currentMonitor(): Promise<Monitor | null> {
+  return invoke<Monitor | null>("plugin:window|current_monitor", {});
+}
+
+/** The primary display. */
+export async function primaryMonitor(): Promise<Monitor | null> {
+  return invoke<Monitor | null>("plugin:window|primary_monitor", {});
+}
+
+/** The monitor containing a desktop point (physical px, top-left origin). */
+export async function monitorFromPoint(
+  x: number,
+  y: number,
+): Promise<Monitor | null> {
+  return invoke<Monitor | null>("plugin:window|monitor_from_point", {
+    x,
+    y,
+  });
 }
 
 /**

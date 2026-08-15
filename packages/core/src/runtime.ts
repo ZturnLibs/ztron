@@ -64,7 +64,14 @@ export type WindowStateOp =
   | "set_simple_fullscreen";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
-export type WindowEvent = "resize" | "move" | "focus" | "blur" | "close";
+export type WindowEvent =
+  | "resize"
+  | "move"
+  | "focus"
+  | "blur"
+  | "close"
+  | "scale-change"
+  | "theme-change";
 
 /** Native window geometry (CSS-pixel position + size). */
 export interface WindowFrame {
@@ -128,6 +135,14 @@ export interface WebviewHandle {
   getCursorPosition(): Promise<{ x: number; y: number } | null>;
   /** Warps the cursor to window coordinates (x, y). */
   setCursorPosition(x: number, y: number): void;
+  /** Moves the traffic-light buttons (frameless macOS windows). */
+  setTrafficLightPosition(x: number, y: number): void;
+  /** Screen queries (physical px): all / primary / the window's / at point. */
+  queryMonitors(
+    kind: "all" | "primary" | "current" | "point",
+    x?: number,
+    y?: number,
+  ): Promise<MonitorInfo[] | null>;
   /** Sets the native window opacity (0.0 = fully transparent, 1.0 = opaque). */
   setOpacity(opacity: number): void;
   /** Reads the native window's boolean state flags. */
@@ -156,7 +171,7 @@ export interface WebviewHandle {
    */
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean>;
   /** Registers a handler for native window events. */
-  onWindowEvent(cb: (event: WindowEvent) => void): void;
+  onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
   /**
    * Responds to a binding call. Status 0 resolves the JS promise,
    * any other value rejects it.
@@ -217,6 +232,16 @@ export interface MenuItemConfig {
 export interface MenuConfig {
   id: string;
   items: MenuItemConfig[];
+}
+
+/** A physical display (translated from tao's Monitor). */
+export interface MonitorInfo {
+  name: string | null;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  /** Usable area (excludes menu bar / dock). */
+  workArea: { x: number; y: number; width: number; height: number };
+  scaleFactor: number;
 }
 
 /** Menu controller provided by the runtime backend. */

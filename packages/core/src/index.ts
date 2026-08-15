@@ -84,6 +84,7 @@ export type {
   WindowFrame,
   WindowStateSnapshot,
   WindowStateOp,
+  MonitorInfo,
   TrayController,
   TrayOp,
   TrayPayload,

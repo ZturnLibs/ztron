@@ -157,6 +157,17 @@ void zt_remove_webview_label(const char *label) {
   }
 }
 
+/* Registry iteration (for per-window broadcasts). */
+int zt_webview_count(void) { return g_webview_count; }
+const char *zt_webview_label_at(int i) {
+  return (i >= 0 && i < g_webview_count) ? g_webviews[i].label : NULL;
+}
+void *zt_webview_handle_at(int i) {
+  if (i < 0 || i >= g_webview_count) return NULL;
+  return webview_get_native_handle(g_webviews[i].w,
+                                  WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
+}
+
 static void add_webview(const char *label, webview_t w) {
   if (g_webview_count >= MAX_WEBVIEWS) return;
   strncpy(g_webviews[g_webview_count].label, label ? label : "",

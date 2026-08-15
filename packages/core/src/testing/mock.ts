@@ -39,7 +39,9 @@ export class MockWebviewHandle implements WebviewHandle {
   loadedHtml: string | null = null;
 
   #onMessage: ((id: string, req: string) => void) | null = null;
-  #onWindowEvent: ((event: WindowEvent) => void) | null = null;
+  #onWindowEvent:
+    | ((event: WindowEvent, payload?: unknown) => void)
+    | null = null;
 
   constructor(label = "main") {
     this.label = label;
@@ -208,6 +210,29 @@ export class MockWebviewHandle implements WebviewHandle {
     this.cursorPositionLog.push({ x, y });
   }
 
+  trafficLightLog: Array<{ x: number; y: number }> = [];
+
+  setTrafficLightPosition(x: number, y: number): void {
+    this.trafficLightLog.push({ x, y });
+  }
+
+  monitorsValue: import("../runtime.js").MonitorInfo[] | null = null;
+
+  queryMonitors(
+    kind: "all" | "primary" | "current" | "point",
+    x?: number,
+    y?: number,
+  ): Promise<import("../runtime.js").MonitorInfo[] | null> {
+    this.monitorQueries.push({ kind, x, y });
+    return Promise.resolve(this.monitorsValue);
+  }
+
+  monitorQueries: Array<{
+    kind: string;
+    x?: number;
+    y?: number;
+  }> = [];
+
   opacityLog: number[] = [];
 
   setOpacity(opacity: number): void {
@@ -233,7 +258,9 @@ export class MockWebviewHandle implements WebviewHandle {
     return true;
   }
 
-  onWindowEvent(cb: (event: WindowEvent) => void): void {
+  onWindowEvent(
+    cb: (event: WindowEvent, payload?: unknown) => void,
+  ): void {
     this.#onWindowEvent = cb;
   }
 
@@ -277,9 +304,9 @@ export class MockWebviewHandle implements WebviewHandle {
   }
 
   /** Simulates a window event firing. */
-  emitWindowEvent(event: WindowEvent): void {
+  emitWindowEvent(event: WindowEvent, payload?: unknown): void {
     this.windowEventLog.push(event);
-    this.#onWindowEvent?.(event);
+    this.#onWindowEvent?.(event, payload);
   }
 }
 

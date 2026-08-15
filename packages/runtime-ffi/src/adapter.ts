@@ -120,6 +120,14 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op */
   }
 
+  setTrafficLightPosition(): void {
+    /* no-op (host adapter provides traffic-light positioning) */
+  }
+
+  queryMonitors(): Promise<import("@ztron/core").MonitorInfo[] | null> {
+    return Promise.resolve(null);
+  }
+
   getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
     return Promise.resolve(null);
   }

@@ -56,6 +56,11 @@ extern const char *zt_label_for_window(void *wnd);
 /* Drops a label from the webview registry (window closed). */
 extern void zt_remove_webview_label(const char *label);
 
+/* Registry iteration (for per-window broadcasts, e.g. theme change). */
+extern int zt_webview_count(void);
+extern const char *zt_webview_label_at(int i);
+extern void *zt_webview_handle_at(int i);
+
 /* Send a newline-delimited JSON line to the backend (thread-safe). */
 extern void zt_send_line(const char *line);
 

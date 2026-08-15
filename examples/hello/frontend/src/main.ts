@@ -19,6 +19,11 @@ import {
   setTrayIcon,
   setAppMenu,
   Menu as MenuClass,
+  getAllWindows,
+  availableMonitors,
+  currentMonitor,
+  primaryMonitor,
+  monitorFromPoint,
   tray,
   Database,
   enableAutostart,
@@ -575,6 +580,52 @@ async function main(): Promise<void> {
     } else {
       report("WIN_V2_B3_FAIL:" + JSON.stringify({ maxed, inner: innerSz, cp }));
     }
+
+    // 6a2n. finishing batch: monitors + getAllWindows + traffic lights
+    const monitors = await availableMonitors();
+    const cur = await currentMonitor();
+    const prim = await primaryMonitor();
+    const fromPoint = await monitorFromPoint(100, 100);
+    const wins = await getAllWindows();
+    await win.setTrafficLightPosition(16, 16);
+    const scaleHeard = new Promise<boolean>((r) => {
+      void win.onScaleChanged(() => r(true));
+    });
+    /* moving between displays would fire it; here we just arm the listener */
+    if (
+      monitors.length >= 1 &&
+      prim &&
+      prim.scaleFactor >= 1 &&
+      cur &&
+      cur.size.width > 0 &&
+      fromPoint &&
+      wins.some((x) => x.label === "main")
+    ) {
+      report(
+        "MONITORS_OK:" +
+          monitors.length +
+          ":" +
+          (prim.name ?? "?") +
+          "@" +
+          prim.scaleFactor +
+          " workArea=" +
+          prim.workArea.width +
+          "x" +
+          prim.workArea.height,
+      );
+    } else {
+      report(
+        "MONITORS_FAIL:" +
+          JSON.stringify({
+            n: monitors.length,
+            prim: !!prim,
+            cur: !!cur,
+            fromPoint: !!fromPoint,
+            wins: wins.map((x) => x.label),
+          }),
+      );
+    }
+    report("SCALE_LISTENER_ARMED:" + String(scaleHeard !== null));
 
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();

@@ -23,8 +23,14 @@ export { WebviewWindow, getCurrentWebviewWindow } from "./webview-window.js";
 export {
   setupDragRegion,
   UserAttentionType,
+  getAllWindows,
+  availableMonitors,
+  currentMonitor,
+  primaryMonitor,
+  monitorFromPoint,
   type TitleBarStyle,
   type WindowSizeConstraints,
+  type Monitor,
 } from "./window.js";
 export {
   LogicalSize,

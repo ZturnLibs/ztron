@@ -1085,3 +1085,16 @@ ZtronApp.app/Contents/
 - **api**:`Menu.setItemChecked/setItemAccelerator/popup(x?,y?)`(popup 配 DOM `contextmenu` 事件:`e.preventDefault()` 后 `popup(e.x,e.y)`)、`MenuItem.accelerator`、`tray.setMenu(menuId)`、`setTrayMenu`
 - **坑**:`menu_item_set_title` 的 wire 字段 `text`(title 会撞 item_id 的 m->id 槽),set_accel 同样走 text
 - 验证:hello `MENU_ACCEL_CHECKED_OK`(accel+checked 往返+popup)+`TRAY_MENU_OK`(托盘真挂菜单),66 项/FULL_OK/EXIT 0;56 单测绿
+
+## 79. window 收尾批(monitors/getAllWindows/trafficLight/scale+theme 事件)
+
+- **monitors(host)**:`NSScreen screens` 枚举 → `{name(localizedName),position,size,workArea(visibleFrame),scaleFactor}`(点×scale = 物理px,对齐 tao Monitor);单屏模式复用同一数组序列化,core 层 `ms?.[0] ?? null` 解包(primary/current/from_point);from_point 顶层坐标 vs Cocoa 底左坐标翻转(mainScreen.height - y)后 NSPointInRect 判定
+- **get_all_windows**:core `#windows` map 键列表(无需 host);**配套修复:close 事件到达时从 map 删除非 main 窗口**(此前 destroy 后 core 侧残留 → getAllWindows 报已死窗口)
+- **trafficLightPosition**:`standardWindowButton:`(0/1/2)×`setFrameOrigin:`(overlay 无标题栏窗口刚需)
+- **scale-change**:delegate 加 `windowDidChangeBackingProperties:` → `backingScaleFactor` + frame×scale,事件链路扩 payload贯通(host wire `scale/width/height` → FFI 组装 → core `emit(name, payload)` → `tauri://scale-change`)
+- **theme-change**:`NSDistributedNotificationCenter` 监听 `AppleInterfaceThemeChangedNotification` → 对 main+全部注册窗广播 `tauri://theme-changed`(payload "dark"/"light")
+- **连环 debug(教训录)**:
+  1. `windowShouldClose:` 参数是**窗口本身**(sender)而非通知——`[n object]` 无效,需 respondsToSelector 探测(performClose 曾因此异常挂起)
+  2. **fwd_to_orig 时序坑(核心)**:引擎的 windowWillClose 处理器会把 m_window **置空** → 之后再经 native handle 反查 label 全部失败回落 "main" → 注册表永不清理(wins 残留)。修复:**先解析 label 再转发**。指针级 trace(note vs registry handle)定位
+  3. 假象甄别:plain `close` 一直有触发 willClose,只是 label 解析失败;真实修好后 multiwin 的 second/stress-0 标签全部正确
+- 验证:hello 67 项/FULL_OK/EXIT 0(`MONITORS_OK:1:Built-in Retina Display@2 workArea=3840x2312` 真实数据);multiwin 4 检查/EXIT 0;58 单测绿(monitors/getAllWindows/trafficLight 路由 + scale/theme payload 事件)

@@ -761,23 +761,41 @@ static void zt_evt_blur(id s, SEL c, id n) {
   fwd_to_orig(s, c, n);
   emit_window_event_labeled(zt_label_for_window(wnd_of_note(n)), "blur");
 }
+static void zt_evt_scale_change(id s, SEL c, id n) {
+  fwd_to_orig(s, c, n);
+  void *wnd = wnd_of_note(n);
+  const char *label = zt_label_for_window(wnd);
+  double scale = wnd ? (double)OBJC_MSG(double(*)(id, SEL), wnd,
+                                       sel_registerName("backingScaleFactor"))
+                     : 1.0;
+  ZtRect f = wnd ? zt_wnd_frame(wnd) : (ZtRect){0, 0, 0, 0};
+  char buf[384];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"scale_change\","
+           "\"scale\":%g,\"width\":%g,\"height\":%g}",
+           label, scale, f.width * scale, f.height * scale);
+  zt_send_line(buf);
+}
 
 /* Deferred engine teardown for runtime-created windows (GUI thread). */
 static void destroy_later(webview_t w, void *arg);
 static void zt_evt_close(id s, SEL c, id n) {
-  /* The engine's windowWillClose nulls its m_window/m_widget/m_webview so its
-     destructor skips re-closing the (already closed) window — forward FIRST. */
-  fwd_to_orig(s, c, n);
+  /* Resolve the label BEFORE forwarding: the engine's windowWillClose
+     handler nulls its m_window (native handle becomes NULL), which would
+     break the registry lookup — observed as every close resolving to
+     "main" and registry entries never being cleaned. */
   void *wnd = wnd_of_note(n);
   const char *label = zt_label_for_window(wnd);
+  webview_t closing_w =
+      strcmp(label, "main") != 0 ? zt_webview(label) : NULL;
+  fwd_to_orig(s, c, n);
   emit_window_event_labeled(label, "close");
   /* Runtime-created windows leave the registry when they close so stale
      webview_t handles are not routed to. Destroy is deferred to the main
      queue (destroying inside windowWillClose would reenter the run loop). */
-  if (strcmp(label, "main") != 0) {
-    webview_t w = zt_webview(label);
+  if (closing_w) {
     zt_remove_webview_label(label);
-    if (w) webview_dispatch(w, destroy_later, (void *)w);
+    webview_dispatch(closing_w, destroy_later, (void *)closing_w);
   }
 }
 
@@ -788,7 +806,14 @@ static void destroy_later(webview_t w, void *arg) {
 }
 
 static BOOL zt_should_close(id s, SEL c, id n) {
-  const char *label = zt_label_for_window(wnd_of_note(n));
+  /* `n` is the SENDER (the window itself) for windowShouldClose:, unlike
+     the did/will notifications which pass NSNotification. */
+  void *wnd = (void *)n;
+  if (class_respondsToSelector(object_getClass(n),
+                               sel_registerName("object"))) {
+    wnd = wnd_of_note(n);
+  }
+  const char *label = zt_label_for_window(wnd);
   if (prevent_close_of(label)) {
     emit_window_event_labeled(label, "close"); /* -> tauri://close-requested */
     return NO;
@@ -812,6 +837,7 @@ static void install_window_delegate_on(void *wnd) {
     class_addMethod(cls, sel_registerName("windowDidMove:"), (IMP)zt_evt_move, "v@:@");
     class_addMethod(cls, sel_registerName("windowDidBecomeKey:"), (IMP)zt_evt_focus, "v@:@");
     class_addMethod(cls, sel_registerName("windowDidResignKey:"), (IMP)zt_evt_blur, "v@:@");
+    class_addMethod(cls, sel_registerName("windowDidChangeBackingProperties:"), (IMP)zt_evt_scale_change, "v@:@");
     class_addMethod(cls, sel_registerName("windowWillClose:"), (IMP)zt_evt_close, "v@:@");
     class_addMethod(cls, sel_registerName("windowShouldClose:"), (IMP)zt_should_close, "B@:@");
     objc_registerClassPair(cls);
@@ -836,6 +862,174 @@ static int attach_webview_impl(webview_t w) {
   if (!wnd) return 0;
   install_window_delegate_on(wnd);
   return 1;
+}
+
+/* ---- system theme change (AppleInterfaceThemeChangedNotification) ---- */
+
+static int zt_theme_is_dark(void) {
+  id app = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                    sel_registerName("sharedApplication"));
+  id appearance = OBJC_MSG(id(*)(id, SEL), app,
+                           sel_registerName("effectiveAppearance"));
+  if (!appearance) return 0;
+  id name = OBJC_MSG(id(*)(id, SEL), appearance, sel_registerName("name"));
+  return name ? OBJC_MSG(BOOL(*)(id, SEL, id), name,
+                         sel_registerName("containsString:"),
+                         zt_nsstring("Dark"))
+              : 0;
+}
+
+/* Emits theme_change for the main window + every registered webview
+   (theme is app-wide on macOS; Tauri emits per-window). */
+static void emit_theme_change_all(void) {
+  const char *t = zt_theme_is_dark() ? "dark" : "light";
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"main\",\"event\":\"theme_change\",\"theme\":\"%s\"}",
+           t);
+  zt_send_line(buf);
+  for (int i = 0; i < zt_webview_count(); i++) {
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"theme_change\",\"theme\":\"%s\"}",
+             zt_webview_label_at(i), t);
+    zt_send_line(buf);
+  }
+}
+
+static void zt_theme_changed_cb(id note) {
+  (void)note;
+  emit_theme_change_all();
+}
+
+/* defined below (tray section) */
+static id g_tray_target;
+
+static void install_theme_observer(void) {
+  id center = OBJC_MSG(id(*)(id, SEL),
+                       (id)objc_getClass("NSDistributedNotificationCenter"),
+                       sel_registerName("defaultCenter"));
+  if (!center) return;
+  SEL sel = sel_registerName("addObserver:selector:name:object:");
+  ((void(*)(id, SEL, id, SEL, id, id))objc_msgSend)(
+      center, sel, g_tray_target, sel_registerName("ztThemeChanged:"),
+      zt_nsstring("AppleInterfaceThemeChangedNotification"), (id)NULL);
+}
+
+/* ---- monitors (NSScreen) ---- */
+
+/* Serializes one NSScreen; appends to `out` (heap, grown by doubling). */
+static void zt_monitor_json(id screen, char **out, size_t *len, size_t *cap) {
+  ZtRect f;
+#if defined(__aarch64__)
+  f = ((ZtRect(*)(id, SEL))objc_msgSend)(screen, sel_registerName("frame"));
+#else
+  ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+      screen, sel_registerName("frame"), &f);
+#endif
+  ZtRect vf;
+#if defined(__aarch64__)
+  vf = ((ZtRect(*)(id, SEL))objc_msgSend)(screen, sel_registerName("visibleFrame"));
+#else
+  ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+      screen, sel_registerName("visibleFrame"), &vf);
+#endif
+  double scale = OBJC_MSG(double(*)(id, SEL), screen,
+                          sel_registerName("backingScaleFactor"));
+  char namebuf[128];
+  namebuf[0] = '\0';
+  if (1 /* localizedName available 10.15+ */) {
+    id name = OBJC_MSG(id(*)(id, SEL), screen,
+                      sel_registerName("localizedName"));
+    if (name) {
+      /* UTF8String copy */
+      const char *u = (const char *)OBJC_MSG(const char *(*)(id, SEL), name,
+                                             sel_registerName("UTF8String"));
+      if (u) snprintf(namebuf, sizeof(namebuf), "%s", u);
+    }
+  }
+  char esc[300];
+  zt_json_escape(namebuf, esc, sizeof(esc));
+  char one[512];
+  snprintf(one, sizeof(one),
+           "{\"name\":\"%s\",\"position\":{\"x\":%g,\"y\":%g},"
+           "\"size\":{\"width\":%g,\"height\":%g},"
+           "\"workArea\":{\"x\":%g,\"y\":%g,\"width\":%g,\"height\":%g},"
+           "\"scaleFactor\":%g}",
+           esc, f.x * scale, f.y * scale, f.width * scale, f.height * scale,
+           vf.x * scale, vf.y * scale, vf.width * scale, vf.height * scale,
+           scale);
+  size_t need = strlen(one);
+  while (*len + need + 2 > *cap) {
+    *cap = *cap ? *cap * 2 : 1024;
+    *out = realloc(*out, *cap);
+  }
+  memcpy(*out + *len, one, need);
+  *len += need;
+}
+
+/* mode: 0 all, 1 primary, 2 window's screen, 3 containing point (x,y). */
+static void monitors_reply(int req_id, int mode, void *wnd, double x, double y) {
+  id cls = (id)objc_getClass("NSScreen");
+  id list = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("screens"));
+  unsigned long count =
+      (unsigned long)OBJC_MSG(unsigned long(*)(id, SEL), list,
+                              sel_registerName("count"));
+  char *out = NULL;
+  size_t len = 0, cap = 0;
+  out = malloc(1024);
+  cap = 1024;
+  out[len++] = '[';
+  for (unsigned long i = 0; i < count; i++) {
+    id screen = OBJC_MSG(id(*)(id, SEL, unsigned long), list,
+                         sel_registerName("objectAtIndex:"), i);
+    if (mode == 1) {
+      id main = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("mainScreen"));
+      if (screen != main) continue;
+    } else if (mode == 2 && wnd) {
+      id cur = OBJC_MSG(id(*)(id, SEL), wnd, sel_registerName("screen"));
+      if (screen != cur) continue;
+    } else if (mode == 3) {
+      ZtRect f;
+#if defined(__aarch64__)
+      f = ((ZtRect(*)(id, SEL))objc_msgSend)(screen,
+                                             sel_registerName("frame"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          screen, sel_registerName("frame"), &f);
+#endif
+      /* incoming x/y are top-left desktop coords (Cocoa points); Cocoa
+         screen coords are bottom-left: flip against the main screen. */
+      id main = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("mainScreen"));
+      ZtRect mf;
+#if defined(__aarch64__)
+      mf = ((ZtRect(*)(id, SEL))objc_msgSend)(main,
+                                              sel_registerName("frame"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          main, sel_registerName("frame"), &mf);
+#endif
+      double flippedY = mf.height - y;
+      if (x < f.x || x >= f.x + f.width || flippedY < f.y ||
+          flippedY >= f.y + f.height)
+        continue;
+    }
+    if (len > 1) out[len++] = ',';
+    zt_monitor_json(screen, &out, &len, &cap);
+  }
+  while (len + 2 > cap) {
+    cap *= 2;
+    out = realloc(out, cap);
+  }
+  out[len++] = ']';
+  out[len] = '\0';
+  char head[128];
+  snprintf(head, sizeof(head),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":", req_id);
+  char *full = malloc(strlen(head) + len + 2);
+  sprintf(full, "%s%s}", head, out);
+  zt_send_line(full);
+  free(full);
+  free(out);
 }
 
 /* ---- system tray (NSStatusItem) ---- */
@@ -907,6 +1101,7 @@ static void tray_destroy(void) {
 static void install_tray_target(void) {
   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
+  class_addMethod(cls, sel_registerName("ztThemeChanged:"), (IMP)zt_theme_changed_cb, "v@:@");
   objc_registerClassPair(cls);
   g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
 }
@@ -1230,11 +1425,16 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "window_destroy") == 0) {
+    if (getenv("ZT_TRACE"))
+      fprintf(stderr, "[zt] window_destroy w=%s main=%s wnd=%s\n",
+              w ? "ok" : "null", (w == zt_w) ? "yes" : "no",
+              zt_window_of(w) ? "ok" : "null");
     if (w && w != zt_w) {
       /* Runtime-created window: close just this window (registry cleanup
          happens in the windowWillClose delegate, shared with user closes). */
       void *wnd = zt_window_of(w);
-      if (wnd) OBJC_MSG(void(*)(id, SEL), wnd, sel_registerName("close"));
+      if (wnd)
+        OBJC_MSG(void(*)(id, SEL), wnd, sel_registerName("performClose:"));
     } else {
       webview_terminate(zt_w);
     }
@@ -1350,6 +1550,38 @@ static int dispatch(Msg *m, webview_t w) {
     ZtPoint screen = wnd ? zt_base_to_screen(wnd, base) : base;
     CGPoint cg = {screen.x, screen.y};
     CGWarpMouseCursorPosition(cg);
+    return 1;
+  }
+  if (strcmp(m->type, "available_monitors") == 0 ||
+      strcmp(m->type, "primary_monitor") == 0 ||
+      strcmp(m->type, "current_monitor") == 0 ||
+      strcmp(m->type, "monitor_from_point") == 0) {
+    if (m->req_id >= 0) {
+      int mode = strcmp(m->type, "available_monitors") == 0
+                     ? 0
+                     : strcmp(m->type, "primary_monitor") == 0
+                           ? 1
+                           : strcmp(m->type, "current_monitor") == 0 ? 2 : 3;
+      monitors_reply(m->req_id, mode, zt_window_of(w), (double)m->x,
+                     (double)m->y);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "set_traffic_light_position") == 0) {
+    void *wnd = zt_window_of(w);
+    if (wnd) {
+      /* Move close(0)/miniaturize(1)/zoom(2) buttons to the given origin
+         (titlebar-view coords). */
+      for (long btn_kind = 0; btn_kind < 3; btn_kind++) {
+        id btn = OBJC_MSG(id(*)(id, SEL, long), wnd,
+                          sel_registerName("standardWindowButton:"), btn_kind);
+        if (btn) {
+          ((void(*)(id, SEL, double, double))objc_msgSend)(
+              (id)btn, sel_registerName("setFrameOrigin:"), (double)m->x,
+              (double)m->y);
+        }
+      }
+    }
     return 1;
   }
   if (strcmp(m->type, "set_theme") == 0) {
@@ -1556,6 +1788,7 @@ static int init(void) {
   install_tray_target();
   install_menu_target();
   install_deep_link_handler();
+  install_theme_observer();
   return 1;
 }
 

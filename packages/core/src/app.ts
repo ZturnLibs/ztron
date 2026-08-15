@@ -207,6 +207,12 @@ export class App {
       "plugin:window|set_theme",
       "plugin:window|set_visible_on_all_workspaces",
       "plugin:window|set_simple_fullscreen",
+      "plugin:window|get_all_windows",
+      "plugin:window|available_monitors",
+      "plugin:window|primary_monitor",
+      "plugin:window|current_monitor",
+      "plugin:window|monitor_from_point",
+      "plugin:window|set_traffic_light_position",
       "plugin:window|start_dragging",
       "plugin:window|start_resize_dragging",
       "plugin:app|name",
@@ -600,6 +606,24 @@ export class App {
           Boolean((args as { fullscreen?: boolean }).fullscreen),
         );
       },
+      "plugin:window|get_all_windows": (_args, ctx) =>
+        ctx.app.listWindowLabels(),
+      "plugin:window|available_monitors": (_args, ctx) =>
+        ctx.webview.queryMonitors("all"),
+      "plugin:window|primary_monitor": (_args, ctx) =>
+        ctx.webview.queryMonitors("primary").then((ms) => ms?.[0] ?? null),
+      "plugin:window|current_monitor": (_args, ctx) =>
+        ctx.webview.queryMonitors("current").then((ms) => ms?.[0] ?? null),
+      "plugin:window|monitor_from_point": (args, ctx) => {
+        const { x, y } = args as { x: number; y: number };
+        return ctx.webview
+          .queryMonitors("point", Number(x), Number(y))
+          .then((ms) => ms?.[0] ?? null);
+      },
+      "plugin:window|set_traffic_light_position": (args, ctx) => {
+        const { x, y } = args as { x: number; y: number };
+        ctx.webview.setTrafficLightPosition(Number(x), Number(y));
+      },
       "plugin:window|start_dragging": (_args, ctx) =>
         ctx.webview.startDragging(),
       "plugin:app|name": (_args, ctx) =>
@@ -764,6 +788,11 @@ export class App {
     return this.#windows.get(label)?.handle;
   }
 
+  /** All live window labels (for `plugin:window|get_all_windows`). */
+  listWindowLabels(): string[] {
+    return [...this.#windows.keys()];
+  }
+
   webviewEvents(label: string): EventTarget | undefined {
     return this.#windows.get(label)?.events;
   }
@@ -814,8 +843,15 @@ export class App {
         getChannel: (channelId) => new ChannelHandle(channelId, wv),
       }));
     });
-    handle.onWindowEvent((event) => {
-      this.emit(windowEventToTauri(event));
+    handle.onWindowEvent((event, payload) => {
+      const name = windowEventToTauri(event);
+      if (name) this.emit(name, payload);
+      /* Destroyed/closed runtime windows leave the registry so
+         get_all_windows only reports live windows (host already clears
+         its webview registry on windowWillClose). */
+      if (event === "close" && cfg.label !== "main") {
+        this.#windows.delete(cfg.label);
+      }
     });
 
     const bootstrap =
@@ -857,7 +893,9 @@ export class App {
 }
 
 /** Maps native window events to Tauri's `tauri://*` event names. */
-function windowEventToTauri(event: import("./runtime.js").WindowEvent): string {
+function windowEventToTauri(
+  event: import("./runtime.js").WindowEvent,
+): string | null {
   switch (event) {
     case "resize":
       return "tauri://resize";
@@ -869,7 +907,12 @@ function windowEventToTauri(event: import("./runtime.js").WindowEvent): string {
       return "tauri://blur";
     case "close":
       return "tauri://close-requested";
+    case "scale-change":
+      return "tauri://scale-change";
+    case "theme-change":
+      return "tauri://theme-changed";
   }
+  return null;
 }
 
 /** Fluent builder mirroring `tauri::Builder`. */

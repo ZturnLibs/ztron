@@ -244,6 +244,69 @@ test("window v2 batch 3 (maximize/cursor/theme/workspaces) routes", async () => 
   assert.deepEqual(w.themeLog, ["dark", null]);
 });
 
+test("window finishing batch (monitors/getAllWindows/traffic light) routes", async () => {
+  const { mock } = buildApp();
+  const w = mock.main;
+
+  w.monitorsValue = [
+    {
+      name: "Built-in Retina",
+      position: { x: 0, y: 0 },
+      size: { width: 3456, height: 2234 },
+      workArea: { x: 0, y: 0, width: 3456, height: 2100 },
+      scaleFactor: 2,
+    },
+  ];
+  const all = (await mock.main.invoke("plugin:window|available_monitors", {})) as Array<{
+    scaleFactor: number;
+  }>;
+  assert.equal(all?.[0]?.scaleFactor, 2);
+  await mock.main.invoke("plugin:window|primary_monitor", {});
+  await mock.main.invoke("plugin:window|current_monitor", {});
+  await mock.main.invoke("plugin:window|monitor_from_point", { x: 100, y: 100 });
+  assert.deepEqual(w.monitorQueries.map((q) => q.kind), [
+    "all",
+    "primary",
+    "current",
+    "point",
+  ]);
+  assert.deepEqual(w.monitorQueries[3], { kind: "point", x: 100, y: 100 });
+
+  const labels = (await mock.main.invoke("plugin:window|get_all_windows", {})) as string[];
+  assert.deepEqual(labels, ["main"]);
+
+  await mock.main.invoke("plugin:window|set_traffic_light_position", {
+    x: 12,
+    y: 12,
+  });
+  assert.deepEqual(w.trafficLightLog, [{ x: 12, y: 12 }]);
+});
+
+test("scale/theme window events carry payloads to tauri:// names", async () => {
+  const { app, mock } = buildApp();
+  void app;
+  await mock.main.invoke("plugin:event|listen", {
+    event: "tauri://scale-change",
+    target: { kind: "Any" },
+    handler: 1,
+  });
+  await mock.main.invoke("plugin:event|listen", {
+    event: "tauri://theme-changed",
+    target: { kind: "Any" },
+    handler: 2,
+  });
+  mock.main.emitWindowEvent("scale-change", {
+    scaleFactor: 2,
+    size: { width: 800, height: 600 },
+  });
+  mock.main.emitWindowEvent("theme-change", "dark");
+  const evals = mock.main.evalLog.join("\n");
+  assert.ok(evals.includes("tauri://scale-change"), evals);
+  assert.ok(evals.includes('"scaleFactor":2'), evals);
+  assert.ok(evals.includes("tauri://theme-changed"), evals);
+  assert.ok(evals.includes('"payload":"dark"'), evals);
+});
+
 test("tray commands route to the adapter", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:tray|create", { title: "T", tooltip: "tip" });

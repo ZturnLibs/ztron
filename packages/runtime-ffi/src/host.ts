@@ -41,7 +41,9 @@ export class HostWebviewHandle implements WebviewHandle {
   #rt: HostRuntime;
   readonly label: string;
   #onMessage: ((id: string, req: string) => void) | null = null;
-  #onWindowEvent: ((event: WindowEvent) => void) | null = null;
+  #onWindowEvent:
+    | ((event: WindowEvent, payload?: unknown) => void)
+    | null = null;
 
   constructor(rt: HostRuntime, label: string) {
     this.#rt = rt;
@@ -260,6 +262,37 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "set_cursor_position", label: this.label, x, y });
   }
 
+  setTrafficLightPosition(x: number, y: number): void {
+    this.#rt.send({
+      type: "set_traffic_light_position",
+      label: this.label,
+      x,
+      y,
+    });
+  }
+
+  queryMonitors(
+    kind: "all" | "primary" | "current" | "point",
+    x?: number,
+    y?: number,
+  ): Promise<import("@ztron/core").MonitorInfo[] | null> {
+    const op =
+      kind === "all"
+        ? "available_monitors"
+        : kind === "primary"
+          ? "primary_monitor"
+          : kind === "current"
+            ? "current_monitor"
+            : "monitor_from_point";
+    return this.#rt
+      .sendRequest(op, { x: x ?? 0, y: y ?? 0 }, this.label)
+      .then((r) =>
+        Array.isArray(r)
+          ? (r as import("@ztron/core").MonitorInfo[])
+          : null,
+      );
+  }
+
   setOpacity(opacity: number): void {
     this.#rt.send({ type: "set_opacity", label: this.label, opacity });
   }
@@ -308,8 +341,11 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#onMessage?.(id, JSON.stringify(req));
   }
 
-  handleWindowEvent(event: WindowEvent): void {
-    this.#onWindowEvent?.(event);
+  handleWindowEvent(
+    event: WindowEvent,
+    payload?: unknown,
+  ): void {
+    this.#onWindowEvent?.(event, payload);
   }
 }
 
@@ -619,7 +655,25 @@ export class HostRuntime implements RuntimeAdapter {
       case "window_event": {
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
-        handle?.handleWindowEvent(String(msg.event) as WindowEvent);
+        /* wire names -> core WindowEvent; scale/theme carry payloads. */
+        const raw = String(msg.event);
+        const event = (
+          raw === "scale_change"
+            ? "scale-change"
+            : raw === "theme_change"
+              ? "theme-change"
+              : raw
+        ) as WindowEvent;
+        const payload =
+          raw === "scale_change"
+            ? {
+                scaleFactor: msg.scale,
+                size: { width: msg.width, height: msg.height },
+              }
+            : raw === "theme_change"
+              ? msg.theme
+              : undefined;
+        handle?.handleWindowEvent(event, payload);
         break;
       }
       case "tray_event": {
