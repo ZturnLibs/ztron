@@ -237,6 +237,23 @@ async function main(): Promise<void> {
       report("FS_WATCH_FAIL:" + extractError(err).slice(0, 50));
     }
 
+    // 3c. fs binary IO: write bytes -> read back byte-identical
+    try {
+      const magic = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 255, 0, 128, 7]);
+      await fs.writeFile("$TMP/ztron_bin.bin", magic);
+      const back = await fs.readFile("$TMP/ztron_bin.bin");
+      const same =
+        back.length === magic.length &&
+        magic.every((b, i) => back[i] === b);
+      if (same) {
+        report("FS_BINARY_OK:" + back.length + "b");
+      } else {
+        report("FS_BINARY_FAIL:" + back.length + "vs" + magic.length);
+      }
+    } catch (err) {
+      report("FS_BINARY_FAIL:" + extractError(err).slice(0, 50));
+    }
+
     // 4a. fs copy/rename/stat
     await fs.copyFile("$TMP/ztron_m3.txt", "$TMP/ztron_m3_copy.txt");
     const copied = await fs.readText("$TMP/ztron_m3_copy.txt");

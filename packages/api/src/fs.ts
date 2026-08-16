@@ -42,6 +42,34 @@ export interface MakeDirOptions {
 }
 
 /** Creates a directory. */
+/** Reads a binary file; resolves with its raw bytes. */
+export async function readFile(path: string): Promise<Uint8Array> {
+  const r = await invoke<{ base64: string }>("plugin:fs|read_file", { path });
+  const bin = atob(r.base64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** Writes a binary file from raw bytes (or a base64 string directly). */
+export async function writeFile(
+  path: string,
+  data: Uint8Array | string,
+): Promise<void> {
+  let base64: string;
+  if (typeof data === "string") {
+    base64 = data;
+  } else {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < data.length; i += chunk) {
+      bin += String.fromCharCode(...data.subarray(i, i + chunk));
+    }
+    base64 = btoa(bin);
+  }
+  await invoke("plugin:fs|write_file", { path, base64 });
+}
+
 export function makeDir(
   path: string,
   options?: MakeDirOptions,
@@ -100,6 +128,8 @@ export async function watch(
 
 export const fs = {
   watch,
+  readFile,
+  writeFile,
   readText,
   writeText,
   readDir,

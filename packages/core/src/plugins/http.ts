@@ -26,11 +26,13 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
     name: "http",
     commands: {
       async fetch(args) {
-        const { url, method, headers, body } = args as {
+        const { url, method, headers, body, timeoutMs } = args as {
           url: string;
           method?: string;
           headers?: Record<string, string>;
           body?: string;
+          /** Abort the request after N ms (scope-checked URL only). */
+          timeoutMs?: number;
         };
         if (!scope.permits(url)) {
           throw new Error(`http scope denied: ${url}`);
@@ -39,6 +41,9 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
           method: method ?? "GET",
           headers: headers ?? {},
           body: body ?? undefined,
+          ...(timeoutMs && timeoutMs > 0
+            ? { signal: AbortSignal.timeout(timeoutMs) }
+            : {}),
         });
         const text = await resp.text();
         const respHeaders: Record<string, string> = {};

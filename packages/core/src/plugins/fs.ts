@@ -10,6 +10,22 @@ import type { Plugin } from "../plugin.js";
 
 const dec = new TextDecoder();
 
+/** Base64 <-> bytes (binary fs payloads cross the JSON wire as base64). */
+function bytesToB64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
 export interface FsPluginOptions {
   /** A PathScope instance or config (instances may be grown by persisted-scope). */
   scope: PathScopeConfig | PathScope;
@@ -41,6 +57,8 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
   const fsCommands = {
     read_text: "plugin:fs|read_text",
     write_text: "plugin:fs|write_text",
+    read_file: "plugin:fs|read_file",
+    write_file: "plugin:fs|write_file",
     read_dir: "plugin:fs|read_dir",
     exists: "plugin:fs|exists",
     remove: "plugin:fs|remove",
@@ -67,6 +85,17 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         const { path, contents } = args as { path: string; contents: string };
         const canon = await scope.check(path);
         await tjs.writeFile(canon, contents);
+      },
+      async read_file(args) {
+        const { path } = args as { path: string };
+        const canon = await scope.check(path);
+        const bytes = await tjs.readFile(canon);
+        return { base64: bytesToB64(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)) };
+      },
+      async write_file(args) {
+        const { path, base64 } = args as { path: string; base64: string };
+        const canon = await scope.check(path);
+        await tjs.writeFile(canon, b64ToBytes(base64));
       },
       async read_dir(args) {
         const { path } = args as { path: string };
@@ -165,6 +194,16 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
       },
     },
     permissions: [
+      {
+        identifier: "fs:allow-read-file",
+        description: "Allows reading binary files via plugin:fs|read_file.",
+        commands: [fsCommands.read_file],
+      },
+      {
+        identifier: "fs:allow-write-file",
+        description: "Allows writing binary files via plugin:fs|write_file.",
+        commands: [fsCommands.write_file],
+      },
       {
         identifier: "fs:allow-read-text-file",
         description: "Allows reading text files via plugin:fs|read_text.",

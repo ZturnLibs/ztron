@@ -1149,3 +1149,9 @@ ZtronApp.app/Contents/
 - **api**:`Command.spawnInteractive()`(先挂 stdout/stderr/terminated 监听再 spawn——**顺序关键**,漏监听会丢早期 chunk)、`write(cid,data)`、`kill(cid,sig?)`、`on("terminated")`
 - **tjs 类型修正**:tjs-global spawn 声明补 `stdin/pid`(txiki Process 实际有;旧声明缺)——execute_stream 顺带获得 stdin pipe
 - 验证:hello `SHELL_INTERACTIVE_OK:echo-me-back`(spawn cat → write_stdin → stdout 回流 → SIGKILL),72 项/FULL_OK/EXIT 0;59 单测绿
+
+## 86. fs 二进制 IO + http timeout
+
+- **fs**:`plugin:fs|read_file`(→`{base64}`)/`write_file`(base64→bytes)——wire 上 base64(JSON 安全);core 侧 chunked btoa/atob(0x8000 步进防栈溢);api `readFile`→Uint8Array / `writeFile`(接受 bytes 或现成 base64 串)
+- **http**:`timeoutMs` 选项经 `AbortSignal.timeout`(txiki 原生支持)
+- 验证:hello `FS_BINARY_OK:15b`(PNG 魔数 + 混合字节写入→读回逐字节相等),73 项/FULL_OK/EXIT 0

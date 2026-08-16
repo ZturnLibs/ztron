@@ -16,6 +16,8 @@ export interface FetchOptions {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+  /** Abort the request after N milliseconds. */
+  timeoutMs?: number;
 }
 
 /** Performs a scoped HTTP request; throws if the URL is out of scope. */

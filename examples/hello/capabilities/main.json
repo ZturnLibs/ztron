@@ -27,6 +27,8 @@
     "network:default",
     "upload:default",
     "persisted-scope:default",
-    "fs:allow-watch"
+    "fs:allow-watch",
+    "fs:allow-read-file",
+    "fs:allow-write-file"
   ]
 }

@@ -164,6 +164,8 @@ const UNIT_COVERED = new Set([
   "plugin:image|destroy",
   "plugin:fs|read_text",
   "plugin:fs|write_text",
+  "plugin:fs|read_file",
+  "plugin:fs|write_file",
   "plugin:fs|read_dir",
   "plugin:fs|exists",
   "plugin:fs|remove",
