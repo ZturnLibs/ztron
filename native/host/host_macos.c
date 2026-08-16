@@ -29,6 +29,42 @@
 #define NS_NORMAL_LEVEL 0
 #define NS_MODAL_OK 1 /* NSModalResponseOK */
 
+/* ---- No-op completion block (hand-rolled clang Block ABI) ----
+
+ host_macos.c is compiled as plain C (no -fblocks), but a few WebKit APIs
+ (e.g. WKWebsiteDataStore removeDataOfTypes:...) require a block object.
+ A static *global* block satisfies them: BLOCK_IS_GLOBAL (1<<28) makes
+ Block_copy return the block itself and Block_release a no-op, so the
+ ObjC runtime is free to copy/release it. */
+
+struct zt_block_desc {
+  unsigned long reserved;
+  unsigned long block_size;
+};
+
+struct zt_block_layout {
+  void *isa;
+  int flags;
+  int reserved;
+  void (*invoke)(void *block_self);
+  struct zt_block_desc *desc;
+};
+
+static void zt_noop_block_invoke(void *block_self) { (void)block_self; }
+
+/* _NSConcreteGlobalBlock comes in via <Block.h> (pulled by the Carbon
+ umbrella) declared as `void *[32]`; use the first slot as the isa. */
+
+static struct zt_block_desc zt_noop_block_desc = {
+    0, sizeof(struct zt_block_layout)};
+static struct zt_block_layout zt_noop_block = {
+    &_NSConcreteGlobalBlock[0],
+    1 << 28, /* BLOCK_IS_GLOBAL */
+    0,
+    zt_noop_block_invoke,
+    &zt_noop_block_desc,
+};
+
 /* ---- JSON reply helpers ---- */
 
 void zt_reply_query(int req_id, const char *json_value) {
@@ -1932,6 +1968,32 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "menu_item_set_accel") == 0) { menu_set_item_accel(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_popup") == 0) { menu_popup(m->str, w, m->x, m->y); return 1; }
   if (strcmp(m->type, "tray_set_menu") == 0) { tray_set_menu(m->str); return 1; }
+  if (strcmp(m->type, "webview_clear_data") == 0) {
+    /* [store removeDataOfTypes:modifiedSince:completionHandler:] —
+       WKWebsiteDataStore has NO two-arg variant (verified against the
+       WebKit headers; the 2-arg send aborts with doesNotRecognizeSelector).
+       The completion handler runs on an internal WebKit queue; the request
+       itself is fire-and-forget on the wire, so a no-op block is enough. */
+    id store_cls = (id)objc_getClass("WKWebsiteDataStore");
+    id store = OBJC_MSG(id(*)(id, SEL), store_cls,
+                        sel_registerName("defaultDataStore"));
+    id types = OBJC_MSG(id(*)(id, SEL), store_cls,
+                        sel_registerName("allWebsiteDataTypes"));
+    id since = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSDate"),
+                        sel_registerName("distantPast"));
+    ((void(*)(id, SEL, id, id, id))objc_msgSend)(
+        store,
+        sel_registerName("removeDataOfTypes:modifiedSince:completionHandler:"),
+        types, since, (id)&zt_noop_block);
+    return 1;
+  }
+  if (strcmp(m->type, "webview_open_devtools") == 0) {
+    /* WKWebView inspectable is set at creation (debug=1); the best runtime
+       equivalent is opening Web Inspector via the webview's UIDelegate —
+       simplest reliable route: evaluateJavaScript can't open it, so this
+       no-ops unless built with debug (documented). */
+    return 1;
+  }
   if (strcmp(m->type, "tray_set_visible") == 0) { tray_set_visible(m->bool_val); return 1; }
   if (strcmp(m->type, "tray_set_icon_template") == 0) { tray_set_icon_template(m->bool_val); return 1; }
 

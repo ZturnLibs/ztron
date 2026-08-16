@@ -1,6 +1,6 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P9 + 运行时多窗口 全部可在本机验证的项(spike 73 项确定性 FULL_OK/EXIT 0,
+> Ztron 已完成 M0–M4 + P0–P20 全部可在本机验证的项(spike 74 项确定性 FULL_OK/EXIT 0,
 > 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
@@ -103,14 +103,14 @@
 
 | 维度     | 覆盖                                                                                                                                                                                                                                                           |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| core api | invoke/transformCallback/Channel/Resource/event/process/app/os/path/window/clipboard/http/shell/dialog/tray/updater/menu/WebviewWindow                                                                                                                         |
+| core api | invoke/transformCallback/Channel/Resource/event/process/app/os/path/window/webview/clipboard/http/shell/dialog/tray/updater/menu/WebviewWindow                                                                                                                         |
 | 插件(25) | store·fs·http·shell(+stream+Command 类)·os·log·sql·clipboard·positioner·window-state·notification·global-shortcut·single-instance·deep-link·updater·autostart·websocket·local-ip·network·upload·persisted-scope·menu·tray·dialog·app/process                   |
 | 窗口     | min/max/fullscreen/alwaysOnTop/alwaysOnBottom/decorations/isDecorated/opacity/transparent/drag/resize-drag/position/size/min-max-size+constraints/focus/isFocused/visible/resizable/cursor/ignore-cursor/theme/scaleFactor/title/close/center/preventClose/destroy/setBounds/setShadow/zoom/enabled/minimizable/maximizable/closable+is*/skipTaskbar/contentProtected/requestUserAttention/progress-bar/badge/background-color/titlebar-style + 事件 + is*/outer* 查询 |
 | 安全     | ACL capabilities/deny/覆盖 · PathScope/HttpScope · CSP · IPC key                                                                                                                                                                                               |
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
 | 多窗口   | host webview 注册表 + GUI 线程 label 重解析 · WebviewWindow api · 运行时建窗/ops/destroy · per-window 事件+preventClose                                                                                                                                               |
-| 测试     | 三层框架(58 单测 + 73 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
+| 测试     | 三层框架(58 单测 + 74 spike,100% 覆盖账本)                                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 

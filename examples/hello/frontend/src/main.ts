@@ -21,6 +21,8 @@ import {
   Menu as MenuClass,
   TrayIcon,
   getAllWindows,
+  Webview,
+  getAllWebviews,
   availableMonitors,
   currentMonitor,
   primaryMonitor,
@@ -724,6 +726,18 @@ async function main(): Promise<void> {
       );
     }
     report("SCALE_LISTENER_ARMED:" + String(scaleHeard !== null));
+
+    // 6a2p. Webview module: clearAllBrowsingData + handle round trips
+    const wv = Webview.getCurrent();
+    await wv.clearAllBrowsingData();
+    const wvs = await getAllWebviews();
+    const zoomed = await wv.setZoom(1);
+    void zoomed;
+    if (wv.label === "main" && wvs.some((x) => x.label === "main")) {
+      report("WEBVIEW_MODULE_OK:" + wvs.length);
+    } else {
+      report("WEBVIEW_MODULE_FAIL:" + JSON.stringify(wvs.map((x) => x.label)));
+    }
 
     // 6a2e. os.locale + window.innerPosition
     const loc = await os.locale();

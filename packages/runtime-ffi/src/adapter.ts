@@ -120,6 +120,10 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op */
   }
 
+  clearBrowsingData(): void {
+    /* no-op (host adapter provides browsing-data clearing) */
+  }
+
   setTrafficLightPosition(): void {
     /* no-op (host adapter provides traffic-light positioning) */
   }

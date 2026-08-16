@@ -21,6 +21,9 @@ export const COMMANDS: readonly string[] = [
   "plugin:process|relaunch",
   // ---- window ----
   "plugin:webview|create",
+  "plugin:webview|clear_all_browsing_data",
+  "plugin:window|show",
+  "plugin:window|hide",
   "plugin:window|close",
   "plugin:window|prevent_close",
   "plugin:window|destroy",
@@ -277,6 +280,8 @@ export const API_EXPORTS: readonly string[] = [
   "WebviewWindow",
   "UserAttentionType",
   "getAllWindows",
+  "Webview",
+  "getAllWebviews",
   "availableMonitors",
   "currentMonitor",
   "primaryMonitor",

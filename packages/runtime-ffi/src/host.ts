@@ -262,6 +262,10 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "set_cursor_position", label: this.label, x, y });
   }
 
+  clearBrowsingData(): void {
+    this.#rt.send({ type: "webview_clear_data", label: this.label });
+  }
+
   setTrafficLightPosition(x: number, y: number): void {
     this.#rt.send({
       type: "set_traffic_light_position",

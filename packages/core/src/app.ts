@@ -143,6 +143,7 @@ export class App {
       "plugin:event|emit",
       "plugin:event|emit_to",
       "plugin:webview|create",
+      "plugin:webview|clear_all_browsing_data",
       "plugin:window|close",
       "plugin:window|prevent_close",
       "plugin:window|destroy",
@@ -159,6 +160,8 @@ export class App {
       "plugin:window|center",
       "plugin:window|set_focus",
       "plugin:window|set_visible",
+      "plugin:window|show",
+      "plugin:window|hide",
       "plugin:window|set_resizable",
       "plugin:window|set_opacity",
       "plugin:window|set_transparent",
@@ -326,6 +329,9 @@ export class App {
       "plugin:webview|create": (args, ctx) => {
         ctx.app.createWindow(args as import("./runtime.js").WindowConfig);
       },
+      "plugin:webview|clear_all_browsing_data": (_args, ctx) => {
+        ctx.webview.clearBrowsingData();
+      },
       "plugin:window|close": (_args, ctx) => {
         ctx.webview.terminate();
       },
@@ -384,6 +390,10 @@ export class App {
           Boolean((args as { visible?: boolean }).visible),
         );
       },
+      "plugin:window|show": (_args, ctx) =>
+        ctx.webview.windowState("set_visible", true),
+      "plugin:window|hide": (_args, ctx) =>
+        ctx.webview.windowState("set_visible", false),
       "plugin:window|set_resizable": (args, ctx) => {
         ctx.webview.windowState(
           "set_resizable",

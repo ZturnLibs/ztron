@@ -162,6 +162,8 @@ export interface WebviewHandle {
   getCursorPosition(): Promise<{ x: number; y: number } | null>;
   /** Warps the cursor to window coordinates (x, y). */
   setCursorPosition(x: number, y: number): void;
+  /** Clears the webview's browsing data (cookies, cache, storage). */
+  clearBrowsingData(): void;
   /** Moves the traffic-light buttons (frameless macOS windows). */
   setTrafficLightPosition(x: number, y: number): void;
   /** Screen queries (physical px): all / primary / the window's / at point. */

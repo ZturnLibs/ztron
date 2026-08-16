@@ -210,6 +210,12 @@ export class MockWebviewHandle implements WebviewHandle {
     this.cursorPositionLog.push({ x, y });
   }
 
+  clearDataCount = 0;
+
+  clearBrowsingData(): void {
+    this.clearDataCount++;
+  }
+
   trafficLightLog: Array<{ x: number; y: number }> = [];
 
   setTrafficLightPosition(x: number, y: number): void {

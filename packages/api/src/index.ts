@@ -21,6 +21,10 @@ export type {
 export { Window } from "./window.js";
 export { WebviewWindow, getCurrentWebviewWindow } from "./webview-window.js";
 export {
+  Webview,
+  getAllWebviews,
+} from "./webview.js";
+export {
   setupDragRegion,
   UserAttentionType,
   getAllWindows,

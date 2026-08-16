@@ -1155,3 +1155,12 @@ ZtronApp.app/Contents/
 - **fs**:`plugin:fs|read_file`(→`{base64}`)/`write_file`(base64→bytes)——wire 上 base64(JSON 安全);core 侧 chunked btoa/atob(0x8000 步进防栈溢);api `readFile`→Uint8Array / `writeFile`(接受 bytes 或现成 base64 串)
 - **http**:`timeoutMs` 选项经 `AbortSignal.timeout`(txiki 原生支持)
 - 验证:hello `FS_BINARY_OK:15b`(PNG 魔数 + 混合字节写入→读回逐字节相等),73 项/FULL_OK/EXIT 0
+
+## 87. Webview 模块(api `webview.ts`)+ 纯 C 手擑 Block
+
+- **api 层**:新模块 `@ztron/api/webview` —— `Webview` 类(`getCurrent`/`getAllWebviews`/`clearAllBrowsingData`/`setZoom`/位置尺寸控制等)+ 对齐 Tauri `core.webview`;无 capability 门槛(操作的是自家 webview,与 window 一致)
+- **core**:runtime 接口新增 `clearBrowsingData()`;命令 `plugin:webview|clear_all_browsing_data`(fire-and-forget,不等待 native 回执)
+- **native**:`webview_clear_data` → `WKWebsiteDataStore removeDataOfTypes:modifiedSince:completionHandler:`。**坑**:WebKit 头文件里不存在双参变体(实测 `doesNotRecognizeSelector` abort);三参必须传 completionHandler block
+- **纯 C 手擑 Block ABI**:host_macos.c 无 `-fblocks`,手工定义 `zt_block_layout`(isa 指向 `_NSConcreteGlobalBlock`,flags 带 `BLOCK_IS_GLOBAL` 1<<28 —— 使 `Block_copy` 返回自身、`Block_release` 空操作,WebKit 内部 copy/release 安全)+ no-op invoke。`_NSConcreteGlobalBlock` 由 Carbon 拿进的 `<Block.h>` 声明为 `void*[32]`,取首元素作 isa
+- 顺带补齐:core 缺失的 `plugin:window|show`/`hide` 命令(映射 `set_visible`)
+- 验证:hello `WEBVIEW_MODULE_OK:1`(getCurrent + clearAllBrowsingData + getAllWebviews + setZoom 往返),74 项/FULL_OK/EXIT 0
