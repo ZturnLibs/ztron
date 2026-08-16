@@ -91,7 +91,7 @@
 | 4      | P3 store/http/dialog 插件 | ✅ 完成(25 插件)    |
 | 5      | P5 打包扩展 + 测试        | ✅ 完成(本机面)     |
 | 6      | 多窗口运行时解锁          | ✅ 完成(P6.3)       |
-| 7      | IPC MessagePack           | 低优先              |
+| 7      | IPC 二进制通道            | ✅ 完成(纠偏:详见 §5.2 / DESIGN §91) |
 | 8      | 多平台/移动端             | 需目标平台          |
 
 ## 5. 现状对比(2026-08)与补全计划
@@ -122,7 +122,7 @@
 | window v2 批次2    | size 约束/minimizable/closable/maximizable+is*/isDecorated/isFocused/skipTaskbar/alwaysOnBottom/contentProtected/requestUserAttention/进度条/badge/背景色/titlebar 风格 | [x] 已完成(`WIN_BUTTONS_OK`+`WIN_V2_EXTRAS_OK`+`DOCK_V2_OK`，isFocused 为 bonus) |
 | menu 结构          | Submenu/CheckMenuItem/RadioMenuItem/preventClose                                   | [x] 已完成(Submenu + check + radio + preventClose)               |
 | shell Command 类   | Command/事件流(已有 executeStream 等价)                                            | [x] 已完成                                                       |
-| IPC MessagePack    | JSON → MessagePack                                                                 | [ ] 低优先                                                       |
+| IPC 二进制通道    | 原记"MessagePack"系误判:Tauri v2 桌面无 msgpack,真目标是 InvokeBody/InvokeResponseBody::Raw;已对齐 Raw 语义(任何命令可回二进制,前端 invoke 直接拿 Uint8Array) | [x] 已完成(DESIGN §91;wire 上 base64-in-JSON 与 Tauri Android 官方建议同构) |
 | Image 模块         | transformImage                                                                     | [x] 已完成(fromBytes/fromPath/fromRGBA + `transformImage`/`ImageLike` + tray 集成;修复 icon-by-rid 被丢弃) |
 
 ### 5.3 缺失(❌ 深水区/平台/移动端)
@@ -133,4 +133,4 @@
 | 移动端 + 移动/硬件插件(barcode/biometric/haptics/nfc/bluetooth/authenticator/geolocation) | 整个构建链未启动                         |
 | stronghold / fps / server 插件                                                            | 需原生绑定/偏门                          |
 | tauri-driver/WebDriver 集成测试                                                           | 未实现(用 MockRuntime+spike 替代)        |
-| IPC MessagePack                                                                           | 低优先                                   |
+| IPC 二进制通道(原记 MessagePack)                                                         | ✅ 已纠偏并对齐(DESIGN §91)             |

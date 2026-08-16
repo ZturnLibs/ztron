@@ -6,6 +6,7 @@ import { CommandRegistry, type CommandHandlers } from "./commands/index.js";
 import type { CommandContext } from "./commands/index.js";
 import { EventTarget } from "./events.js";
 import { ChannelHandle } from "./ipc/channel.js";
+import { RawResponse } from "./ipc/raw.js";
 import {
   EventManager,
   type EventTarget as EventTargetRef,
@@ -818,8 +819,12 @@ export class App {
           (args as { text?: string }).text ?? "",
         );
       },
-      "plugin:clipboard|read_image": async () =>
-        (await this.#adapter.clipboard?.readImage()) ?? null,
+      "plugin:clipboard|read_image": async () => {
+        const r = await this.#adapter.clipboard?.readImage();
+        // Raw IPC response (InvokeResponseBody::Raw): frontend invoke
+        // resolves with the PNG bytes as Uint8Array.
+        return r ? new RawResponse(r.base64) : null;
+      },
       "plugin:clipboard|write_image": async (args) => {
         const { base64, rid } = args as { base64?: string; rid?: number };
         const image: { base64?: string; rid?: number } = {};

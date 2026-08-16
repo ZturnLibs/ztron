@@ -1193,3 +1193,12 @@ ZtronApp.app/Contents/
 - **spike 判定校准(一坑)**:服务器首 chunk 立即入队 → firstChunk≈head+几 ms 是**正确**行为,首块延后阈值设错会误报;渐进性的正确证明是 `headMs ≪ totalMs - headMs`(1ms vs 276ms)+ 块数 ≥2 + 与非流式 fetch 全文逐字节一致
 - **单测(零网络)**:stub `globalThis.fetch` 返回 ReadableStream body 的 Response,直接调插件 handler;从 eval 日志解析 runCallback 载荷,断言块序(单调 index)/组装原文/done 倒数第二/end 最后/错误路径/scope 拒绝时零 eval。坑:正则 `\);` 中 `;` 是字面量(本想锚定 `$`),解析 eval 字符串时翻车
 - 验证:hello `HTTP_STREAM_OK:6c/head1ms/total277ms`(echo server `/stream` 路由:6 块 × 45ms 间隔真流式),81 项/FULL_OK/EXIT 0;单测 66 tests/65 pass/0 fail
+
+## 91. Raw IPC 响应通道(原"IPC MessagePack"纠偏)
+
+- **调研结论(入库)**:Tauri v2 桌面 IPC **没有 MessagePack**——`crates/tauri/src/ipc/mod.rs` 的负载枚举是 `InvokeBody::{Json, Raw(Vec<u8>)}` / `InvokeResponseBody::{Json(String), Raw(Vec<u8>)}`,即"JSON 或原始字节"两变体;且 **Android 上 Raw 不支持,官方文档明文建议用 base64 字符串**(还特别提醒比 number array 高效)。ROADMAP 原条目"JSON→MessagePack"是对 Tauri 的误记,已改判
+- **Ztron 架构论证**:webview 库 bind 的 JS glue `Webview_.call` 只走 `JSON.stringify` 字符串(`engine_base.hh` 实证),host↔backend socket 也是 JSON 行协议——字符串边界下 base64(1.33x)已近最优(binary-string 走 NSString→UTF8String 对 >0x7F 字节膨胀 2x,反而更差)。**Ztron 的 base64-in-JSON 与 Tauri Android 官方路径同构**,不是妥协而是对齐
+- **对齐真目标(Raw 语义)**:新 `core/ipc/raw.ts` —— `RawResponse(base64)` 类(`tauri::ipc::Response::new()` 等价)。IpcHub respond 用 `serializeResult`:instanceof 检测 → wire 信封 `{"__ZTRON_RAW__":"<b64>"}`(类实例防误伤,普通 JSON 结果不可能撞 key);注入层 `invoke` 链 `.then` 解包 `atob→Uint8Array` —— **任何命令都能返回二进制,前端 `invoke<Uint8Array>` 直接拿 bytes,base64 解码收敛到注入层一处**
+- **受益重构**:`fs.readFile` / `clipboard.readImage` 的 api 层手动 atob 全部删除(mock.invoke 同步镜像注入层解包,测试语义不变);`http fetchStream` 的 chunk 走 Channel runCallback,不在此通道,不动
+- **挂死坑(实测定位)**:unwrap 在 mock 的 `resolve(...)` 参数表达式里执行,`atob("iVBOR")`(非法长度)抛异常 → resolve 永不调用 → **promise 永久挂死**(node --test 只报 "Promise resolution is still pending",无栈)。修复:unwrapRawResponse try/catch 容错——无效 base64 透传真封(可观察)而非挂死;注入层 .then 内抛会自然走 reject 无此问题。测试数据 "iVBOR" 改合法 "aGk="
+- 验证:既有二进制检查在新通路复验——hello `FS_BINARY_OK:15b`(fs.readFile 经 RawResponse→注入层解包)+ `CLIPBOARD_IMG_OK:70`(clipboard.readImage 同路径),81 项/FULL_OK/EXIT 0;单测 +4(信封序列化/解包/容错不抛/read_file 全链到 bytes),70 tests/69 pass/0 fail

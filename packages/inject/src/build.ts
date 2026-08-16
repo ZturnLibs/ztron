@@ -42,6 +42,12 @@ export function buildInitScript(options: InitScriptOptions): string {
   }
   function unregisterCallback(id) { delete __CB__[id] }
 
+  function b64Bytes(b64) {
+    var bin = atob(b64), n = bin.length, out = new Uint8Array(n)
+    for (var i = 0; i < n; i++) out[i] = bin.charCodeAt(i)
+    return out
+  }
+
   window.__TAURI_INTERNALS__ = {
     transformCallback: transformCallback,
     unregisterCallback: unregisterCallback,
@@ -53,7 +59,15 @@ export function buildInitScript(options: InitScriptOptions): string {
       }
     },
     invoke: function (cmd, args, options) {
-      return window.__TAURI_IPC__({ cmd: cmd, payload: args, options: options, __TAURI_INVOKE_KEY__: __KEY__ })
+      // Raw IPC envelope (InvokeResponseBody::Raw semantics): the backend
+      // serializes binary command results as {__ZTRON_RAW__: <base64>};
+      // unwrap here so callers receive Uint8Array directly.
+      return window.__TAURI_IPC__({ cmd: cmd, payload: args, options: options, __TAURI_INVOKE_KEY__: __KEY__ }).then(function (res) {
+        if (res && typeof res === 'object' && typeof res.__ZTRON_RAW__ === 'string') {
+          return b64Bytes(res.__ZTRON_RAW__)
+        }
+        return res
+      })
     },
     convertFileSrc: function (filePath, protocol) {
       // When served through the ztron:// scheme, map to an asset URL that the

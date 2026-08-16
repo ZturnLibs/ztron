@@ -16,15 +16,10 @@ export async function writeText(text: string): Promise<void> {
  * registered image.
  */
 export async function readImage(): Promise<Uint8Array | null> {
-  const r = await invoke<{ base64?: string } | null>(
-    "plugin:clipboard|read_image",
-    {},
-  );
-  if (!r?.base64) return null;
-  const binary = atob(r.base64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
+  // Raw IPC response: the injected invoke unwraps the envelope to bytes
+  // (null when the clipboard holds no image).
+  const r = await invoke<Uint8Array | null>("plugin:clipboard|read_image", {});
+  return r ?? null;
 }
 
 /**

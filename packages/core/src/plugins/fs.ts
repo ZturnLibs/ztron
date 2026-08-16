@@ -7,6 +7,7 @@
  */
 import { PathScope, type PathScopeConfig } from "../scope.js";
 import type { Plugin } from "../plugin.js";
+import { RawResponse } from "../ipc/raw.js";
 
 const dec = new TextDecoder();
 
@@ -90,7 +91,13 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         const { path } = args as { path: string };
         const canon = await scope.check(path);
         const bytes = await tjs.readFile(canon);
-        return { base64: bytesToB64(new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)) };
+        // Raw IPC response: the frontend invoke resolves with Uint8Array
+        // (InvokeResponseBody::Raw semantics — see ipc/raw.ts).
+        return new RawResponse(
+          bytesToB64(
+            new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+          ),
+        );
       },
       async write_file(args) {
         const { path, base64 } = args as { path: string; base64: string };

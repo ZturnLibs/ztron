@@ -425,13 +425,15 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   await mock.main.invoke("plugin:notification|send", { title: "N", body: "b" });
   assert.deepEqual(mock.notificationLog.at(-1), { title: "N", body: "b" });
 
-  // v2 parity: clipboard image round trip + clear
+  // v2 parity: clipboard image round trip + clear (raw IPC envelope — the
+  // mock mirrors the injected unwrap, so read_image resolves to bytes)
   const noImg = await mock.main.invoke("plugin:clipboard|read_image", {});
   assert.equal(noImg, null);
-  await mock.main.invoke("plugin:clipboard|write_image", { base64: "iVBOR" });
-  assert.deepEqual(mock.clipImage, { base64: "iVBOR" });
+  await mock.main.invoke("plugin:clipboard|write_image", { base64: "aGk=" });
+  assert.deepEqual(mock.clipImage, { base64: "aGk=" });
   const imgBack = await mock.main.invoke("plugin:clipboard|read_image", {});
-  assert.deepEqual(imgBack, { base64: "iVBOR" });
+  assert.ok(imgBack instanceof Uint8Array, "read_image resolves to bytes");
+  assert.equal(String.fromCharCode(...(imgBack as Uint8Array)), "hi");
   await mock.main.invoke("plugin:clipboard|write_image", { rid: 3 });
   assert.deepEqual(mock.clipImage, { rid: 3 });
   await mock.main.invoke("plugin:clipboard|clear", {});

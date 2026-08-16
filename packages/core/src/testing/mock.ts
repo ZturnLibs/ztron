@@ -20,6 +20,7 @@ import type {
   WindowFrame,
   WindowStateOp,
 } from "../runtime.js";
+import { unwrapRawResponse } from "../ipc/raw.js";
 
 /** A mock WebviewHandle that records calls and lets tests drive responses. */
 export class MockWebviewHandle implements WebviewHandle {
@@ -288,7 +289,9 @@ export class MockWebviewHandle implements WebviewHandle {
 
   close(): void {}
 
-  /** Simulates the frontend invoking a command. */
+  /** Simulates the frontend invoking a command: the webview library glue
+   * JSON.parse(s) the result and the injected invoke unwraps raw envelopes
+   * (mirrors the real frontend path — see ipc/raw.ts + inject/build.ts). */
   async invoke(cmd: string, args: unknown = {}): Promise<unknown> {
     const req = JSON.stringify([{ cmd, payload: args }]);
     const id = `mock-${Date.now()}`;
@@ -300,7 +303,7 @@ export class MockWebviewHandle implements WebviewHandle {
           this.respond = origRespond;
           resolve(
             status === 0
-              ? JSON.parse(result || "null")
+              ? unwrapRawResponse(JSON.parse(result || "null"))
               : Promise.reject(JSON.parse(result)),
           );
         }

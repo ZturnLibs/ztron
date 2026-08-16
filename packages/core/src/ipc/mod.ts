@@ -10,6 +10,7 @@
 
 import type { CommandContext } from "../commands/index.js";
 import type { WebviewHandle } from "../runtime.js";
+import { serializeResult } from "./raw.js";
 
 /** The message sent from the frontend for every `invoke`. */
 export interface InvokeMessage {
@@ -147,9 +148,9 @@ export class IpcHub {
       const result = handler(payload, commandCtx);
       if (result instanceof Promise) {
         const value = await result;
-        webview.respond(id, 0, serialize(value));
+        webview.respond(id, 0, serializeResult(value));
       } else {
-        webview.respond(id, 0, serialize(result));
+        webview.respond(id, 0, serializeResult(result));
       }
     } catch (err) {
       webview.respond(id, 1, serialize(serializeError(err)));

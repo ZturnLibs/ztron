@@ -42,13 +42,10 @@ export interface MakeDirOptions {
 }
 
 /** Creates a directory. */
-/** Reads a binary file; resolves with its raw bytes. */
+/** Reads a binary file; resolves with its raw bytes (raw IPC response —
+ * the injected invoke already unwraps the backend envelope). */
 export async function readFile(path: string): Promise<Uint8Array> {
-  const r = await invoke<{ base64: string }>("plugin:fs|read_file", { path });
-  const bin = atob(r.base64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+  return invoke<Uint8Array>("plugin:fs|read_file", { path });
 }
 
 /** Writes a binary file from raw bytes (or a base64 string directly). */
