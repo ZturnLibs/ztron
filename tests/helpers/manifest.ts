@@ -354,6 +354,7 @@ export const API_EXPORTS: readonly string[] = [
   "executableDir",
   "resourceDir",
   "http",
+  "fetchStream",
   "os",
   "osInfo",
   "platform",

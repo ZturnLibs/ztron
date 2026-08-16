@@ -183,7 +183,29 @@ new AppBuilder(runtime, "com.ztron.hello")
         const server = (await tjs.serve({
           port: 0,
           listenIp: "127.0.0.1",
-          fetch: async (req: { text(): Promise<string> }) => {
+          fetch: async (req: { text(): Promise<string>; url: string }) => {
+            // /stream: a real progressive body — 6 chunks with 45ms gaps so
+            // the streaming-fetch spike can prove chunks arrive incrementally
+            // (not one buffered blob at the end).
+            if (req.url.includes("/stream")) {
+              const enc = new TextEncoder();
+              const body = new ReadableStream<Uint8Array>({
+                async start(c: {
+                  enqueue(x: Uint8Array): void;
+                  close(): void;
+                }) {
+                  for (let i = 0; i < 6; i++) {
+                    c.enqueue(enc.encode(`part-${i};`));
+                    await new Promise((r) => setTimeout(r, 45));
+                  }
+                  c.close();
+                },
+              });
+              return new Response(body, {
+                status: 200,
+                headers: { "content-type": "text/plain" },
+              });
+            }
             const body = await req.text();
             return new Response(body, { status: 200 });
           },
@@ -350,11 +372,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
       // require the window to become key, which a terminal-launched bare
       // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
-      // LOG_ROTATE_OK + NOTIF_PERM_OK must land before FULL_OK: the
-      // key-window bonus tags (WIN_EVENT_OK/WIN_QUERY2_OK) are best-effort,
-      // so the raw size check alone could trip the threshold before the last
-      // deterministic check reports (observed in the wild — DESIGN §88).
-      if (done.size >= 80 && done.has("NOTIF_PERM_OK")) {
+      // NOTIF_PERM_OK + HTTP_STREAM_OK are the final deterministic checks
+      // gating FULL_OK (bonus tags can inflate done.size early — DESIGN §88).
+      if (done.size >= 81 && done.has("HTTP_STREAM_OK")) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras/log-rotation)",
         );

@@ -11,7 +11,7 @@ import type { Plugin } from "../plugin.js";
 const dec = new TextDecoder();
 
 /** Base64 <-> bytes (binary fs payloads cross the JSON wire as base64). */
-function bytesToB64(bytes: Uint8Array): string {
+export function bytesToB64(bytes: Uint8Array): string {
   let bin = "";
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {

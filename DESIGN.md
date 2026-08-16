@@ -1184,3 +1184,12 @@ ZtronApp.app/Contents/
 - **wire 协议**:`b64`→str2、`image_id`→id、`id`→id 既有映射直接复用;`notification_request_permission` 恰 31 字符,贴着 `Msg.type[32]` 上限
 - api:`readClipboardImage`(返回 PNG bytes Uint8Array,Ztron 分歧 documented:Image 是不透明 rid,裸 bytes 更直接)/`writeClipboardImage`(Image→rid / bytes→base64)/`clearClipboard`/`isPermissionGranted`/`requestPermission`/`isRegistered`(按 id 查,Tauri 按加速键查,分歧 documented)
 - 验证:hello `CLIPBOARD_IMG_OK:70`(真剪贴板 PNG 往返,魔数校验)+ `CLIPBOARD_CLEAR_OK` + `SHORTCUT_ISREG_OK`(register→true→unregister→false)+ `NOTIF_PERM_OK:false`(dev 降级路径),80 项/FULL_OK/EXIT 0;单测扩 routing(clipboard 图片状态机 + 权限 + isRegistered 真/假翻转),63 tests/62 pass/0 fail
+
+## 90. http 流式响应(fetchStream)
+
+- **能力前提(实测)**:txiki fetch 的 `resp.body` 是真 ReadableStream;`new Response(readableStream)` 可在 tjs.serve 端构造 → 两端都能真流式
+- **core(`plugin:http|fetch` channel 模式)**:args 里出现已解析的 channel ref(`{kind:"channel",id}`,由 IpcHub 的 `deserializeChannelRefs` 从 `__CHANNEL__:<id>` 标记转换)即切换流式:invoke 立即返回 `{status,ok,headers}`(无 body),后台 pump `resp.body.getReader()` 逐块 `chan.send({b64})`(复用 fs 的分块 btoa),结束发显式 `{done:true}` 再 `chan.end()`。**为何显式 done**:前端 `Channel` 类的 end 信号在内部消化(cleanupCallback),onmessage 观察不到,流关闭必须靠数据消息传递;错误路径发 `{error}` 后同样 end。scope 检查与 timeoutMs(AbortSignal.timeout)对两种模式一视同仁
+- **api(`fetchStream`)**:push→pull 桥 —— Channel onmessage 入队 + notify 唤醒,`ReadableStream<Uint8Array>` 的 pull 从队列取 `{b64}` 解码 enqueue;`{done}` close、`{error}` controller.error;cancel() 置位结束。返回 `{status,ok,headers,body}` body 即流(Tauri fetch 的 `res.body` 手感)
+- **spike 判定校准(一坑)**:服务器首 chunk 立即入队 → firstChunk≈head+几 ms 是**正确**行为,首块延后阈值设错会误报;渐进性的正确证明是 `headMs ≪ totalMs - headMs`(1ms vs 276ms)+ 块数 ≥2 + 与非流式 fetch 全文逐字节一致
+- **单测(零网络)**:stub `globalThis.fetch` 返回 ReadableStream body 的 Response,直接调插件 handler;从 eval 日志解析 runCallback 载荷,断言块序(单调 index)/组装原文/done 倒数第二/end 最后/错误路径/scope 拒绝时零 eval。坑:正则 `\);` 中 `;` 是字面量(本想锚定 `$`),解析 eval 字符串时翻车
+- 验证:hello `HTTP_STREAM_OK:6c/head1ms/total277ms`(echo server `/stream` 路由:6 块 × 45ms 间隔真流式),81 项/FULL_OK/EXIT 0;单测 66 tests/65 pass/0 fail

@@ -57,6 +57,7 @@ import {
   getLocalIpv6,
   getPublicIp,
   attachConsole,
+  fetchStream,
   readClipboardImage,
   writeClipboardImage,
   clearClipboard,
@@ -1057,6 +1058,66 @@ async function main(): Promise<void> {
       );
     }
     report("NOTIF_PERM_OK:" + permState);
+
+    // 15. streaming fetch: the invoke resolves as soon as headers arrive; body
+    //     chunks are pushed over a Channel and reassembled client-side. The
+    //     /stream endpoint enqueues 6 chunks with 45ms gaps, so a correct
+    //     implementation shows head-before-first-chunk and incremental reads.
+    try {
+      const port2 = await invoke<number>("m3:echo-port", {});
+      const streamUrl = `http://localhost:${port2}/stream`;
+      const t0 = Date.now();
+      const sres = await fetchStream(streamUrl);
+      const headMs = Date.now() - t0;
+      const sreader = sres.body.getReader();
+      const sdec = new TextDecoder();
+      const parts: string[] = [];
+
+      for (;;) {
+        const { value, done } = await sreader.read();
+        if (done) break;
+
+        parts.push(sdec.decode(value));
+      }
+      const totalMs = Date.now() - t0;
+      const assembled = parts.join("");
+      const expected =
+        "part-0;part-1;part-2;part-3;part-4;part-5;";
+      const full = await http.fetch(streamUrl);
+      if (
+        sres.status === 200 &&
+        assembled === expected &&
+        full.body === expected &&
+        parts.length >= 2 &&
+        headMs < 200 &&
+        totalMs - headMs >= 150 // body kept flowing long after the head
+      ) {
+        report(
+          "HTTP_STREAM_OK:" +
+            parts.length +
+            "c/head" +
+            headMs +
+            "ms/total" +
+            totalMs +
+            "ms",
+        );
+      } else {
+        report(
+          "HTTP_STREAM_FAIL:" +
+            JSON.stringify({
+              status: sres.status,
+              chunks: parts.length,
+              match: assembled === expected,
+              fullMatch: full.body === expected,
+              headMs,
+              totalMs,
+              tailMs: totalMs - headMs,
+            }),
+        );
+      }
+    } catch (err) {
+      report("HTTP_STREAM_FAIL:" + extractError(err).slice(0, 60));
+    }
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

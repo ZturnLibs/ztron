@@ -111,8 +111,8 @@ export type {
   SaveDialogOptions,
   MessageDialogOptions,
 } from "./dialog.js";
-export { http, fetch } from "./http.js";
-export type { HttpResponse, FetchOptions } from "./http.js";
+export { http, fetch, fetchStream } from "./http.js";
+export type { HttpResponse, HttpStreamResponse, FetchOptions } from "./http.js";
 export {
   os,
   info as osInfo,
