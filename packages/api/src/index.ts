@@ -6,6 +6,7 @@ export {
   Resource,
   isZtron,
   transformCallback,
+  addPluginListener,
 } from "./core.js";
 export type { InvokeArgs, InvokeOptions } from "./core.js";
 export { internals } from "./internals.js";
@@ -129,6 +130,7 @@ export { store } from "./store.js";
 export {
   logger,
   log,
+  attachConsole,
   trace,
   debug,
   info as logInfo,

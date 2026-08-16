@@ -9,7 +9,12 @@ export type { OsInfo } from "./os.js";
 export { storePlugin } from "./store.js";
 export type { StorePluginOptions } from "./store.js";
 export { logPlugin } from "./log.js";
-export type { LogLevel, LogPluginOptions } from "./log.js";
+export type {
+  LogLevel,
+  LogTarget,
+  RotationStrategy,
+  LogPluginOptions,
+} from "./log.js";
 export { shellPlugin } from "./shell.js";
 export type {
   ShellPluginOptions,

@@ -56,6 +56,7 @@ import {
   getNetworkIpv4,
   getLocalIpv6,
   getPublicIp,
+  attachConsole,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -946,6 +947,46 @@ async function main(): Promise<void> {
     } else {
       report("DEEP_LINK_FAIL:" + String(lastUrl));
     }
+
+    // 13. log plugin v2: webview target round trip via attachConsole, then
+    //     the file target with keepOne rotation (backend runs the log plugin
+    //     with maxFileSize=400; the 12 pressure lines below rotate it).
+    // Log files sit outside the fs scope (the log plugin owns that dir),
+    // so rotation state is verified through the trusted backend command.
+    let logEcho: string | null = null;
+    const unlistenLog = await attachConsole({
+      logger: (m) => {
+        if (m.includes("spike-log-webview")) logEcho = m;
+      },
+    });
+    await invoke("plugin:log|info", { message: "spike-log-webview" });
+    await new Promise((r) => setTimeout(r, 400)); // event delivery is async
+    if (logEcho && logEcho.includes("[INFO]")) {
+      report("LOG_WEBVIEW_OK");
+    } else {
+      report("LOG_WEBVIEW_FAIL:" + JSON.stringify(logEcho));
+    }
+    for (let i = 0; i < 12; i++) {
+      await invoke("plugin:log|info", {
+        message: `spike rotation pressure ${i}`,
+      });
+    }
+    await new Promise((r) => setTimeout(r, 500)); // queued file writes drain
+    // Log files live outside the fs scope (the log plugin owns that dir), so
+    // the trusted backend checks rotation state (m3:log-rotation).
+    const rot = await invoke<{ curLen: number; oldLen: number }>(
+      "m3:log-rotation",
+    );
+    if (
+      rot.oldLen > 0 &&
+      rot.curLen > 0 &&
+      rot.oldLen >= rot.curLen
+    ) {
+      report("LOG_ROTATE_OK:" + rot.oldLen + "->" + rot.curLen);
+    } else {
+      report("LOG_ROTATE_FAIL:" + JSON.stringify(rot));
+    }
+    await unlistenLog();
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

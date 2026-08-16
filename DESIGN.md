@@ -1164,3 +1164,13 @@ ZtronApp.app/Contents/
 - **纯 C 手擑 Block ABI**:host_macos.c 无 `-fblocks`,手工定义 `zt_block_layout`(isa 指向 `_NSConcreteGlobalBlock`,flags 带 `BLOCK_IS_GLOBAL` 1<<28 —— 使 `Block_copy` 返回自身、`Block_release` 空操作,WebKit 内部 copy/release 安全)+ no-op invoke。`_NSConcreteGlobalBlock` 由 Carbon 拿进的 `<Block.h>` 声明为 `void*[32]`,取首元素作 isa
 - 顺带补齐:core 缺失的 `plugin:window|show`/`hide` 命令(映射 `set_visible`)
 - 验证:hello `WEBVIEW_MODULE_OK:1`(getCurrent + clearAllBrowsingData + getAllWebviews + setZoom 往返),74 项/FULL_OK/EXIT 0
+
+## 88. log 插件 v2(targets/轮转)+ addPluginListener 契约
+
+- **targets**:`stdout`(console.log/warn/error 分级)/`stderr`(txiki 原生 stderr)/`file`/`webview`,对齐 tauri-plugin-log 配置;默认 `['stdout']`
+- **file target**:路径 = `appLogDir()`(复用 path 插件的 `platformDirs`,macOS `~/Library/Logs/<identifier>`,文件名 `<identifier>.log`);tjs 无 O_APPEND → 内存 buffer + 读改写(队列串行化),首写懒加载已有内容 + makeDir(recursive)
+- **轮转**:buffer 字节数 ≥ maxFileSize(默认 100_000)时在追加前轮转 —— keepOne(→ `.log.old`,先删旧 backup)/ keepAll(→ `.log.<RFC3339 时间戳>`,`:`/`.` 换成 `-` 防跨平台文件名问题)
+- **webview target 与 addPluginListener(关键发现)**:Tauri 核心事件名校验只允许 `[a-zA-Z0-9-/:_]`(event_name.rs),**不允许 `|`** —— 所以 tauri-plugin-log 的 attachConsole 不走命名事件,而走 `addPluginListener('log','log',cb)`:`plugin:log|__listener`/`__unlistener` 命令登记 transformCallback id,推记录时向来源 webview eval `runCallback(id, {message})`(复用 formatCallback,与事件系统同机制)。Ztron 补齐 api `addPluginListener`(原先标记 mobile-only 跳过,实际是通用插件监听契约)+ `attachConsole`
+- **spike 阈值坑(记入方法论)**:FULL_OK 的 `done.size >= N` 会被 bonus 标签(WIN_EVENT_OK 等)提前满足,新增末尾检查项时必须 `&& done.has("<末项>")` 门控,否则终止逻辑会在最后一项前杀掉 webview(实测 P21 首跑即中招)
+- **fs scope 纪律**:日志目录故意不在 fs scope 内(日志插件自己 owns 该目录,与 Tauri fs scope 哲学一致);spike 验证经信任侧后端命令 `m3:log-rotation`(tjs.stat 读 `.log`/`.log.old` 尺寸)
+- 验证:hello `LOG_WEBVIEW_OK`(attachConsole 真 eval 回传)+ `LOG_ROTATE_OK:420->242`(磁盘上 `.log.old` 420B > 当前 242B,keepOne 契约实证),76 项/FULL_OK/EXIT 0;单测 +4(keepOne/keepAll/监听登记/等级过滤),62 pass

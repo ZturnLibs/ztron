@@ -45,8 +45,10 @@ function platform(): "macos" | "linux" | "windows" {
   return "windows";
 }
 
-/** Platform directory conventions (macOS primary; Linux/Windows best-effort). */
-function dirs(
+/** Platform directory conventions (macOS primary; Linux/Windows best-effort).
+ * Exported for sibling plugins (e.g. the log plugin's file target resolves
+ * `appLogDir` the same way the path plugin reports it). */
+export function platformDirs(
   platform: "macos" | "linux" | "windows",
   appId: string,
 ): Record<string, string> {
@@ -150,6 +152,12 @@ function windir(): string {
   );
 }
 
+/** Best-effort platform detection from `navigator.platform`.
+ * Exported for sibling plugins that resolve platform directories. */
+export function detectPlatform(): "macos" | "linux" | "windows" {
+  return platform();
+}
+
 export function pathPlugin(options: PathPluginOptions = {}): Plugin {
   const appId = options.appId ?? "com.ztron.app";
   const cmds = [
@@ -187,7 +195,7 @@ export function pathPlugin(options: PathPluginOptions = {}): Plugin {
     "resource_dir",
   ] as const;
 
-  const d = dirs(platform(), appId);
+  const d = platformDirs(platform(), appId);
   const commandFor = (key: keyof typeof d) => async () => d[key];
 
   return {

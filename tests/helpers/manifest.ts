@@ -211,6 +211,8 @@ export const COMMANDS: readonly string[] = [
   "plugin:log|info",
   "plugin:log|warn",
   "plugin:log|error",
+  "plugin:log|__listener",
+  "plugin:log|__unlistener",
   // ---- shell ----
   "plugin:shell|execute",
   "plugin:shell|execute_stream",
@@ -352,6 +354,8 @@ export const API_EXPORTS: readonly string[] = [
   "eol",
   "store",
   "logger",
+  "attachConsole",
+  "addPluginListener",
   "log",
   "trace",
   "debug",

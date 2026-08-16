@@ -203,6 +203,8 @@ const UNIT_COVERED = new Set([
   "plugin:log|info",
   "plugin:log|warn",
   "plugin:log|error",
+  "plugin:log|__listener",
+  "plugin:log|__unlistener",
   "plugin:path|home_dir",
   "plugin:path|temp_dir",
   "plugin:path|cwd",

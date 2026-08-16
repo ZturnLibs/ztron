@@ -52,6 +52,20 @@ const inlineHtml = `<!doctype html>
 
 const done = new Set<string>();
 
+// P21: fresh log-file state for every dev run so the spike's rotation
+// checks are deterministic (keepOne leaves at most `.log` + `.log.old`).
+try {
+  const spikeLogDir = `${tjs.homeDir}/Library/Logs/com.ztron.hello`;
+  const stale = await tjs.readDir(spikeLogDir);
+  for (const e of stale) {
+    if (e.name.endsWith(".log") || e.name.includes(".log.")) {
+      await tjs.remove(`${spikeLogDir}/${e.name}`);
+    }
+  }
+} catch {
+  /* first run: no log dir yet */
+}
+
 const capabilities = await loadCapabilities(
   tjs.env.ZTRON_CAPABILITIES_DIR ?? "./capabilities",
 );
@@ -119,7 +133,15 @@ new AppBuilder(runtime, "com.ztron.hello")
   )
   .plugin(osPlugin())
   .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
-  .plugin(logPlugin())
+  .plugin(
+    logPlugin({
+      level: "trace",
+      targets: ["stdout", "file", "webview"],
+      rotationStrategy: "keepOne",
+      // Small cap so the spike's 12 pressure lines force several rotations.
+      maxFileSize: 400,
+    }),
+  )
   .plugin(
     updaterPlugin({
       currentVersion: "0.1.0",
@@ -240,6 +262,25 @@ new AppBuilder(runtime, "com.ztron.hello")
       return "streamed";
     });
 
+    app.command("m3:log-rotation", async () => {
+      // Trusted backend check (log files are outside the fs scope by design;
+      // the log plugin itself owns that directory). Reads sizes of the
+      // current file + keepOne backup after the frontend's pressure loop.
+      try {
+        const dir = `${tjs.homeDir}/Library/Logs/com.ztron.hello`;
+        const curStat = await tjs.stat(`${dir}/com.ztron.hello.log`);
+        let oldLen = -1;
+        try {
+          oldLen = (await tjs.stat(`${dir}/com.ztron.hello.log.old`)).size;
+        } catch {
+          /* no backup yet */
+        }
+        return { curLen: curStat.size, oldLen };
+      } catch {
+        return { curLen: -1, oldLen: -1 };
+      }
+    });
+
     app.command("m3:has-dialogs", (_args, ctx) => {
       return (
         ctx.app.commands.has("plugin:dialog|open") &&
@@ -309,9 +350,13 @@ new AppBuilder(runtime, "com.ztron.hello")
       // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
       // require the window to become key, which a terminal-launched bare
       // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
-      if (done.size >= 74) {
+      // LOG_ROTATE_OK must land before FULL_OK: the key-window bonus tags
+      // (WIN_EVENT_OK/WIN_QUERY2_OK) are best-effort, so the raw size check
+      // alone could trip the threshold before the last deterministic check
+      // reports (observed in the wild — DESIGN §88).
+      if (done.size >= 76 && done.has("LOG_ROTATE_OK")) {
         console.log(
-          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras)",
+          "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras/log-rotation)",
         );
         /* Close the echo server so the tjs event loop drains and the backend
            exits once the host run loop stops (otherwise EXIT hangs on the

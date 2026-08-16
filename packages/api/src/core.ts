@@ -158,3 +158,23 @@ export function isZtron(): boolean {
 
 export type { InvokeArgs, InvokeOptions };
 export { transformCallback };
+
+/**
+ * Registers a backend plugin listener, mirroring Tauri's
+ * `addPluginListener` (`plugin:<plugin>|__listener` / `__unlistener`
+ * commands). Plugins like `log` use this instead of named events because
+ * event names cannot contain `|`.
+ *
+ * @returns A promise resolving to an unlisten function.
+ */
+export async function addPluginListener<T = unknown>(
+  plugin: string,
+  event: string,
+  cb: (payload: T) => void,
+): Promise<() => Promise<void>> {
+  const handler = transformCallback<T>(cb);
+  await invoke(`plugin:${plugin}|__listener`, { event, handler });
+  return async () => {
+    await invoke(`plugin:${plugin}|__unlistener`, { event, handler });
+  };
+}
