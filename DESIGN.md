@@ -1174,3 +1174,13 @@ ZtronApp.app/Contents/
 - **spike 阈值坑(记入方法论)**:FULL_OK 的 `done.size >= N` 会被 bonus 标签(WIN_EVENT_OK 等)提前满足,新增末尾检查项时必须 `&& done.has("<末项>")` 门控,否则终止逻辑会在最后一项前杀掉 webview(实测 P21 首跑即中招)
 - **fs scope 纪律**:日志目录故意不在 fs scope 内(日志插件自己 owns 该目录,与 Tauri fs scope 哲学一致);spike 验证经信任侧后端命令 `m3:log-rotation`(tjs.stat 读 `.log`/`.log.old` 尺寸)
 - 验证:hello `LOG_WEBVIEW_OK`(attachConsole 真 eval 回传)+ `LOG_ROTATE_OK:420->242`(磁盘上 `.log.old` 420B > 当前 242B,keepOne 契约实证),76 项/FULL_OK/EXIT 0;单测 +4(keepOne/keepAll/监听登记/等级过滤),62 pass
+
+## 89. 插件对齐批次:clipboard 图片 + UN 通知重写 + shortcut 查询
+
+- **重大修复(顺带发现)**:`notification_send` 原用 `NSUserNotificationCenter` —— 该 API 在 macOS 11 已被移除,现代系统上 objc_getClass 拿不到/静默空转,即此前所有 NOTIFICATION_OK 只证明了命令通路。重写为 `UNUserNotificationCenter`:`UNMutableNotificationContent` + `UNNotificationRequest requestWithIdentifier:content:trigger:` + `addNotificationRequest:withCompletionHandler:`(复用 §87 的 no-op block)
+- **UN 崩溃坑(实测两次)**:① `currentNotificationCenter` 在裸二进制里抛 `NSInternalInconsistencyException`(bundleProxy 找不到)——`__info_plist` 段 + CFBundleIdentifier 都不够,UN 需要真实磁盘 `.app` bundle;② 解法 = `zt_has_app_bundle()` 运行时守卫(NSBundle.mainBundle.bundleURL 以 `.app` 结尾才走 UN),dev 裸二进制优雅降级(send 静默 no-op、权限查询回 false),打包后为真行为。spike 用 Promise.race(3s) 双保险防 OS 弹窗悬死
+- **带返回值的 C block**:权限查询的 completionHandler 带 `BOOL granted` / `UNNotificationSettings *` 参数 —— 全局 block 的 invoke 直接声明为 `(void*, signed char, void*)` / `(void*, void*)`(arm64 BOOL=signed char),待回复 req_id 存全局 `g_perm_req`(同时只允许一个在途;UN 回调线程直接 zt_reply_query,单次 write(2) 与 GUI 线程交错安全)
+- **clipboard 图片**:`read_image` = NSPasteboard `dataForType:@"public.png"` → RFC4648 手写 base64 → malloc 大缓冲拼 query_result(突破 64KB 静态回复);`write_image` 双路 —— `b64`(str2)→ NSData 直写 / `image_id`(id)→ 注册表 NSImage → TIFF→NSBitmapImageRep→PNG 重编码(便捷构造器全部 autoreleased,只有 alloc/init 的才 release,纯 C 无 pool 时防过度释放);`clear` = clearContents
+- **wire 协议**:`b64`→str2、`image_id`→id、`id`→id 既有映射直接复用;`notification_request_permission` 恰 31 字符,贴着 `Msg.type[32]` 上限
+- api:`readClipboardImage`(返回 PNG bytes Uint8Array,Ztron 分歧 documented:Image 是不透明 rid,裸 bytes 更直接)/`writeClipboardImage`(Image→rid / bytes→base64)/`clearClipboard`/`isPermissionGranted`/`requestPermission`/`isRegistered`(按 id 查,Tauri 按加速键查,分歧 documented)
+- 验证:hello `CLIPBOARD_IMG_OK:70`(真剪贴板 PNG 往返,魔数校验)+ `CLIPBOARD_CLEAR_OK` + `SHORTCUT_ISREG_OK`(register→true→unregister→false)+ `NOTIF_PERM_OK:false`(dev 降级路径),80 项/FULL_OK/EXIT 0;单测扩 routing(clipboard 图片状态机 + 权限 + isRegistered 真/假翻转),63 tests/62 pass/0 fail

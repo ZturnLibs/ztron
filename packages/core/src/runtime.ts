@@ -345,6 +345,14 @@ export interface DialogController {
 export interface ClipboardController {
   readText(): Promise<string | null>;
   writeText(text: string): void;
+  /** Reads the clipboard image as PNG bytes (base64) — null when the
+   * clipboard holds no image. */
+  readImage(): Promise<{ base64: string } | null>;
+  /** Writes an image to the clipboard — either base64 PNG bytes or a
+   * registered image id (from `plugin:image|*`). */
+  writeImage(image: { base64?: string; rid?: number }): Promise<void>;
+  /** Clears the clipboard contents. */
+  clear(): Promise<void>;
 }
 
 /** Native notification options (translated from Tauri's notification plugin). */
@@ -356,12 +364,18 @@ export interface NotificationOptions {
 /** Native notification controller provided by the runtime backend. */
 export interface NotificationController {
   send(options: NotificationOptions): void;
+  /** Whether the OS has authorized notifications for this app. */
+  isPermissionGranted(): Promise<boolean>;
+  /** Prompts the user (once); resolves to the grant result. */
+  requestPermission(): Promise<boolean>;
 }
 
 /** Global shortcut controller provided by the runtime backend. */
 export interface GlobalShortcutController {
   register(id: string, accelerator: string): Promise<boolean>;
   unregister(id: string): Promise<boolean>;
+  /** Whether a shortcut with this id is currently registered. */
+  isRegistered(id: string): Promise<boolean>;
   onEvent(cb: (event: { shortcutId: string }) => void): void;
 }
 

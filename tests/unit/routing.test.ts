@@ -425,15 +425,47 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   await mock.main.invoke("plugin:notification|send", { title: "N", body: "b" });
   assert.deepEqual(mock.notificationLog.at(-1), { title: "N", body: "b" });
 
+  // v2 parity: clipboard image round trip + clear
+  const noImg = await mock.main.invoke("plugin:clipboard|read_image", {});
+  assert.equal(noImg, null);
+  await mock.main.invoke("plugin:clipboard|write_image", { base64: "iVBOR" });
+  assert.deepEqual(mock.clipImage, { base64: "iVBOR" });
+  const imgBack = await mock.main.invoke("plugin:clipboard|read_image", {});
+  assert.deepEqual(imgBack, { base64: "iVBOR" });
+  await mock.main.invoke("plugin:clipboard|write_image", { rid: 3 });
+  assert.deepEqual(mock.clipImage, { rid: 3 });
+  await mock.main.invoke("plugin:clipboard|clear", {});
+  assert.equal(mock.clipImage, null);
+
+  // v2 parity: notification permission plumbing
+  const granted = await mock.main.invoke(
+    "plugin:notification|is_permission_granted",
+    {},
+  );
+  assert.equal(granted, true);
+  const granted2 = await mock.main.invoke(
+    "plugin:notification|request_permission",
+    {},
+  );
+  assert.equal(granted2, true);
+
   const reg = await mock.main.invoke("plugin:global-shortcut|register", {
     id: "k",
     accelerator: "Cmd+Shift+K",
   });
   assert.equal(reg, true);
+  const isReg = await mock.main.invoke("plugin:global-shortcut|is_registered", {
+    id: "k",
+  });
+  assert.equal(isReg, true);
   const unreg = await mock.main.invoke("plugin:global-shortcut|unregister", {
     id: "k",
   });
   assert.equal(unreg, true);
+  const isReg2 = await mock.main.invoke("plugin:global-shortcut|is_registered", {
+    id: "k",
+  });
+  assert.equal(isReg2, false);
 
   const last = await mock.main.invoke("plugin:deep-link|get_last_url", {});
   assert.equal(last, null);

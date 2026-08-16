@@ -53,7 +53,7 @@ case "$(uname -s)" in
       -L "$NATIVE/libs" -lwebview \
       -pthread -Wl,-rpath,@loader_path \
       -Wl,-sectcreate,__TEXT,__info_plist,"$NATIVE/host/Info.plist" \
-      -framework Foundation -framework AppKit -framework Carbon
+      -framework Foundation -framework AppKit -framework Carbon -framework UserNotifications
     # Mach-O app launcher (signing-friendly main executable for .app builds;
     # `ztron build` recompiles it with the real invoke key baked in).
     cc -Wall -Werror -O2 "$NATIVE/host/launcher_macos.c" \

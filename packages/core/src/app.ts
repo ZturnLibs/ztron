@@ -228,8 +228,11 @@ export class App {
       "plugin:process|exit",
       "plugin:process|relaunch",
       "plugin:notification|send",
+      "plugin:notification|is_permission_granted",
+      "plugin:notification|request_permission",
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
+      "plugin:global-shortcut|is_registered",
       "plugin:deep-link|get_last_url",
       "plugin:tray|create",
       "plugin:tray|set_title",
@@ -255,6 +258,9 @@ export class App {
       "plugin:dialog|message",
       "plugin:clipboard|read_text",
       "plugin:clipboard|write_text",
+      "plugin:clipboard|read_image",
+      "plugin:clipboard|write_image",
+      "plugin:clipboard|clear",
     ];
     const coreIds: string[] = [];
     for (const cmd of coreAllowed) {
@@ -676,6 +682,10 @@ export class App {
         const { title, body } = args as { title: string; body?: string };
         this.#adapter.notification?.send({ title, body: body ?? "" });
       },
+      "plugin:notification|is_permission_granted": async () =>
+        (await this.#adapter.notification?.isPermissionGranted()) ?? false,
+      "plugin:notification|request_permission": async () =>
+        (await this.#adapter.notification?.requestPermission()) ?? false,
       "plugin:global-shortcut|register": async (args) => {
         const { id, accelerator } = args as {
           id: string;
@@ -686,6 +696,10 @@ export class App {
       "plugin:global-shortcut|unregister": async (args) => {
         const { id } = args as { id: string };
         return this.#adapter.globalShortcut?.unregister(id) ?? false;
+      },
+      "plugin:global-shortcut|is_registered": async (args) => {
+        const { id } = args as { id: string };
+        return this.#adapter.globalShortcut?.isRegistered(id) ?? false;
       },
       "plugin:deep-link|get_last_url": () =>
         this.#adapter.deepLink?.getLastUrl() ?? null,
@@ -803,6 +817,18 @@ export class App {
         this.#adapter.clipboard?.writeText(
           (args as { text?: string }).text ?? "",
         );
+      },
+      "plugin:clipboard|read_image": async () =>
+        (await this.#adapter.clipboard?.readImage()) ?? null,
+      "plugin:clipboard|write_image": async (args) => {
+        const { base64, rid } = args as { base64?: string; rid?: number };
+        const image: { base64?: string; rid?: number } = {};
+        if (typeof base64 === "string") image.base64 = base64;
+        if (typeof rid === "number") image.rid = rid;
+        await this.#adapter.clipboard?.writeImage(image);
+      },
+      "plugin:clipboard|clear": async () => {
+        await this.#adapter.clipboard?.clear();
       },
     };
 

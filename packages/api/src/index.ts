@@ -162,6 +162,9 @@ export {
   clipboard,
   readText as readClipboardText,
   writeText as writeClipboardText,
+  readImage as readClipboardImage,
+  writeImage as writeClipboardImage,
+  clear as clearClipboard,
 } from "./clipboard.js";
 export {
   positioner,
@@ -177,12 +180,18 @@ export {
   restoreWindowState,
 } from "./window-state.js";
 export type { WindowState, WindowStateOptions } from "./window-state.js";
-export { notification, sendNotification } from "./notification.js";
+export {
+  notification,
+  sendNotification,
+  isPermissionGranted,
+  requestPermission,
+} from "./notification.js";
 export type { NotificationOptions } from "./notification.js";
 export {
   globalShortcut,
   registerShortcut,
   unregisterShortcut,
+  isRegistered,
   onShortcut,
 } from "./global-shortcut.js";
 export {

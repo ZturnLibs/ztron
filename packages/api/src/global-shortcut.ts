@@ -21,6 +21,11 @@ export async function unregisterShortcut(id: string): Promise<boolean> {
   return invoke("plugin:global-shortcut|unregister", { id });
 }
 
+/** Whether a shortcut with this id is currently registered. */
+export async function isRegistered(id: string): Promise<boolean> {
+  return invoke("plugin:global-shortcut|is_registered", { id });
+}
+
 /**
  * Listens to global shortcut activations. The handler receives the shortcut
  * id registered via {@linkcode registerShortcut}.
@@ -36,5 +41,6 @@ export async function onShortcut(
 export const globalShortcut = {
   register: registerShortcut,
   unregister: unregisterShortcut,
+  isRegistered,
   onShortcut,
 };

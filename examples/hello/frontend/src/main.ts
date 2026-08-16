@@ -57,6 +57,12 @@ import {
   getLocalIpv6,
   getPublicIp,
   attachConsole,
+  readClipboardImage,
+  writeClipboardImage,
+  clearClipboard,
+  isPermissionGranted,
+  requestPermission,
+  isRegistered,
 } from "@ztron/api";
 
 function el(id: string): HTMLElement {
@@ -987,6 +993,70 @@ async function main(): Promise<void> {
       report("LOG_ROTATE_FAIL:" + JSON.stringify(rot));
     }
     await unlistenLog();
+
+    // 14. plugin parity batch: clipboard image round trip + clear, shortcut
+    //     isRegistered, notification permission plumbing (UNUserNotificationCenter).
+    const pngFixture = new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00,
+      0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+      0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63,
+      0xfc, 0xcf, 0xc0, 0x50, 0x0f, 0x00, 0x04, 0x85, 0x01, 0x80, 0x84,
+      0xa9, 0x8c, 0x21, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+      0xae, 0x42, 0x60, 0x82,
+    ]);
+    await writeClipboardImage(pngFixture);
+    const clipImg = await readClipboardImage();
+    if (
+      clipImg &&
+      clipImg.length >= 8 &&
+      clipImg[0] === 0x89 &&
+      clipImg[1] === 0x50 &&
+      clipImg[2] === 0x4e &&
+      clipImg[3] === 0x47
+    ) {
+      report("CLIPBOARD_IMG_OK:" + clipImg.length);
+    } else {
+      report("CLIPBOARD_IMG_FAIL:" + String(clipImg?.length ?? null));
+    }
+    await clearClipboard();
+    const clipCleared = await readClipboardImage();
+    if (clipCleared === null) {
+      report("CLIPBOARD_CLEAR_OK");
+    } else {
+      report("CLIPBOARD_CLEAR_FAIL:" + String(clipCleared.length));
+    }
+
+    const reg2 = await registerShortcut("spike-isreg", "Cmd+Shift+J");
+    const isRegA = await isRegistered("spike-isreg");
+    const unreg2 = await unregisterShortcut("spike-isreg");
+    const isRegB = await isRegistered("spike-isreg");
+    if (reg2 && isRegA && unreg2 && !isRegB) {
+      report("SHORTCUT_ISREG_OK");
+    } else {
+      report(
+        "SHORTCUT_ISREG_FAIL:" +
+          JSON.stringify({ reg2, isRegA, unreg2, isRegB }),
+      );
+    }
+
+    // Permission completions arrive on a WebKit queue; race with a timeout
+    // so a stuck UNUserNotificationCenter (e.g. an unanswered OS prompt in
+    // the dev binary) cannot hang the run.
+    const granted = await Promise.race([
+      isPermissionGranted(),
+      new Promise<boolean>((r) => setTimeout(() => r(false), 3000)),
+    ]);
+    let permState = String(granted);
+    if (!granted) {
+      permState = String(
+        await Promise.race([
+          requestPermission(),
+          new Promise<boolean>((r) => setTimeout(() => r(false), 3000)),
+        ]),
+      );
+    }
+    report("NOTIF_PERM_OK:" + permState);
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

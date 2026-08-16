@@ -65,6 +65,55 @@ static struct zt_block_layout zt_noop_block = {
     &zt_noop_block_desc,
 };
 
+/* ---- UNUserNotificationCenter permission blocks ----
+
+ Completion blocks carrying a result: the ObjC runtime invokes the stored
+ function pointer with (block, args...). The pending req_id lives in a
+ global (one permission query in flight at a time, guarded by g_perm_req);
+ the reply is written from whichever queue UserNotifications calls back on
+ (zt_send_line is a single write(2) — safe to interleave with the GUI
+ thread for these rare replies). */
+
+static int g_perm_req = -1; /* pending request id, -1 = none */
+
+/* void (^)(BOOL granted, NSError *) — BOOL is `signed char` on arm64. */
+static void zt_perm_granted_invoke(void *blk, signed char granted, void *err) {
+  (void)blk;
+  (void)err;
+  int req = g_perm_req;
+  g_perm_req = -1;
+  if (req >= 0) zt_reply_query(req, granted ? "true" : "false");
+}
+
+/* void (^)(UNNotificationSettings *) — authorizationStatus: 0 not yet
+ determined, 1 denied, 2 authorized, 3 provisional, 4 ephemeral. */
+static void zt_perm_settings_invoke(void *blk, void *settings) {
+  (void)blk;
+  int req = g_perm_req;
+  g_perm_req = -1;
+  long status = settings
+                    ? OBJC_MSG(long(*)(id, SEL), (id)settings,
+                               sel_registerName("authorizationStatus"))
+                    : 0;
+  if (req >= 0)
+    zt_reply_query(req, (status >= 2 && status <= 4) ? "true" : "false");
+}
+
+static struct zt_block_layout zt_perm_granted_block = {
+    &_NSConcreteGlobalBlock[0],
+    1 << 28,
+    0,
+    (void (*)(void *))zt_perm_granted_invoke,
+    &zt_noop_block_desc,
+};
+static struct zt_block_layout zt_perm_settings_block = {
+    &_NSConcreteGlobalBlock[0],
+    1 << 28,
+    0,
+    (void (*)(void *))zt_perm_settings_invoke,
+    &zt_noop_block_desc,
+};
+
 /* ---- JSON reply helpers ---- */
 
 void zt_reply_query(int req_id, const char *json_value) {
@@ -218,22 +267,98 @@ static id image_by_id(int img_id) {
   return NULL;
 }
 
+/* Standard base64 encoder (RFC 4648) for binary clipboard replies. */
+static void zt_base64(const unsigned char *in, size_t n, char *out) {
+  static const char tbl[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  size_t i = 0, o = 0;
+  while (i + 2 < n) {
+    unsigned v = (unsigned)in[i] << 16 | (unsigned)in[i + 1] << 8 | in[i + 2];
+    out[o++] = tbl[(v >> 18) & 63];
+    out[o++] = tbl[(v >> 12) & 63];
+    out[o++] = tbl[(v >> 6) & 63];
+    out[o++] = tbl[v & 63];
+    i += 3;
+  }
+  if (i + 1 == n) {
+    unsigned v = (unsigned)in[i] << 16;
+    out[o++] = tbl[(v >> 18) & 63];
+    out[o++] = tbl[(v >> 12) & 63];
+    out[o++] = '=';
+    out[o++] = '=';
+  } else if (i + 2 == n) {
+    unsigned v = (unsigned)in[i] << 16 | (unsigned)in[i + 1] << 8;
+    out[o++] = tbl[(v >> 18) & 63];
+    out[o++] = tbl[(v >> 12) & 63];
+    out[o++] = tbl[(v >> 6) & 63];
+    out[o++] = '=';
+  }
+  out[o] = 0;
+}
+
+/* PNG-encodes an NSImage (TIFF -> NSBitmapImageRep -> PNG). Every helper
+ here returns an autoreleased object — the caller must NOT release it. */
+static id zt_png_of_image(id ns_image) {
+  if (!ns_image) return NULL;
+  id tiff = OBJC_MSG(id(*)(id, SEL), ns_image,
+                     sel_registerName("TIFFRepresentation"));
+  if (!tiff) return NULL;
+  id rep = OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSBitmapImageRep"),
+                    sel_registerName("imageRepWithData:"), tiff);
+  if (!rep) return NULL;
+  id empty = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSDictionary"),
+                      sel_registerName("dictionary"));
+  return OBJC_MSG(id(*)(id, SEL, long, id), rep,
+                  sel_registerName("representationUsingType:properties:"),
+                  4L /* NSPNGFileType */, empty);
+}
+
 /* ---- notifications (NSUserNotificationCenter) ---- */
 
+/* UNUserNotificationCenter only works inside a real on-disk .app bundle
+ (its bundleProxy lookup throws NSInternalInconsistencyException for bare
+ binaries, even with an embedded __info_plist). Dev runs degrade to no-op
+ sends / denied permissions; packaged apps get the full UN behavior. */
+static int zt_has_app_bundle(void) {
+  id bundle = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSBundle"),
+                       sel_registerName("mainBundle"));
+  if (!bundle) return 0;
+  id url = OBJC_MSG(id(*)(id, SEL), bundle, sel_registerName("bundleURL"));
+  if (!url) return 0;
+  const char *path = OBJC_MSG(const char *(*)(id, SEL), url,
+                              sel_registerName("fileSystemRepresentation"));
+  if (!path) return 0;
+  size_t n = strlen(path);
+  return n > 4 && strcmp(path + n - 4, ".app") == 0;
+}
+
 static void notification_send(const char *title, const char *body) {
-  id center = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSUserNotificationCenter"),
-                       sel_registerName("defaultUserNotificationCenter"));
-  id note = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSUserNotification"),
-                     sel_registerName("alloc"));
-  note = OBJC_MSG(id(*)(id, SEL), note, sel_registerName("init"));
-  if (!note) return;
-  OBJC_MSG(void(*)(id, SEL, id), note, sel_registerName("setTitle:"),
+  /* UNUserNotificationCenter (10.14+). NSUserNotificationCenter was REMOVED
+     in macOS 11 — the old path silently delivered nothing on modern
+     systems, so this was rewritten on the supported API. */
+  id cls = (id)objc_getClass("UNUserNotificationCenter");
+  if (!cls || !zt_has_app_bundle()) return;
+  id center =
+      OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("currentNotificationCenter"));
+  if (!center) return;
+  id content = OBJC_MSG(id(*)(id, SEL),
+                        (id)objc_getClass("UNMutableNotificationContent"),
+                        sel_registerName("new"));
+  if (!content) return;
+  OBJC_MSG(void(*)(id, SEL, id), content, sel_registerName("setTitle:"),
            zt_nsstring(title));
-  OBJC_MSG(void(*)(id, SEL, id), note, sel_registerName("setInformativeText:"),
+  OBJC_MSG(void(*)(id, SEL, id), content, sel_registerName("setBody:"),
            zt_nsstring(body));
-  OBJC_MSG(void(*)(id, SEL, id), center, sel_registerName("deliverNotification:"),
-           note);
-  OBJC_MSG(void(*)(id, SEL), note, sel_registerName("release"));
+  id req = ((id(*)(id, SEL, id, id, id))objc_msgSend)(
+      (id)objc_getClass("UNNotificationRequest"),
+      sel_registerName("requestWithIdentifier:content:trigger:"),
+      zt_nsstring("ztron-notification"), content, (id)0);
+  if (req) {
+    ((void(*)(id, SEL, id, id))objc_msgSend)(
+        center, sel_registerName("addNotificationRequest:withCompletionHandler:"),
+        req, (id)&zt_noop_block);
+  }
+  OBJC_MSG(void(*)(id, SEL), content, sel_registerName("release"));
 }
 
 /* ---- global shortcuts (Carbon RegisterEventHotKey) ---- */
@@ -378,6 +503,13 @@ static int shortcut_unregister(const char *name) {
       g_hotkeys[i] = g_hotkeys[--g_hotkey_count];
       return 1;
     }
+  }
+  return 0;
+}
+
+static int shortcut_is_registered(const char *name) {
+  for (int i = 0; i < g_hotkey_count; i++) {
+    if (strcmp(g_hotkeys[i].name, name) == 0) return 1;
   }
   return 0;
 }
@@ -2022,6 +2154,117 @@ static int dispatch(Msg *m, webview_t w) {
     OBJC_MSG(void(*)(id, SEL, id, id), pb, sel_registerName("setString:forType:"),
              zt_nsstring(m->str2[0] ? m->str2 : m->str),
              zt_nsstring("public.utf8-plain-text"));
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_read_image") == 0) {
+    if (m->req_id >= 0) {
+      id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                       sel_registerName("generalPasteboard"));
+      id data =
+          pb ? OBJC_MSG(id(*)(id, SEL, id), pb, sel_registerName("dataForType:"),
+                        zt_nsstring("public.png"))
+             : NULL;
+      if (!data) {
+        zt_reply_null(m->req_id);
+      } else {
+        const unsigned char *bytes = OBJC_MSG(
+            const unsigned char *(*)(id, SEL), data, sel_registerName("bytes"));
+        unsigned long len =
+            OBJC_MSG(unsigned long (*)(id, SEL), data, sel_registerName("length"));
+        size_t b64len = ((size_t)len + 2) / 3 * 4;
+        char *buf = (char *)malloc(b64len + 128);
+        if (!buf) {
+          zt_reply_null(m->req_id);
+          return 1;
+        }
+        int off = snprintf(buf, 128,
+                           "{\"type\":\"query_result\",\"req_id\":%d,"
+                           "\"result\":{\"base64\":\"",
+                           m->req_id);
+        zt_base64(bytes, (size_t)len, buf + off);
+        strcpy(buf + off + b64len, "\"}}");
+        zt_send_line(buf);
+        free(buf);
+      }
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_write_image") == 0) {
+    /* PNG bytes arrive base64-encoded in str2 (b64), or as a registered
+       image id in id (image_id) — the latter re-encodes via TIFF. */
+    int ok = 0;
+    int owned = 0;
+    id png = NULL;
+    if (m->str2[0]) {
+      id d = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSData"),
+                      sel_registerName("alloc"));
+      png = OBJC_MSG(id(*)(id, SEL, id, unsigned long), d,
+                     sel_registerName("initWithBase64EncodedString:options:"),
+                     zt_nsstring(m->str2), 0UL);
+      owned = 1; /* alloc + init… → we own it */
+    } else if (m->id[0]) {
+      png = zt_png_of_image(image_by_id(atoi(m->id))); /* autoreleased */
+    }
+    if (png) {
+      id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                       sel_registerName("generalPasteboard"));
+      OBJC_MSG(void(*)(id, SEL), pb, sel_registerName("clearContents"));
+      OBJC_MSG(void(*)(id, SEL, id, id), pb, sel_registerName("setData:forType:"),
+               png, zt_nsstring("public.png"));
+      ok = 1;
+    }
+    if (owned && png) OBJC_MSG(void(*)(id, SEL), png, sel_registerName("release"));
+    if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_clear") == 0) {
+    id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                     sel_registerName("generalPasteboard"));
+    if (pb) OBJC_MSG(void(*)(id, SEL), pb, sel_registerName("clearContents"));
+    if (m->req_id >= 0) zt_reply_query(m->req_id, "true");
+    return 1;
+  }
+  if (strcmp(m->type, "shortcut_is_registered") == 0) {
+    if (m->req_id >= 0) {
+      zt_reply_query(m->req_id, shortcut_is_registered(m->id) ? "true" : "false");
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "notification_is_granted") == 0) {
+    if (m->req_id >= 0) {
+      id cls = (id)objc_getClass("UNUserNotificationCenter");
+      id center = zt_has_app_bundle() && cls
+                      ? OBJC_MSG(id(*)(id, SEL), cls,
+                                 sel_registerName("currentNotificationCenter"))
+                      : NULL;
+      if (!center || g_perm_req >= 0) {
+        zt_reply_query(m->req_id, "false");
+        return 1;
+      }
+      g_perm_req = m->req_id;
+      ((void(*)(id, SEL, id))objc_msgSend)(
+          center,
+          sel_registerName("getNotificationSettingsWithCompletionHandler:"),
+          (id)&zt_perm_settings_block);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "notification_request_permission") == 0) {
+    if (m->req_id >= 0) {
+      id cls = (id)objc_getClass("UNUserNotificationCenter");
+      id center = zt_has_app_bundle() && cls
+                      ? OBJC_MSG(id(*)(id, SEL), cls,
+                                 sel_registerName("currentNotificationCenter"))
+                      : NULL;
+      if (!center || g_perm_req >= 0) {
+        zt_reply_query(m->req_id, "false");
+        return 1;
+      }
+      g_perm_req = m->req_id;
+      ((void(*)(id, SEL, unsigned long, id))objc_msgSend)(
+          center, sel_registerName("requestAuthorizationWithOptions:completionHandler:"),
+          7UL /* badge | sound | alert */, (id)&zt_perm_granted_block);
+    }
     return 1;
   }
 

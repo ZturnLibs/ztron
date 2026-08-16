@@ -213,6 +213,18 @@ export const COMMANDS: readonly string[] = [
   "plugin:log|error",
   "plugin:log|__listener",
   "plugin:log|__unlistener",
+
+  // ---- clipboard v2 ----
+  "plugin:clipboard|read_image",
+  "plugin:clipboard|write_image",
+  "plugin:clipboard|clear",
+
+  // ---- notification permission ----
+  "plugin:notification|is_permission_granted",
+  "plugin:notification|request_permission",
+
+  // ---- global shortcut ----
+  "plugin:global-shortcut|is_registered",
   // ---- shell ----
   "plugin:shell|execute",
   "plugin:shell|execute_stream",
@@ -383,6 +395,9 @@ export const API_EXPORTS: readonly string[] = [
   "clipboard",
   "readClipboardText",
   "writeClipboardText",
+  "readClipboardImage",
+  "writeClipboardImage",
+  "clearClipboard",
   "tray",
   "createTray",
   "setTrayTitle",
@@ -399,8 +414,11 @@ export const API_EXPORTS: readonly string[] = [
   "message",
   "notification",
   "sendNotification",
+  "isPermissionGranted",
+  "requestPermission",
   "registerShortcut",
   "unregisterShortcut",
+  "isRegistered",
   "onShortcut",
   "globalShortcut",
   "singleInstance",

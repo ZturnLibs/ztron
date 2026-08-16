@@ -350,11 +350,11 @@ new AppBuilder(runtime, "com.ztron.hello")
       // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
       // require the window to become key, which a terminal-launched bare
       // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
-      // LOG_ROTATE_OK must land before FULL_OK: the key-window bonus tags
-      // (WIN_EVENT_OK/WIN_QUERY2_OK) are best-effort, so the raw size check
-      // alone could trip the threshold before the last deterministic check
-      // reports (observed in the wild — DESIGN §88).
-      if (done.size >= 76 && done.has("LOG_ROTATE_OK")) {
+      // LOG_ROTATE_OK + NOTIF_PERM_OK must land before FULL_OK: the
+      // key-window bonus tags (WIN_EVENT_OK/WIN_QUERY2_OK) are best-effort,
+      // so the raw size check alone could trip the threshold before the last
+      // deterministic check reports (observed in the wild — DESIGN §88).
+      if (done.size >= 80 && done.has("NOTIF_PERM_OK")) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras/log-rotation)",
         );

@@ -332,6 +332,11 @@ export class MockRuntime implements RuntimeAdapter {
       this.shortcutUnregisters.push(id);
       return Promise.resolve(true);
     },
+    isRegistered: (id) =>
+      Promise.resolve(
+        this.shortcutRegisters.some((r) => r.id === id) &&
+          !this.shortcutUnregisters.includes(id),
+      ),
     onEvent: () => {},
   };
 
@@ -444,6 +449,8 @@ export class MockRuntime implements RuntimeAdapter {
   };
 
   clipboardLog: Array<{ kind: string; text?: string }> = [];
+  /** Simulated clipboard image state ({base64} | {rid} | null). */
+  clipImage: { base64?: string; rid?: number } | null = null;
   readonly clipboard: import("../runtime.js").ClipboardController = {
     readText: () => {
       this.clipboardLog.push({ kind: "read" });
@@ -452,6 +459,23 @@ export class MockRuntime implements RuntimeAdapter {
     writeText: (text) => {
       this.clipboardLog.push({ kind: "write", text });
     },
+    readImage: () => {
+      this.clipboardLog.push({ kind: "read_image" });
+      const img = this.clipImage;
+      return Promise.resolve(
+        img && typeof img.base64 === "string" ? { base64: img.base64 } : null,
+      );
+    },
+    writeImage: (image) => {
+      this.clipImage = { ...image };
+      this.clipboardLog.push({ kind: "write_image" });
+      return Promise.resolve();
+    },
+    clear: () => {
+      this.clipImage = null;
+      this.clipboardLog.push({ kind: "clear" });
+      return Promise.resolve();
+    },
   };
 
   notificationLog: Array<{ title: string; body?: string }> = [];
@@ -459,6 +483,8 @@ export class MockRuntime implements RuntimeAdapter {
     send: (options) => {
       this.notificationLog.push(options);
     },
+    isPermissionGranted: () => Promise.resolve(true),
+    requestPermission: () => Promise.resolve(true),
   };
 
   createWindow(config: WindowConfig): WebviewHandle {

@@ -597,6 +597,28 @@ export class HostRuntime implements RuntimeAdapter {
     writeText: (text) => {
       this.send({ type: "clipboard_write_text", label: "main", text });
     },
+    readImage: () =>
+      this.sendRequest("clipboard_read_image").then((r) => {
+        if (r && typeof r === "object") {
+          const base64 = (r as { base64?: unknown }).base64;
+          if (typeof base64 === "string" && base64.length > 0) {
+            return { base64 };
+          }
+        }
+        return null;
+      }),
+    writeImage: ({ base64, rid }) => {
+      if (typeof base64 === "string") {
+        return this.sendRequest("clipboard_write_image", {
+          b64: base64,
+        }).then(() => undefined);
+      }
+      return this.sendRequest("clipboard_write_image", {
+        image_id: String(rid ?? -1),
+      }).then(() => undefined);
+    },
+    clear: () =>
+      this.sendRequest("clipboard_clear").then(() => undefined),
   };
 
   /** Notification controller (implements `RuntimeAdapter.notification`). */
@@ -609,6 +631,12 @@ export class HostRuntime implements RuntimeAdapter {
         message: body ?? "",
       });
     },
+    isPermissionGranted: () =>
+      this.sendRequest("notification_is_granted").then((r) => r === true),
+    requestPermission: () =>
+      this.sendRequest("notification_request_permission").then(
+        (r) => r === true,
+      ),
   };
 
   /** Global shortcut controller (implements `RuntimeAdapter.globalShortcut`). */
@@ -619,6 +647,10 @@ export class HostRuntime implements RuntimeAdapter {
       ),
     unregister: (id) =>
       this.sendRequest("shortcut_unregister", { id }).then((r) => r === true),
+    isRegistered: (id) =>
+      this.sendRequest("shortcut_is_registered", { id }).then(
+        (r) => r === true,
+      ),
     onEvent: (cb) => {
       this.#shortcutEventCb = cb;
     },
