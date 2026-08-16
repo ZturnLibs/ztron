@@ -995,6 +995,176 @@ static BOOL zt_should_close(id s, SEL c, id n) {
   return YES;
 }
 
+static void install_window_delegate_on(void *wnd); /* defined below */
+
+/* ---- file drag & drop (WKWebView isa-swizzle, wry-style) ----
+
+ A dynamic subclass of the webview's real class (registered once) gains
+ the NSDraggingDestination methods; object_setClass swaps the instance
+ into it (ivars untouched). Per-instance state — window label + enabled
+ flag — travels as associated objects. NSDragOperation = unsigned long;
+ BOOL = signed char on arm64. */
+
+static Class g_drop_cls = NULL;
+
+static const char *drop_label(id self) {
+  id s = objc_getAssociatedObject(self, "drop_label");
+  return s
+      ? OBJC_MSG(const char *(*)(id, SEL), s, sel_registerName("UTF8String"))
+      : "main";
+}
+
+static int drop_enabled(id self) {
+  id n = objc_getAssociatedObject(self, "drop_enabled");
+  return n ? OBJC_MSG(BOOL(*)(id, SEL), n, sel_registerName("boolValue"))
+           : 1; /* enabled unless explicitly disabled */
+}
+
+/* Appends the JSON array of file paths from the drag's pasteboard.
+   Returns 0 when the drag carries no file list. */
+static int drop_paths_json(id info, char *buf, size_t bufsz) {
+  id pb =
+      OBJC_MSG(id(*)(id, SEL), info, sel_registerName("draggingPasteboard"));
+  if (!pb) return 0;
+  id list = OBJC_MSG(id(*)(id, SEL, id), pb,
+                     sel_registerName("propertyListForType:"),
+                     zt_nsstring("NSFilenamesPboardType"));
+  if (!list) return 0;
+  unsigned long n =
+      OBJC_MSG(unsigned long (*)(id, SEL), list, sel_registerName("count"));
+  size_t off = 0;
+  buf[off++] = '[';
+  int wrote = 0;
+  for (unsigned long i = 0; i < n; i++) {
+    id p = OBJC_MSG(id(*)(id, SEL, unsigned long), list,
+                    sel_registerName("objectAtIndex:"), i);
+    if (!p) continue;
+    const char *cs =
+        OBJC_MSG(const char *(*)(id, SEL), p, sel_registerName("UTF8String"));
+    if (!cs) continue;
+    char esc[1024];
+    zt_json_escape(cs, esc, sizeof(esc));
+    int k = snprintf(buf + off, bufsz - off, "%s\"%s\"",
+                     wrote ? "," : "", esc);
+    if (k < 0 || (size_t)k >= bufsz - off) break;
+    off += (size_t)k;
+    wrote = 1;
+  }
+  buf[off++] = ']';
+  buf[off] = 0;
+  return wrote;
+}
+
+/* draggingLocation is view-local, bottom-left origin; flip to top-left and
+   scale to physical pixels (Tauri's DragDropEvent positions are physical). */
+static void drop_position_json(id self, id info, char *buf, size_t bufsz) {
+  ZtPoint p = ((ZtPoint(*)(id, SEL))objc_msgSend)(
+      info, sel_registerName("draggingLocation"));
+  ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(self, sel_registerName("bounds"));
+  id win = OBJC_MSG(id(*)(id, SEL), self, sel_registerName("window"));
+  double scale =
+      win ? OBJC_MSG(double(*)(id, SEL), win, sel_registerName("backingScaleFactor"))
+          : 1.0;
+  snprintf(buf, bufsz, "\"x\":%.0f,\"y\":%.0f", p.x * scale,
+           (b.height - p.y) * scale);
+}
+
+static void drop_emit(id self, id info, const char *event, int with_paths) {
+  if (!drop_enabled(self)) return;
+  char pos[64];
+  drop_position_json(self, info, pos, sizeof(pos));
+  char buf[8192];
+  if (with_paths) {
+    char paths[7680];
+    if (!drop_paths_json(info, paths, sizeof(paths))) return;
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"%s\","
+             "\"paths\":%s,%s}",
+             drop_label(self), event, paths, pos);
+  } else {
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"%s\",%s}",
+             drop_label(self), event, pos);
+  }
+  zt_send_line(buf);
+}
+
+static unsigned long drop_entered(id self, SEL _cmd, id info) {
+  (void)_cmd;
+  drop_emit(self, info, "drag_enter", 1);
+  return drop_enabled(self) ? 2 /* NSDragOperationGeneric */ : 0;
+}
+
+static unsigned long drop_updated(id self, SEL _cmd, id info) {
+  (void)_cmd;
+  drop_emit(self, info, "drag_over", 0);
+  return drop_enabled(self) ? 2 : 0;
+}
+
+static void drop_exited(id self, SEL _cmd, id info) {
+  (void)_cmd;
+  (void)info;
+  if (!drop_enabled(self)) return;
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"drag_leave\"}",
+           drop_label(self));
+  zt_send_line(buf);
+}
+
+static BOOL drop_prepare(id self, SEL _cmd, id info) {
+  (void)_cmd;
+  (void)info;
+  return drop_enabled(self) ? YES : NO;
+}
+
+static BOOL drop_perform(id self, SEL _cmd, id info) {
+  (void)_cmd;
+  drop_emit(self, info, "drag_drop", 1);
+  return drop_enabled(self) ? YES : NO;
+}
+
+static void install_drop_target_on(id wk, void *wnd) {
+  /* The class itself (with the drag IMPs) is registered in init() so the
+     vendored WKWebView_alloc() instantiates it from birth — isa-swizzling
+     here would corrupt WKWebView's internal KVO (see the alloc patch).
+     At attach time we only bind the window label + register the FILE
+     pasteboard type so file drags route to this view (deepest registered
+     view wins the destination pick). */
+  if (object_getClass(wk) != g_drop_cls) return; /* subclass not active */
+  objc_setAssociatedObject(wk, "drop_label",
+                           zt_nsstring(zt_label_for_window(wnd)),
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  id arr = OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSArray"),
+                    sel_registerName("arrayWithObject:"),
+                    zt_nsstring("NSFilenamesPboardType"));
+  OBJC_MSG(void(*)(id, SEL, id), wk, sel_registerName("registerForDraggedTypes:"),
+           arr);
+}
+
+/** Registers ZtronWKWebViewSubclass (subclass of WKWebView with the
+    NSDraggingDestination methods) BEFORE any webview is created; the
+    vendored WKWebView_alloc() then instantiates it instead of the stock
+    class. Runs as a dyld constructor: the host's main webview is created
+    before zt_platform.init(), so init() is too late for it. Harmless when
+    drag & drop is later disabled per window. */
+__attribute__((constructor)) static void register_drop_class(void) {
+  if (g_drop_cls) return;
+  g_drop_cls = objc_allocateClassPair((Class)objc_getClass("WKWebView"),
+                                      "ZtronWKWebViewSubclass", 0);
+  class_addMethod(g_drop_cls, sel_registerName("draggingEntered:"),
+                  (IMP)drop_entered, "Q@:@");
+  class_addMethod(g_drop_cls, sel_registerName("draggingUpdated:"),
+                  (IMP)drop_updated, "Q@:@");
+  class_addMethod(g_drop_cls, sel_registerName("draggingExited:"),
+                  (IMP)drop_exited, "v@:@");
+  class_addMethod(g_drop_cls, sel_registerName("prepareForDragOperation:"),
+                  (IMP)drop_prepare, "B@:@");
+  class_addMethod(g_drop_cls, sel_registerName("performDragOperation:"),
+                  (IMP)drop_perform, "B@:@");
+  objc_registerClassPair(g_drop_cls);
+}
+
 static void install_window_delegate_on(void *wnd) {
   if (!wnd) return;
   Class cls = (Class)objc_getClass("ZtronWindowDelegate");
@@ -1029,6 +1199,19 @@ static int attach_webview_impl(webview_t w) {
                 : NULL;
   if (!wnd) return 0;
   install_window_delegate_on(wnd);
+  /* File drag & drop: the ZtronWKWebViewSubclass (with the
+     NSDraggingDestination methods) was registered by the dyld constructor
+     and instantiated from birth by the vendored WKWebView_alloc(). Here
+     we bind the window label + register the FILE pasteboard type. The drag
+     methods claim file drags BEFORE WebKit's HTML5 handling — the tradeoff
+     Tauri makes when its drag-drop handler is enabled; pages needing HTML5
+     file DnD disable it with set_file_drop_enabled=0. */
+  {
+    id wk = w ? (id)webview_get_native_handle(
+                   w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER)
+             : NULL;
+    if (wk) install_drop_target_on(wk, wnd);
+  }
   return 1;
 }
 
@@ -2100,6 +2283,20 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "menu_item_set_accel") == 0) { menu_set_item_accel(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_popup") == 0) { menu_popup(m->str, w, m->x, m->y); return 1; }
   if (strcmp(m->type, "tray_set_menu") == 0) { tray_set_menu(m->str); return 1; }
+  if (strcmp(m->type, "set_file_drop_enabled") == 0) {
+    webview_t w = zt_webview(m->win_label);
+    id wk = w ? (id)webview_get_native_handle(
+                    w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER)
+              : NULL;
+    if (wk) {
+      objc_setAssociatedObject(
+          wk, "drop_enabled",
+          OBJC_MSG(id(*)(id, SEL, BOOL), (id)objc_getClass("NSNumber"),
+                   sel_registerName("numberWithBool:"), m->bool_val ? YES : NO),
+          OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "webview_clear_data") == 0) {
     /* [store removeDataOfTypes:modifiedSince:completionHandler:] —
        WKWebsiteDataStore has NO two-arg variant (verified against the

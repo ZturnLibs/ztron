@@ -751,15 +751,27 @@ export class HostRuntime implements RuntimeAdapter {
       case "window_event": {
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
-        /* wire names -> core WindowEvent; scale/theme carry payloads. */
+        /* wire names -> core WindowEvent; scale/theme/drag carry payloads. */
         const raw = String(msg.event);
         const event = (
           raw === "scale_change"
             ? "scale-change"
             : raw === "theme_change"
               ? "theme-change"
-              : raw
+              : raw === "drag_enter"
+                ? "drag-enter"
+                : raw === "drag_over"
+                  ? "drag-over"
+                  : raw === "drag_drop"
+                    ? "drag-drop"
+                    : raw === "drag_leave"
+                      ? "drag-leave"
+                      : raw
         ) as WindowEvent;
+        const position =
+          typeof msg.x === "number" && typeof msg.y === "number"
+            ? { x: msg.x, y: msg.y }
+            : undefined;
         const payload =
           raw === "scale_change"
             ? {
@@ -768,7 +780,11 @@ export class HostRuntime implements RuntimeAdapter {
               }
             : raw === "theme_change"
               ? msg.theme
-              : undefined;
+              : raw === "drag_enter" || raw === "drag_drop"
+                ? { paths: msg.paths ?? [], position }
+                : raw === "drag_over"
+                  ? { position }
+                  : undefined;
         handle?.handleWindowEvent(event, payload);
         break;
       }

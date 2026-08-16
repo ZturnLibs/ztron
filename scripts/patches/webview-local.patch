@@ -40,7 +40,7 @@ index 8ee1d94..169bf24 100644
    using namespace webview::detail;
    return api_filter([=] { return cast_to_webview(w)->terminate(); });
 diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
-index 1a0a2c6..3c6617e 100755
+index 1a0a2c6..adf35db 100755
 --- a/core/include/webview/detail/backends/cocoa_webkit.hh
 +++ b/core/include/webview/detail/backends/cocoa_webkit.hh
 @@ -108,6 +108,16 @@ public:
@@ -147,7 +147,7 @@ index 1a0a2c6..3c6617e 100755
      m_manager = WKWebViewConfiguration_get_userContentController(config);
  
      auto preferences = WKWebViewConfiguration_get_preferences(config);
-@@ -612,8 +690,111 @@ private:
+@@ -612,8 +690,109 @@ private:
    id m_webview{};
    id m_manager{};
    bool m_is_window_shown{};
@@ -216,8 +216,6 @@ index 1a0a2c6..3c6617e 100755
 +    id data = objc::msg_send<id>(
 +        objc::get_class("NSData"), objc::selector("dataWithContentsOfFile:"),
 +        NSString_stringWithUTF8String(full.c_str()));
-+    long data_len =
-+        data ? objc::msg_send<unsigned long>(data, objc::selector("length")) : 0;
 +
 +    // Minimal MIME detection so WKWebView parses HTML/CSS/JS.
 +    std::string mime = "application/octet-stream";
@@ -313,4 +311,25 @@ index 4a789a2..17eea4c 100644
 +
  inline void WKUserContentController_removeAllUserScripts(id self) {
    objc::msg_send<id>(self, objc::selector("removeAllUserScripts"));
+ }
+diff --git a/core/include/webview/detail/platform/darwin/webkit/WKWebView.hh b/core/include/webview/detail/platform/darwin/webkit/WKWebView.hh
+index 7a41a3a..a109b0d 100644
+--- a/core/include/webview/detail/platform/darwin/webkit/WKWebView.hh
++++ b/core/include/webview/detail/platform/darwin/webkit/WKWebView.hh
+@@ -41,6 +41,16 @@ namespace detail {
+ namespace webkit {
+ 
+ inline id WKWebView_alloc() {
++  // Ztron vendored patch: let the host provide a WKWebView subclass
++  // (registered under a well-known name before webview_create) to act as
++  // the NSDraggingDestination for file drag-and-drop. Subclassing at birth
++  // (instead of isa-swizzling after init) is KVO-safe: WKWebView sets up
++  // internal KVO during init and swapping the class afterwards corrupts the
++  // observation bookkeeping (observed as _os_unfair_lock_corruption_abort
++  // in _NSSetRectValueAndNotify). Falls back to stock WKWebView.
++  if (auto cls{objc::get_class("ZtronWKWebViewSubclass")}) {
++    return objc::msg_send<id>(cls, objc::selector("alloc"));
++  }
+   return objc::msg_send<id>(objc::get_class("WKWebView"),
+                             objc::selector("alloc"));
  }

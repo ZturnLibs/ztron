@@ -1119,6 +1119,26 @@ async function main(): Promise<void> {
       report("HTTP_STREAM_FAIL:" + extractError(err).slice(0, 60));
     }
 
+    // 16. file drag & drop: the native handler is armed via isa-swizzled
+    //     WKWebView drag methods; a real drop needs a human dragging a file
+    //     over the window during the run (reported opportunistically as
+    //     DRAG_EVENT_LIVE), while the toggle round trip is deterministic.
+    let dragTypeSeen: string | null = null;
+    const unDrag = win.onDragDropEvent((ev) => {
+      if (!dragTypeSeen) {
+        dragTypeSeen =
+          ev.type +
+          (ev.type === "drop" || ev.type === "enter"
+            ? ":" + ev.paths.length
+            : "");
+        report("DRAG_EVENT_LIVE:" + dragTypeSeen);
+      }
+    });
+    await win.setFileDropEnabled(false);
+    await win.setFileDropEnabled(true);
+    report("DRAG_DROP_ARMED");
+    void unDrag;
+
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";
   } catch (err) {

@@ -205,6 +205,7 @@ const UNIT_COVERED = new Set([
   "plugin:log|error",
   "plugin:log|__listener",
   "plugin:log|__unlistener",
+  "plugin:window|set_file_drop_enabled",
   "plugin:clipboard|read_image",
   "plugin:clipboard|write_image",
   "plugin:clipboard|clear",

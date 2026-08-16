@@ -219,6 +219,7 @@ export class App {
       "plugin:window|set_traffic_light_position",
       "plugin:window|start_dragging",
       "plugin:window|start_resize_dragging",
+      "plugin:window|set_file_drop_enabled",
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
@@ -354,6 +355,12 @@ export class App {
       "plugin:window|start_resize_dragging": (args, ctx) => {
         ctx.webview.startResizeDragging(
           String((args as { direction?: string }).direction ?? "southeast"),
+        );
+      },
+      "plugin:window|set_file_drop_enabled": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_file_drop_enabled",
+          Boolean((args as { value?: boolean }).value),
         );
       },
       "plugin:window|set_title": (args, ctx) => {
@@ -1020,6 +1027,14 @@ function windowEventToTauri(
       return "tauri://scale-change";
     case "theme-change":
       return "tauri://theme-changed";
+    case "drag-enter":
+      return "tauri://drag-enter";
+    case "drag-over":
+      return "tauri://drag-over";
+    case "drag-drop":
+      return "tauri://drag-drop";
+    case "drag-leave":
+      return "tauri://drag-leave";
   }
   return null;
 }

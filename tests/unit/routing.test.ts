@@ -307,6 +307,52 @@ test("scale/theme window events carry payloads to tauri:// names", async () => {
   assert.ok(evals.includes('"payload":"dark"'), evals);
 });
 
+test("drag-drop window events carry paths + physical position payloads", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:event|listen", {
+    event: "tauri://drag-drop",
+    target: { kind: "Any" },
+    handler: 7,
+  });
+  await mock.main.invoke("plugin:event|listen", {
+    event: "tauri://drag-over",
+    target: { kind: "Any" },
+    handler: 8,
+  });
+  mock.main.emitWindowEvent("drag-drop", {
+    paths: ["/tmp/a.txt", "/tmp/b.txt"],
+    position: { x: 120, y: 60 },
+  });
+  mock.main.emitWindowEvent("drag-over", { position: { x: 130, y: 70 } });
+  const evals = mock.main.evalLog.join("\n");
+  assert.ok(evals.includes("tauri://drag-drop"), evals);
+  assert.ok(evals.includes('"/tmp/a.txt"'), evals);
+  assert.ok(evals.includes('"/tmp/b.txt"'), evals);
+  assert.ok(evals.includes('"x":120'), evals);
+  assert.ok(evals.includes("tauri://drag-over"), evals);
+  assert.ok(!evals.includes('"paths":[{'), "over carries no paths");
+});
+
+test("set_file_drop_enabled routes to the windowState op", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:window|set_file_drop_enabled", {
+    label: "main",
+    value: false,
+  });
+  assert.deepEqual(mock.main.windowStateLog.at(-1), {
+    op: "set_file_drop_enabled",
+    value: false,
+  });
+  await mock.main.invoke("plugin:window|set_file_drop_enabled", {
+    label: "main",
+    value: true,
+  });
+  assert.deepEqual(mock.main.windowStateLog.at(-1), {
+    op: "set_file_drop_enabled",
+    value: true,
+  });
+});
+
 test("tray commands route to the adapter", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:tray|create", { title: "T", tooltip: "tip" });

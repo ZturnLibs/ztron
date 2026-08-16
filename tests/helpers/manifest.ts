@@ -94,6 +94,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:window|set_traffic_light_position",
   "plugin:window|start_dragging",
   "plugin:window|start_resize_dragging",
+  "plugin:window|set_file_drop_enabled",
   "plugin:window|set_title",
   "plugin:window|set_size",
   // ---- tray ----

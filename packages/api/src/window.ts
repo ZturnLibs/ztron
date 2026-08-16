@@ -18,7 +18,11 @@ export type WindowEventName =
   | "blur"
   | "close-requested"
   | "scale-change"
-  | "theme-changed";
+  | "theme-changed"
+  | "drag-enter"
+  | "drag-over"
+  | "drag-drop"
+  | "drag-leave";
 
 /** Attention request type for {@linkcode Window.requestUserAttention}. */
 export enum UserAttentionType {
@@ -45,6 +49,10 @@ const WINDOW_EVENT = {
   "close-requested": "tauri://close-requested",
   "scale-change": "tauri://scale-change",
   "theme-changed": "tauri://theme-changed",
+  "drag-enter": "tauri://drag-enter",
+  "drag-over": "tauri://drag-over",
+  "drag-drop": "tauri://drag-drop",
+  "drag-leave": "tauri://drag-leave",
 } as const;
 
 /** A physical display (values in physical pixels). */
@@ -146,6 +154,55 @@ export class Window {
       label: this.label,
       ignore,
     });
+  }
+
+  /**
+   * Enables/disables the native file drag-and-drop handler. While enabled
+   * (default) file drags produce {@linkcode Window.onDragDropEvent} events;
+   * disable it to let the page use the HTML5 drag-and-drop APIs instead.
+   */
+  async setFileDropEnabled(enabled: boolean): Promise<void> {
+    await invoke("plugin:window|set_file_drop_enabled", {
+      label: this.label,
+      value: enabled,
+    });
+  }
+
+  /**
+   * A normalized drag-and-drop notification (Tauri DragDropEvent): `enter`
+   * carries paths + position, `over` only the position, `drop` paths +
+   * position, and `leave` fires when the drag leaves the window without a
+   * drop. Positions are physical pixels relative to the window's top-left.
+   */
+  onDragDropEvent(
+    handler: (payload:
+      | { type: "enter"; paths: string[]; position: { x: number; y: number } }
+      | { type: "over"; position: { x: number; y: number } }
+      | { type: "drop"; paths: string[]; position: { x: number; y: number } }
+      | { type: "leave" }) => void,
+  ): () => void {
+    // Assigned synchronously after the awaits resolve (below).
+    let unlisten: Array<() => void> = [];
+    void Promise.all([
+      this.onEvent<{ paths: string[]; position: { x: number; y: number } }>(
+        "drag-enter",
+        (e) => handler({ type: "enter", ...e }),
+      ).then((u) => unlisten.push(u)),
+      this.onEvent<{ position: { x: number; y: number } }>("drag-over", (e) =>
+        handler({ type: "over", position: e.position }),
+      ).then((u) => unlisten.push(u)),
+      this.onEvent<{ paths: string[]; position: { x: number; y: number } }>(
+        "drag-drop",
+        (e) => handler({ type: "drop", ...e }),
+      ).then((u) => unlisten.push(u)),
+      this.onEvent("drag-leave", () => handler({ type: "leave" })).then(
+        (u) => unlisten.push(u),
+      ),
+    ]);
+    return () => {
+      for (const u of unlisten) u();
+      unlisten = [];
+    };
   }
 
   /**

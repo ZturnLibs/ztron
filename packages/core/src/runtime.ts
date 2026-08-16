@@ -64,6 +64,7 @@ export type WindowStateOp =
   | "center"
   | "set_focus"
   | "is_focused"
+  | "set_file_drop_enabled"
   | "set_visible"
   | "set_resizable"
   | "set_opacity"
@@ -98,7 +99,11 @@ export type WindowEvent =
   | "blur"
   | "close"
   | "scale-change"
-  | "theme-change";
+  | "theme-change"
+  | "drag-enter"
+  | "drag-over"
+  | "drag-drop"
+  | "drag-leave";
 
 /** Native window geometry (CSS-pixel position + size). */
 export interface WindowFrame {
