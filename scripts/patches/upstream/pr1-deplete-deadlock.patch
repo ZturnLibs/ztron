@@ -1,0 +1,89 @@
+From 064e7b3edd31e3ae6eba4c8e38be9f8056638ae0 Mon Sep 17 00:00:00 2001
+From: ZouYingjun <zouyingjun@live.com>
+Date: Sun, 16 Aug 2026 23:17:40 +0800
+Subject: [PATCH] fix(cocoa): drain pending events non-blockingly in
+ deplete_run_loop_event_queue
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The base implementation dispatches a done-flag onto the backend's
+dispatch target and pumps the event loop until it fires. On the Cocoa
+backend dispatch() targets the GCD main queue, so when
+deplete_run_loop_event_queue() is itself called from a block that is
+already running on the main queue (e.g. a terminate handler invoked from
+a dispatched callback), the completion block is queued behind the
+currently executing one and can never run — and manually pumping NSApp
+events does not drain GCD blocks. The result is a deadlock during
+shutdown.
+
+Override the (now virtual) deplete_run_loop_event_queue() in the Cocoa
+backend with a non-blocking drain: nextEventMatchingMask with a
+distantPast expiration returns immediately when no event is pending, so
+queued NSApp events are sent while GCD-queued blocks are never waited
+on. The loop is bounded (256 iterations) as a safety valve.
+
+The method is made virtual so other backends with queue-based dispatch
+can do the same if needed.
+---
+ .../webview/detail/backends/cocoa_webkit.hh   | 23 +++++++++++++++++++
+ core/include/webview/detail/engine_base.hh    |  6 ++++-
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+ mode change 100755 => 100644 core/include/webview/detail/backends/cocoa_webkit.hh
+
+diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
+old mode 100755
+new mode 100644
+index 1a0a2c6..12e9b4b
+--- a/core/include/webview/detail/backends/cocoa_webkit.hh
++++ b/core/include/webview/detail/backends/cocoa_webkit.hh
+@@ -177,6 +177,29 @@ protected:
+     return {};
+   }
+ 
++  void deplete_run_loop_event_queue() override {
++    objc::autoreleasepool arp;
++    // Non-blocking drain: nextEventMatchingMask with a distantPast
++    // expiration returns immediately when nothing is pending. The base
++    // implementation (dispatch a done-flag + wait for it) deadlocks on
++    // this backend when called from a block that already runs on the
++    // GCD main queue: the completion block is queued behind the
++    // currently executing one, and manually pumping NSApp events does
++    // not drain GCD blocks.
++    auto distant_past{objc::msg_send<id>(objc::get_class("NSDate"),
++                                         objc::selector("distantPast"))};
++    for (int i = 0; i < 256; i++) {
++      objc::autoreleasepool arp2;
++      if (auto event{NSApplication_nextEventMatchingMask(
++              m_app, NSEventMaskAny, distant_past,
++              NSRunLoopMode::NSDefaultRunLoopMode(), true)}) {
++        NSApplication_sendEvent(m_app, event);
++        continue;
++      }
++      break;
++    }
++  }
++
+   noresult dispatch_impl(std::function<void()> f) override {
+     dispatch_async_f(dispatch_get_main_queue(), new dispatch_fn_t(f),
+                      (dispatch_function_t)([](void *arg) {
+diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
+index 01c8d29..49f8da0 100644
+--- a/core/include/webview/detail/engine_base.hh
++++ b/core/include/webview/detail/engine_base.hh
+@@ -324,7 +324,11 @@ protected:
+   }
+ 
+   // Runs the event loop until the currently queued events have been processed.
+-  void deplete_run_loop_event_queue() {
++  // Virtual: backends whose dispatch() targets a queue that manual event
++  // pumping cannot drain (macOS GCD main queue) must override with a
++  // non-blocking drain — the dispatch-then-wait scheme below never
++  // completes when called from a block already running on that queue.
++  virtual void deplete_run_loop_event_queue() {
+     bool done{};
+     dispatch([&] { done = true; });
+     run_event_loop_while([&] { return !done; });
+-- 
+2.50.1 (Apple Git-155)
+

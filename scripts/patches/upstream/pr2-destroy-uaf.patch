@@ -1,0 +1,71 @@
+From 83edbb5e917d7c2d0c4d4ba038947b9dc71d9543 Mon Sep 17 00:00:00 2001
+From: ZouYingjun <zouyingjun@live.com>
+Date: Sun, 16 Aug 2026 23:22:28 +0800
+Subject: [PATCH] fix(cocoa): remove the script message handler before
+ releasing the webview
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The script message handler registered on the WKUserContentController
+carries an associated-object pointer back to the engine instance
+(set_associated_webview) and WebKit retains it. During engine
+destruction the WKWebView is released, but the handler remains
+registered on the (still alive) content controller: a WKScriptMessage
+delivered after teardown began resolves the associated pointer and
+dereferences the destroyed engine — a use-after-free observed when a
+runtime-destroyed window (webview_destroy) is followed by other
+windows continuing to run.
+
+Detach the machinery in the destructor BEFORE releasing the webview:
+removeAllUserScripts + removeScriptMessageHandlerForName("__webview__").
+Removing the handler also guarantees the page can no longer post
+binding messages at all once destruction has started.
+---
+ core/include/webview/detail/backends/cocoa_webkit.hh | 12 ++++++++++++
+ .../darwin/webkit/WKUserContentController.hh         |  6 ++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
+index 1a0a2c6..2718310 100755
+--- a/core/include/webview/detail/backends/cocoa_webkit.hh
++++ b/core/include/webview/detail/backends/cocoa_webkit.hh
+@@ -108,6 +108,18 @@ public:
+           WKWebView_set_UIDelegate(m_webview, nullptr);
+           objc::release(ui_delegate);
+         }
++        // Detach the script-message machinery BEFORE releasing the webview.
++        // The registered handler object carries an associated pointer back
++        // to this engine instance; WebKit may still deliver an in-flight
++        // WKScriptMessage after teardown began, which would dereference
++        // freed memory once the engine is destroyed. Removing the handler
++        // also drops the binding user scripts, so the page can no longer
++        // post messages at all.
++        if (m_manager) {
++          WKUserContentController_removeAllUserScripts(m_manager);
++          WKUserContentController_removeScriptMessageHandler(
++              m_manager, NSString_stringWithUTF8String("__webview__"));
++        }
+         objc::release(m_webview);
+         m_webview = nullptr;
+       }
+diff --git a/core/include/webview/detail/platform/darwin/webkit/WKUserContentController.hh b/core/include/webview/detail/platform/darwin/webkit/WKUserContentController.hh
+index 4a789a2..efe422f 100644
+--- a/core/include/webview/detail/platform/darwin/webkit/WKUserContentController.hh
++++ b/core/include/webview/detail/platform/darwin/webkit/WKUserContentController.hh
+@@ -52,6 +52,12 @@ inline void WKUserContentController_removeAllUserScripts(id self) {
+   objc::msg_send<id>(self, objc::selector("removeAllUserScripts"));
+ }
+ 
++inline void WKUserContentController_removeScriptMessageHandler(id self,
++                                                               id name) {
++  objc::msg_send<void>(
++      self, objc::selector("removeScriptMessageHandlerForName:"), name);
++}
++
+ } // namespace webkit
+ } // namespace detail
+ } // namespace webview
+-- 
+2.50.1 (Apple Git-155)
+

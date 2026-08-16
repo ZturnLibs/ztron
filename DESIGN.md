@@ -1202,3 +1202,12 @@ ZtronApp.app/Contents/
 - **受益重构**:`fs.readFile` / `clipboard.readImage` 的 api 层手动 atob 全部删除(mock.invoke 同步镜像注入层解包,测试语义不变);`http fetchStream` 的 chunk 走 Channel runCallback,不在此通道,不动
 - **挂死坑(实测定位)**:unwrap 在 mock 的 `resolve(...)` 参数表达式里执行,`atob("iVBOR")`(非法长度)抛异常 → resolve 永不调用 → **promise 永久挂死**(node --test 只报 "Promise resolution is still pending",无栈)。修复:unwrapRawResponse try/catch 容错——无效 base64 透传真封(可观察)而非挂死;注入层 .then 内抛会自然走 reject 无此问题。测试数据 "iVBOR" 改合法 "aGk="
 - 验证:既有二进制检查在新通路复验——hello `FS_BINARY_OK:15b`(fs.readFile 经 RawResponse→注入层解包)+ `CLIPBOARD_IMG_OK:70`(clipboard.readImage 同路径),81 项/FULL_OK/EXIT 0;单测 +4(信封序列化/解包/容错不抛/read_file 全链到 bytes),70 tests/69 pass/0 fail
+
+## 92. 上游回馈:webview/webview 三 PR
+
+- **网络通道**：本机 github.com 直连/常见代理全断，但 `api.github.com` + SSH-over-443(`ssh.github.com:443` 经 Clash 7897 走 CONNECT)可用——gh CLI(API)创建 fork/PR,git 经 ssh 443 推分支，全程无需 github.com
+- **PR #1368(deplete 死锁)**:`engine_base::deplete_run_loop_event_queue` 转 virtual + cocoa override(distantPast 非阻塞排空)。上游基线与 vendored(cbbdee4)零漂移,直接移植
+- **PR #1369(析构 UAF)**:释放 WKWebView 前摘除 script-message handler(handler 的 associated object 指回 engine,WebKit 迟到投递即悬垂)+ 补 `WKUserContentController_removeScriptMessageHandler` 包装
+- **PR #1370(scheme handler,重设计后上提)**:上游不能带 Ztron 痕迹,四处重构——① 弃 env var + post-create setter(WKWebViewConfiguration 创建后忽略 setURLSchemeHandler,诚实 API 必须是 creation-time)→ `webview_config_t`(size-prefix 可扩展)+ `webview_create_from_config()`;② 类名 `ZtronSchemeHandler`→`WebviewWKURLSchemeHandler`,lookUpClass-then-allocate 只注册一次(vendored 版每 engine 重复 allocateClassPair,第二个窗口起静默失败——**顺带发现 vendored 潜伏 bug**);③ root 由 static 改 per-instance associated NSString(多窗口安全);④ 补 `..` 路径段拒绝(404,防穿越,vendored 缺失);gtk/win32 构造器加默认忽略参数保 C++ 可移植
+- **泛化版冒烟测试**(独立于 Ztron):页面+CSS 经 `testapp://host/…` 服务,页内 fetch 观测——真实文件 200、`../../etc/passwd` 404、缺失 404(`T=scheme-ok C=200 P=404 N=404`)。坑:dispatch+eval 与导航竞态(eval 在 about:blank 上执行后丢失)→ 测试脚本要嵌进被服务页面本身(bind 机制对任意页面注入 `window.report`)
+- 产物:`scripts/patches/upstream/`(三个 format-patch + README,含上游差异表与再应用步骤);工作区 `~/Zturn/webview-pr/webview`。Ztron 自身代码零改动——vendored 副本继续走 `webview-local.patch` 路线,待上游合入后再切换

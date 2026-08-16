@@ -1,0 +1,418 @@
+From 66c7ddecc4638e2d15a0741703b86d778f4b2dda Mon Sep 17 00:00:00 2001
+From: ZouYingjun <zouyingjun@live.com>
+Date: Sun, 16 Aug 2026 23:37:53 +0800
+Subject: [PATCH] feat: custom URL scheme handler served from a local directory
+ (Cocoa)
+
+Add webview_create_from_config() + webview_config_t: a size-prefixed
+creation struct equivalent to webview_create() for the debug/window
+fields, plus optional scheme/scheme_root. When set, requests to
+scheme://<host>/<path> are served from <scheme_root>/<path> by a
+WKURLSchemeHandler, so applications can bundle assets behind a virtual
+scheme instead of running a local HTTP server.
+
+Registration must happen at creation time: WKWebViewConfiguration
+ignores setURLSchemeHandler once the WKWebView exists, which is why
+this is a creation parameter rather than a setter. The C++ engines gain
+matching defaulted constructor arguments (ignored, for source
+compatibility, on GTK/Win32 where the feature is not implemented yet).
+
+Implementation notes:
+- One ObjC class (WebviewWKURLSchemeHandler, registered once via
+  lookUpClass-then-allocate) is shared by all engine instances; the
+  per-instance root directory travels as an associated object.
+- Request paths are percent-decoded and confined to the root directory:
+  any ".." path component (including the exact "..") is rejected with
+  404.
+- Common MIME types are detected from the extension so WKWebView
+  parses HTML/CSS/JS correctly; everything else defaults to
+  application/octet-stream.
+- Missing files produce a 404 response; content is delivered in a
+  single shot (no incremental streaming), so stopURLSchemeTask: is a
+  no-op.
+- Handler entry points are noexcept and catch everything: no exception
+  may cross into Objective-C.
+
+Verified end to end on macOS: an HTML page + CSS served through the
+scheme, fetch status codes observed from inside the page (200 for a
+real file, 404 for a traversal attempt, 404 for a missing file).
+---
+ core/include/webview/api.h                    |  15 ++
+ core/include/webview/c_api_impl.hh            |  21 ++
+ .../webview/detail/backends/cocoa_webkit.hh   | 183 +++++++++++++++++-
+ .../webview/detail/backends/gtk_webkitgtk.hh  |   8 +-
+ .../webview/detail/backends/win32_edge.hh     |   8 +-
+ core/include/webview/types.h                  |  28 +++
+ 6 files changed, 260 insertions(+), 3 deletions(-)
+ mode change 100755 => 100644 core/include/webview/detail/backends/cocoa_webkit.hh
+
+diff --git a/core/include/webview/api.h b/core/include/webview/api.h
+index aecc050..008575c 100644
+--- a/core/include/webview/api.h
++++ b/core/include/webview/api.h
+@@ -59,6 +59,21 @@ extern "C" {
+  */
+ WEBVIEW_API webview_t webview_create(int debug, void *window);
+ 
++/**
++ * Creates a new webview instance from a @c webview_config_t. Behaves like
++ * @c webview_create() for the debug/window fields and additionally allows
++ * registering a custom URL scheme whose requests are served from a local
++ * root directory (see @c webview_config_t). This enables bundling an
++ * application's assets behind a virtual scheme instead of spinning up a
++ * local HTTP server.
++ *
++ * @param config Creation options. @c config->size must be
++ *        @c sizeof(webview_config_t).
++ * @return @c NULL on failure or when @c config is @c NULL / undersized.
++ */
++WEBVIEW_API webview_t
++webview_create_from_config(const webview_config_t *config);
++
+ /**
+  * Destroys a webview instance and closes the native window.
+  *
+diff --git a/core/include/webview/c_api_impl.hh b/core/include/webview/c_api_impl.hh
+index 8ee1d94..9c9059e 100644
+--- a/core/include/webview/c_api_impl.hh
++++ b/core/include/webview/c_api_impl.hh
+@@ -102,6 +102,27 @@ WEBVIEW_API webview_t webview_create(int debug, void *wnd) {
+   return nullptr;
+ }
+ 
++WEBVIEW_API webview_t
++webview_create_from_config(const webview_config_t *config) {
++  using namespace webview::detail;
++  if (config == nullptr || config->size < sizeof(*config)) {
++    return nullptr;
++  }
++  webview::webview *w{};
++  auto err = api_filter(
++      [=]() -> webview::result<webview::webview *> {
++        return new webview::webview{
++            static_cast<bool>(config->debug), config->window,
++            std::string(config->scheme ? config->scheme : ""),
++            std::string(config->scheme_root ? config->scheme_root : "")};
++      },
++      [&](webview::webview *w_) { w = w_; });
++  if (err == WEBVIEW_ERROR_OK) {
++    return w;
++  }
++  return nullptr;
++}
++
+ WEBVIEW_API webview_error_t webview_destroy(webview_t w) {
+   using namespace webview::detail;
+   return api_filter([=]() -> webview::noresult {
+diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
+old mode 100755
+new mode 100644
+index 1a0a2c6..8ee5bb6
+--- a/core/include/webview/detail/backends/cocoa_webkit.hh
++++ b/core/include/webview/detail/backends/cocoa_webkit.hh
+@@ -50,6 +50,7 @@
+ #include "../user_script.hh"
+ 
+ #include <atomic>
++#include <cstring>
+ #include <functional>
+ #include <list>
+ #include <memory>
+@@ -88,8 +89,12 @@ using namespace webkit;
+ 
+ class cocoa_wkwebview_engine : public engine_base {
+ public:
+-  cocoa_wkwebview_engine(bool debug, void *window)
++  cocoa_wkwebview_engine(bool debug, void *window,
++                         const std::string &scheme = {},
++                         const std::string &scheme_root = {})
+       : engine_base{!window}, m_app{NSApplication_get_sharedApplication()} {
++    m_scheme = scheme;
++    m_scheme_root = scheme_root;
+     window_init(window);
+     window_settings(debug);
+     dispatch_size_default();
+@@ -444,11 +449,65 @@ private:
+     m_window = nullptr;
+     dispatch([this] { on_window_destroyed(); });
+   }
++  // ---- custom URL scheme handler (serves files from a root directory) ----
++
++  static void set_scheme_root(id handler, const std::string &root) {
++    objc_setAssociatedObject(handler, "webview_scheme_root",
++                             NSString_stringWithUTF8String(root.c_str()),
++                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++  }
++
++  static std::string get_scheme_root(id handler) {
++    if (auto root{static_cast<id>(
++            objc_getAssociatedObject(handler, "webview_scheme_root"))}) {
++      return NSString_get_UTF8String(root);
++    }
++    return {};
++  }
++
++  id create_scheme_handler() {
++    objc::autoreleasepool arp;
++    constexpr auto class_name = "WebviewWKURLSchemeHandler";
++    // Avoid crash due to registering same class twice; the IMPs are static
++    // and read their per-instance state from an associated object, so one
++    // class is shared by every engine instance.
++    auto cls = objc_lookUpClass(class_name);
++    if (!cls) {
++      cls = objc_allocateClassPair(objc::get_class("NSObject"), class_name, 0);
++      class_addProtocol(cls, objc_getProtocol("WKURLSchemeHandler"));
++      class_addMethod(cls, objc::selector("webView:startURLSchemeTask:"),
++                      (IMP)(&scheme_start), "v@:@@");
++      class_addMethod(cls, objc::selector("webView:stopURLSchemeTask:"),
++                      (IMP)(&scheme_stop), "v@:@@");
++      objc_registerClassPair(cls);
++    }
++    return objc::Class_new(cls);
++  }
++
++  void install_scheme_handler(id config) {
++    m_scheme_handler = create_scheme_handler();
++    set_scheme_root(m_scheme_handler, m_scheme_root);
++    objc::msg_send<void>(
++        config, objc::selector("setURLSchemeHandler:forURLScheme:"),
++        m_scheme_handler, NSString_stringWithUTF8String(m_scheme.c_str()));
++  }
++
++  static void scheme_start(id self, SEL cmd, id webview, id task) noexcept;
++  static void scheme_stop(id self, SEL cmd, id webview, id task) noexcept;
++
+   void window_settings(bool debug) {
+     objc::autoreleasepool arp;
+ 
+     auto config{objc::autorelease(WKWebViewConfiguration_new())};
+ 
++    // A custom URL scheme handler must be registered on the configuration
++    // BEFORE the WKWebView is created; late registration on an existing
++    // web view is not possible. That is why the scheme is a creation-time
++    // parameter (webview_create_from_config) rather than a setter.
++    if (!m_scheme.empty() && !m_scheme_root.empty()) {
++      install_scheme_handler(config);
++    }
++
+     m_manager = WKWebViewConfiguration_get_userContentController(config);
+ 
+     auto preferences = WKWebViewConfiguration_get_preferences(config);
+@@ -612,8 +671,130 @@ private:
+   id m_webview{};
+   id m_manager{};
+   bool m_is_window_shown{};
++  std::string m_scheme{};
++  std::string m_scheme_root{};
++  id m_scheme_handler{};
+ };
+ 
++inline void cocoa_wkwebview_engine::scheme_stop(id, SEL, id, id) noexcept {
++  // Content is delivered in a single shot from scheme_start; there is no
++  // streaming state to cancel.
++}
++
++inline void cocoa_wkwebview_engine::scheme_start(id self, SEL, id,
++                                                 id task) noexcept {
++  objc::autoreleasepool arp;
++  try {
++    auto request{objc::msg_send<id>(task, objc::selector("request"))};
++    auto url{objc::msg_send<id>(request, objc::selector("URL"))};
++
++    // Map scheme://<host>/<path> onto <root>/<path>. Percent-escapes in
++    // the path are decoded first so that e.g. %20 works as expected.
++    auto url_str{objc::msg_send<id>(url, objc::selector("absoluteString"))};
++    auto url_text = std::string{NSString_get_UTF8String(url_str)};
++    auto pos = url_text.find("://");
++    auto path =
++        pos == std::string::npos ? std::string{} : url_text.substr(pos + 3);
++    auto slash = path.find('/');
++    path = slash == std::string::npos ? std::string{} : path.substr(slash + 1);
++    std::string decoded;
++    for (std::size_t i = 0; i < path.size(); i++) {
++      if (path[i] == '%' && i + 2 < path.size()) {
++        auto hex = [](char c) -> int {
++          if (c >= '0' && c <= '9') {
++            return c - '0';
++          }
++          if (c >= 'a' && c <= 'f') {
++            return c - 'a' + 10;
++          }
++          if (c >= 'A' && c <= 'F') {
++            return c - 'A' + 10;
++          }
++          return -1;
++        };
++        auto hi = hex(path[i + 1]);
++        auto lo = hex(path[i + 2]);
++        if (hi >= 0 && lo >= 0) {
++          decoded += static_cast<char>((hi << 4) | lo);
++          i += 2;
++          continue;
++        }
++      }
++      decoded += path[i];
++    }
++
++    // Confine requests to the root directory: reject any ".." component.
++    auto is_dotdot = [](const std::string &s, std::size_t i) {
++      return s.compare(i, 2, "..") == 0 &&
++             (i + 2 == s.size() || s[i + 2] == '/');
++    };
++    auto forbidden = decoded.empty() || decoded == "..";
++    for (std::size_t i = 0; !forbidden && i < decoded.size(); i++) {
++      if ((i == 0 || decoded[i - 1] == '/') && is_dotdot(decoded, i)) {
++        forbidden = true;
++      }
++    }
++
++    auto full =
++        forbidden ? std::string{} : get_scheme_root(self) + "/" + decoded;
++    auto data{full.empty() ? id{}
++                           : objc::msg_send<id>(
++                                 objc::get_class("NSData"),
++                                 objc::selector("dataWithContentsOfFile:"),
++                                 NSString_stringWithUTF8String(full.c_str()))};
++
++    // Minimal MIME detection so WKWebView parses HTML/CSS/JS correctly.
++    auto mime = std::string{"application/octet-stream"};
++    auto ends_with = [&](const char *suffix) {
++      auto len = std::strlen(suffix);
++      return decoded.size() >= len &&
++             decoded.compare(decoded.size() - len, len, suffix) == 0;
++    };
++    if (ends_with(".html") || ends_with(".htm")) {
++      mime = "text/html";
++    } else if (ends_with(".js")) {
++      mime = "application/javascript";
++    } else if (ends_with(".css")) {
++      mime = "text/css";
++    } else if (ends_with(".json")) {
++      mime = "application/json";
++    } else if (ends_with(".svg")) {
++      mime = "image/svg+xml";
++    } else if (ends_with(".png")) {
++      mime = "image/png";
++    } else if (ends_with(".jpg") || ends_with(".jpeg")) {
++      mime = "image/jpeg";
++    } else if (ends_with(".gif")) {
++      mime = "image/gif";
++    } else if (ends_with(".webp")) {
++      mime = "image/webp";
++    } else if (ends_with(".ico")) {
++      mime = "image/x-icon";
++    } else if (ends_with(".txt")) {
++      mime = "text/plain";
++    }
++
++    auto headers{objc::msg_send<id>(objc::get_class("NSMutableDictionary"),
++                                    objc::selector("dictionary"))};
++    objc::msg_send<void>(headers, objc::selector("setObject:forKey:"),
++                         NSString_stringWithUTF8String(mime.c_str()),
++                         NSString_stringWithUTF8String("Content-Type"));
++    auto response{objc::msg_send<id>(
++        objc::msg_send<id>(objc::get_class("NSHTTPURLResponse"),
++                           objc::selector("alloc")),
++        objc::selector("initWithURL:statusCode:HTTPVersion:headerFields:"), url,
++        static_cast<long>(data ? 200 : 404),
++        NSString_stringWithUTF8String("HTTP/1.1"), headers)};
++    objc::msg_send<void>(task, objc::selector("didReceiveResponse:"), response);
++    if (data) {
++      objc::msg_send<void>(task, objc::selector("didReceiveData:"), data);
++    }
++    objc::msg_send<void>(task, objc::selector("didFinish"));
++  } catch (...) {
++    // Never let an exception cross into Objective-C.
++  }
++}
++
+ } // namespace cocoa_webkit
+ } // namespace detail
+ 
+diff --git a/core/include/webview/detail/backends/gtk_webkitgtk.hh b/core/include/webview/detail/backends/gtk_webkitgtk.hh
+index 06d83e1..504430c 100644
+--- a/core/include/webview/detail/backends/gtk_webkitgtk.hh
++++ b/core/include/webview/detail/backends/gtk_webkitgtk.hh
+@@ -99,7 +99,13 @@ private:
+ 
+ class gtk_webkit_engine : public engine_base {
+ public:
+-  gtk_webkit_engine(bool debug, void *window) : engine_base{!window} {
++  gtk_webkit_engine(bool debug, void *window, const std::string &scheme = {},
++                    const std::string &scheme_root = {})
++      : engine_base{!window} {
++    // Custom URL scheme handlers are currently only implemented by the
++    // Cocoa backend; the parameters are accepted for source compatibility.
++    (void)scheme;
++    (void)scheme_root;
+     window_init(window);
+     window_settings(debug);
+     dispatch_size_default();
+diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
+index 316a9d5..47be9f1 100644
+--- a/core/include/webview/detail/backends/win32_edge.hh
++++ b/core/include/webview/detail/backends/win32_edge.hh
+@@ -311,7 +311,13 @@ private:
+ 
+ class win32_edge_engine : public engine_base {
+ public:
+-  win32_edge_engine(bool debug, void *window) : engine_base{!window} {
++  win32_edge_engine(bool debug, void *window, const std::string &scheme = {},
++                    const std::string &scheme_root = {})
++      : engine_base{!window} {
++    // Custom URL scheme handlers are currently only implemented by the
++    // Cocoa backend; the parameters are accepted for source compatibility.
++    (void)scheme;
++    (void)scheme_root;
+     window_init(window);
+     window_settings(debug);
+     dispatch_size_default();
+diff --git a/core/include/webview/types.h b/core/include/webview/types.h
+index af95579..67b4b9c 100644
+--- a/core/include/webview/types.h
++++ b/core/include/webview/types.h
+@@ -26,6 +26,8 @@
+ #ifndef WEBVIEW_TYPES_H
+ #define WEBVIEW_TYPES_H
+ 
++#include <stddef.h>
++
+ /// Holds the elements of a MAJOR.MINOR.PATCH version number.
+ typedef struct {
+   /// Major version.
+@@ -52,6 +54,32 @@ typedef struct {
+ /// Pointer to a webview instance.
+ typedef void *webview_t;
+ 
++/// Webview creation options, passed to @c webview_create_from_config().
++/// Zero-initialization followed by setting @c size produces defaults
++/// equivalent to @c webview_create(). The @c size field enables future,
++/// backwards-compatible extension of the struct.
++typedef struct {
++  /// Must be set to @c sizeof(webview_config_t) by the caller. Smaller
++  /// values are rejected.
++  size_t size;
++  /// Enable developer tools if supported by the backend (equivalent to
++  /// @c webview_create's @c debug parameter).
++  int debug;
++  /// Optional native window handle to embed into; @c NULL creates a new
++  /// managed window (equivalent to @c webview_create's @c window parameter).
++  void *window;
++  /// Optional custom URL scheme to register (e.g. @c "app"). When set
++  /// together with @c scheme_root, requests to
++  /// @c scheme://<host>/<path> are served from @c <scheme_root>/<path>.
++  /// Currently supported by the Cocoa backend only; other backends ignore
++  /// it. Must be registered at creation time.
++  const char *scheme;
++  /// Root directory the custom scheme's URLs are served from. Relative
++  /// components (@c ..) and percent-encoded escapes in the request path are
++  /// decoded and confined to this directory.
++  const char *scheme_root;
++} webview_config_t;
++
+ /// Native handle kind. The actual type depends on the backend.
+ typedef enum {
+   /// Top-level window. @c GtkWindow pointer (GTK), @c NSWindow pointer (Cocoa)
+-- 
+2.50.1 (Apple Git-155)
+
