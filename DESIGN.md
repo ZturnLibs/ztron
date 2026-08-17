@@ -1226,3 +1226,10 @@ ZtronApp.app/Contents/
 - **clipboard HTML**:`public.html` flavor 读(NSPasteboard stringForType)+ 写(HTML + 同文本 plain-text fallback,即 AppKit 应用写 HTML 剪贴板的双类型惯例);真机确定性往返可行(无模态)→ spike `CLIPBOARD_HTML_OK:17`
 - wire:新增 `Msg.kind`(int,0/1/2);`text` 字段承载 html
 - 验证:hello 84 项/FULL_OK/EXIT 0;单测扩展 dialog 路由(五命令+kind 透传)与 clipboard HTML 往返,73 tests/72 pass/0 fail
+
+## 95. 窗口收尾批 + path v2 + updater install
+
+- **window setIcon/setOverlayIcon/setCursorGrab**:setIcon = NSApplication setApplicationIconImage(dock 图标,注册表 Image);setOverlayIcon = NSTitlebarAccessoryViewController(NSLayoutAttributeRight)——**三个 API 命名坑全部实测**(AppKit 头文件/运行时 respondsToSelector 双验):① 查询列表 selector 是 `titlebarAccessoryViewControllers`(无 "titlebarAccessories");② 移除只有 INDEX 变体 `removeTitlebarAccessoryViewControllerAtIndex:`(无对象参数版);③ accessory 的 view 不能直接塞 NSImageView(NSInternalInconsistencyException "Only NSTitlebarAccessoryViewController supported")——须用 plain NSView 包装。删旧 accessory 用 identifier("ztron-overlay")匹配。setCursorGrab = CGAssociateMouseAndMouseCursorPosition(0/1),幂等守卫防重复;所有权:imgv/box init 后 addSubview/transfer 语义下手动 release 精确配平
+- **path v2**:`resolveResource`(绝对路径直通,否则 resourceDir+join)、`sep`/`delimiter`(POSIX 常量 "/"、":"——Windows 移植时改按平台)、`localDataDir`(Tauri 双名别名)。Tauri path.ts 36 导出面已全部对齐(Ztron 额外多 baselineDir/cwd 两个非 Tauri 扩展)
+- **updater install**(Tauri downloadAndInstall 等价):check→download(临时路径)→verify→relaunch 一步到位;**sha256 校验失败即中止并删临时文件**,绝不 relaunch 到损坏 artifact;no-update 返回 `{ok:false, reason:"no-update"}` 而非报错(幂等轮询友好)
+- 验证:hello `WIN_ICONS_GRAB_OK`(icon/overlay 往返 + overlay 清除 + grab 立即释放)85 项/FULL_OK/EXIT 0;multiwin 压力回归绿;单测 +1(icons 路由 + grab 开关对),74 tests/73 pass/0 fail

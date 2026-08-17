@@ -88,6 +88,7 @@ export type WindowStateOp =
   | "is_enabled"
   | "set_focusable"
   | "set_cursor_visible"
+  | "set_cursor_grab"
   | "set_visible_on_all_workspaces"
   | "set_simple_fullscreen";
 
@@ -199,6 +200,10 @@ export interface WebviewHandle {
   setZoom(zoom: number): void;
   /** Initiates a native window drag (for frameless `data-tauri-drag-region`). */
   startDragging(): void;
+  /** Sets the window/dock icon from a registered image id. */
+  setIcon(imageId: number): void;
+  /** Sets a small right-side titlebar accessory icon (-1 clears). */
+  setOverlayIcon(imageId: number): void;
   /**
    * Applies a window state operation. Query ops (`is_*`) resolve to the
    * native boolean; mutation ops resolve immediately.

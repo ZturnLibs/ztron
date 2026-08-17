@@ -202,6 +202,30 @@ test("window v2 extras (size constraints, button flags, dock) route", async () =
   assert.deepEqual(w.titleBarStyleLog, ["overlay"]);
 });
 
+test("window finishing batch: icons + cursor grab route", async () => {
+  const { mock } = buildApp();
+  const w = mock.main;
+  await mock.main.invoke("plugin:window|set_icon", { image_id: 3 });
+  await mock.main.invoke("plugin:window|set_overlay_icon", {
+    image_id: 4,
+  });
+  await mock.main.invoke("plugin:window|set_overlay_icon", {}); /* clear */
+  await mock.main.invoke("plugin:window|set_cursor_grab", { value: true });
+  await mock.main.invoke("plugin:window|set_cursor_grab", { value: false });
+  assert.deepEqual(w.iconLog, [
+    { kind: "icon", id: 3 },
+    { kind: "overlay", id: 4 },
+    { kind: "overlay", id: -1 },
+  ]);
+  assert.deepEqual(
+    w.windowStateLog.filter((l) => l.op === "set_cursor_grab"),
+    [
+      { op: "set_cursor_grab", value: true },
+      { op: "set_cursor_grab", value: false },
+    ],
+  );
+});
+
 test("window v2 batch 3 (maximize/cursor/theme/workspaces) routes", async () => {
   const { mock } = buildApp();
   const w = mock.main;

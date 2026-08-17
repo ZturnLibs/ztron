@@ -90,6 +90,10 @@ export {
   runtimeDir,
   executableDir,
   resourceDir,
+  resolveResource,
+  sep,
+  delimiter,
+  localDataDir,
 } from "./path.js";
 export {
   tray,
@@ -150,6 +154,7 @@ export {
   check as checkUpdate,
   download as downloadUpdate,
   verify as verifyUpdate,
+  install as installUpdate,
 } from "./updater.js";
 export type { UpdateCheck } from "./updater.js";
 export { Database, sql } from "./sql.js";

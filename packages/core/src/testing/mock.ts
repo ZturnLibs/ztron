@@ -257,6 +257,15 @@ export class MockWebviewHandle implements WebviewHandle {
     this.resizeDragLog.push(direction);
   }
 
+  iconLog: Array<{ kind: string; id?: number }> = [];
+  setIcon(imageId: number): void {
+    this.iconLog.push({ kind: "icon", id: imageId });
+  }
+
+  setOverlayIcon(imageId: number): void {
+    this.iconLog.push({ kind: "overlay", id: imageId });
+  }
+
   windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
     this.windowStateLog.push({ op, value });
     if (op.startsWith("is_")) {

@@ -133,6 +133,36 @@ export function updaterPlugin(options: UpdaterPluginOptions): Plugin {
           .join("");
         return { ok: hex.toLowerCase() === sha256.toLowerCase(), actual: hex };
       },
+      /**
+       * One-shot update application (Tauri's downloadAndInstall): check →
+       * download → verify → relaunch. Verification failure aborts before
+       * the relaunch so a corrupt/truncated artifact never replaces the
+       * running app.
+       */
+      async install(args, ctx) {
+        const { url } = args as { url?: string };
+        const dest = `${tjs.tmpDir}/ztron-update-${Date.now()}.pkg`;
+        const check = await (this as {
+          check(a: unknown): Promise<UpdateCheck>;
+        }).check({ url });
+        if (!check.hasUpdate || !check.artifactUrl || !check.sha256) {
+          return { ok: false, reason: "no-update" as const };
+        }
+        const dl = await (this as unknown as {
+          download(a: unknown): Promise<{ bytes: number; path: string }>;
+        }).download({ url: check.artifactUrl, destination: dest });
+        const v = await (this as unknown as {
+          verify(a: unknown): Promise<{ ok: boolean; actual: string }>;
+        }).verify({ file: dl.path, sha256: check.sha256 });
+        if (!v.ok) {
+          await tjs.remove(dest).catch(() => {});
+          throw new Error(
+            `updater: sha256 mismatch (expected ${check.sha256}, got ${v.actual})`,
+          );
+        }
+        ctx.app.commands.get("plugin:process|relaunch")?.({}, ctx as never);
+        return { ok: true, bytes: dl.bytes, path: dl.path };
+      },
     },
     permissions: [
       {
@@ -146,6 +176,10 @@ export function updaterPlugin(options: UpdaterPluginOptions): Plugin {
       {
         identifier: "updater:allow-verify",
         commands: ["plugin:updater|verify"],
+      },
+      {
+        identifier: "updater:allow-install",
+        commands: ["plugin:updater|install"],
       },
     ],
     permissionSets: [

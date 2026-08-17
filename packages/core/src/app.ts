@@ -220,6 +220,9 @@ export class App {
       "plugin:window|start_dragging",
       "plugin:window|start_resize_dragging",
       "plugin:window|set_file_drop_enabled",
+      "plugin:window|set_cursor_grab",
+      "plugin:window|set_icon",
+      "plugin:window|set_overlay_icon",
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
@@ -366,6 +369,20 @@ export class App {
           "set_file_drop_enabled",
           Boolean((args as { value?: boolean }).value),
         );
+      },
+      "plugin:window|set_cursor_grab": (args, ctx) => {
+        ctx.webview.windowState(
+          "set_cursor_grab",
+          Boolean((args as { value?: boolean }).value),
+        );
+      },
+      "plugin:window|set_icon": async (args, ctx) => {
+        const { image_id } = args as { image_id?: number };
+        ctx.webview.setIcon(Number(image_id ?? -1));
+      },
+      "plugin:window|set_overlay_icon": async (args, ctx) => {
+        const { image_id } = args as { image_id?: number };
+        ctx.webview.setOverlayIcon(Number(image_id ?? -1));
       },
       "plugin:window|set_title": (args, ctx) => {
         const { title } = args as { title: string };

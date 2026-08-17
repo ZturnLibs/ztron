@@ -61,6 +61,7 @@ import {
   readClipboardImage,
   readClipboardHtml,
   writeClipboardHtml,
+  writeClipboardHtml,
   writeClipboardImage,
   clearClipboard,
   isPermissionGranted,
@@ -1153,6 +1154,21 @@ async function main(): Promise<void> {
         "CLIPBOARD_HTML_FAIL:" + JSON.stringify(String(htmlOut).slice(0, 30)),
       );
     }
+
+    // 18. window finishing: setIcon (dock icon from a registered image) +
+    //     setOverlayIcon (titlebar accessory) round trips + cursor grab
+    //     (immediately released — the lock itself would strand the mouse).
+    const winImg = await Image.fromPath(
+      `${await path.tempDir()}/ztron_tray_icon.png`,
+    );
+    await win.setIcon(winImg);
+    await win.setOverlayIcon(winImg);
+    await win.setOverlayIcon(null); /* clears the accessory */
+    await winImg.close();
+    await win.setCursorGrab(true);
+    await new Promise((r) => setTimeout(r, 50));
+    await win.setCursorGrab(false);
+    report("WIN_ICONS_GRAB_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

@@ -172,6 +172,14 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides window dragging) */
   }
 
+  setIcon(_imageId: number): void {
+    /* no-op (host adapter provides window icons) */
+  }
+
+  setOverlayIcon(_imageId: number): void {
+    /* no-op (host adapter provides titlebar accessories) */
+  }
+
   readonly image = {
     fromBytes: async () => -1,
     fromPath: async () => -1,

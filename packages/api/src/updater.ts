@@ -28,4 +28,18 @@ export function verify(
   return invoke("plugin:updater|verify", { file, sha256 });
 }
 
-export const updater = { check, download, verify };
+/**
+ * One-shot update application (Tauri's `downloadAndInstall`): check →
+ * download → verify (aborts on sha256 mismatch) → relaunch.
+ * `ok: false` means the manifest had no newer version.
+ */
+export function install(
+  url?: string,
+): Promise<
+  | { ok: false; reason: "no-update" }
+  | { ok: true; bytes: number; path: string }
+> {
+  return invoke("plugin:updater|install", url ? { url } : {});
+}
+
+export const updater = { check, download, verify, install };

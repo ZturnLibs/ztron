@@ -683,12 +683,93 @@ static int is_window_op(const char *t) {
       "set_content_protected", "request_user_attention",
       "maximize",         "unmaximize",     "is_enabled",
       "set_focusable",    "set_cursor_visible",
+      "set_cursor_grab",  "window_set_icon", "window_set_overlay_icon",
       "set_visible_on_all_workspaces", "set_simple_fullscreen",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
     if (strcmp(t, ops[i]) == 0) return 1;
   }
   return 0;
+}
+
+/* Sets the window's taskbar/dock icon from a registered image (or clears
+   it with -1). On macOS this is the dock icon (NSApplication) plus the
+   window's own representation. */
+static void window_set_icon(int image_id) {
+  id image = image_id >= 0 ? image_by_id(image_id) : NULL;
+  id app = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSApplication"),
+                    sel_registerName("sharedApplication"));
+  if (app) {
+    OBJC_MSG(void(*)(id, SEL, id), app, sel_registerName("setApplicationIconImage:"),
+             image);
+  }
+}
+
+/* Titlebar accessory holding a small status/overlay icon (right side of the
+   titlebar), the macOS analog of Windows' overlay icon. Uses NSToolbar's
+   item when a full toolbar is absent — simplest reliable route is an
+   NSButton embedded via NSWindowTitlebarAccessoryViewController. */
+static void window_set_overlay_icon(int image_id) {
+  id win = zt_window_of(zt_w);
+  if (!win) return;
+  /* Remove the previous accessory (identifier "ztron-overlay"). */
+  id accs = OBJC_MSG(id(*)(id, SEL), win,
+                     sel_registerName("titlebarAccessoryViewControllers"));
+  if (accs) {
+    unsigned long n = OBJC_MSG(unsigned long (*)(id, SEL), accs, sel_registerName("count"));
+    for (unsigned long i = 0; i < n; i++) {
+      id a = OBJC_MSG(id(*)(id, SEL, unsigned long), accs,
+                      sel_registerName("objectAtIndex:"), i);
+      id idv = a ? OBJC_MSG(id(*)(id, SEL), a,
+                            sel_registerName("identifier")) : NULL;
+      if (idv && strcmp(OBJC_MSG(const char *(*)(id, SEL), idv, sel_registerName("UTF8String")),
+                        "ztron-overlay") == 0) {
+        /* 10.10 API is the INDEX variant (no object-removal selector). */
+        ((void(*)(id, SEL, unsigned long))objc_msgSend)(
+            win, sel_registerName("removeTitlebarAccessoryViewControllerAtIndex:"),
+            i);
+        break;
+      }
+    }
+  }
+  if (image_id < 0) return; /* cleared */
+  id image = image_by_id(image_id);
+  if (!image) return;
+  /* NSImageView inside a plain NSView container. AppKit rejects an
+     NSImageView set directly as the accessory view ("Only
+     NSTitlebarAccessoryViewController supported" NSInternalInconsistency-
+     Exception); a plain NSView wrapper is the accepted shape. */
+  id imgv = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImageView"),
+                     sel_registerName("new"));
+  OBJC_MSG(void(*)(id, SEL, id), imgv, sel_registerName("setImage:"), image);
+  ZtRect f = {0, 0, 18, 18};
+  ((void(*)(id, SEL, ZtRect))objc_msgSend)(imgv, sel_registerName("setFrame:"), f);
+  id box = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSView"),
+                    sel_registerName("new"));
+  ((void(*)(id, SEL, ZtRect))objc_msgSend)(box, sel_registerName("setFrame:"), f);
+  OBJC_MSG(void(*)(id, SEL, id), box, sel_registerName("addSubview:"), imgv);
+  OBJC_MSG(void(*)(id, SEL), imgv, sel_registerName("release"));
+  id acc = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass(
+                        "NSTitlebarAccessoryViewController"),
+                    sel_registerName("new"));
+  OBJC_MSG(void(*)(id, SEL, id), acc, sel_registerName("setView:"), box);
+  OBJC_MSG(void(*)(id, SEL), box, sel_registerName("release"));
+  OBJC_MSG(void(*)(id, SEL, id), acc, sel_registerName("setIdentifier:"),
+           zt_nsstring("ztron-overlay"));
+  OBJC_MSG(void(*)(id, SEL, unsigned long), acc,
+           sel_registerName("setLayoutAttribute:"), 1UL);
+  OBJC_MSG(void(*)(id, SEL, id), win,
+           sel_registerName("addTitlebarAccessoryViewController:"), acc);
+}
+
+
+/* Locks the cursor at its current screen position (CGAssociateMouseAnd
+   MouseCursorPosition(false) parks movement); release re-associates. */
+static int g_cursor_grabbed = 0;
+static void window_set_cursor_grab(int on) {
+  if (on == g_cursor_grabbed) return;
+  g_cursor_grabbed = on;
+  CGAssociateMouseAndMouseCursorPosition(on ? 0 : 1);
 }
 
 static void handle_window_op(Msg *m, webview_t w) {
@@ -819,6 +900,12 @@ static void handle_window_op(Msg *m, webview_t w) {
       OBJC_MSG(void(*)(id, SEL), cls, sel_registerName("hide"));
       g_cursor_hidden = 1;
     }
+  } else if (strcmp(m->type, "set_cursor_grab") == 0) {
+    window_set_cursor_grab(m->bool_val);
+  } else if (strcmp(m->type, "window_set_icon") == 0) {
+    window_set_icon(m->id[0] ? atoi(m->id) : -1);
+  } else if (strcmp(m->type, "window_set_overlay_icon") == 0) {
+    window_set_overlay_icon(m->id[0] ? atoi(m->id) : -1);
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
     /* CanJoinAllSpaces = 1<<0, FullScreenAuxiliary = 1<<9. */
     unsigned long cb = (unsigned long)OBJC_MSG(

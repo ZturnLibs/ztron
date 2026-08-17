@@ -112,14 +112,45 @@ export function resourceDir(): Promise<string> {
   return invoke<string>("plugin:path|resource_dir", {});
 }
 
+/**
+ * Resolves a bundled asset path against the resource directory — the
+ * Tauri v2 `resolveResource(resourcePath, base?)` (formerly
+ * `resolveResource`). Absolute paths pass through unchanged.
+ */
+export async function resolveResource(
+  resourcePath: string,
+): Promise<string> {
+  if (await isAbsolute(resourcePath)) return resourcePath;
+  const dir = await resourceDir();
+  return invoke<string>("plugin:path|join", { parts: [dir, resourcePath] });
+}
+
+/** Path fragment separator: `/` on POSIX, `\\` on Windows. */
+export const sep = "/";
+
+/** Path list separator in PATH-style variables: `:` on POSIX, `;` on Windows. */
+export const delimiter = ":";
+
+/**
+ * Tauri v2 name for {@linkcode appLocalDataDir} (kept as an alias — Tauri's
+ * own JS API exposes both).
+ */
+export function localDataDir(): Promise<string> {
+  return appLocalDataDir();
+}
+
 export const path = {
   join,
   resolve,
+  resolveResource,
   normalize,
   isAbsolute,
   basename,
   dirname,
   extname,
+  sep,
+  delimiter,
+  localDataDir,
   homeDir,
   tempDir,
   cwd,

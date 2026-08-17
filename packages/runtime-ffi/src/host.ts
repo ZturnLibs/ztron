@@ -151,6 +151,22 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
+  setIcon(imageId: number): void {
+    this.#rt.send({
+      type: "window_set_icon",
+      label: this.label,
+      image_id: String(imageId),
+    });
+  }
+
+  setOverlayIcon(imageId: number): void {
+    this.#rt.send({
+      type: "window_set_overlay_icon",
+      label: this.label,
+      image_id: String(imageId),
+    });
+  }
+
   setPosition(x: number, y: number): void {
     this.#rt.send({ type: "window_set_position", label: this.label, x, y });
   }

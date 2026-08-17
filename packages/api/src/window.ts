@@ -4,6 +4,7 @@
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
+import type { Image } from "./image.js";
 import {
   normalizePosition,
   normalizeSize,
@@ -165,6 +166,39 @@ export class Window {
     await invoke("plugin:window|set_file_drop_enabled", {
       label: this.label,
       value: enabled,
+    });
+  }
+
+  /**
+   * Locks the cursor at its current position (Tauri setCursorGrab). On
+   * macOS the cursor visually parks in place; release with `false`.
+   */
+  async setCursorGrab(grab: boolean): Promise<void> {
+    await invoke("plugin:window|set_cursor_grab", {
+      label: this.label,
+      value: grab,
+    });
+  }
+
+  /**
+   * Sets the window/dock icon from an {@linkcode Image} (registered host
+   * image). Pass `null` to clear.
+   */
+  async setIcon(icon: Image | null): Promise<void> {
+    await invoke("plugin:window|set_icon", {
+      label: this.label,
+      image_id: icon ? icon.rid : -1,
+    });
+  }
+
+  /**
+   * Sets a small titlebar accessory icon (the macOS take on Windows'
+   * overlay/status badge). Pass `null` to clear.
+   */
+  async setOverlayIcon(icon: Image | null): Promise<void> {
+    await invoke("plugin:window|set_overlay_icon", {
+      label: this.label,
+      image_id: icon ? icon.rid : -1,
     });
   }
 

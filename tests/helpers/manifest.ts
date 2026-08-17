@@ -95,6 +95,9 @@ export const COMMANDS: readonly string[] = [
   "plugin:window|start_dragging",
   "plugin:window|start_resize_dragging",
   "plugin:window|set_file_drop_enabled",
+  "plugin:window|set_cursor_grab",
+  "plugin:window|set_icon",
+  "plugin:window|set_overlay_icon",
   "plugin:window|set_title",
   "plugin:window|set_size",
   // ---- tray ----
@@ -278,6 +281,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:updater|check",
   "plugin:updater|verify",
   "plugin:updater|download",
+  "plugin:updater|install",
 ];
 
 export const COMMAND_SET: ReadonlySet<string> = new Set(COMMANDS);
@@ -389,9 +393,14 @@ export const API_EXPORTS: readonly string[] = [
   "openPath",
   "revealItemInDir",
   "updater",
+  "resolveResource",
+  "sep",
+  "delimiter",
+  "localDataDir",
   "checkUpdate",
   "verifyUpdate",
   "downloadUpdate",
+  "installUpdate",
   "Database",
   "sql",
   "autostart",
