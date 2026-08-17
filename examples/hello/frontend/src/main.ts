@@ -308,6 +308,27 @@ async function main(): Promise<void> {
       report("PATH_APP_DIRS_OK:" + appData.slice(-32));
     }
 
+    // 5b. scoped http: allowed URL works, out-of-scope URL is denied.
+    //     Deterministic URL = the local echo server (external github reach
+    //     varies by network; it stays as an optional bonus below).
+    try {
+      const port = await invoke<number>("m3:echo-port", {});
+      const resp = await http.fetch(`http://localhost:${port}/echo`);
+      if (resp.ok && resp.status === 200) {
+        report("HTTP_OK:" + resp.status);
+      } else {
+        report("HTTP_FAIL:status=" + resp.status);
+      }
+    } catch (e) {
+      report("HTTP_FAIL:" + extractError(e).slice(0, 40));
+    }
+    try {
+      const resp2 = await http.fetch("https://api.github.com/");
+      if (resp2.ok) report("HTTP_EXT_BONUS:" + resp2.status);
+      void resp2;
+    } catch {
+      /* external network unavailable: optional */
+    }
     // 5b. scoped http: allowed URL works, out-of-scope URL is denied
     try {
       const resp = await http.fetch("https://api.github.com/");

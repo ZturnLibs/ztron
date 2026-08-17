@@ -35,6 +35,10 @@ Usage:
   ztron init [dir]                 Scaffold a new project in [dir] (default .)
   ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
   ztron build [--entry <file>]     Produce a standalone executable (M4)
+  ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
+                                   Regression run: parse the app's reported
+                                   checks; exit 0 only on FULL_OK + no FAILs
+                                   (--expect pins required tags, comma-sep)
   ztron version                    Print version
 `;
 
@@ -420,6 +424,39 @@ function spawnHostInBundle(hostBin: string, libPath: string): Promise<number> {
 }
 
 async function dev(cwd: string, entry: string): Promise<void> {
+  await runApp(cwd, entry, "dev");
+}
+
+/**
+ * `ztron check` — regression run: boots the app through the dev pipeline,
+ * parses the deterministic check lines the app reports (`frontend
+ * reported: "TAG…"`), and exits 0 only when every check passed (the app's
+ * own FULL_OK line was seen and no FAIL/ERROR tags arrived). Extra tags
+ * (best-effort bonuses) are allowed; missing ones are not inferred — the
+ * contract is the app's own terminal state, so `--expect` can pin required
+ * tags explicitly.
+ */
+async function check(cwd: string, entry: string, args: string[]): Promise<void> {
+  const timeoutMs = numberFlag(args, "--timeout", 120_000);
+  const expect = flagValue(args, "--expect");
+  const required = expect ? expect.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  await runApp(cwd, entry, "check", {
+    timeoutMs,
+    required,
+  });
+}
+
+interface CheckOptions {
+  timeoutMs: number;
+  required: string[];
+}
+
+async function runApp(
+  cwd: string,
+  entry: string,
+  mode: "dev" | "check",
+  checkOpts: CheckOptions = { timeoutMs: 120_000, required: [] },
+): Promise<void> {
   const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
   const appRoot = dirname(entryPath);
@@ -488,15 +525,127 @@ async function dev(cwd: string, entry: string): Promise<void> {
   // the main event loop while the backend is up.
   await new Promise<void>((resolve) => {
     const child = spawn(tjs, ["run", bundlePath], {
-      stdio: "inherit",
+      stdio: mode === "check" ? ["ignore", "pipe", "pipe"] : "inherit",
       cwd,
       env,
     });
+    const verdictBox = { value: -1 }; // -1 = not decided
+    if (mode === "check") {
+      runCheckHarness(child, checkOpts, verdictBox);
+    }
     child.on("exit", (code) => {
       resolve();
-      process.exit(code ?? 1);
+      /* In check mode the harness verdict wins (it may be stricter than the
+         child's own exit code — e.g. a FAIL tag with exit 0, or a timeout). */
+      process.exit(verdictBox.value >= 0 ? verdictBox.value : (code ?? 1));
     });
   });
+}
+
+/** Parses check-mode backend output into a pass/fail report.
+ *  Returns the final exit code (decided when the child exits or times out). */
+function runCheckHarness(
+  child: ReturnType<typeof spawn>,
+  opts: CheckOptions,
+  verdictBox: { value: number },
+): void {
+  const seen = new Map<string, string>(); // tag -> raw detail
+  const failures: string[] = [];
+  let fullOk = false;
+  let done = false;
+
+  const finish = (code: number, summary: string) => {
+    if (done) return;
+    done = true;
+    verdictBox.value = code;
+    console.log("\n[ztron check] " + summary);
+    const missing = opts.required.filter((t) => !seen.has(t));
+    for (const t of missing) {
+      console.error(`✗ missing required check: ${t}`);
+    }
+    process.exitCode = code;
+    /* Kill the whole tree if the harness decided before the app exited
+       (timeout path); the child's own exit resolves the outer promise. */
+    if (code !== 0) {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* already gone */
+      }
+    }
+  };
+
+  const onLine = (line: string) => {
+    console.log("[app] " + line);
+    /* Two report shapes:
+     *  1. hello-style:  [m3] frontend reported: "TAG:detail"
+     *  2. bare:         SECOND_WINDOW_OK / STRESS_OK / X_FAIL …
+     *     (a line that is exactly a tag with optional :detail)
+     */
+    let m = /frontend reported: "(.*)"$/.exec(line.trim());
+    if (!m) {
+      const bare =
+        /^([A-Z][A-Z0-9_]*(?:_[A-Z0-9]+)*)(?::(.*))?(?:\s.*)?$/.exec(line.trim());
+      if (bare && /_(OK|FAIL|BONUS)$/.test(bare[1]!)) {
+        m = [line, bare[1]! + (bare[2] !== undefined ? ":" + bare[2] : "")] as unknown as RegExpExecArray;
+      }
+    }
+    if (m) {
+      const raw = m[1]!;
+      const tag = raw.split(":")[0]!;
+      if (!seen.has(tag)) {
+        seen.set(tag, raw);
+        if (/_FAIL$/.test(tag) || tag === "ERROR") {
+          failures.push(raw);
+          console.error(`✗ ${raw}`);
+        } else {
+          console.log(`✓ ${raw}`);
+        }
+      }
+      return;
+    }
+    m = /^SPIKE_RESULT: FULL_OK/.exec(line.trim());
+    if (m) {
+      fullOk = true;
+      return;
+    }
+    if (/^libc\+\+abi|Terminating app|Segmentation fault/.test(line)) {
+      failures.push("native crash: " + line.trim());
+    }
+  };
+
+  child.stdout?.on("data", (c: Buffer) => c.toString().split("\n").forEach(onLine));
+  child.stderr?.on("data", (c: Buffer) => c.toString().split("\n").forEach(onLine));
+
+  const timer = setTimeout(() => {
+    finish(
+      1,
+      `TIMEOUT after ${opts.timeoutMs}ms (${seen.size} checks seen, FULL_OK=${fullOk})`,
+    );
+  }, opts.timeoutMs);
+  child.on("exit", (code) => {
+    clearTimeout(timer);
+    const crash = failures.some((f) => f.startsWith("native crash"));
+    if (crash || failures.length > 0) {
+      finish(1, `${failures.length} failure(s)`);
+    } else if (!fullOk && opts.required.length === 0) {
+      finish(1, `app exited (code ${code}) without FULL_OK`);
+    } else if (opts.required.some((t) => !seen.has(t))) {
+      finish(1, `required checks missing (${opts.required.filter((t) => !seen.has(t)).join(", ")})`);
+    } else {
+      finish(0, `${seen.size} checks passed${fullOk ? " (FULL_OK)" : ""}`);
+    }
+  });
+}
+
+function numberFlag(args: string[], name: string, dflt: number): number {
+  const v = flagValue(args, name);
+  return v ? Number(v) : dflt;
+}
+
+function flagValue(args: string[], name: string): string | undefined {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
 }
 
 function randomKey(): string {
@@ -1038,6 +1187,10 @@ async function main(): Promise<void> {
     }
     case "codegen": {
       await codegen(cwd);
+      break;
+    }
+    case "check": {
+      await check(cwd, resolveEntry(cwd, entryArg), process.argv.slice(3));
       break;
     }
     default: {

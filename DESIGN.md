@@ -1241,3 +1241,11 @@ ZtronApp.app/Contents/
 - **core 过滤**:Windows-only 效果在 macOS 侧过滤后取第一个;macOS 不支持的材质在 native no-op(wry 同行为)
 - **wire**:材质名走 `text`(str2)、state 走 `status` 字段(host.c 新增 `state` 键解析)、radius 走 `opacity_val`(`radius` 键)——复用既有 Msg 槽位,零结构体扩张
 - 验证:hello `WIN_EFFECTS_OK`(sidebar→titlebar 切换 + clear 往返)86 项/FULL_OK/EXIT 0;multiwin 压力回归绿;单测 +1(过滤+路由),75 tests/74 pass/0 fail
+
+## 97. ztron check(回归 CLI:spike 检查退出码化)
+
+- **动机**:86 项 spike 一直靠人盯日志判读;上游/库改动后的回归没有机器可判信号。P30 把它变成一条命令:`ztron check [--entry] [--timeout ms] [--expect TAG,…]`
+- **实现**(cli/index.ts):复用 dev 全管线(bundle/host/backend/前端 dev server),仅 backend spawn 改 pipe;harness 逐行解析两种上报形态——①hello 风格 `frontend reported: "TAG:detail"`(后端 m3:report 包装)②裸 `TAG_OK`/`TAG[:detail] [尾注]`(multiwin 风格,正则 `^[A-Z][A-Z0-9_]*_(OK|FAIL|BONUS)`);FAIL/ERROR 标签记失败,native 崩溃行(libc++abi/Terminating/segv)同样记;`SPIKE_RESULT: FULL_OK` 置通过态
+- **退出语义(坑:首版被 child exit 0 覆盖)**:verdict 经共享 box 传递,child exit 时 harness 结论优先——FAIL 标签 + exit 0 仍判败,timeout(默认 120s)强杀;`--expect` 精确钉必需标签(缺即 exit 1,防"提前自灭也绿灯"假阳性)
+- **确定性副产品**:hello 的 HTTP_OK 原依赖 api.github.com(实测撞 504 假失败),改走本地 echo server;外部可达性降为 HTTP_EXT_BONUS 尽力项——外部依赖不入确定性检查的纪律入库
+- 验证:hello `86 checks passed (FULL_OK)` exit 0;multiwin `--expect SECOND_WINDOW_OK,SECOND_OPS_OK,STRESS_OK` 4/4 exit 0;错误标签 → exit 1;--timeout 3000 → exit 1;单测 75/74/0 无回归
