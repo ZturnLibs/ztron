@@ -59,6 +59,8 @@ import {
   attachConsole,
   fetchStream,
   readClipboardImage,
+  readClipboardHtml,
+  writeClipboardHtml,
   writeClipboardImage,
   clearClipboard,
   isPermissionGranted,
@@ -1138,6 +1140,19 @@ async function main(): Promise<void> {
     await win.setFileDropEnabled(true);
     report("DRAG_DROP_ARMED");
     void unDrag;
+
+    // 17. clipboard HTML flavor: real pasteboard round trip through the
+    //    public.html type (deterministic; unlike modal dialogs).
+    const htmlIn = "<b>ztron-html</b>";
+    await writeClipboardHtml(htmlIn);
+    const htmlOut = await readClipboardHtml();
+    if (htmlOut === htmlIn) {
+      report("CLIPBOARD_HTML_OK:" + htmlOut.length);
+    } else {
+      report(
+        "CLIPBOARD_HTML_FAIL:" + JSON.stringify(String(htmlOut).slice(0, 30)),
+      );
+    }
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

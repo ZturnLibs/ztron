@@ -105,12 +105,13 @@ export { Image, transformImage, type ImageLike } from "./image.js";
 export { TrayIcon } from "./tray.js";
 export { Menu, setAppMenu, onMenuEvent } from "./menu.js";
 export type { MenuItem, MenuEvent } from "./menu.js";
-export { dialog, open, save, message } from "./dialog.js";
+export { dialog, open, save, message, ask, confirm } from "./dialog.js";
 export type {
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,
 } from "./dialog.js";
+export type { MessageDialogOptionsFull } from "./dialog.js";
 export { http, fetch, fetchStream } from "./http.js";
 export type { HttpResponse, HttpStreamResponse, FetchOptions } from "./http.js";
 export {
@@ -161,6 +162,8 @@ export {
 export {
   clipboard,
   readText as readClipboardText,
+  readHtml as readClipboardHtml,
+  writeHtml as writeClipboardHtml,
   writeText as writeClipboardText,
   readImage as readClipboardImage,
   writeImage as writeClipboardImage,

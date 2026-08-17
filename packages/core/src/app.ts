@@ -258,8 +258,12 @@ export class App {
       "plugin:dialog|open",
       "plugin:dialog|save",
       "plugin:dialog|message",
+      "plugin:dialog|ask",
+      "plugin:dialog|confirm",
       "plugin:clipboard|read_text",
       "plugin:clipboard|write_text",
+      "plugin:clipboard|read_html",
+      "plugin:clipboard|write_html",
       "plugin:clipboard|read_image",
       "plugin:clipboard|write_image",
       "plugin:clipboard|clear",
@@ -819,6 +823,11 @@ export class App {
         this.#adapter.dialog?.save((args as SaveDialogOptions) ?? {}) ?? null,
       "plugin:dialog|message": async (args) =>
         this.#adapter.dialog?.message(args as MessageDialogOptions) ?? 0,
+      "plugin:dialog|ask": async (args) =>
+        (await this.#adapter.dialog?.ask(args as MessageDialogOptions)) ?? false,
+      "plugin:dialog|confirm": async (args) =>
+        (await this.#adapter.dialog?.confirm(args as MessageDialogOptions)) ??
+        false,
       "plugin:clipboard|read_text": async () =>
         this.#adapter.clipboard?.readText() ?? null,
       "plugin:clipboard|write_text": (args) => {
@@ -841,6 +850,13 @@ export class App {
       },
       "plugin:clipboard|clear": async () => {
         await this.#adapter.clipboard?.clear();
+      },
+      "plugin:clipboard|read_html": async () =>
+        (await this.#adapter.clipboard?.readHtml()) ?? null,
+      "plugin:clipboard|write_html": (args) => {
+        this.#adapter.clipboard?.writeHtml(
+          (args as { html?: string }).html ?? "",
+        );
       },
     };
 

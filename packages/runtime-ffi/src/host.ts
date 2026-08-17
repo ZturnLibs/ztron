@@ -585,7 +585,20 @@ export class HostRuntime implements RuntimeAdapter {
       this.sendRequest("dialog_message", {
         title: options.title,
         message: options.message ?? "",
+        kind: options.kind === "error" ? 2 : options.kind === "warning" ? 1 : 0,
       }).then((r) => Number(r)),
+    ask: (options) =>
+      this.sendRequest("dialog_ask", {
+        title: options.title,
+        message: options.message ?? "",
+        kind: options.kind === "error" ? 2 : options.kind === "warning" ? 1 : 0,
+      }).then((r) => r === true),
+    confirm: (options) =>
+      this.sendRequest("dialog_confirm", {
+        title: options.title,
+        message: options.message ?? "",
+        kind: options.kind === "error" ? 2 : options.kind === "warning" ? 1 : 0,
+      }).then((r) => r === true),
   };
 
   /** Clipboard controller (implements `RuntimeAdapter.clipboard`). */
@@ -596,6 +609,14 @@ export class HostRuntime implements RuntimeAdapter {
       ),
     writeText: (text) => {
       this.send({ type: "clipboard_write_text", label: "main", text });
+    },
+    readHtml: () =>
+      this.sendRequest("clipboard_read_html").then((r) =>
+        typeof r === "string" ? r : null,
+      ),
+    writeHtml: (html) => {
+      this.send({ type: "clipboard_write_html", label: "main", text: html });
+      return Promise.resolve();
     },
     readImage: () =>
       this.sendRequest("clipboard_read_image").then((r) => {

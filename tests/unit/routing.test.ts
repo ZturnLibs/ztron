@@ -454,11 +454,29 @@ test("dialog commands route to the adapter", async () => {
   await mock.main.invoke("plugin:dialog|message", {
     title: "Hi",
     message: "msg",
+    kind: "warning",
   });
+  // v2: ask/confirm route + resolve booleans; kind rides along
+  const asked = await mock.main.invoke("plugin:dialog|ask", {
+    title: "Delete?",
+    message: "really",
+    kind: "error",
+  });
+  assert.equal(asked, true);
+  const confirmed = await mock.main.invoke("plugin:dialog|confirm", {
+    title: "Quit?",
+    message: "really",
+  });
+  assert.equal(confirmed, true);
   assert.deepEqual(
     mock.dialogLog.map((l) => l.kind),
-    ["open", "save", "message"],
+    ["open", "save", "message", "ask", "confirm"],
   );
+  assert.deepEqual(mock.dialogLog[2]?.options, {
+    title: "Hi",
+    message: "msg",
+    kind: "warning",
+  });
 });
 
 test("clipboard + notification + shortcut + deep-link + process route", async () => {
@@ -484,6 +502,17 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   assert.deepEqual(mock.clipImage, { rid: 3 });
   await mock.main.invoke("plugin:clipboard|clear", {});
   assert.equal(mock.clipImage, null);
+
+  // v2 parity: clipboard HTML flavor round trip
+  assert.equal(await mock.main.invoke("plugin:clipboard|read_html", {}), null);
+  await mock.main.invoke("plugin:clipboard|write_html", {
+    html: "<b>hi</b>",
+  });
+  assert.equal(mock.clipHtml, "<b>hi</b>");
+  assert.equal(
+    await mock.main.invoke("plugin:clipboard|read_html", {}),
+    "<b>hi</b>",
+  );
 
   // v2 parity: notification permission plumbing
   const granted = await mock.main.invoke(

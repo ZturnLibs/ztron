@@ -122,6 +122,8 @@ export const COMMANDS: readonly string[] = [
   "plugin:dialog|open",
   "plugin:dialog|save",
   "plugin:dialog|message",
+  "plugin:dialog|ask",
+  "plugin:dialog|confirm",
   // ---- clipboard ----
   "plugin:clipboard|read_text",
   "plugin:clipboard|write_text",
@@ -218,6 +220,8 @@ export const COMMANDS: readonly string[] = [
   // ---- clipboard v2 ----
   "plugin:clipboard|read_image",
   "plugin:clipboard|write_image",
+  "plugin:clipboard|read_html",
+  "plugin:clipboard|write_html",
   "plugin:clipboard|clear",
 
   // ---- notification permission ----
@@ -396,6 +400,8 @@ export const API_EXPORTS: readonly string[] = [
   "disableAutostart",
   "clipboard",
   "readClipboardText",
+  "readClipboardHtml",
+  "writeClipboardHtml",
   "writeClipboardText",
   "readClipboardImage",
   "writeClipboardImage",
@@ -414,6 +420,8 @@ export const API_EXPORTS: readonly string[] = [
   "open",
   "save",
   "message",
+  "ask",
+  "confirm",
   "notification",
   "sendNotification",
   "isPermissionGranted",

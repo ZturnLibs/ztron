@@ -1219,3 +1219,10 @@ ZtronApp.app/Contents/
 - **KVO 崩溃(实测,方法论级教训)**:首版在 attach 期 `object_setClass` 事后换 isa → 首次 `set_size` 即 `_os_unfair_lock_corruption_abort` 于 `_NSSetRectValueAndNotify`。**根因:WKWebView 在 init 期间就建立内部 KVO 观察,观察簿记挂在 isa 链上;事后换类 = 损坏观察簿记**。正解 = 出生即子类:① dyld `__attribute__((constructor))` 注册 `ZtronWKWebViewSubclass`(host 的主 webview 在 `zt_platform.init()` 之前创建,连 init 都太晚);② vendored `WKWebView_alloc()` 钩子:存在同名类则用之,否则回退原生 WKWebView(补丁入 webview-local.patch);③ attach 期只做安全操作(associated label + registerForDraggedTypes)
 - **spike 验证边界**:拖拽 session 由 App 内部驱动,CGEvent 无法合成(无公开 drag API)→ 真拖放留 `DRAG_EVENT_LIVE` 机会性 bonus(同 WIN_EVENT_OK 方法论);确定性检查 = `DRAG_DROP_ARMED`(监听武装 + toggle 往返)+ 单测(payload 双事件携带/over 无 paths/开关路由)+ multiwin 压力(子类不影响建/销窗)
 - 验证:hello 82 项/FULL_OK/EXIT 0;单测 +2(drag payload / set_file_drop_enabled 路由),72 tests/71 pass/0 fail
+
+## 94. dialog v2(ask/confirm/kind)+ clipboard HTML
+
+- **dialog v2**:native 重构出 `zt_alert_run(title, body, kind, btn2)` 助手(NSAlertStyle: warning=0/informational=1/critical=2,api 层 kind 字符串在 FFI 折成 int);`dialog_ask`/`dialog_confirm` = OK+Cancel 双钮 runModal,回 `true/false`(zt_reply_query bool 惯例);api 签名对齐 Tauri 形态——`ask(message, {title, kind})` 或对象单参均可。**模态纪律**:ask/confirm 与 popup menu 同级(runModal 阻塞 GUI dispatch),spike 不能真调——`m3:has-dialogs` 扩为五个命令注册检查(DIALOG_REG_OK),与 open/save 同验证级别;mock 回 true 保证路由单测确定性
+- **clipboard HTML**:`public.html` flavor 读(NSPasteboard stringForType)+ 写(HTML + 同文本 plain-text fallback,即 AppKit 应用写 HTML 剪贴板的双类型惯例);真机确定性往返可行(无模态)→ spike `CLIPBOARD_HTML_OK:17`
+- wire:新增 `Msg.kind`(int,0/1/2);`text` 字段承载 html
+- 验证:hello 84 项/FULL_OK/EXIT 0;单测扩展 dialog 路由(五命令+kind 透传)与 clipboard HTML 往返,73 tests/72 pass/0 fail

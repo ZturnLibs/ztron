@@ -1877,16 +1877,38 @@ static void dialog_save(Msg *m) {
     zt_reply_null(m->req_id);
   }
 }
-static void dialog_message(Msg *m) {
+/* Builds + runs an NSAlert; buttons: NULL-terminated list after the first.
+   Returns the 1-based button index (NSAlertFirstButtonReturn == 1000). */
+static long zt_alert_run(const char *title, const char *body, int kind,
+                         const char *btn2) {
   id alert = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSAlert"), sel_registerName("alloc"));
   alert = OBJC_MSG(id(*)(id, SEL), alert, sel_registerName("init"));
-  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setMessageText:"), zt_nsstring(m->id));
-  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setInformativeText:"), zt_nsstring(m->str2));
+  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setMessageText:"), zt_nsstring(title));
+  OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("setInformativeText:"), zt_nsstring(body));
+  /* NSAlertStyle: Warning=0, Informational=1, Critical=2. */
+  long style = kind == 2 ? 2 : (kind == 1 ? 0 : 1);
+  OBJC_MSG(void(*)(id, SEL, unsigned long), alert, sel_registerName("setAlertStyle:"),
+           (unsigned long)style);
   OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("addButtonWithTitle:"), zt_nsstring("OK"));
+  if (btn2) {
+    OBJC_MSG(void(*)(id, SEL, id), alert, sel_registerName("addButtonWithTitle:"), zt_nsstring(btn2));
+  }
   long resp = (long)OBJC_MSG(long(*)(id, SEL), alert, sel_registerName("runModal"));
+  OBJC_MSG(void(*)(id, SEL), alert, sel_registerName("release"));
+  return resp - 1000;
+}
+
+static void dialog_message(Msg *m) {
+  long btn = zt_alert_run(m->id, m->str2, m->kind, NULL);
   char tmp[32];
-  snprintf(tmp, sizeof(tmp), "%ld", resp - 1000); /* NSAlertFirstButtonReturn */
+  snprintf(tmp, sizeof(tmp), "%ld", btn);
   zt_reply_string(m->req_id, tmp);
+}
+
+static void dialog_confirm_like(Msg *m) {
+  /* ask/confirm: true when the first (OK/Yes) button is clicked. */
+  long btn = zt_alert_run(m->id, m->str2, m->kind, "Cancel");
+  zt_reply_query(m->req_id, btn == 1 ? "true" : "false");
 }
 
 /* ---- platform ops ---- */
@@ -2329,6 +2351,37 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
   if (strcmp(m->type, "dialog_message") == 0) { dialog_message(m); return 1; }
+  if (strcmp(m->type, "dialog_ask") == 0) { dialog_confirm_like(m); return 1; }
+  if (strcmp(m->type, "dialog_confirm") == 0) { dialog_confirm_like(m); return 1; }
+  if (strcmp(m->type, "clipboard_read_html") == 0) {
+    if (m->req_id >= 0) {
+      id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                       sel_registerName("generalPasteboard"));
+      id str =
+          pb ? OBJC_MSG(id(*)(id, SEL, id), pb, sel_registerName("stringForType:"),
+                        zt_nsstring("public.html"))
+             : NULL;
+      if (str) zt_reply_string(m->req_id, OBJC_MSG(const char *(*)(id, SEL), str,
+                                                    sel_registerName("UTF8String")));
+      else zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "clipboard_write_html") == 0) {
+    id pb = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSPasteboard"),
+                     sel_registerName("generalPasteboard"));
+    OBJC_MSG(void(*)(id, SEL), pb, sel_registerName("clearContents"));
+    /* HTML + plain-text fallback of the same markup (what AppKit apps put
+       on the pasteboard for HTML). */
+    OBJC_MSG(void(*)(id, SEL, id, id), pb, sel_registerName("setString:forType:"),
+             zt_nsstring(m->str2[0] ? m->str2 : m->str),
+             zt_nsstring("public.html"));
+    OBJC_MSG(void(*)(id, SEL, id, id), pb, sel_registerName("setString:forType:"),
+             zt_nsstring(m->str2[0] ? m->str2 : m->str),
+             zt_nsstring("public.utf8-plain-text"));
+    if (m->req_id >= 0) zt_reply_query(m->req_id, "true");
+    return 1;
+  }
 
   if (strcmp(m->type, "clipboard_read_text") == 0) {
     if (m->req_id >= 0) {

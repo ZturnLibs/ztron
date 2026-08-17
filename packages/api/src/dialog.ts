@@ -18,7 +18,12 @@ export interface SaveDialogOptions {
 }
 
 export interface MessageDialogOptions {
-  title: string;
+  title?: string;
+  /** Alert severity: "info" (default) | "warning" | "error". */
+  kind?: "info" | "warning" | "error";
+}
+
+export interface MessageDialogOptionsFull extends MessageDialogOptions {
   message?: string;
 }
 
@@ -37,11 +42,51 @@ export async function save(
 }
 
 /** Shows a native message/alert dialog; returns the clicked button index. */
-export async function message(options: MessageDialogOptions): Promise<number> {
-  return invoke<number>(
-    "plugin:dialog|message",
-    options as unknown as InvokeArgs,
-  );
+export async function message(
+  messageOrOptions: string | (MessageDialogOptionsFull & { message?: string }),
+  options: MessageDialogOptions = {},
+): Promise<number> {
+  const opts =
+    typeof messageOrOptions === "string"
+      ? { message: messageOrOptions, ...options }
+      : messageOrOptions;
+  return invoke<number>("plugin:dialog|message", {
+    title: opts.title ?? "",
+    message: opts.message ?? "",
+    kind: opts.kind,
+  });
 }
 
-export const dialog = { open, save, message };
+/** Shows an OK/Cancel question dialog; resolves true when confirmed. */
+export async function ask(
+  messageOrOptions: string | (MessageDialogOptionsFull & { message?: string }),
+  options: MessageDialogOptions = {},
+): Promise<boolean> {
+  const opts =
+    typeof messageOrOptions === "string"
+      ? { message: messageOrOptions, ...options }
+      : messageOrOptions;
+  return invoke<boolean>("plugin:dialog|ask", {
+    title: opts.title ?? "",
+    message: opts.message ?? "",
+    kind: opts.kind,
+  });
+}
+
+/** Shows an OK/Cancel confirmation; resolves true when confirmed. */
+export async function confirm(
+  messageOrOptions: string | (MessageDialogOptionsFull & { message?: string }),
+  options: MessageDialogOptions = {},
+): Promise<boolean> {
+  const opts =
+    typeof messageOrOptions === "string"
+      ? { message: messageOrOptions, ...options }
+      : messageOrOptions;
+  return invoke<boolean>("plugin:dialog|confirm", {
+    title: opts.title ?? "",
+    message: opts.message ?? "",
+    kind: opts.kind,
+  });
+}
+
+export const dialog = { open, save, message, ask, confirm };

@@ -39,6 +39,7 @@ typedef struct Msg_ {
   int req_id;   /* request id for window-state queries (-1 = no reply) */
   int bool_val; /* boolean argument for set_* window ops */
   int checked;  /* menu item checked state (check/radio items) */
+  int kind;    /* dialog kind: 0=info 1=warning 2=error */
   double opacity_val; /* window opacity 0.0..1.0 */
 } Msg;
 

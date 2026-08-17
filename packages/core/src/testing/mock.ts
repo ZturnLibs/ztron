@@ -449,11 +449,21 @@ export class MockRuntime implements RuntimeAdapter {
       this.dialogLog.push({ kind: "message", options });
       return Promise.resolve(0);
     },
+    ask: (options) => {
+      this.dialogLog.push({ kind: "ask", options });
+      return Promise.resolve(true);
+    },
+    confirm: (options) => {
+      this.dialogLog.push({ kind: "confirm", options });
+      return Promise.resolve(true);
+    },
   };
 
   clipboardLog: Array<{ kind: string; text?: string }> = [];
   /** Simulated clipboard image state ({base64} | {rid} | null). */
   clipImage: { base64?: string; rid?: number } | null = null;
+  /** Simulated clipboard HTML flavor. */
+  clipHtml: string | null = null;
   readonly clipboard: import("../runtime.js").ClipboardController = {
     readText: () => {
       this.clipboardLog.push({ kind: "read" });
@@ -461,6 +471,15 @@ export class MockRuntime implements RuntimeAdapter {
     },
     writeText: (text) => {
       this.clipboardLog.push({ kind: "write", text });
+    },
+    readHtml: () => {
+      this.clipboardLog.push({ kind: "read_html" });
+      return Promise.resolve(this.clipHtml);
+    },
+    writeHtml: (html) => {
+      this.clipHtml = html;
+      this.clipboardLog.push({ kind: "write_html", text: html });
+      return Promise.resolve();
     },
     readImage: () => {
       this.clipboardLog.push({ kind: "read_image" });

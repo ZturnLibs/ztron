@@ -44,6 +44,16 @@ export async function writeImage(
   await invoke("plugin:clipboard|write_image", args);
 }
 
+/** Reads the clipboard HTML flavor (null when not present). */
+export async function readHtml(): Promise<string | null> {
+  return invoke<string | null>("plugin:clipboard|read_html", {});
+}
+
+/** Writes HTML to the clipboard (with a plain-text fallback). */
+export async function writeHtml(html: string): Promise<void> {
+  await invoke("plugin:clipboard|write_html", { html });
+}
+
 /** Clears the clipboard of all contents (text, images, files). */
 export async function clear(): Promise<void> {
   await invoke("plugin:clipboard|clear", {});

@@ -307,7 +307,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       return (
         ctx.app.commands.has("plugin:dialog|open") &&
         ctx.app.commands.has("plugin:dialog|save") &&
-        ctx.app.commands.has("plugin:dialog|message")
+        ctx.app.commands.has("plugin:dialog|message") &&
+        ctx.app.commands.has("plugin:dialog|ask") &&
+        ctx.app.commands.has("plugin:dialog|confirm")
       );
     });
 
@@ -372,10 +374,10 @@ new AppBuilder(runtime, "com.ztron.hello")
       // runtime-created window). WIN_EVENT_OK + WIN_QUERY2_OK are bonus: both
       // require the window to become key, which a terminal-launched bare
       // binary cannot reliably do (macOS activation restrictions) — DESIGN §31.
-      // DRAG_DROP_ARMED is the final deterministic check gating FULL_OK
-      // (bonus tags incl. WIN_EVENT_OK/DRAG_EVENT_LIVE can inflate done.size
-      // early — DESIGN §88).
-      if (done.size >= 82 && done.has("DRAG_DROP_ARMED")) {
+      // DRAG_DROP_ARMED + CLIPBOARD_HTML_OK are the final deterministic
+      // checks gating FULL_OK (bonus tags incl. WIN_EVENT_OK/DRAG_EVENT_LIVE
+      // can inflate done.size early — DESIGN §88).
+      if (done.size >= 84 && done.has("CLIPBOARD_HTML_OK")) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras/log-rotation)",
         );

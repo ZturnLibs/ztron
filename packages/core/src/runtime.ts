@@ -337,6 +337,8 @@ export interface SaveDialogOptions {
 export interface MessageDialogOptions {
   title: string;
   message?: string;
+  /** Alert severity: "info" (default) | "warning" | "error". */
+  kind?: "info" | "warning" | "error";
 }
 
 /** Native dialog controller provided by the runtime backend. */
@@ -344,12 +346,20 @@ export interface DialogController {
   open(options: OpenDialogOptions): Promise<string | null>;
   save(options: SaveDialogOptions): Promise<string | null>;
   message(options: MessageDialogOptions): Promise<number>;
+  /** OK/Cancel alert — resolves true when confirmed (Tauri `ask`). */
+  ask(options: MessageDialogOptions): Promise<boolean>;
+  /** OK/Cancel alert — resolves true when confirmed (Tauri `confirm`). */
+  confirm(options: MessageDialogOptions): Promise<boolean>;
 }
 
 /** Clipboard controller provided by the runtime backend. */
 export interface ClipboardController {
   readText(): Promise<string | null>;
   writeText(text: string): void;
+  /** Reads the clipboard HTML flavor; null when not present. */
+  readHtml(): Promise<string | null>;
+  /** Writes HTML to the clipboard (with a plain-text fallback). */
+  writeHtml(html: string): Promise<void>;
   /** Reads the clipboard image as PNG bytes (base64) — null when the
    * clipboard holds no image. */
   readImage(): Promise<{ base64: string } | null>;
