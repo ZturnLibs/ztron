@@ -90,7 +90,10 @@ export type WindowStateOp =
   | "set_cursor_visible"
   | "set_cursor_grab"
   | "set_visible_on_all_workspaces"
-  | "set_simple_fullscreen";
+  | "set_simple_fullscreen"
+  /** Vibrancy material effects (macOS): material name, state, radius. */
+  | "set_effects"
+  | "clear_effects";
 
 /** Native window events pushed from the host (mapped to `tauri://*`). */
 export type WindowEvent =
@@ -208,7 +211,11 @@ export interface WebviewHandle {
    * Applies a window state operation. Query ops (`is_*`) resolve to the
    * native boolean; mutation ops resolve immediately.
    */
-  windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean>;
+  windowState(
+    op: WindowStateOp,
+    value?: boolean,
+    effect?: { material?: string; state?: number; radius?: number },
+  ): boolean | Promise<boolean>;
   /** Registers a handler for native window events. */
   onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
   /**

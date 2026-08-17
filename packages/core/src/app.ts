@@ -223,6 +223,8 @@ export class App {
       "plugin:window|set_cursor_grab",
       "plugin:window|set_icon",
       "plugin:window|set_overlay_icon",
+      "plugin:window|set_effects",
+      "plugin:window|clear_effects",
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
@@ -383,6 +385,30 @@ export class App {
       "plugin:window|set_overlay_icon": async (args, ctx) => {
         const { image_id } = args as { image_id?: number };
         ctx.webview.setOverlayIcon(Number(image_id ?? -1));
+      },
+      "plugin:window|set_effects": (args, ctx) => {
+        /* Tauri Effects shape: {effects: Effect[], state?, radius?, color?}.
+         * Conflicting materials: the first wins (documented Tauri rule);
+         * Windows-only effects (blur/acrylic/tabbed) are dropped when the
+         * macOS-supported list comes back empty. */
+        const { effects, state, radius } = args as {
+          effects?: string[];
+          state?: number;
+          radius?: number;
+        };
+        const macos = (effects ?? []).filter(
+          (e) =>
+            !["blur", "acrylic", "tabbed", "mica", "tabbedDark", "tabbedLight"].includes(e),
+        );
+        const material = macos[0] ?? effects?.[0] ?? "";
+        ctx.webview.windowState("set_effects", false, {
+          material,
+          state: typeof state === "number" ? state : -1,
+          radius: typeof radius === "number" ? radius : 0,
+        });
+      },
+      "plugin:window|clear_effects": (_args, ctx) => {
+        ctx.webview.windowState("clear_effects", false);
       },
       "plugin:window|set_title": (args, ctx) => {
         const { title } = args as { title: string };

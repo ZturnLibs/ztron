@@ -202,6 +202,19 @@ export class Window {
     });
   }
 
+  /** Vibrancy material (macOS). Windows-only effects are ignored there. */
+  async setEffects(effects: Effects): Promise<void> {
+    await invoke("plugin:window|set_effects", {
+      label: this.label,
+      value: effects,
+    });
+  }
+
+  /** Removes any applied vibrancy effect. */
+  async clearEffects(): Promise<void> {
+    await invoke("plugin:window|clear_effects", { label: this.label });
+  }
+
   /**
    * A normalized drag-and-drop notification (Tauri DragDropEvent): `enter`
    * carries paths + position, `over` only the position, `drop` paths +
@@ -878,4 +891,45 @@ export function setupDragRegion(
   };
   target.addEventListener("mousedown", onMouseDown);
   return () => target.removeEventListener("mousedown", onMouseDown);
+}
+
+/** macOS vibrancy materials (NSVisualEffectMaterial). */
+export enum Effect {
+  AppearanceBased = "appearanceBased",
+  Titlebar = "titlebar",
+  Selection = "selection",
+  Menu = "menu",
+  Popover = "popover",
+  Sidebar = "sidebar",
+  HeaderView = "headerView",
+  Sheet = "sheet",
+  WindowBackground = "windowBackground",
+  HudWindow = "hudWindow",
+  FullScreenUI = "fullScreenUI",
+  ToolTip = "toolTip",
+  ContentBackground = "contentBackground",
+  UnderWindowBackground = "underWindowBackground",
+  UnderPageBackground = "underPageBackground",
+  /** Windows only (no-op on macOS, kept for cross-platform config). */
+  Blur = "blur",
+  Acrylic = "acrylic",
+  Tabbed = "tabbed",
+  Mica = "mica",
+  TabbedDark = "tabbedDark",
+  TabbedLight = "tabbedLight",
+}
+
+/** Effect active state (macOS only). */
+export enum EffectState {
+  FollowsWindowActiveState = -1,
+  Active = 0,
+  Inactive = 1,
+}
+
+/** Window effect configuration (Tauri `Effects`). */
+export interface Effects {
+  effects: Effect[];
+  state?: EffectState;
+  radius?: number;
+  color?: string | null;
 }

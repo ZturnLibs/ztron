@@ -377,7 +377,7 @@ new AppBuilder(runtime, "com.ztron.hello")
       // DRAG_DROP_ARMED + CLIPBOARD_HTML_OK are the final deterministic
       // checks gating FULL_OK (bonus tags incl. WIN_EVENT_OK/DRAG_EVENT_LIVE
       // can inflate done.size early — DESIGN §88).
-      if (done.size >= 85 && done.has("WIN_ICONS_GRAB_OK")) {
+      if (done.size >= 86 && done.has("WIN_EFFECTS_OK")) {
         console.log(
           "SPIKE_RESULT: FULL_OK (invoke/event/channel/fs/path/http/acl/os/store/log/shell/updater/sql/autostart/clipboard/app/process/websocket/local-ip/network/upload/persisted-scope/win/opacity/transparent/decorations/positioner/window-state/notification/shortcut/single-instance/deep-link/tray/menu/dialog/win-v2-extras/log-rotation)",
         );

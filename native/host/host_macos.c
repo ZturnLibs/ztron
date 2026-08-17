@@ -684,6 +684,7 @@ static int is_window_op(const char *t) {
       "maximize",         "unmaximize",     "is_enabled",
       "set_focusable",    "set_cursor_visible",
       "set_cursor_grab",  "window_set_icon", "window_set_overlay_icon",
+      "window_set_effects", "window_clear_effects",
       "set_visible_on_all_workspaces", "set_simple_fullscreen",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
@@ -770,6 +771,99 @@ static void window_set_cursor_grab(int on) {
   if (on == g_cursor_grabbed) return;
   g_cursor_grabbed = on;
   CGAssociateMouseAndMouseCursorPosition(on ? 0 : 1);
+}
+
+/* ---- window vibrancy effects (NSVisualEffectView material) ---- */
+
+static int effect_material(const char *name) {
+  /* NSVisualEffectMaterial values (SDK header-verified, 10.10-10.14). */
+  if (strcmp(name, "appearanceBased") == 0) return 0;
+  if (strcmp(name, "titlebar") == 0) return 3;
+  if (strcmp(name, "selection") == 0) return 4;
+  if (strcmp(name, "menu") == 0) return 5;
+  if (strcmp(name, "popover") == 0) return 6;
+  if (strcmp(name, "sidebar") == 0) return 7;
+  if (strcmp(name, "headerView") == 0) return 10;
+  if (strcmp(name, "sheet") == 0) return 11;
+  if (strcmp(name, "windowBackground") == 0) return 12;
+  if (strcmp(name, "hudWindow") == 0) return 13;
+  if (strcmp(name, "fullScreenUI") == 0) return 15;
+  if (strcmp(name, "toolTip") == 0) return 17;
+  if (strcmp(name, "contentBackground") == 0) return 18;
+  if (strcmp(name, "underWindowBackground") == 0) return 21;
+  if (strcmp(name, "underPageBackground") == 0) return 22;
+  return -1; /* includes blur/acrylic/tabbed (Windows-only) */
+}
+
+/* Applies (or updates) a vibrancy material behind the webview; state:
+   0=active 1=inactive -1=follows-window. Reuses the existing effect view. */
+static void window_set_effects(webview_t w, const char *name, int state,
+                                double radius) {
+  void *wnd = zt_window_of(w);
+  if (!wnd) return;
+  id content = OBJC_MSG(id(*)(id, SEL), (id)wnd,
+                        sel_registerName("contentView"));
+  if (!content) return;
+  int material = effect_material(name);
+  if (material < 0) return; /* unsupported on macOS: no-op like wry */
+
+  id ev = NULL;
+  id subs = OBJC_MSG(id(*)(id, SEL), content, sel_registerName("subviews"));
+  if (subs) {
+    unsigned long n =
+        OBJC_MSG(unsigned long (*)(id, SEL), subs, sel_registerName("count"));
+    for (unsigned long i = 0; i < n; i++) {
+      id v = OBJC_MSG(id(*)(id, SEL, unsigned long), subs,
+                      sel_registerName("objectAtIndex:"), i);
+      if (v && object_getClass(v) == objc_getClass("NSVisualEffectView")) {
+        ev = v;
+        break;
+      }
+    }
+  }
+  if (!ev) {
+    ev = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSVisualEffectView"),
+                  sel_registerName("new"));
+    ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(
+        content, sel_registerName("bounds"));
+    ((void(*)(id, SEL, ZtRect))objc_msgSend)(ev, sel_registerName("setFrame:"), b);
+    /* Insert behind everything; the webview stays interactive. */
+    ((void(*)(id, SEL, id, unsigned long, id))objc_msgSend)(
+        content, sel_registerName("addSubview:positioned:relativeTo:"), ev,
+        2UL /* NSWindowAbove=1, NSWindowBelow=2 */, (id)0);
+  }
+  OBJC_MSG(void(*)(id, SEL, long), ev, sel_registerName("setMaterial:"),
+           (long)material);
+  if (state >= 0) {
+    /* NSVisualEffectState: active=0, inactive=1. */
+    OBJC_MSG(void(*)(id, SEL, long), ev, sel_registerName("setState:"),
+             (long)(state == 0 ? 0 : 1));
+  }
+  if (radius > 0) {
+    ((void(*)(id, SEL, BOOL))objc_msgSend)(
+        ev, sel_registerName("setWantsLayer:"), YES);
+    ((void(*)(id, SEL, double))objc_msgSend)(
+        OBJC_MSG(id(*)(id, SEL), ev, sel_registerName("layer")),
+        sel_registerName("setCornerRadius:"), radius);
+  }
+}
+
+static void window_clear_effects(webview_t w) {
+  void *wnd = zt_window_of(w);
+  if (!wnd) return;
+  id content = OBJC_MSG(id(*)(id, SEL), (id)wnd,
+                        sel_registerName("contentView"));
+  if (!content) return;
+  id subs = OBJC_MSG(id(*)(id, SEL), content, sel_registerName("subviews"));
+  if (!subs) return;
+  for (long i = (long)OBJC_MSG(unsigned long (*)(id, SEL), subs,
+                               sel_registerName("count")) - 1; i >= 0; i--) {
+    id v = OBJC_MSG(id(*)(id, SEL, unsigned long), subs,
+                    sel_registerName("objectAtIndex:"), (unsigned long)i);
+    if (v && object_getClass(v) == objc_getClass("NSVisualEffectView")) {
+      OBJC_MSG(void(*)(id, SEL), v, sel_registerName("removeFromSuperview"));
+    }
+  }
 }
 
 static void handle_window_op(Msg *m, webview_t w) {
@@ -906,6 +1000,11 @@ static void handle_window_op(Msg *m, webview_t w) {
     window_set_icon(m->id[0] ? atoi(m->id) : -1);
   } else if (strcmp(m->type, "window_set_overlay_icon") == 0) {
     window_set_overlay_icon(m->id[0] ? atoi(m->id) : -1);
+  } else if (strcmp(m->type, "window_set_effects") == 0) {
+    /* material rides in `text`(str2), state in status, radius in opacity_val. */
+    window_set_effects(w, m->str2, m->status, m->opacity_val);
+  } else if (strcmp(m->type, "window_clear_effects") == 0) {
+    window_clear_effects(w);
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
     /* CanJoinAllSpaces = 1<<0, FullScreenAuxiliary = 1<<9. */
     unsigned long cb = (unsigned long)OBJC_MSG(

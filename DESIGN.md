@@ -1233,3 +1233,11 @@ ZtronApp.app/Contents/
 - **path v2**:`resolveResource`(绝对路径直通,否则 resourceDir+join)、`sep`/`delimiter`(POSIX 常量 "/"、":"——Windows 移植时改按平台)、`localDataDir`(Tauri 双名别名)。Tauri path.ts 36 导出面已全部对齐(Ztron 额外多 baselineDir/cwd 两个非 Tauri 扩展)
 - **updater install**(Tauri downloadAndInstall 等价):check→download(临时路径)→verify→relaunch 一步到位;**sha256 校验失败即中止并删临时文件**,绝不 relaunch 到损坏 artifact;no-update 返回 `{ok:false, reason:"no-update"}` 而非报错(幂等轮询友好)
 - 验证:hello `WIN_ICONS_GRAB_OK`(icon/overlay 往返 + overlay 清除 + grab 立即释放)85 项/FULL_OK/EXIT 0;multiwin 压力回归绿;单测 +1(icons 路由 + grab 开关对),74 tests/73 pass/0 fail
+
+## 96. 窗口 vibrancy 效果(setEffects/clearEffects)
+
+- **Tauri 契约**:`setEffects({effects: Effect[], state?, radius?, color?})`——冲突材质取第一个(documented 规则),`clearEffects` 移除。api 层补全 `Effect`(15 个 macOS NSVisualEffectMaterial + 6 个 Windows-only 保留供跨平台配置)/`EffectState`(follows/active/inactive)/`Effects` 类型
+- **native**:材质名→NSVisualEffectMaterial 枚举值映射表(SDK 头文件实证:0,3,4,5,6,7,10,11,12,13,15,17,18,21,22——跨 10.10-10.14 稳定);NSVisualEffectView 插在 contentView 子视图底层(`addSubview:positioned:relativeTo:` NSWindowBelow)不影响 webview 交互;**复用既有 effect view**(class 匹配查找)支持材质热切换;state(setState:)与 radius(wantsLayer+layer.cornerRadius);clear 遍历移除全部 NSVisualEffectView
+- **core 过滤**:Windows-only 效果在 macOS 侧过滤后取第一个;macOS 不支持的材质在 native no-op(wry 同行为)
+- **wire**:材质名走 `text`(str2)、state 走 `status` 字段(host.c 新增 `state` 键解析)、radius 走 `opacity_val`(`radius` 键)——复用既有 Msg 槽位,零结构体扩张
+- 验证:hello `WIN_EFFECTS_OK`(sidebar→titlebar 切换 + clear 往返)86 项/FULL_OK/EXIT 0;multiwin 压力回归绿;单测 +1(过滤+路由),75 tests/74 pass/0 fail

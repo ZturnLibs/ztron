@@ -321,12 +321,23 @@ export class HostWebviewHandle implements WebviewHandle {
     this.#rt.send({ type: "start_dragging", label: this.label });
   }
 
-  windowState(op: WindowStateOp, value?: boolean): boolean | Promise<boolean> {
+  windowState(
+    op: WindowStateOp,
+    value?: boolean,
+    effect?: { material?: string; state?: number; radius?: number },
+  ): boolean | Promise<boolean> {
     const query = op.startsWith("is_");
     if (query) {
       return this.#rt.sendQuery(op, this.label);
     }
-    this.#rt.send({ type: op, label: this.label, value: Boolean(value) });
+    this.#rt.send({
+      type: op,
+      label: this.label,
+      value: Boolean(value),
+      ...(effect?.material
+        ? { text: effect.material, state: effect.state ?? -1, radius: effect.radius ?? 0 }
+        : {}),
+    });
     return true;
   }
 

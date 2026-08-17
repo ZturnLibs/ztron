@@ -214,6 +214,8 @@ const UNIT_COVERED = new Set([
   "plugin:window|set_cursor_grab",
   "plugin:window|set_icon",
   "plugin:window|set_overlay_icon",
+  "plugin:window|set_effects",
+  "plugin:window|clear_effects",
   "plugin:clipboard|read_image",
   "plugin:clipboard|write_image",
   "plugin:clipboard|clear",

@@ -28,12 +28,15 @@ export {
 export {
   setupDragRegion,
   UserAttentionType,
+  Effect,
+  EffectState,
   getAllWindows,
   availableMonitors,
   currentMonitor,
   primaryMonitor,
   monitorFromPoint,
   type TitleBarStyle,
+  type Effects,
   type WindowSizeConstraints,
   type Monitor,
 } from "./window.js";

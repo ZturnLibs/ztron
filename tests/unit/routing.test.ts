@@ -226,6 +226,19 @@ test("window finishing batch: icons + cursor grab route", async () => {
   );
 });
 
+test("window effects route with material filtering + first-wins", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:window|set_effects", {
+    effects: ["blur", "sidebar", "titlebar"],
+    state: 0,
+    radius: 8,
+  });
+  await mock.main.invoke("plugin:window|clear_effects", {});
+  const setHit = mock.main.windowStateLog.find((l) => l.op === "set_effects");
+  assert.deepEqual(setHit, { op: "set_effects", value: false });
+  assert.ok(mock.main.windowStateLog.some((l) => l.op === "clear_effects"));
+});
+
 test("window v2 batch 3 (maximize/cursor/theme/workspaces) routes", async () => {
   const { mock } = buildApp();
   const w = mock.main;

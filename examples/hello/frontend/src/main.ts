@@ -61,6 +61,8 @@ import {
   readClipboardImage,
   readClipboardHtml,
   writeClipboardHtml,
+  Effect,
+  EffectState,
   writeClipboardHtml,
   writeClipboardImage,
   clearClipboard,
@@ -1169,6 +1171,18 @@ async function main(): Promise<void> {
     await new Promise((r) => setTimeout(r, 50));
     await win.setCursorGrab(false);
     report("WIN_ICONS_GRAB_OK");
+
+    // 18b. window vibrancy effects: apply a material (behind-webview
+    //      NSVisualEffectView), switch material, then clear — command round
+    //      trips; the visual change is inherently manual-review.
+    await win.setEffects({
+      effects: [Effect.Sidebar],
+      state: EffectState.Active,
+      radius: 10,
+    });
+    await win.setEffects({ effects: [Effect.Titlebar] });
+    await win.clearEffects();
+    report("WIN_EFFECTS_OK");
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

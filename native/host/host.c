@@ -296,12 +296,14 @@ static void *socket_thread(void *arg) {
     m->bool_val = zt_json_bool(line, "directory", m->bool_val);
     m->opacity_val = zt_json_double(line, "opacity", 0);
     m->opacity_val = zt_json_double(line, "zoom", m->opacity_val);
+    m->opacity_val = zt_json_double(line, "radius", m->opacity_val); /* effects */
     m->checked = zt_json_bool(line, "checked", 0);
     m->kind = zt_json_int(line, "kind", 0);
     zt_json_str(line, "submenu", m->id, sizeof(m->id)); /* submenu id */
     zt_json_str(line, "image_id", m->id, sizeof(m->id)); /* image id */
     zt_json_str(line, "b64", m->str2, sizeof(m->str2)); /* base64 image */
     m->status = zt_json_int(line, "status", 0);
+    m->status = zt_json_int(line, "state", m->status); /* effect state */
     m->status = zt_json_bool(line, "enabled", m->status);
 
     if (strcmp(m->type, "quit") == 0) {
