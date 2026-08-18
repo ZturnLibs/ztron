@@ -153,5 +153,9 @@ jobs:
           # clang-tidy has no standalone homebrew formula; the macos runner
           # has no usable llvm-tidy on PATH either — disable tidy (format
           # stays on; the vendored patches are clang-format clean).
-          WEBVIEW_CMAKE_ARGS: "-DWEBVIEW_ENABLE_CLANG_TIDY=OFF"
+          WEBVIEW_CMAKE_ARGS: >-
+            -DWEBVIEW_ENABLE_CLANG_TIDY=OFF
+            -DWEBVIEW_BUILD_DOCS=OFF
+            -DWEBVIEW_BUILD_TESTS=OFF
+            -DWEBVIEW_BUILD_AMALGAMATION=OFF
         run: bash scripts/ci.sh --spike-timeout 180000

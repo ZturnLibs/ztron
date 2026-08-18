@@ -265,7 +265,7 @@ static void dialog_open(Msg *m) {
   GtkFileChooserAction action = m->bool_val
                                     ? GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER
                                     : GTK_FILE_CHOOSER_ACTION_OPEN;
-  GtkWidget *dlg = gtk_file_chooser_native_new(
+  GtkFileChooserNative *dlg = gtk_file_chooser_native_new(
       m->id, zt_window(), action, "_Open", "_Cancel");
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
     /* GtkFileChooserNative implements the GtkFileChooser interface — a
@@ -279,12 +279,10 @@ static void dialog_open(Msg *m) {
   g_object_unref(dlg);
 }
 static void dialog_save(Msg *m) {
-  GtkWidget *dlg = gtk_file_chooser_native_new(
+  GtkFileChooserNative *dlg = gtk_file_chooser_native_new(
       m->id, zt_window(), GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", "_Cancel");
   if (m->id[0]) {
-    gtk_file_chooser_set_current_name(
-        GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))),
-        m->id);
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), m->id);
   }
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
     /* GtkFileChooserNative implements the GtkFileChooser interface — a

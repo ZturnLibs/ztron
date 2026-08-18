@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <windows.h>
+#include <commctrl.h>
 
 #include "host_platform.h"
 
@@ -559,8 +560,8 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_dragging") == 0) {
-    HWND w = zt_hwnd();
-    if (w) {
+    HWND hwnd = zt_hwnd();
+    if (hwnd) {
       ReleaseCapture();
       SendMessage(w, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
@@ -646,8 +647,8 @@ static int dispatch(Msg *m, webview_t w) {
 }
 
 static int init(void) {
-  HWND w = zt_hwnd();
-  if (w) SetWindowSubclass(w, zt_proc, 1, 0);
+  HWND hwnd = zt_hwnd();
+  if (hwnd) SetWindowSubclass(hwnd, zt_proc, 1, 0);
   return 1;
 }
 

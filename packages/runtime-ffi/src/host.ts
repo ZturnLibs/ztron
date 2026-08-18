@@ -759,15 +759,17 @@ export class HostRuntime implements RuntimeAdapter {
     this.#readLoop(streams.readable.getReader());
   }
 
+  /* Structural type: avoids clashing with @types/node's stream/web
+   * declaration when both are visible (txiki's reader has this shape). */
   async #readLoop(
-    reader: ReadableStreamDefaultReader<Uint8Array>,
+    reader: { read(): Promise<{ done: boolean; value?: Uint8Array }> },
   ): Promise<void> {
     let buf = "";
     try {
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
-        buf += dec.decode(value, { stream: true });
+        if (value) buf += dec.decode(value, { stream: true });
         let nl = buf.indexOf("\n");
         while (nl >= 0) {
           const line = buf.slice(0, nl);
