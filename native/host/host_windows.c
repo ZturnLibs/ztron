@@ -569,7 +569,7 @@ static int dispatch(Msg *m, webview_t wv) {
   }
   if (strcmp(m->type, "start_dragging") == 0) {
     HWND w = zt_hwnd();
-    if (hwnd) {
+    if (w) {
       ReleaseCapture();
       SendMessage(w, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
@@ -656,7 +656,7 @@ static int dispatch(Msg *m, webview_t wv) {
 
 static int init(void) {
   HWND w = zt_hwnd();
-  if (hwnd) SetWindowSubclass(hwnd, zt_proc, 1, 0);
+  if (w) SetWindowSubclass(w, zt_proc, 1, 0);
   return 1;
 }
 

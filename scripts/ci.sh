@@ -85,9 +85,19 @@ tail -6 /tmp/ci-unit.log
 
 # ---- 4. hello spike ----------------------------------------------------------
 
+# `timeout` (GNU coreutils) is absent on stock macOS runners — the spike's
+# own --timeout already bounds the run; wrap with timeout only when present.
+maybe_timeout() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$@"
+  else
+    "${@:2}" # skip the duration arg
+  fi
+}
+
 step "hello spike (ztron check)"
 ( cd examples/hello \
-  && ZTRON_TJS="$TJS" timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
+  && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
      ./node_modules/.bin/ztron check --timeout "$SPIKE_TIMEOUT_MS" \
      > /tmp/ci-hello.log 2>&1 ) \
   || { tail -30 /tmp/ci-hello.log; fail "hello ztron check"; }
@@ -97,7 +107,7 @@ tail -2 /tmp/ci-hello.log
 
 step "multiwin spike (ztron check --expect)"
 ( cd examples/multiwin \
-  && ZTRON_TJS="$TJS" timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
+  && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
      ./node_modules/.bin/ztron check --timeout "$SPIKE_TIMEOUT_MS" \
        --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
      > /tmp/ci-multiwin.log 2>&1 ) \

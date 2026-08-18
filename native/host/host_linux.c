@@ -432,10 +432,10 @@ static int dispatch(Msg *m, webview_t w) {
     char cmd[1024];
     /* Bounded copy of the payloads: Msg fields are up to 1 MiB; the
        command buffer is 1 KiB, so clamp both strings. */
-    char t1[256], t2[512];
-    snprintf(t1, sizeof(t1), "%s", m->id);
-    snprintf(t2, sizeof(t2), "%s", m->str2);
-    snprintf(cmd, sizeof(cmd), "notify-send %s %s", t1, t2);
+    /* Precision clamps: bound each directive instead of staging copies
+       (gcc's format-truncation analysis can still see worst-case sums
+       through staged buffers). */
+    snprintf(cmd, sizeof(cmd), "notify-send %.200s %.700s", m->id, m->str2);
     (void)!system(cmd);
     return 1;
   }
