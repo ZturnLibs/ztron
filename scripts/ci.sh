@@ -87,43 +87,50 @@ tail -6 /tmp/ci-unit.log
 
 # `timeout` (GNU coreutils) is absent on stock macOS runners — the spike's
 # own --timeout already bounds the run; wrap with timeout only when present.
-maybe_timeout() {
-  if command -v timeout >/dev/null 2>&1; then
-    timeout "$@"
+run_ztron_check() {
+  # $1 = example dir, rest = ztron args. GNU timeout guards only when both
+  # it and a real bin exist (functions cannot be exec'd by timeout).
+  local dir="$1"; shift
+  if [ -n "$ZTRON_BIN" ] && command -v timeout >/dev/null 2>&1; then
+    ( cd "$dir" && ZTRON_TJS="$TJS" timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
+        "$ZTRON_BIN" "$@" )
   else
-    "${@:2}" # skip the duration arg
+    ( cd "$dir" && ZTRON_TJS="$TJS" ztron "$@" )
   fi
 }
 
-ZTRON_BIN="examples/hello/node_modules/.bin/ztron"
+ZTRON_BIN="$ROOT/examples/hello/node_modules/.bin/ztron"
 if [ ! -x "$ZTRON_BIN" ]; then
-  # Some CI pnpm layouts link example bins at the workspace root only.
-  ZTRON_BIN="node_modules/.bin/ztron"
+  ZTRON_BIN="$ROOT/node_modules/.bin/ztron"
 fi
 if [ ! -x "$ZTRON_BIN" ]; then
-  echo "ztron bin not found in example or root node_modules" >&2
-  ls -la examples/hello/node_modules/.bin/ 2>/dev/null | head -5 >&2
-  ls -la node_modules/.bin/ztron 2>/dev/null >&2
-  fail "ztron bin resolution"
+  # Some CI pnpm layouts do not link example devDependency bins; the CLI is
+  # plain node (built by the workspace step) — invoke its entry directly.
+  CLI_ENTRY="$ROOT/packages/cli/dist/index.js"
+  if [ -f "$CLI_ENTRY" ]; then
+    ztron() { node "$CLI_ENTRY" "$@"; }
+    ZTRON_BIN=""
+    echo "(ztron bin link absent; invoking $CLI_ENTRY via node)"
+  else
+    echo "ztron bin not found and $CLI_ENTRY missing" >&2
+    fail "ztron bin resolution"
+  fi
+else
+  ztron() { "$ZTRON_BIN" "$@"; }
 fi
-ZTRON_BIN="$ROOT/$ZTRON_BIN"
 
 step "hello spike (ztron check)"
-( cd examples/hello \
-  && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
-     "$ZTRON_BIN" check --timeout "$SPIKE_TIMEOUT_MS" \
-     > /tmp/ci-hello.log 2>&1 ) \
+run_ztron_check "$ROOT/examples/hello" check --timeout "$SPIKE_TIMEOUT_MS" \
+  > /tmp/ci-hello.log 2>&1 \
   || { tail -30 /tmp/ci-hello.log; fail "hello ztron check"; }
 tail -2 /tmp/ci-hello.log
 
 # ---- 5. multiwin spike -------------------------------------------------------
 
 step "multiwin spike (ztron check --expect)"
-( cd examples/multiwin \
-  && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
-     "$ZTRON_BIN" check --timeout "$SPIKE_TIMEOUT_MS" \
-       --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
-     > /tmp/ci-multiwin.log 2>&1 ) \
+run_ztron_check "$ROOT/examples/multiwin" check --timeout "$SPIKE_TIMEOUT_MS" \
+    --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
+  > /tmp/ci-multiwin.log 2>&1 \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
