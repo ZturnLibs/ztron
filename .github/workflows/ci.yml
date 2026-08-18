@@ -112,7 +112,11 @@ jobs:
             -I native\webview\core\include ^
             native\host\host_windows.c
 
+  # Manual-only: each run costs ~25 macos-runner minutes; local
+  # `bash scripts/ci.sh` is the routine full-chain gate. macos free-tier
+  # quota is limited — trigger this on demand (releases, risky changes).
   macos-spike:
+    if: github.event_name == 'workflow_dispatch'
     name: macos full chain (native + check)
     runs-on: macos-latest
     steps:
