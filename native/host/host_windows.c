@@ -215,6 +215,8 @@ static void zt_shortcut_pressed(int id);
 
 static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
                                 UINT_PTR id, DWORD_PTR ref) {
+  (void)id;
+  (void)ref;
   switch (msg) {
     case WM_APP + 1: /* tray callback */
       if (LOWORD(lp) == WM_LBUTTONUP) emit_tray_event("click");
@@ -457,29 +459,29 @@ static int dispatch(Msg *m, webview_t w) {
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
     RECT r;
-    HWND w = zt_hwnd();
-    if (w && m->req_id >= 0 && GetWindowRect(w, &r)) zt_reply_frame(m->req_id, &r);
+    HWND hwnd = zt_hwnd();
+    if (hwnd && m->req_id >= 0 && GetWindowRect(hwnd, &r)) zt_reply_frame(m->req_id, &r);
     else if (m->req_id >= 0) zt_reply_null(m->req_id);
     return 1;
   }
   if (strcmp(m->type, "window_set_position") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     return 1;
   }
   if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* WM_CLOSE intercept not implemented */
   if (strcmp(m->type, "window_destroy") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w) DestroyWindow(w);
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w) SetWindowPos(w, 0, m->x, m->y, m->width, m->height, SWP_NOZORDER);
     return 1;
   }
   if (strcmp(m->type, "window_get_state") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w && m->req_id >= 0) {
       RECT wr, mr;
       MONITORINFO mi = { sizeof(mi) };
@@ -530,7 +532,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w) {
       LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
       if (m->bool_val) ex |= WS_EX_TRANSPARENT;
@@ -540,7 +542,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "window_get_title") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w && m->req_id >= 0) {
       char title[512];
       GetWindowTextA(w, title, sizeof(title));
@@ -551,7 +553,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_resize_dragging") == 0) {
-    HWND w = zt_hwnd();
+    HWND hwnd = zt_hwnd();
     if (w) {
       const char *d = m->str2;
       int ht = HTBOTTOMRIGHT;

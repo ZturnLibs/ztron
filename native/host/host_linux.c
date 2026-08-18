@@ -356,7 +356,7 @@ static int dispatch(Msg *m, webview_t w) {
                "\"always_on_top\":%s,\"visible\":%s,\"resizable\":%s}",
                gtk_window_is_maximized(GTK_WINDOW(w)) ? "true" : "false",
                "false",
-               gtk_window_is_fullscreen(GTK_WINDOW(w)) ? "true" : "false",
+               (gdk_window_get_state(gtk_widget_get_window(GTK_WIDGET(w))) & GDK_WINDOW_STATE_FULLSCREEN) ? "true" : "false",
                "false",
                gtk_widget_get_visible(GTK_WIDGET(w)) ? "true" : "false",
                gtk_window_get_resizable(GTK_WINDOW(w)) ? "true" : "false");
@@ -425,7 +425,7 @@ static int dispatch(Msg *m, webview_t w) {
     GtkWindow *w = zt_window();
     if (w) {
       GdkCursor *cur = gdk_cursor_new_from_name(gdk_display_get_default(), m->str2[0] ? m->str2 : "default");
-      GdkWindow *gw = gtk_widget_get_window(w);
+      GdkWindow *gw = gtk_widget_get_window(GTK_WIDGET(w));
       if (cur && gw) {
         gdk_window_set_cursor(gw, cur);
         g_object_unref(cur);
