@@ -136,5 +136,12 @@ tail -2 /tmp/ci-multiwin.log
 
 # ---- summary -----------------------------------------------------------------
 
+# Kill any straggler dev servers / backends: the CLI's vite child holds the
+# job shell's inherited stdio open, keeping headless CI steps "running"
+# long after the checks finished (observed on macos runners).
+pkill -f "vite" 2>/dev/null || true
+pkill -f "ztron-host" 2>/dev/null || true
+pkill -f "ztron check" 2>/dev/null || true
+
 printf '\n\033[1;32m✓ FULL CI GREEN\033[0m  (native%s · build · units · hello · multiwin)\n' \
   "$([[ $SKIP_NATIVE -eq 1 ]] && echo ' [skipped]' || echo '')"
