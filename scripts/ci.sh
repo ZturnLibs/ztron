@@ -95,10 +95,23 @@ maybe_timeout() {
   fi
 }
 
+ZTRON_BIN="examples/hello/node_modules/.bin/ztron"
+if [ ! -x "$ZTRON_BIN" ]; then
+  # Some CI pnpm layouts link example bins at the workspace root only.
+  ZTRON_BIN="node_modules/.bin/ztron"
+fi
+if [ ! -x "$ZTRON_BIN" ]; then
+  echo "ztron bin not found in example or root node_modules" >&2
+  ls -la examples/hello/node_modules/.bin/ 2>/dev/null | head -5 >&2
+  ls -la node_modules/.bin/ztron 2>/dev/null >&2
+  fail "ztron bin resolution"
+fi
+ZTRON_BIN="$ROOT/$ZTRON_BIN"
+
 step "hello spike (ztron check)"
 ( cd examples/hello \
   && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
-     ./node_modules/.bin/ztron check --timeout "$SPIKE_TIMEOUT_MS" \
+     "$ZTRON_BIN" check --timeout "$SPIKE_TIMEOUT_MS" \
      > /tmp/ci-hello.log 2>&1 ) \
   || { tail -30 /tmp/ci-hello.log; fail "hello ztron check"; }
 tail -2 /tmp/ci-hello.log
@@ -108,7 +121,7 @@ tail -2 /tmp/ci-hello.log
 step "multiwin spike (ztron check --expect)"
 ( cd examples/multiwin \
   && ZTRON_TJS="$TJS" maybe_timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
-     ./node_modules/.bin/ztron check --timeout "$SPIKE_TIMEOUT_MS" \
+     "$ZTRON_BIN" check --timeout "$SPIKE_TIMEOUT_MS" \
        --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
      > /tmp/ci-multiwin.log 2>&1 ) \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }

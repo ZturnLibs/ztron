@@ -484,7 +484,7 @@ static int dispatch(Msg *m, webview_t wv) {
   if (strcmp(m->type, "window_get_state") == 0) {
     HWND w = zt_hwnd();
     if (w && m->req_id >= 0) {
-      RECT wr, mr;
+      RECT wr;
       MONITORINFO mi = { sizeof(mi) };
       HMONITOR mon = MonitorFromWindow(w, MONITOR_DEFAULTTOPRIMARY);
       GetMonitorInfo(mon, &mi);
