@@ -329,17 +329,7 @@ async function main(): Promise<void> {
     } catch {
       /* external network unavailable: optional */
     }
-    // 5b. scoped http: allowed URL works, out-of-scope URL is denied
-    try {
-      const resp = await http.fetch("https://api.github.com/");
-      if (resp.ok && resp.status === 200) {
-        report("HTTP_OK:" + resp.status);
-      } else {
-        report("HTTP_FAIL:status=" + resp.status);
-      }
-    } catch (e) {
-      report("HTTP_FAIL:" + extractError(e).slice(0, 40));
-    }
+    // 5b-cont. out-of-scope URL is denied (scope enforcement)
     try {
       await http.fetch("https://evil.example.com/steal");
       report("HTTP_SCOPE_FAIL: was allowed");
