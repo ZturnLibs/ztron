@@ -89,3 +89,39 @@ declare const tjs: {
     fetch(req: { url: string; method: string }): Promise<Response> | Response;
   }): Promise<{ port: number; close(): void }>;
 };
+
+/*
+ * Runtime globals (txiki.js provides these; the lib config is ES2022-only
+ * so tsc does not know them without DOM/node types — declare the surface
+ * the core plugins actually use).
+ */
+
+declare class TextDecoder {
+  constructor(label?: string);
+  decode(bytes: Uint8Array, options?: { stream?: boolean }): string;
+}
+declare class TextEncoder {
+  encode(s: string): Uint8Array;
+}
+declare function atob(s: string): string;
+declare function btoa(s: string): string;
+
+declare class URL {
+  constructor(url: string, base?: string);
+  readonly href: string;
+  readonly protocol: string;
+  readonly host: string;
+  readonly hostname: string;
+  readonly port: string;
+  readonly pathname: string;
+  readonly search: string;
+  readonly searchParams: URLSearchParams;
+  static canParse(url: string, base?: string): boolean;
+  toString(): string;
+}
+declare class URLSearchParams {
+  constructor(init?: string | string[][] | Record<string, string>);
+  get(name: string): string | null;
+  has(name: string): boolean;
+  toString(): string;
+}
