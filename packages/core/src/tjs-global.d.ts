@@ -166,3 +166,18 @@ declare const crypto: {
     digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer>;
   };
 };
+
+/* Timers (txiki provides the standard ones). */
+declare function setTimeout(
+  cb: (...args: unknown[]) => void,
+  ms?: number,
+  ...args: unknown[]
+): number;
+declare function clearTimeout(id: number): void;
+declare function setInterval(
+  cb: (...args: unknown[]) => void,
+  ms?: number,
+  ...args: unknown[]
+): number;
+declare function clearInterval(id: number): void;
+declare function queueMicrotask(cb: () => void): void;

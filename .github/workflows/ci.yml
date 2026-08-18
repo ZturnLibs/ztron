@@ -48,8 +48,10 @@ jobs:
           cmake -B native/webview/build -S native/webview \
             -DCMAKE_BUILD_TYPE=Release \
             -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON \
-            -DWEBVIEW_BUILD_DOCS=OFF
-          cmake --build native/webview/build
+            -DWEBVIEW_BUILD_DOCS=OFF \
+            -DWEBVIEW_BUILD_TESTS=OFF \
+            -DWEBVIEW_BUILD_AMALGAMATION=OFF
+          cmake --build native/webview/build 2>&1 | tail -40
       # NOTE: the vendored webview checkout is not in git (patched at build
       # time). CI builds stock upstream; the vendored patches only touch
       # macOS code paths (cocoa backend) so the Linux link surface is
@@ -93,7 +95,9 @@ jobs:
           cmake -B native\webview\build -S native\webview ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_STATIC_LIBRARY=ON ^
-            -DWEBVIEW_BUILD_SHARED_LIBRARY=OFF
+            -DWEBVIEW_BUILD_SHARED_LIBRARY=OFF ^
+            -DWEBVIEW_BUILD_DOCS=OFF -DWEBVIEW_BUILD_TESTS=OFF ^
+            -DWEBVIEW_BUILD_AMALGAMATION=OFF
           cmake --build native\webview\build --config Release
       # See the linux job note: patches are macOS-only, the Windows surface
       # matches stock upstream.
@@ -141,7 +145,7 @@ jobs:
           cd native/webview
           git apply ../../scripts/patches/webview-local.patch || \
             echo "patch already applied or not needed"
-      - name: install clang-format (webview build requirement)
-        run: brew install clang-format
+      - name: install clang-format + clang-tidy (webview build requirement)
+        run: brew install clang-format clang-tidy
       - name: full chain (build-native + units + ztron check spikes)
         run: bash scripts/ci.sh --spike-timeout 180000
