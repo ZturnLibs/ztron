@@ -23,7 +23,7 @@ import type {
   WindowConfig,
 } from "./runtime.js";
 import { StateManager } from "./state.js";
-import { buildInitScript } from "@ztron/inject";
+import { buildInitScript } from "@ztronlib/inject";
 import {
   PermissionRegistry,
   ResolvedAcl,

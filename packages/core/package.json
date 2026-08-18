@@ -1,5 +1,5 @@
 {
-  "name": "@ztron/core",
+  "name": "@ztronlib/core",
   "version": "0.1.0",
   "description": "Ztron main-process framework core: IPC, commands, events, state, plugins",
   "type": "module",
@@ -19,9 +19,21 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ztron/inject": "workspace:*"
+    "@ztronlib/inject": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZturnLibs/ztron.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZturnLibs/ztron/issues"
+  },
+  "homepage": "https://github.com/ZturnLibs/ztron#readme",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

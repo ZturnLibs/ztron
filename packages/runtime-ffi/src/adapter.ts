@@ -1,8 +1,8 @@
 /**
  * Runtime adapter backed by `webview/webview` via `tjs:ffi`.
- * Implements the `RuntimeAdapter` / `WebviewHandle` contract from `@ztron/core`.
+ * Implements the `RuntimeAdapter` / `WebviewHandle` contract from `@ztronlib/core`.
  */
-import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "@ztron/core";
+import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "@ztronlib/core";
 import { JSCallback, types, type Pointer } from "tjs:ffi";
 import { loadWebviewLibrary, type WebviewLibrary } from "./webview.js";
 
@@ -60,7 +60,7 @@ export class FfiWebviewHandle implements WebviewHandle {
 
   // Reference FFI path: native window frame/position is handled by the host
   // adapter (Plan A); the FFI adapter only exercises the webview C surface.
-  getFrame(): Promise<import("@ztron/core").WindowFrame | null> {
+  getFrame(): Promise<import("@ztronlib/core").WindowFrame | null> {
     return Promise.resolve(null);
   }
 
@@ -108,7 +108,7 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides theme override) */
   }
 
-  getInnerSize(): Promise<import("@ztron/core").WindowFrame | null> {
+  getInnerSize(): Promise<import("@ztronlib/core").WindowFrame | null> {
     return Promise.resolve(null);
   }
 
@@ -128,11 +128,11 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides traffic-light positioning) */
   }
 
-  queryMonitors(): Promise<import("@ztron/core").MonitorInfo[] | null> {
+  queryMonitors(): Promise<import("@ztronlib/core").MonitorInfo[] | null> {
     return Promise.resolve(null);
   }
 
-  getWindowState(): Promise<import("@ztron/core").WindowStateSnapshot | null> {
+  getWindowState(): Promise<import("@ztronlib/core").WindowStateSnapshot | null> {
     return Promise.resolve(null);
   }
 
@@ -197,7 +197,7 @@ export class FfiWebviewHandle implements WebviewHandle {
 
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
-    op: import("@ztron/core").WindowStateOp,
+    op: import("@ztronlib/core").WindowStateOp,
   ): boolean | Promise<boolean> {
     return op.startsWith("is_") ? false : true;
   }

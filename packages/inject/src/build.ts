@@ -7,7 +7,7 @@
  * injected through `webview_init`, which in webview/webview is a post-handler
  * setter rather than a page-init hook (see DESIGN.md §M0 findings).
  *
- * Transport contract (must stay in sync with `@ztron/api/src/internals.ts`):
+ * Transport contract (must stay in sync with `@ztronlib/api/src/internals.ts`):
  *   - `invoke(cmd, args, options)` → Promise, resolved/rejected through the
  *     bound `window.__TAURI_IPC__` (webview_bind + webview_return).
  *   - `transformCallback` / `unregisterCallback` / `runCallback` → callback

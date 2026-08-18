@@ -1256,3 +1256,9 @@ ZtronApp.app/Contents/
 - **UAF 复现终局**(PR #1369 补强):第三版 GUI 交错压测(title/size/eval 循环 + 销毁洪泛窗,40 轮 × ASan/PR1 基线)仍无报告;stock master 上同类程序直接挂在 deplete 死锁(两 bug 叠加,先死锁后 UAF)。**结论如实评论到 PR #1369**:结构性论证成立(associated 裸指针 + 投递路径 + 析构零摘除 + 上游 TODO 自认),独立复现暂无——邀请维护者提供压测形态
 - **上游交叉引用**(提升 PR review 概率):①issue #851(Custom URI scheme support,2019 年开,正是 PR #1370 主题,作者还引用了 WebKitGTK/WebView2 官方 API)→ 评论附 PR 与示例代码;②issue #616(macOS 关窗冻结,正是 deplete 死锁的用户症状)→ 评论指向 PR #1368 机制解释。#1244 为 Linux/valgrind 不同症,不引用避免噪音
 - 状态:ci.sh 全链(native 含)两次 exit 0;--skip-native 路径 exit 0;单测 75/74/0
+
+## 99. CI(Win/Linux 编译验证)+ GitHub Packages 发包
+
+- **CI 矩阵**(.github/workflows/ci.yml,四 job):①unit × {ubuntu, windows, macos}(纯 TS:build+test,三平台 node --test 首验);②native-linux(apt 装 libgtk-3-dev/webkit2gtk-4.1,stock 上游库 `-fsyntax-only` + 全链接 + 2s 启动冒烟,退出码 124(超时杀)/0 均算过,139/134 崩溃判败)——**host_linux.c 骨架首次进入真实工具链**;③native-windows(MSVC `cl -Zs -W4 -WX` 语法检查 + WebView2 静态库 cmake);④macos-spike(全链:submodules→build txiki→clone webview+apply patch→`scripts/ci.sh`)。vendored webview 不在 git 内:Linux/Windows job 构 stock 上游(本地补丁只碰 cocoa 路径,链接面等价,job 注释已说明);macOS job 复刻 build-native.sh 的 clone+patch 流程
+- **npm 发包 @ztronlib/***:GitHub Packages(私有仓库配套,GITHUB_TOKEN 免新账号),`publishConfig.registry=npm.pkg.github.com`,scope 全库改名 @ztron→@ztronlib(包名/依赖/workspace/源码 import/文档五层同步,example devDeps 的 @ztron/cli 漏网一处在 install 即暴露——workspace 协议找不到包,立即捕获);补 MIT LICENSE(上游 webview/txiki 均 MIT)。publish.yml:tag v* 触发,五包按依赖拓扑序(→core→runtime-ffi→api→cli)`pnpm publish --no-git-checks`(自动重写 workspace:* 协议);pack dry-run 验证 tarball 只含 dist
+- 验证:改名后本地全链绿(build 0 err/单测 75/74/0/ci.sh --skip-native FULL GREEN);两 workflow YAML ruby-parser 校验过;推送后以 Actions 实跑为准

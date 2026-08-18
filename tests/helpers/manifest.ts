@@ -1,7 +1,7 @@
 /**
  * Test manifests — the source of truth for "100% coverage".
  * `COMMANDS` lists every command the framework must register (built-in +
- * plugins). `API_EXPORTS` lists every value export the `@ztron/api` surface
+ * plugins). `API_EXPORTS` lists every value export the `@ztronlib/api` surface
  * must provide. Tests assert the running framework matches these exactly
  * (no missing, no extra).
  */
@@ -288,7 +288,7 @@ export const COMMANDS: readonly string[] = [
 
 export const COMMAND_SET: ReadonlySet<string> = new Set(COMMANDS);
 
-/** Value exports the `@ztron/api` package must provide. */
+/** Value exports the `@ztronlib/api` package must provide. */
 export const API_EXPORTS: readonly string[] = [
   "invoke",
   "internals",

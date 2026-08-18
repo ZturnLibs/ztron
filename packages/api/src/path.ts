@@ -1,5 +1,5 @@
 /**
- * Path utilities — mirrors `plugin:path|*` commands from `@ztron/core`.
+ * Path utilities — mirrors `plugin:path|*` commands from `@ztronlib/core`.
  * Pure string operations, no scope needed.
  */
 import { invoke } from "./core.js";

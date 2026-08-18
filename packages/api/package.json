@@ -1,5 +1,5 @@
 {
-  "name": "@ztron/api",
+  "name": "@ztronlib/api",
   "version": "0.1.0",
   "description": "Ztron frontend transport layer, translated from @tauri-apps/api/core",
   "type": "module",
@@ -20,5 +20,17 @@
   },
   "devDependencies": {
     "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZturnLibs/ztron.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZturnLibs/ztron/issues"
+  },
+  "homepage": "https://github.com/ZturnLibs/ztron#readme",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

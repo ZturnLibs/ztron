@@ -1,5 +1,5 @@
 /**
- * Scoped filesystem API — mirrors `plugin:fs|*` commands from `@ztron/core`.
+ * Scoped filesystem API — mirrors `plugin:fs|*` commands from `@ztronlib/core`.
  * Every path is checked against the app's configured scope in the backend.
  */
 import { invoke } from "./core.js";

@@ -1,8 +1,8 @@
 /**
  * The single seam between the frontend and the Ztron main process.
  *
- * Everything in `@ztron/api` goes through `window.__TAURI_INTERNALS__`.
- * The `@ztron/inject` package is responsible for providing this object
+ * Everything in `@ztronlib/api` goes through `window.__TAURI_INTERNALS__`.
+ * The `@ztronlib/inject` package is responsible for providing this object
  * inside the WebView (via `webview_init`), so the transport contract below
  * MUST stay in sync between `api` and `inject`.
  */
@@ -21,7 +21,7 @@ export interface CallbackHandle {
   id: number;
 }
 
-/** The full contract `@ztron/inject` must expose on the window global. */
+/** The full contract `@ztronlib/inject` must expose on the window global. */
 export interface Internals {
   /** Sends a message to the backend and resolves with its response. */
   invoke<T>(

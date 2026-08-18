@@ -1,5 +1,5 @@
 /**
- * Scoped HTTP client — mirrors `plugin:http|fetch` from `@ztron/core`.
+ * Scoped HTTP client — mirrors `plugin:http|fetch` from `@ztronlib/core`.
  * Every request is checked against the app's configured HTTP scope.
  */
 import { invoke, Channel } from "./core.js";
