@@ -1249,3 +1249,10 @@ ZtronApp.app/Contents/
 - **退出语义(坑:首版被 child exit 0 覆盖)**:verdict 经共享 box 传递,child exit 时 harness 结论优先——FAIL 标签 + exit 0 仍判败,timeout(默认 120s)强杀;`--expect` 精确钉必需标签(缺即 exit 1,防"提前自灭也绿灯"假阳性)
 - **确定性副产品**:hello 的 HTTP_OK 原依赖 api.github.com(实测撞 504 假失败),改走本地 echo server;外部可达性降为 HTTP_EXT_BONUS 尽力项——外部依赖不入确定性检查的纪律入库
 - 验证:hello `86 checks passed (FULL_OK)` exit 0;multiwin `--expect SECOND_WINDOW_OK,SECOND_OPS_OK,STRESS_OK` 4/4 exit 0;错误标签 → exit 1;--timeout 3000 → exit 1;单测 75/74/0 无回归
+
+## 98. 一键回归链(ci.sh)+ 上游交叉引用 + UAF 复现终局
+
+- **ci.sh**:preflight(清 persisted-scope/rotation 陈旧态)→ native(-Wall -Werror,并校验 vendored diff 与 webview-local.patch 一致,真不一致才重导出)→ workspace build → 单测 → hello `ztron check` → multiwin `ztron check --expect` 三连;任何一步败即中止并 tail 日志;`--skip-native`/`--spike-timeout` 可调。**首跑即抓真 bug**:P30 改 hello HTTP_OK 为本地 echo server 时,regex 替换把新块落在了旧 github 块之前,旧块残留导致 check 仍依赖外网,真实 403 假失败——删除残留块,HTTP_OK 现纯本地
+- **UAF 复现终局**(PR #1369 补强):第三版 GUI 交错压测(title/size/eval 循环 + 销毁洪泛窗,40 轮 × ASan/PR1 基线)仍无报告;stock master 上同类程序直接挂在 deplete 死锁(两 bug 叠加,先死锁后 UAF)。**结论如实评论到 PR #1369**:结构性论证成立(associated 裸指针 + 投递路径 + 析构零摘除 + 上游 TODO 自认),独立复现暂无——邀请维护者提供压测形态
+- **上游交叉引用**(提升 PR review 概率):①issue #851(Custom URI scheme support,2019 年开,正是 PR #1370 主题,作者还引用了 WebKitGTK/WebView2 官方 API)→ 评论附 PR 与示例代码;②issue #616(macOS 关窗冻结,正是 deplete 死锁的用户症状)→ 评论指向 PR #1368 机制解释。#1244 为 Linux/valgrind 不同症,不引用避免噪音
+- 状态:ci.sh 全链(native 含)两次 exit 0;--skip-native 路径 exit 0;单测 75/74/0
