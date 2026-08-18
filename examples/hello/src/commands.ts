@@ -3,7 +3,7 @@
  * Each command is declared with `defineCommand` so the generator can emit
  * type-safe frontend bindings.
  */
-import { defineCommand } from "@ztronlib/core";
+import { defineCommand } from "@zturnlibs/core";
 
 export const greet = defineCommand("my:greet", {
   args: {} as { name: string },

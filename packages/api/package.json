@@ -1,5 +1,5 @@
 {
-  "name": "@ztronlib/api",
+  "name": "@zturnlibs/api",
   "version": "0.1.0",
   "description": "Ztron frontend transport layer, translated from @tauri-apps/api/core",
   "type": "module",

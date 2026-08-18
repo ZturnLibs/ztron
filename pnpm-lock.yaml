@@ -14,20 +14,20 @@ importers:
 
   examples/hello:
     dependencies:
-      '@ztronlib/api':
+      '@zturnlibs/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@ztronlib/core':
+      '@zturnlibs/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@ztronlib/runtime-ffi':
+      '@zturnlibs/runtime-ffi':
         specifier: workspace:*
         version: link:../../packages/runtime-ffi
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
-      '@ztronlib/cli':
+      '@zturnlibs/cli':
         specifier: workspace:*
         version: link:../../packages/cli
       typescript:
@@ -36,17 +36,17 @@ importers:
 
   examples/multiwin:
     dependencies:
-      '@ztronlib/api':
+      '@zturnlibs/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@ztronlib/core':
+      '@zturnlibs/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@ztronlib/runtime-ffi':
+      '@zturnlibs/runtime-ffi':
         specifier: workspace:*
         version: link:../../packages/runtime-ffi
     devDependencies:
-      '@ztronlib/cli':
+      '@zturnlibs/cli':
         specifier: workspace:*
         version: link:../../packages/cli
 
@@ -58,7 +58,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@ztronlib/inject':
+      '@zturnlibs/inject':
         specifier: workspace:*
         version: link:../inject
       esbuild:
@@ -77,7 +77,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@ztronlib/inject':
+      '@zturnlibs/inject':
         specifier: workspace:*
         version: link:../inject
     devDependencies:
@@ -93,7 +93,7 @@ importers:
 
   packages/runtime-ffi:
     dependencies:
-      '@ztronlib/core':
+      '@zturnlibs/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

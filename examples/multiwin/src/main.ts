@@ -9,8 +9,8 @@
  *  4. backend destroys the second window (registry cleanup path)
  *  5. main terminates → MULTI_WINDOW_RUNTIME_OK + exit 0
  */
-import { AppBuilder } from "@ztronlib/core";
-import { HostRuntime } from "@ztronlib/runtime-ffi";
+import { AppBuilder } from "@zturnlibs/core";
+import { HostRuntime } from "@zturnlibs/runtime-ffi";
 
 declare const tjs: {
   env: Record<string, string | undefined>;

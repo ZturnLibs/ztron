@@ -7,11 +7,11 @@
     "dev": "ztron dev"
   },
   "dependencies": {
-    "@ztronlib/api": "workspace:*",
-    "@ztronlib/core": "workspace:*",
-    "@ztronlib/runtime-ffi": "workspace:*"
+    "@zturnlibs/api": "workspace:*",
+    "@zturnlibs/core": "workspace:*",
+    "@zturnlibs/runtime-ffi": "workspace:*"
   },
   "devDependencies": {
-    "@ztronlib/cli": "workspace:*"
+    "@zturnlibs/cli": "workspace:*"
   }
 }

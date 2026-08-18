@@ -20,7 +20,7 @@ import type {
   WindowEvent,
   WindowFrame,
   WindowStateOp,
-} from "@ztronlib/core";
+} from "@zturnlibs/core";
 import type { TjsSocket } from "./tjs-global.js";
 
 const enc = new TextEncoder();
@@ -85,7 +85,7 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
-  getWindowState(): Promise<import("@ztronlib/core").WindowStateSnapshot | null> {
+  getWindowState(): Promise<import("@zturnlibs/core").WindowStateSnapshot | null> {
     return this.#rt.sendRequest("window_get_state", {}, this.label).then((r) => {
       if (r && typeof r === "object") {
         const s = r as Record<string, unknown>;
@@ -295,7 +295,7 @@ export class HostWebviewHandle implements WebviewHandle {
     kind: "all" | "primary" | "current" | "point",
     x?: number,
     y?: number,
-  ): Promise<import("@ztronlib/core").MonitorInfo[] | null> {
+  ): Promise<import("@zturnlibs/core").MonitorInfo[] | null> {
     const op =
       kind === "all"
         ? "available_monitors"
@@ -308,7 +308,7 @@ export class HostWebviewHandle implements WebviewHandle {
       .sendRequest(op, { x: x ?? 0, y: y ?? 0 }, this.label)
       .then((r) =>
         Array.isArray(r)
-          ? (r as import("@ztronlib/core").MonitorInfo[])
+          ? (r as import("@zturnlibs/core").MonitorInfo[])
           : null,
       );
   }
@@ -458,7 +458,7 @@ export class HostRuntime implements RuntimeAdapter {
     createMenu: (menu) => {
       const addItems = (
         menuId: string,
-        items: import("@ztronlib/core").MenuItemConfig[],
+        items: import("@zturnlibs/core").MenuItemConfig[],
       ) => {
         for (const item of items) {
           if (item.children?.length) {
@@ -713,7 +713,7 @@ export class HostRuntime implements RuntimeAdapter {
   };
 
   /** Image controller (implements `RuntimeAdapter.image`). */
-  readonly image: import("@ztronlib/core").ImageController = {
+  readonly image: import("@zturnlibs/core").ImageController = {
     fromBytes: (base64) =>
       this.sendRequest("image_from_bytes", { b64: base64 }).then((r) =>
         typeof r === "string" ? Number(r) : -1,
@@ -728,7 +728,7 @@ export class HostRuntime implements RuntimeAdapter {
   };
 
   /** Process controller (implements `RuntimeAdapter.process`). */
-  readonly process: import("@ztronlib/core").ProcessController = {
+  readonly process: import("@zturnlibs/core").ProcessController = {
     exit: (code) => {
       this.send({ type: "app_exit", label: "main", status: code ?? 0 });
     },

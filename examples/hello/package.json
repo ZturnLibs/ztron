@@ -9,13 +9,13 @@
     "dev": "ztron dev --entry src/main.ts"
   },
   "dependencies": {
-    "@ztronlib/api": "workspace:*",
-    "@ztronlib/core": "workspace:*",
-    "@ztronlib/runtime-ffi": "workspace:*"
+    "@zturnlibs/api": "workspace:*",
+    "@zturnlibs/core": "workspace:*",
+    "@zturnlibs/runtime-ffi": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2",
-    "@ztronlib/cli": "workspace:*"
+    "@zturnlibs/cli": "workspace:*"
   }
 }

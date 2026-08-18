@@ -1,5 +1,5 @@
 {
-  "name": "@ztronlib/core",
+  "name": "@zturnlibs/core",
   "version": "0.1.0",
   "description": "Ztron main-process framework core: IPC, commands, events, state, plugins",
   "type": "module",
@@ -19,7 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@ztronlib/inject": "workspace:*"
+    "@zturnlibs/inject": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2"
