@@ -143,11 +143,6 @@ static gboolean on_configure(GtkWidget *w, GdkEventConfigure *e, gpointer d) {
   emit_window_event("resize");
   return FALSE;
 }
-static gboolean on_move(GtkWidget *w, GdkEvent *e, gpointer d) {
-  (void)w; (void)e; (void)d;
-  emit_window_event("move");
-  return FALSE;
-}
 static gboolean on_focus_in(GtkWidget *w, GdkEventFocus *e, gpointer d) {
   (void)w; (void)e; (void)d;
   emit_window_event("focus");
@@ -435,7 +430,12 @@ static int dispatch(Msg *m, webview_t w) {
   }
   if (strcmp(m->type, "notification_send") == 0) {
     char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "notify-send %s %s", m->id, m->str2);
+    /* Bounded copy of the payloads: Msg fields are up to 1 MiB; the
+       command buffer is 1 KiB, so clamp both strings. */
+    char t1[256], t2[512];
+    snprintf(t1, sizeof(t1), "%s", m->id);
+    snprintf(t2, sizeof(t2), "%s", m->str2);
+    snprintf(cmd, sizeof(cmd), "notify-send %s %s", t1, t2);
     (void)!system(cmd);
     return 1;
   }

@@ -455,33 +455,34 @@ static int shortcut_unregister(const char *name) {
 
 /* ---- platform ops ---- */
 
-static int dispatch(Msg *m, webview_t w) {
+static int dispatch(Msg *m, webview_t wv) {
+  (void)wv;
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
     RECT r;
-    HWND hwnd = zt_hwnd();
-    if (hwnd && m->req_id >= 0 && GetWindowRect(hwnd, &r)) zt_reply_frame(m->req_id, &r);
+    HWND w = zt_hwnd();
+    if (w && m->req_id >= 0 && GetWindowRect(w, &r)) zt_reply_frame(m->req_id, &r);
     else if (m->req_id >= 0) zt_reply_null(m->req_id);
     return 1;
   }
   if (strcmp(m->type, "window_set_position") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     return 1;
   }
   if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* WM_CLOSE intercept not implemented */
   if (strcmp(m->type, "window_destroy") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w) DestroyWindow(w);
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w) SetWindowPos(w, 0, m->x, m->y, m->width, m->height, SWP_NOZORDER);
     return 1;
   }
   if (strcmp(m->type, "window_get_state") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w && m->req_id >= 0) {
       RECT wr, mr;
       MONITORINFO mi = { sizeof(mi) };
@@ -532,7 +533,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "set_ignore_cursor_events") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w) {
       LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
       if (m->bool_val) ex |= WS_EX_TRANSPARENT;
@@ -542,7 +543,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "window_get_title") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w && m->req_id >= 0) {
       char title[512];
       GetWindowTextA(w, title, sizeof(title));
@@ -553,7 +554,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_resize_dragging") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (w) {
       const char *d = m->str2;
       int ht = HTBOTTOMRIGHT;
@@ -567,7 +568,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_dragging") == 0) {
-    HWND hwnd = zt_hwnd();
+    HWND w = zt_hwnd();
     if (hwnd) {
       ReleaseCapture();
       SendMessage(w, WM_NCLBUTTONDOWN, HTCAPTION, 0);
@@ -654,7 +655,7 @@ static int dispatch(Msg *m, webview_t w) {
 }
 
 static int init(void) {
-  HWND hwnd = zt_hwnd();
+  HWND w = zt_hwnd();
   if (hwnd) SetWindowSubclass(hwnd, zt_proc, 1, 0);
   return 1;
 }
