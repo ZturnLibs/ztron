@@ -32,7 +32,8 @@ fi
       || echo "    webview-local.patch already applied (or not needed)"
   fi
   cmake -B build -DCMAKE_BUILD_TYPE=Release \
-    -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON
+    -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON \
+    ${WEBVIEW_CMAKE_ARGS:-}
   cmake --build build
 )
 

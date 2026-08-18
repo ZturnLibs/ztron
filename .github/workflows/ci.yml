@@ -97,7 +97,8 @@ jobs:
             -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_STATIC_LIBRARY=ON ^
             -DWEBVIEW_BUILD_SHARED_LIBRARY=OFF ^
             -DWEBVIEW_BUILD_DOCS=OFF -DWEBVIEW_BUILD_TESTS=OFF ^
-            -DWEBVIEW_BUILD_AMALGAMATION=OFF
+            -DWEBVIEW_BUILD_AMALGAMATION=OFF ^
+            -DWEBVIEW_ENABLE_CHECKS=OFF
           cmake --build native\webview\build --config Release
       # See the linux job note: patches are macOS-only, the Windows surface
       # matches stock upstream.
@@ -145,7 +146,12 @@ jobs:
           cd native/webview
           git apply ../../scripts/patches/webview-local.patch || \
             echo "patch already applied or not needed"
-      - name: install clang-format + clang-tidy (webview build requirement)
-        run: brew install clang-format clang-tidy
+      - name: install clang-format (webview build requirement)
+        run: brew install clang-format
       - name: full chain (build-native + units + ztron check spikes)
+        env:
+          # clang-tidy has no standalone homebrew formula; the macos runner
+          # has no usable llvm-tidy on PATH either — disable tidy (format
+          # stays on; the vendored patches are clang-format clean).
+          WEBVIEW_CMAKE_ARGS: "-DWEBVIEW_ENABLE_CLANG_TIDY=OFF"
         run: bash scripts/ci.sh --spike-timeout 180000

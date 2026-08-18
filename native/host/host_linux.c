@@ -164,7 +164,12 @@ static gboolean on_delete(GtkWidget *w, GdkEvent *e, gpointer d) {
   return FALSE; /* let webview/webview handle the close */
 }
 
-/* ---- tray (GtkStatusIcon; deprecated but dependency-free) ---- */
+/* ---- tray (GtkStatusIcon; deprecated but dependency-free) ----
+   Suppressed: StatusIcon is the only zero-dependency tray on plain GTK3
+   (StatusNotifierItem needs libappindicator/ayatana). */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 static GtkStatusIcon *g_icon = NULL;
 
@@ -252,6 +257,8 @@ static void menu_set_item_title(const char *menu_id, const char *item_id, const 
 }
 /* Menu item activation -> event (simplified: not wired in v1 on GTK) */
 
+#pragma GCC diagnostic pop
+
 /* ---- dialogs ---- */
 
 static void dialog_open(Msg *m) {
@@ -261,8 +268,9 @@ static void dialog_open(Msg *m) {
   GtkWidget *dlg = gtk_file_chooser_native_new(
       m->id, zt_window(), action, "_Open", "_Cancel");
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
-    char *path = gtk_file_chooser_get_filename(
-        GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))));
+    /* GtkFileChooserNative implements the GtkFileChooser interface — a
+       direct interface cast is the supported way to use the chooser API. */
+    char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlg));
     zt_reply_string(m->req_id, path);
     g_free(path);
   } else {
@@ -279,8 +287,9 @@ static void dialog_save(Msg *m) {
         m->id);
   }
   if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
-    char *path = gtk_file_chooser_get_filename(
-        GTK_FILE_CHOOSER(gtk_file_chooser_native_get_file_chooser(GTK_FILE_CHOOSER_NATIVE(dlg))));
+    /* GtkFileChooserNative implements the GtkFileChooser interface — a
+       direct interface cast is the supported way to use the chooser API. */
+    char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlg));
     zt_reply_string(m->req_id, path);
     g_free(path);
   } else {
