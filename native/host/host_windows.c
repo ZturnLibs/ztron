@@ -18,6 +18,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <windows.h>
 #include <commctrl.h>
 
@@ -127,7 +130,7 @@ static void handle_window_op(Msg *m) {
   } else if (strcmp(m->type, "is_minimized") == 0) {
     result = IsIconic(w);
   } else if (strcmp(m->type, "is_fullscreen") == 0) {
-    RECT wr, mr;
+    RECT wr;
     MONITORINFO mi = { sizeof(mi) };
     HMONITOR mon = MonitorFromWindow(w, MONITOR_DEFAULTTOPRIMARY);
     GetMonitorInfo(mon, &mi);
@@ -208,6 +211,8 @@ static void emit_tray_event(const char *event) {
 
 /* Window proc forwarding tray/menu/window messages; the host's main window
  * proc (in webview/webview) may already handle some; we hook via subclass. */
+static void zt_shortcut_pressed(int id);
+
 static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
                                 UINT_PTR id, DWORD_PTR ref) {
   switch (msg) {

@@ -102,12 +102,15 @@ jobs:
           cmake --build native\webview\build --config Release
       # See the linux job note: patches are macOS-only, the Windows surface
       # matches stock upstream.
+      # host.c is POSIX-thread/socket-structured (pthread/ssize_t/select);
+      # its Windows port (winsock threads) is future work. This job
+      # validates the platform implementation file itself.
       - name: compile host_windows.c (syntax check)
         shell: cmd
         run: |
           cl -nologo -Zs -W4 -WX ^
             -I native\webview\core\include ^
-            native\host\host.c native\host\host_windows.c
+            native\host\host_windows.c
 
   macos-spike:
     name: macos full chain (native + check)

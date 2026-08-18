@@ -312,7 +312,7 @@ static void dialog_message(Msg *m) {
 static int dispatch(Msg *m, webview_t w) {
   if (is_window_op(m->type)) { handle_window_op(m); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w && m->req_id >= 0) {
       gint x, y, width, height;
       gtk_window_get_position(GTK_WINDOW(w), &x, &y);
@@ -329,18 +329,18 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "window_set_position") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) gtk_window_move(GTK_WINDOW(w), m->x, m->y);
     return 1;
   }
   if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* delete-event intercept not implemented */
   if (strcmp(m->type, "window_destroy") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) gtk_window_close(GTK_WINDOW(w));
     return 1;
   }
   if (strcmp(m->type, "window_set_bounds") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) {
       gtk_window_move(GTK_WINDOW(w), m->x, m->y);
       gtk_window_resize(GTK_WINDOW(w), m->width, m->height);
@@ -348,7 +348,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "window_get_state") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w && m->req_id >= 0) {
       char buf[256];
       snprintf(buf, sizeof(buf),
@@ -380,8 +380,8 @@ static int dispatch(Msg *m, webview_t w) {
   }
   if (strcmp(m->type, "window_get_scale_factor") == 0) {
     if (m->req_id >= 0) {
-      GtkWidget *w = zt_window();
-      gdouble s = w ? gdk_screen_get_scale_factor(gtk_widget_get_screen(w)) : 1.0;
+      GtkWindow *w = zt_window();
+      gdouble s = w ? gtk_widget_get_scale_factor(GTK_WIDGET(w)) : 1.0;
       char buf[64];
       snprintf(buf, sizeof(buf), "%g", s);
       zt_reply_string(m->req_id, buf);
@@ -392,7 +392,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1; /* GTK: input-pass-through needs extra work; no-op for now */
   }
   if (strcmp(m->type, "window_get_title") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w && m->req_id >= 0) {
       const char *title = gtk_window_get_title(GTK_WINDOW(w));
       zt_reply_string(m->req_id, title ? title : "");
@@ -402,7 +402,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_resize_dragging") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) {
       const char *d = m->str2;
       GdkWindowEdge edge = GDK_WINDOW_EDGE_SOUTH_EAST;
@@ -415,14 +415,14 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "start_dragging") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) {
       gtk_window_begin_move_drag(GTK_WINDOW(w), 1, 0, 0, 0);
     }
     return 1;
   }
   if (strcmp(m->type, "set_cursor") == 0) {
-    GtkWidget *w = zt_window();
+    GtkWindow *w = zt_window();
     if (w) {
       GdkCursor *cur = gdk_cursor_new_from_name(gdk_display_get_default(), m->str2[0] ? m->str2 : "default");
       GdkWindow *gw = gtk_widget_get_window(w);
