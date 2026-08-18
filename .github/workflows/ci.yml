@@ -47,7 +47,8 @@ jobs:
         run: |
           cmake -B native/webview/build -S native/webview \
             -DCMAKE_BUILD_TYPE=Release \
-            -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON
+            -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON \
+            -DWEBVIEW_BUILD_DOCS=OFF
           cmake --build native/webview/build
       # NOTE: the vendored webview checkout is not in git (patched at build
       # time). CI builds stock upstream; the vendored patches only touch
@@ -140,5 +141,7 @@ jobs:
           cd native/webview
           git apply ../../scripts/patches/webview-local.patch || \
             echo "patch already applied or not needed"
+      - name: install clang-format (webview build requirement)
+        run: brew install clang-format
       - name: full chain (build-native + units + ztron check spikes)
         run: bash scripts/ci.sh --spike-timeout 180000

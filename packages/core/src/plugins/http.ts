@@ -33,7 +33,7 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
   /** Streams a fetch body chunk-by-chunk over a ChannelHandle. */
   async function pumpStream(
     chan: import("../ipc/channel.js").ChannelHandle<HttpStreamMessage>,
-    body: ReadableStream<Uint8Array> | null,
+    body: { getReader(): { read(): Promise<{ done: boolean; value?: unknown }> } } | null,
   ): Promise<void> {
     try {
       if (body) {
@@ -41,7 +41,14 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
         for (;;) {
           const { value, done } = await reader.read();
           if (done) break;
-          if (value && value.length > 0) chan.send({ b64: bytesToB64(value) });
+          const bytes = value as Uint8Array | undefined;
+          if (bytes && bytes.length > 0) {
+            chan.send({
+              b64: bytesToB64(
+                new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+              ),
+            });
+          }
         }
       }
       chan.send({ done: true });

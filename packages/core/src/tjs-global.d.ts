@@ -125,3 +125,44 @@ declare class URLSearchParams {
   has(name: string): boolean;
   toString(): string;
 }
+
+/* Fetch/console surface (txiki provides WHATWG fetch + console). */
+declare function fetch(url: string, init?: RequestInit): Promise<Response>;
+declare const console: {
+  log(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+};
+interface RequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string | Uint8Array | undefined;
+  signal?: AbortSignal | undefined;
+}
+declare class AbortSignal {
+  static timeout(ms: number): AbortSignal;
+}
+declare class ReadableStream<T = any> {
+  getReader(): {
+    read(): Promise<{ done: boolean; value: T }>;
+    releaseLock(): void;
+  };
+  locked: boolean;
+}
+declare class Response {
+  constructor(body?: unknown, init?: { status?: number; headers?: Record<string, string> });
+  readonly status: number;
+  readonly ok: boolean;
+  readonly headers: {
+    forEach(cb: (value: string, key: string) => void): void;
+    get(name: string): string | null;
+  };
+  readonly body: ReadableStream<Uint8Array> | null;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+}
+declare const crypto: {
+  subtle: {
+    digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer>;
+  };
+};
