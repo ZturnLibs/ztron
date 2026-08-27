@@ -284,6 +284,8 @@ export interface MenuItemConfig {
   /** Predefined system behavior: separator/copy/cut/paste/selectAll/undo/redo/minimize/maximize/fullscreen/hide/hideOthers/showAll/closeWindow/quit/about/bringAllToFront. */
   predefined?: string;
   /** Nested submenu items. */
+  /** Stock native icon kind (Tauri NativeIcon name; host maps NSImageName). */
+  icon?: string;
   children?: MenuItemConfig[];
 }
 
@@ -292,6 +294,17 @@ export interface MenuConfig {
   id: string;
   items: MenuItemConfig[];
 }
+
+/** Structured child snapshot served by `plugin:menu|items` (upstream items()). */
+export type MenuItemsSnapshot = Array<{
+  id: string;
+  menuId: string;
+  title: string;
+  enabled: boolean;
+  checked: boolean;
+  separator: boolean;
+  hasSubmenu: boolean;
+}>;
 
 /** A physical display (translated from tao's Monitor). */
 export interface MonitorInfo {
@@ -324,6 +337,20 @@ export interface MenuController {
   ): void;
   /** Removes a runtime item by id. */
   removeItem(menuId: string, itemId: string): void;
+  /** Removes a runtime item by structural index (upstream removeAt). */
+  removeItemAt?(menuId: string, index: number): void;
+  /** Structured snapshot of every child of this menu (upstream items()). */
+  items?(menuId: string): Promise<MenuItemsSnapshot>;
+  /** Builds the standard platform application menu under one root id. */
+  createDefaultMenu?(menuId: string): void;
+  /** Mounts the menu as one window's own menu bar. */
+  setAsWindowMenu?(menuId: string, label: string): void;
+  /** NSApp windows-menu role (Window submenu routing). */
+  setAsWindowsMenuForNSApp?(menuId: string): void;
+  /** NSApp help-menu role (Help submenu routing). */
+  setAsHelpMenuForNSApp?(menuId: string): void;
+  /** Sets a stock native icon on an existing item. */
+  setItemIcon?(menuId: string, itemId: string, icon: string): void;
   /** Reads item state: {enabled, checked, title} or null when absent. */
   getItemInfo(
     menuId: string,
@@ -432,9 +459,22 @@ export interface ImageController {
   destroy(id: number): void;
 }
 
+/** Application-level (whole-app) visibility control — Tauri `AppHandle::show/hide`
+    and macOS Dock visibility (`core:app` surface). */
+export interface ApplicationController {
+  /** Shows the whole application (macOS: unhide + activate). */
+  show(): void;
+  /** Hides the whole application (macOS: NSApp hide:). */
+  hide(): void;
+  /** Toggles the Dock icon (macOS activation policy Regular/Accessory). */
+  setDockVisibility(visible: boolean): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
+  /** Optional whole-app visibility support (app show/hide/Dock). */
+  application?: ApplicationController;
   /** Optional system tray support. */
   tray?: TrayController;
   /** Optional application menu support. */

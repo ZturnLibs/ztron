@@ -132,6 +132,12 @@ run_ztron_check "$ROOT/examples/multiwin" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
   > /tmp/ci-multiwin.log 2>&1 \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }
+
+step "menuprobe spike (ztron check --expect)"
+run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+    --expect MENU_V2_OK \
+    > /tmp/ci-menuprobe.log 2>&1 \
+  || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
 # ---- summary -----------------------------------------------------------------

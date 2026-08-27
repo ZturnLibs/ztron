@@ -36,8 +36,7 @@ export interface AppConfig {
   /** Reverse-domain identifier, e.g. `com.example.app`. */
   identifier: string;
   appName?: string;
-  version?: string;
-  /** The `__TAURI_INVOKE_KEY__` used to authenticate IPC messages. */
+  version?: string;  /** The `__TAURI_INVOKE_KEY__` used to authenticate IPC messages. */
   invokeKey: string;
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
@@ -62,6 +61,18 @@ export interface AppOptions {
  * The application runtime. Owns the command registry, event bus, state and
  * plugin manager, and bridges them to the runtime adapter.
  */
+/** Derives the Tauri `BundleType` from the host executable path. `App` when
+ * running inside an .app bundle (or plain dev); installer markers arrive with
+ * the F3 bundler ports. */
+export function bundleTypeFromExecutable(exe?: string | null): string {
+  const p = (exe ?? "").replace(/\\/g, "/");
+  if (/\.app\/contents\/macos\//i.test(p)) return "App";
+  if (/(_setup|_installer)?\.exe$/i.test(p)) return "Nsis";
+  if (/\.msi$/i.test(p)) return "Msi";
+  if (/\.appimage$/i.test(p)) return "AppImage";
+  return "App";
+}
+
 export class App {
   readonly commands: CommandRegistry;
   readonly events: EventTarget;
@@ -75,6 +86,11 @@ export class App {
   #eventManager: EventManager;
   #setup?: (app: App) => void | Promise<void>;
   #invokeKey: string;
+  /** RGBA pixels + dims for images registered through `fromRGBA` (id→meta);
+      powers `plugin:image|rgba` / `plugin:image|size`. */
+  #imageMeta = new Map<number, { rgbaB64: string; width: number; height: number }>();
+  /** Shortcut ids this process successfully registered (for unregister_all). */
+  #globalShortcutIds = new Set<string>();
 
   constructor(config: AppConfig, options: AppOptions) {
     this.config = config;
@@ -228,8 +244,16 @@ export class App {
       "plugin:app|name",
       "plugin:app|version",
       "plugin:app|tauri_version",
+      "plugin:app|identifier",
+      "plugin:app|show",
+      "plugin:app|hide",
+      "plugin:app|set_dock_visibility",
+      "plugin:app|bundle_type",
+      "plugin:app|supports_multiple_windows",
       "plugin:app|get_config",
       "plugin:image|from_bytes",
+      "plugin:image|rgba",
+      "plugin:image|size",
       "plugin:image|from_path",
       "plugin:image|destroy",
       "plugin:process|exit",
@@ -240,6 +264,8 @@ export class App {
       "plugin:global-shortcut|register",
       "plugin:global-shortcut|unregister",
       "plugin:global-shortcut|is_registered",
+      "plugin:global-shortcut|register_all",
+      "plugin:global-shortcut|unregister_all",
       "plugin:deep-link|get_last_url",
       "plugin:tray|create",
       "plugin:tray|set_title",
@@ -260,6 +286,13 @@ export class App {
       "plugin:menu|remove_item",
       "plugin:menu|item_info",
       "plugin:menu|destroy",
+      "plugin:menu|remove_at",
+      "plugin:menu|items",
+      "plugin:menu|create_default",
+      "plugin:menu|set_as_window_menu",
+      "plugin:menu|set_as_windows_menu_for_nsapp",
+      "plugin:menu|set_as_help_menu_for_nsapp",
+      "plugin:menu|set_icon",
       "plugin:dialog|open",
       "plugin:dialog|save",
       "plugin:dialog|message",
@@ -303,6 +336,24 @@ export class App {
         ? permissiveAcl()
         : resolveAcl(registry, capabilities);
     this.#hub.setAcl(acl);
+  }
+
+  /** Best-effort host executable path (tjs backend or Node fallback). */
+  executableHint(): string | null {
+    const env = globalThis as unknown as {
+      tjs?: { process?: { executablePath?: string | (() => string) } };
+      process?: { execPath?: string };
+    };
+    const tp = env.tjs?.process?.executablePath;
+    if (typeof tp === "function") {
+      try {
+        return tp();
+      } catch {
+        /* fall through to string/node forms */
+      }
+    }
+    if (typeof tp === "string") return tp;
+    return env.process?.execPath ?? null;
   }
 
   /** The backend event registry backing the `plugin:event|*` commands. */
@@ -706,16 +757,57 @@ export class App {
         ctx.app.config.appName ?? ctx.app.config.identifier,
       "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
       "plugin:app|tauri_version": () => "2.0.0",
-      "plugin:image|from_bytes": async (args) =>
-        this.#adapter.image?.fromBytes(
-          String((args as { base64?: string }).base64 ?? ""),
-        ) ?? -1,
+      "plugin:app|identifier": (_args, ctx) => ctx.app.config.identifier,
+      "plugin:app|show": () => {
+        this.#adapter.application?.show();
+      },
+      "plugin:app|hide": () => {
+        this.#adapter.application?.hide();
+      },
+      "plugin:app|set_dock_visibility": (args) => {
+        this.#adapter.application?.setDockVisibility(
+          Boolean((args as { visible?: boolean }).visible),
+        );
+      },
+      "plugin:app|bundle_type": () =>
+        bundleTypeFromExecutable(this.executableHint()),
+      "plugin:app|supports_multiple_windows": () => true,
+      "plugin:image|from_bytes": async (args) => {
+        const base64 = String((args as { base64?: string }).base64 ?? "");
+        const id = (await this.#adapter.image?.fromBytes(base64)) ?? -1;
+        // `fromRGBA` payloads carry an 8-byte LE dims header + RGBA pixels;
+        // PNG payloads start with \x89PNG so width would fail plausibility.
+        const buf = Buffer.from(base64, "base64");
+        if (buf.length > 8) {
+          const w = buf.readUInt32LE(0);
+          const h = buf.readUInt32LE(4);
+          if (w > 0 && h > 0 && buf.length === 8 + w * h * 4) {
+            // Store pixels only (upstream rgba() yields no dims header).
+            this.#imageMeta.set(id, {
+              rgbaB64: buf.subarray(8).toString("base64"),
+              width: w,
+              height: h,
+            });
+          }
+        }
+        return id;
+      },
       "plugin:image|from_path": async (args) =>
         this.#adapter.image?.fromPath(
           String((args as { path?: string }).path ?? ""),
         ) ?? -1,
+      "plugin:image|rgba": (args) => {
+        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
+        return meta ? new RawResponse(meta.rgbaB64) : null;
+      },
+      "plugin:image|size": (args) => {
+        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
+        return meta ? { width: meta.width, height: meta.height } : null;
+      },
       "plugin:image|destroy": (args) => {
-        this.#adapter.image?.destroy(Number((args as { id?: number }).id ?? -1));
+        const id = Number((args as { id?: number }).id ?? -1);
+        this.#adapter.image?.destroy(id);
+        this.#imageMeta.delete(id);
       },
       "plugin:app|get_config": (_args, ctx) => {
         const { invokeKey, initScript, withGlobalTauri, ...rest } = ctx.app
@@ -746,15 +838,45 @@ export class App {
           id: string;
           accelerator: string;
         };
-        return this.#adapter.globalShortcut?.register(id, accelerator) ?? false;
+        const ok =
+          (await this.#adapter.globalShortcut?.register(id, accelerator)) ??
+          false;
+        if (ok) this.#globalShortcutIds.add(id);
+        return ok;
       },
       "plugin:global-shortcut|unregister": async (args) => {
         const { id } = args as { id: string };
-        return this.#adapter.globalShortcut?.unregister(id) ?? false;
+        const ok = (await this.#adapter.globalShortcut?.unregister(id)) ?? false;
+        if (ok) this.#globalShortcutIds.delete(id);
+        return ok;
       },
       "plugin:global-shortcut|is_registered": async (args) => {
         const { id } = args as { id: string };
         return this.#adapter.globalShortcut?.isRegistered(id) ?? false;
+      },
+      "plugin:global-shortcut|register_all": async (args) => {
+        const entries =
+          (args as { entries?: Array<{ id: string; accelerator: string }> })
+            .entries ?? [];
+        const results: boolean[] = [];
+        for (const { id, accelerator } of entries) {
+          const ok =
+            (await this.#adapter.globalShortcut?.register(id, accelerator)) ??
+            false;
+          if (ok) this.#globalShortcutIds.add(id);
+          results.push(ok);
+        }
+        return results;
+      },
+      "plugin:global-shortcut|unregister_all": async () => {
+        let all = true;
+        for (const id of [...this.#globalShortcutIds]) {
+          const ok =
+            (await this.#adapter.globalShortcut?.unregister(id)) ?? false;
+          if (ok) this.#globalShortcutIds.delete(id);
+          else all = false;
+        }
+        return all;
       },
       "plugin:deep-link|get_last_url": () =>
         this.#adapter.deepLink?.getLastUrl() ?? null,
@@ -840,6 +962,42 @@ export class App {
           itemId: string;
         };
         return this.#adapter.menu?.getItemInfo(menuId, itemId) ?? null;
+      },
+      "plugin:menu|remove_at": (args) => {
+        const { menuId, index } = args as { menuId: string; index: number };
+        this.#adapter.menu?.removeItemAt?.(menuId, index);
+      },
+      "plugin:menu|items": (args) => {
+        const { menuId } = args as { menuId: string };
+        const r = this.#adapter.menu?.items?.(menuId);
+        return r ?? Promise.resolve([]);
+      },
+      "plugin:menu|create_default": (args) => {
+        this.#adapter.menu?.createDefaultMenu?.(
+          (args as { menuId: string }).menuId,
+        );
+      },
+      "plugin:menu|set_as_window_menu": (args) => {
+        const { menuId, label } = args as { menuId: string; label: string };
+        this.#adapter.menu?.setAsWindowMenu?.(menuId, label);
+      },
+      "plugin:menu|set_as_windows_menu_for_nsapp": (args) => {
+        this.#adapter.menu?.setAsWindowsMenuForNSApp?.(
+          (args as { menuId: string }).menuId,
+        );
+      },
+      "plugin:menu|set_as_help_menu_for_nsapp": (args) => {
+        this.#adapter.menu?.setAsHelpMenuForNSApp?.(
+          (args as { menuId: string }).menuId,
+        );
+      },
+      "plugin:menu|set_icon": (args) => {
+        const { menuId, itemId, icon } = args as {
+          menuId: string;
+          itemId: string;
+          icon: string;
+        };
+        this.#adapter.menu?.setItemIcon?.(menuId, itemId, icon);
       },
       "plugin:tray|set_menu": (args) => {
         this.#adapter.tray?.apply("set_menu", {
@@ -1005,12 +1163,20 @@ export class App {
       buildInitScript({
         invokeKey: this.#invokeKey,
         metadata: { identifier: this.config.identifier },
+        label: cfg.label,
       });
 
     if (cfg.html !== undefined) {
       handle.loadHtml(`<script>${bootstrap}</script>` + cfg.html);
     } else {
-      handle.loadUrl(cfg.url ?? "about:blank");
+      // Shared pages (dev server / ztron:// assets) carry one bootstrap for
+      // every webview, so the per-window label rides on the URL hash and the
+      // injected script resolves it into metadata.currentWindow.label.
+      const url = cfg.url ?? "about:blank";
+      const withHash = url.includes("#")
+        ? url
+        : `${url}#ztron-window=${encodeURIComponent(cfg.label)}`;
+      handle.loadUrl(withHash);
     }
     return handle;
   }

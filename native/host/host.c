@@ -307,6 +307,8 @@ static void *socket_thread(void *arg) {
     zt_json_str(line, "submenu", m->id, sizeof(m->id)); /* submenu id */
     zt_json_str(line, "image_id", m->id, sizeof(m->id)); /* image id */
     zt_json_str(line, "b64", m->str2, sizeof(m->str2)); /* base64 image */
+    zt_json_str(line, "aux", m->aux, sizeof(m->aux)); /* secondary text */
+    m->req_index = zt_json_int(line, "at", -1);
     m->status = zt_json_int(line, "status", 0);
     m->status = zt_json_int(line, "state", m->status); /* effect state */
     m->status = zt_json_bool(line, "enabled", m->status);

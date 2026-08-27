@@ -60,7 +60,7 @@ export class Image {
     return new Image(rid);
   }
 
-  /** Builds an image from RGBA pixel data. */
+  /** Builds an image from RGBA pixel data (upstream name: `Image.new`). */
   static async fromRGBA(
     rgba: number[] | Uint8Array,
     width: number,
@@ -77,6 +77,35 @@ export class Image {
     });
     if (rid < 0) throw new Error("image: failed to build from rgba");
     return new Image(rid);
+  }
+
+  /** Upstream-parity alias of {@linkcode Image.fromRGBA}. */
+  static new(
+    rgba: number[] | Uint8Array,
+    width: number,
+    height: number,
+  ): Promise<Image> {
+    return Image.fromRGBA(rgba, width, height);
+  }
+
+  /**
+   * The raw RGBA pixels this image was built from. Only images created via
+   * {@linkcode Image.fromRGBA}/`new` carry pixels; path/PNG-loaded images
+   * resolve to undefined until C-layer decode lands (GAP.md B11).
+   */
+  async rgba(): Promise<Uint8Array | undefined> {
+    const res = await invoke<Uint8Array | null>("plugin:image|rgba", {
+      id: this.rid,
+    });
+    return res ?? undefined;
+  }
+
+  /** Pixel dimensions (`null` when unknown — see {@linkcode Image.rgba}). */
+  async size(): Promise<{ width: number; height: number } | null> {
+    return invoke<{ width: number; height: number } | null>(
+      "plugin:image|size",
+      { id: this.rid },
+    );
   }
 
   /** Releases the image in the host. */

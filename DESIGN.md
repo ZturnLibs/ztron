@@ -1269,3 +1269,40 @@ ZtronApp.app/Contents/
 - **CI 抓出的真问题(价值实证)**:①core/runtime-ffi 对 @types/node 的**隐性 ambient 依赖**——本地可见/CI 不可见,全部改为 tjs-global.d.ts 自声明(runtime-ffi 的 d.ts 是模块文件,全局声明必须拆独立纯 ambient globals.d.ts;`.d.ts` 内函数型参数须用箭头形式)②host_linux.c 六类真错误:gtk_file_chooser_native_get_file_chooser 不存在(接口转型)、GtkStatusIcon 弃用(无零依赖替代,pragma 局部豁免)、zt_window 返回类型不匹配 ×10、gtk_window_is_fullscreen 不存在(gdk_window_get_state)、gdk_screen_get_scale_factor 弃用、format-truncation(精度钳制)③host_windows.c:commctrl.h 缺失、函数前向声明、变量遮蔽 ×3、未用变量 ×2 ④ci.sh 相对路径 bug(自伤,本地复现修)
 - **教训**:①GitHub Packages scope 必须与仓库 owner 完全一致(@ztronlib→@zturnlibs,403 排查后重命名五层)②headless macos runner 无 WindowServer 会话,GUI spike 挂窗(native/单测不受影响)→ CI 降级为 spike best-effort + 本地为 GUI 事实源 ③**macOS runner 10×计费**,六轮全链调试烧穿免费额度——macos job 改 workflow_dispatch 手动触发;此教训应更早意识到(每轮全链 ~25 分钟)④CI 上 webview 构建需 Doxygen/clang-format/clang-tidy/py(amalgamation),按需 WEBVIEW_ENABLE_CHECKS=OFF / BUILD_DOCS=OFF
 - 状态:CI 工作流就绪(额度恢复即绿);发布流水线已验证成功;本地 scripts/ci.sh 为日常全链门禁
+
+## 101. GAP.md 台账 + G1 对齐批次(metadata label / CloseRequestedEvent / image 读回 / GS 批量)
+
+- **GAP.md**:以 @tauri-apps/api 2.11.1 全导出 + build.rs PLUGINS 163 命令 + plugins-workspace v2(29 插件)为基线的全量缺口台账(A 架构/F 配置打包等七维,执行批次 G1–G14),平台不支持项"先移植后验证"
+- **metadata label(C9)**:`__TAURI_INTERNALS__.metadata` 补 `currentWindow.label/currentWebview.label`(上游 per-webview init script 的 TS 等价物):loadHtml 路径烘焙真实 label;共享页(Vite dev / ztron://)由 App.createWindow 给 URL 追加 `#ztron-window=<label>`,注入脚本同步解析 → 多窗口下 getCurrent() 不再误兜底 "main"(webview-window/webview 同步改)
+- **CloseRequestedEvent(C1)**:api 新增类(event/id + preventDefault/isPreventDefault);onCloseRequested 改 Tauri v2 语义——先 preventClose(true) 拦截,handler 结束未 prevent 则 destroy() 兜底;原静态两段式(preventClose+destroy)保留
+- **image 读回(B11 部分)**:core 登记 fromRGBA 信封判定(buf.length===8+w*h*4 且 dims 合理;PNG 魔数不会误判),新增 `plugin:image|rgba`(RawResponse 像素)/`plugin:image|size`;api 补 Image.rgba()/size()/static new 别名;PNG/path 载入图像的读回留待 C 层 NSImage decode。**教训:MockRuntime.image.fromBytes 原返回固定 id=1,rid 复用导致登记表语义混乱——改为单调递增(与真宿主一致)**
+- **GS 批量(D9 部分)**:`register_all/unregister_all` + api registerAll/unregisterAll;App 侧 #globalShortcutIds 登记成功注册的 id 驱动 unregister_all
+- 测试面:manifest COMMANDS+4(API_EXPORTS+3)、ACL coreAllowed+4、coverage UNIT_COVERED+4、routing 新增 GS 批量段 + image rgba/size 往返测试(PNG 魔数反例/destroy 清理);**75 tests / 74 pass / 1 skip, typecheck 全仓过**
+
+## 102. G2 应用生命周期(app show/hide + Dock 可见性 + 元数据查询)
+
+- **C 层(host_macos.c)**:新增三 op——`app_hide`(NSApp hide: 整体隐藏窗口存活)、`app_show`(isHidden 则 unhideWithoutActivation + activateIgnoringOtherApps)、`app_set_dock_visibility`(setActivationPolicy Regular(0)/Accessory(1),与 set_skip_taskbar 同机制独立 API)。-Wall -Werror 过;Windows/Linux 骨架未动(G13 补)
+- **协议/runtime-ffi**:HostRuntime 新 `application` 控制器(application.show/hide/setDockVisibility → app_* op,布尔走既有 "value" 键);core RuntimeAdapter 增可选 `application?: ApplicationController`
+- **core/api**:`plugin:app|identifier/show/hide/set_dock_visibility/bundle_type/supports_multiple_windows` 六命令;bundle_type 由 exe 路径判定(.app/Contents/MacOS→App,Nsis/Msi/AppImage 标记待 F3 安装器落地后真实出现;tjs.process.executablePath→Node execPath 双源探测);api 增 getIdentifier/BundleType 枚举/getBundleType/supportsMultipleWindows/showApplication/hideApplication/setDockVisibility + app.* 全量
+- **测试**:mock.application + appLifecycleLog;manifest COMMANDS+6/API_EXPORTS+7;routing 新增 lifecycle 段(**76 tests / 75 pass / 1 skip**)
+- **spike 与环境漂移**:hello 链新增 §19 APP_LIFECYCLE_OK(置于 FULL_OK 前,含 Dock 关→开与 hide→show 还原)——但本机 hello 全链现于 MULTI_WINDOW_OK 后的 `win.maximize()` 卡死,**干净基线(stash 后复跑)同样 53 checks TIMEOUT**,证为存量环境问题(darwin 25.2 窗管行为漂移?)非本轮回归;故新检查另挂 multiwin 链(before STRESS_OK):`runtime.application` 五连调 hid/dock 切换必须不挂起 → `APP_LIFECYCLE_OK`,跑通 **5/5 exit 0**
+- 待办注记:multiwin 尾段见一过性 `[be-send:ERR] app_show EPIPE`(与既有 quit EPIPE 同类 teardown 竞态,不影响判定);G6 排查 send-during-teardown 容错
+
+## 103. G3 updater 安全链(minisign 验签 + SemVer + downloadAndInstall 流式)
+
+- **纯 TS 加密组件**(`core/src/plugins/crypto/`):sha512(FIPS 180-4,BigInt)、blake2b(RFC 7693,32/64 双出长)、ed25519(RFC 8032,extended coordinates 统一加法)。动机:tjs WebCrypto 无 Ed25519 而更新验签必须离线。**与 node:crypto 双向互操作为回归门禁**(sha/blake 全长度对拍,ed25519 两侧互验)
+- **调错实录(价值密度极高)**:①SHA-512 K 常量表被我截成 64 条(SHA-256 的数)——块扫测试抓出;②BLAKE2b G 函数首版漏 c/d 两通道且第二轮旋转写成 32/24(应为 16/63)——全长度对拍抓出;③我记忆中的"blake2b 空串向量"是错的,以 hashlib/createHash 实测为准更正;④标量乘 `s=r+k·a` 首写用域模 P,须用群阶 L;⑤hash→标量必须按 **64 字节** LE 取模——sign 侧改了、verify 侧因形参名不同(pk/publicKey)漏改,靠"node 认我签/我不认自签"的**方向性不对称**定位;⑥noUncheckedIndexedAccess 下索引断言遍布三个文件。教训:**密码学实现必须有平台原语对拍测试**,方向性互斥失败是最锐利的定位信号
+- **minisign 模块**:线格式与 jedisct1/minisign 逐字节对齐(pk 文件 b64("Ed"‖keynum₈‖pk₃₂);sig 文件双 b64+trusted comment;内容签名 BLAKE2b-512 prehash("ED")+全局签名覆盖 sig₆₄‖trustedComment)。verifyMinisig 四类失败语义(format/keyid-mismatch/message-signature/global-signature)+ fail-closed。secret key 仅支持无加密(KDFNONE),scrypt 盒待 F4 后续
+- **updater 插件 v2**:`UpdaterPluginOptions.pubkey` 配置即强制门禁(manifest.platforms.*.signature 缺失/不匹配→中止 relaunch 并清理临时件);semver 换 compareSemver(修 NaN 陷阱:`1.0.0-beta<1.0.0` 等 §11 全表单测);新命令 verify_signature(inline base64,单测可离线跑)+install_stream(Channel 推 Started{contentLength}/Progress{chunkLength}/Finished)。manifest COMMANDS+2(API_EXPORTS+2)、coverage:verify_signature 入 UNIT_COVERED、install_stream 入 INTEGRATION_ONLY
+- **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
+- **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
+
+## 104. G4 Menu v2(NativeIcon 图标项/default 菜单/结构化遍历/三处挂载)
+
+- **协议桥(host.c/h)**:Msg 增 `aux[256]`(图标 kind 等第二文本槽,text/icon 不再互占 str2)+ `req_index`("at" 索引);解析行同步
+- **host_macos.c**:`nativeicon_image_name()` NativeIcon→NSImageName 56 全表(未知名 imageNamed 返 nil 安全降级);`menu_add_icon_item`(创建期带图);`menu_set_item_icon`(运行时换图);`menu_remove_at`(removeItemAtIndex+ref 表 tombstone,find 端天然跳过);`menu_items_query`(itemArray 结构化快照 id/title/enabled/checked/separator/hasSubmenu 经 query_result 回链,count 封顶 96 防 JSON 越界);`menu_set_window_menu`(NSWindow setMenu 文档窗模型)/`menu_set_nsapp_aux(windows|help)`(NSApp setWindowsMenu:/setHelpMenu:);`menu_create_default`(复用现有 create/submenu/predefined/add_item 原语程序化合成 App/Edit/View/Window 四组建制,替代上游 Menu::default)
+- **runtime-ffi/core/api**:MenuController 七个可选方法实现+接口;core 内建命令 +7(remove_at/items/create_default/set_as_window_menu/set_as_windows_menu_for_nsapp/set_as_help_menu_for_nsapp/set_icon,ACL 注册表同步);MenuItemConfig 增 icon 字段,walker 分支直发 add_icon_item;api 增 `NativeIcon`(as-const 56)AboutMetadata/IconMenuItemOptions/MenuItemLive 类型、Menu.default()/new()/snapshot()(上游 items() 因与 v1 配置字段同名改称)/removeAt/setItemIcon/窗口与 NSApp 挂载方法。注:上游式 rid 资源类(独立 Submenu/Check/Radio/Predefined/Icon 实例类)为 A2 尾项
+- **验证**:routing 新增 menu-v2 六 op 断言(**85 tests / 84 pass / 1 skip**,typecheck 过);新建 `examples/menuprobe`(纯后端确定性探针)真宿主跑通 `MENU_V2_OK:4:4:7:6` —— root 四组全 hasSubmenu/Edit 层 removeAt 7→6/icon 设置/nsapp 双角色/window 挂载零异常;ci.sh 增 menuprobe 步骤(--expect MENU_V2_OK)
+- **教训两则**:①把探针插进既有 try/catch 时落点切进 catch 体成死代码——结构插入后必须读回上下文行再判归属;②示例的 check 走 GUI 子进程时禁用 `| tail` 管道(host/tjs 继承 stdout 使 tail 永挂),统一 `>file 2>&1 + timeout -k`;③menuprobe 与 multiwin 的 AppBuilder 形参(runtime,identifier)+window() 布线差异即 "tray of undefined" 类启动崩来源——新例一律以可运行的同类例为模板逐字段对照
+- **环境漂移追加**:本机 multiwin 的 destroy-flood 段新现 libwebview lambda PAC SIGSEGV(G2 同链路尚稳),崩溃栈直指 §98 已论证的 UAF 关联裸指针投递路径;hello maximize 卡死同批漂移。两项隔离进「待外部回归」,本地门禁由 ci.sh 全链在恢复环境的机器上重建基准
+

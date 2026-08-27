@@ -28,6 +28,7 @@ export {
 export {
   setupDragRegion,
   UserAttentionType,
+  CloseRequestedEvent,
   Effect,
   EffectState,
   getAllWindows,
@@ -110,7 +111,13 @@ export {
 export type { TrayOptions } from "./tray.js";
 export { Image, transformImage, type ImageLike } from "./image.js";
 export { TrayIcon } from "./tray.js";
-export { Menu, setAppMenu, onMenuEvent } from "./menu.js";
+export { Menu, NativeIcon, setAppMenu, onMenuEvent } from "./menu.js";
+export type {
+  NativeIcon as NativeIconKind,
+  AboutMetadata,
+  IconMenuItemOptions,
+  MenuItemLive,
+} from "./menu.js";
 export type { MenuItem, MenuEvent } from "./menu.js";
 export { dialog, open, save, message, ask, confirm } from "./dialog.js";
 export type {
@@ -157,9 +164,16 @@ export {
   check as checkUpdate,
   download as downloadUpdate,
   verify as verifyUpdate,
+  verifySignature,
   install as installUpdate,
+  downloadAndInstall as downloadAndInstallUpdate,
 } from "./updater.js";
-export type { UpdateCheck } from "./updater.js";
+export type {
+  UpdateCheck,
+  UpdateProgress,
+  InstallResult,
+  SignatureVerifyResult,
+} from "./updater.js";
 export { Database, sql } from "./sql.js";
 export {
   autostart,
@@ -202,6 +216,8 @@ export {
   globalShortcut,
   registerShortcut,
   unregisterShortcut,
+  registerAll,
+  unregisterAll,
   isRegistered,
   onShortcut,
 } from "./global-shortcut.js";
@@ -226,7 +242,20 @@ export {
   getPersistedScope,
   savePersistedScope,
 } from "./persisted-scope.js";
-export { app, getName, getVersion, getTauriVersion, getConfig } from "./app.js";
+export {
+  app,
+  getName,
+  getVersion,
+  getTauriVersion,
+  getConfig,
+  getIdentifier,
+  BundleType,
+  getBundleType,
+  supportsMultipleWindows,
+  showApplication,
+  hideApplication,
+  setDockVisibility,
+} from "./app.js";
 export type { AppInfo } from "./app.js";
 export {
   process as processApi,

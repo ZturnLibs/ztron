@@ -66,6 +66,31 @@ export interface Monitor {
   scaleFactor: number;
 }
 
+/**
+ * Delivered to {@linkcode Window.onCloseRequested}: call
+ * {@linkcode CloseRequestedEvent.preventDefault} inside the handler to keep
+ * the window open (a port of `@tauri-apps/api` `CloseRequestedEvent`).
+ */
+export class CloseRequestedEvent {
+  readonly event: string;
+  readonly id: number;
+
+  private _preventDefault = false;
+
+  constructor(event: { event: string; id: number }) {
+    this.event = event.event;
+    this.id = event.id;
+  }
+
+  preventDefault(): void {
+    this._preventDefault = true;
+  }
+
+  isPreventDefault(): boolean {
+    return this._preventDefault;
+  }
+}
+
 export class Window {
   readonly label: string;
 
@@ -78,13 +103,12 @@ export class Window {
     return (await getAllWindows()).find((w) => w.label === label) ?? null;
   }
 
-  /** The current window (v1: single window, label `main`). */
+  /** The current window (label from the bootstrap metadata). */
   static getCurrent(): Window {
-    const label = (
-      globalThis.window?.__TAURI_INTERNALS__?.metadata as
-        { label?: string } | undefined
-    )?.label;
-    return new Window(label ?? "main");
+    const meta = globalThis.window?.__TAURI_INTERNALS__?.metadata as
+      | { label?: string; currentWindow?: { label?: string } }
+      | undefined;
+    return new Window(meta?.currentWindow?.label ?? meta?.label ?? "main");
   }
 
   // ---- title / size ----
@@ -808,8 +832,27 @@ export class Window {
     };
   }
 
-  onCloseRequested(handler: () => void) {
-    return this.onEvent("close-requested", handler);
+  /**
+   * Fires when a close is requested. The handler decides dynamically:
+   * call `event.preventDefault()` to keep the window open, otherwise the
+   * window is destroyed when the handler completes (Tauri v2 semantics).
+   */
+  async onCloseRequested(
+    handler: (event: CloseRequestedEvent) => unknown,
+  ): Promise<() => void> {
+    // Arm interception so the native close request never closes the window
+    // directly; the fallback below performs the actual destroy.
+    await this.preventClose(true);
+    return listen<unknown>(
+      WINDOW_EVENT["close-requested"],
+      (e) => {
+        const evt = new CloseRequestedEvent(e);
+        void Promise.resolve(handler(evt)).then(() => {
+          if (!evt.isPreventDefault()) void this.destroy();
+        });
+      },
+      { target: this.label },
+    );
   }
 
   /** Fires when the backing scale factor changes (Retina display moves). */

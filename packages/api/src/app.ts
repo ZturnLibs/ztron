@@ -30,4 +30,58 @@ export async function getConfig(): Promise<AppInfo & Record<string, unknown>> {
   return invoke("plugin:app|get_config", {});
 }
 
-export const app = { getName, getVersion, getTauriVersion, getConfig };
+/** The configured bundle identifier (e.g. `com.example.app`). */
+export async function getIdentifier(): Promise<string> {
+  return invoke("plugin:app|identifier", {});
+}
+
+/**
+ * Installer format of the current distribution — mirrors Tauri's
+ * `BundleType` (`App` when running inside an .app bundle or in dev).
+ */
+export enum BundleType {
+  Nsis = "Nsis",
+  Msi = "Msi",
+  Deb = "Deb",
+  Rpm = "Rpm",
+  AppImage = "AppImage",
+  App = "App",
+}
+
+/** The distribution format this build was packaged into. */
+export async function getBundleType(): Promise<string> {
+  return invoke("plugin:app|bundle_type", {});
+}
+
+/** Whether the runtime supports creating further windows at run time. */
+export async function supportsMultipleWindows(): Promise<boolean> {
+  return invoke("plugin:app|supports_multiple_windows", {});
+}
+
+/** Shows the whole application (macOS: unhide + activate). */
+export async function showApplication(): Promise<void> {
+  await invoke("plugin:app|show", {});
+}
+
+/** Hides the whole application and all its windows (macOS NSApp hide:). */
+export async function hideApplication(): Promise<void> {
+  await invoke("plugin:app|hide", {});
+}
+
+/** Toggles the macOS Dock icon for the running application. */
+export async function setDockVisibility(visible: boolean): Promise<void> {
+  await invoke("plugin:app|set_dock_visibility", { visible });
+}
+
+export const app = {
+  getName,
+  getVersion,
+  getTauriVersion,
+  getConfig,
+  getIdentifier,
+  getBundleType,
+  supportsMultipleWindows,
+  show: showApplication,
+  hide: hideApplication,
+  setDockVisibility,
+};

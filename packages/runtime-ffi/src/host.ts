@@ -7,6 +7,7 @@
  * contract as the FFI adapter.
  */
 import type {
+  ApplicationController,
   ClipboardController,
   DeepLinkController,
   DialogController,
@@ -397,6 +398,14 @@ export class HostRuntime implements RuntimeAdapter {
   #closedResolve: (() => void) | null = null;
   readonly closed: Promise<void>;
 
+  /** Whole-app visibility controller (implements `RuntimeAdapter.application`). */
+  readonly application: ApplicationController = {
+    show: () => this.send({ type: "app_show" }),
+    hide: () => this.send({ type: "app_hide" }),
+    setDockVisibility: (visible: boolean) =>
+      this.send({ type: "app_set_dock_visibility", value: visible }),
+  };
+
   /** System tray controller (implements `RuntimeAdapter.tray`). */
   readonly tray: TrayController = {
     apply: (op, payload) => {
@@ -470,6 +479,23 @@ export class HostRuntime implements RuntimeAdapter {
               submenu: submenuId,
             });
             addItems(submenuId, item.children);
+          } else if ("icon" in item && typeof (item as { icon?: unknown }).icon === "string") {
+            this.send({
+              type: "menu_add_icon_item",
+              menu_id: menuId,
+              item_id: item.id,
+              text: item.text,
+              enabled: item.enabled ?? true,
+              aux: (item as { icon: string }).icon,
+            });
+            if (item.accelerator) {
+              this.send({
+                type: "menu_item_set_accel",
+                menu_id: menuId,
+                item_id: item.id,
+                text: item.accelerator,
+              });
+            }
           } else if (item.predefined) {
             this.send({
               type: "menu_add_predefined",
@@ -583,6 +609,35 @@ export class HostRuntime implements RuntimeAdapter {
     },
     removeItem: (menuId, itemId) => {
       this.send({ type: "menu_remove_item", menu_id: menuId, item_id: itemId });
+    },
+    removeItemAt: (menuId, index) => {
+      this.send({ type: "menu_remove_at", menu_id: menuId, at: index });
+    },
+    items: async (menuId) => {
+      const r = await this.sendRequest("menu_items", { menu_id: menuId });
+      return Array.isArray(r)
+        ? (r as import("@zturnlibs/core").MenuItemsSnapshot)
+        : [];
+    },
+    createDefaultMenu: (menuId) => {
+      this.send({ type: "menu_create_default", menu_id: menuId });
+    },
+    setAsWindowMenu: (menuId, label) => {
+      this.send({ type: "menu_set_window_menu", menu_id: menuId, label });
+    },
+    setAsWindowsMenuForNSApp: (menuId) => {
+      this.send({ type: "menu_set_nsapp_aux", menu_id: menuId, aux: "windows" });
+    },
+    setAsHelpMenuForNSApp: (menuId) => {
+      this.send({ type: "menu_set_nsapp_aux", menu_id: menuId, aux: "help" });
+    },
+    setItemIcon: (menuId, itemId, icon) => {
+      this.send({
+        type: "menu_set_item_icon",
+        menu_id: menuId,
+        item_id: itemId,
+        aux: icon,
+      });
     },
     getItemInfo: (menuId, itemId) =>
       this.sendRequest("menu_item_info", { menu_id: menuId, item_id: itemId })

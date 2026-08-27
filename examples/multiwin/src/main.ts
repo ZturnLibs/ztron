@@ -115,6 +115,53 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
             app.getWebview(label)?.destroy();
             await sleep(350);
           }
+          // App-lifecycle surface (G2 / core:app parity): drive whole-app
+          // show/hide + Dock visibility through the host. Each op must ack
+          // without hanging the GUI thread before we quit.
+          try {
+            runtime.application.show();
+            await sleep(80);
+            runtime.application.hide();
+            await sleep(80);
+            runtime.application.setDockVisibility(false);
+            await sleep(60);
+            runtime.application.setDockVisibility(true);
+            await sleep(60);
+            runtime.application.show(); /* leave the app visible */
+            await sleep(80);
+            console.log("APP_LIFECYCLE_OK");
+          } catch (e) {
+            console.log("APP_LIFECYCLE_FAIL:" + String(e).slice(0, 60));
+          }
+
+          // Menu v2 surface (G4 / A2): build the platform default menu,
+          // mount NSApp aux roles, drive icon/removeAt and read back the
+          // structured snapshot from the host registry.
+          try {
+            const root = `$sys-${Date.now()}`;
+            runtime.menu.createMenu({ id: "probe", items: [] });
+            runtime.menu.createDefaultMenu?.(root);
+            const snap1 = (await runtime.menu.items?.(root)) ?? [];
+            const withSub = snap1.filter((x) => x.hasSubmenu).length;
+            if (snap1.length >= 12 && withSub >= 5) {
+              runtime.menu.setItemIcon?.(
+                `${root}.edit`,
+                `${root}.edit.copy`,
+                "Copy" as never,
+              );
+              runtime.menu.removeItemAt?.(`${root}.edit`, 0);
+              const snap2 = (await runtime.menu.items?.(`${root}.edit`)) ?? [];
+              runtime.menu.setAsWindowsMenuForNSApp?.(`${root}.window`);
+              runtime.menu.setAsHelpMenuForNSApp?.(`${root}.window`);
+              console.log(`MENU_V2_OK:${snap1.length}:${withSub}:${snap2.length}`);
+            } else {
+              console.log(
+                "MENU_V2_FAIL:" + snap1.length + ":" + withSub,
+              );
+            }
+          } catch (e) {
+            console.log("MENU_V2_FAIL:" + String(e).slice(0, 60));
+          }
           console.log("STRESS_OK");
           console.log("MULTI_WINDOW_RUNTIME_OK");
           quitMain();

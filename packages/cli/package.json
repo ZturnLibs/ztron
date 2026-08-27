@@ -25,7 +25,8 @@
     "esbuild": "^0.25.0",
     "vite": "^6.0.0",
     "typescript": "^5.7.2",
-    "@zturnlibs/inject": "workspace:*"
+    "@zturnlibs/inject": "workspace:*",
+    "@zturnlibs/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.10.2"

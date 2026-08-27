@@ -26,11 +26,12 @@
 #define MSG_STR_LEN (1 << 20) /* 1 MiB */
 
 typedef struct Msg_ {
-  char type[32]; /* longest op: menu_item_set_enabled (22) */
+  char type[32]; /* longest op: set_as_windows_menu_for_nsapp (26) */
   char win_label[64]; /* target window label ("" => main) */
   char id[128];
   char str[MSG_STR_LEN];
   char str2[MSG_STR_LEN];
+  char aux[256]; /* secondary text payload (menu icons, kinds…) */
   int status;
   int width;
   int height;
@@ -39,6 +40,8 @@ typedef struct Msg_ {
   int req_id;   /* request id for window-state queries (-1 = no reply) */
   int bool_val; /* boolean argument for set_* window ops */
   int checked;  /* menu item checked state (check/radio items) */
+  int req_index; /* insert/removeAt index ("at") when >= 0 */
+
   int kind;    /* dialog kind: 0=info 1=warning 2=error */
   double opacity_val; /* window opacity 0.0..1.0 */
 } Msg;

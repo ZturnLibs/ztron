@@ -1193,6 +1193,11 @@ async function main(): Promise<void> {
       await check(cwd, resolveEntry(cwd, entryArg), process.argv.slice(3));
       break;
     }
+    case "signer": {
+      const { signer } = await import("./signer.js");
+      await signer(process.argv.slice(3));
+      break;
+    }
     default: {
       console.error(USAGE);
       process.exit(1);

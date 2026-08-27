@@ -46,6 +46,12 @@ import {
   getName,
   getVersion,
   getConfig,
+  getIdentifier,
+  getBundleType,
+  supportsMultipleWindows,
+  showApplication,
+  hideApplication,
+  setDockVisibility,
   convertFileSrc,
   Image,
   WebviewWindow,
@@ -1194,6 +1200,27 @@ async function main(): Promise<void> {
     await win.setEffects({ effects: [Effect.Titlebar] });
     await win.clearEffects();
     report("WIN_EFFECTS_OK");
+
+    // 19. app lifecycle (Tauri core:app parity): identifier/bundle_type/
+    //     supports_multiple_windows queries + whole-app show/hide and Dock
+    //     visibility toggling (restored immediately before FULL_OK).
+    const ident = await getIdentifier();
+    const btype = await getBundleType();
+    const multiWin = await supportsMultipleWindows();
+    if (
+      ident === "com.ztron.hello" &&
+      typeof btype === "string" &&
+      btype.length > 0 &&
+      multiWin === true
+    ) {
+      await setDockVisibility(false);
+      await setDockVisibility(true);
+      await hideApplication();
+      await showApplication();
+      report("APP_LIFECYCLE_OK:" + btype);
+    } else {
+      report("APP_LIFECYCLE_FAIL:" + JSON.stringify({ ident, btype, multiWin }));
+    }
 
     await win.setTitle("Ztron M3 Frontend");
     el("status").textContent = "all done";

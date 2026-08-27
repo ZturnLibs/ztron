@@ -581,6 +581,29 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   });
   assert.equal(isReg2, false);
 
+  const regAll = await mock.main.invoke("plugin:global-shortcut|register_all", {
+    entries: [
+      { id: "batch-a", accelerator: "Cmd+Alt+A" },
+      { id: "batch-b", accelerator: "Ctrl+Shift+B" },
+    ],
+  });
+  assert.deepEqual(regAll, [true, true]);
+  const batchReg = await mock.main.invoke(
+    "plugin:global-shortcut|is_registered",
+    { id: "batch-a" },
+  );
+  assert.equal(batchReg, true);
+  const unregAll = await mock.main.invoke(
+    "plugin:global-shortcut|unregister_all",
+    {},
+  );
+  assert.equal(unregAll, true);
+  const batchGone = await mock.main.invoke(
+    "plugin:global-shortcut|is_registered",
+    { id: "batch-a" },
+  );
+  assert.equal(batchGone, false);
+
   const last = await mock.main.invoke("plugin:deep-link|get_last_url", {});
   assert.equal(last, null);
 
@@ -597,6 +620,105 @@ test("clipboard + notification + shortcut + deep-link + process route", async ()
   assert.deepEqual(mock.exitLog, [3]);
   await mock.main.invoke("plugin:process|relaunch", {});
   assert.equal(mock.relaunchCount, 1);
+});
+
+test("app lifecycle routes whole-app visibility + metadata commands", async () => {
+  const { mock } = buildApp();
+
+  const id = await mock.main.invoke("plugin:app|identifier", {});
+  assert.equal(typeof id, "string");
+  assert.ok(String(id).includes("."), "reverse-domain identifier");
+
+  await mock.main.invoke("plugin:app|show", {});
+  await mock.main.invoke("plugin:app|hide", {});
+  await mock.main.invoke("plugin:app|set_dock_visibility", {
+    visible: false,
+  });
+  await mock.main.invoke("plugin:app|set_dock_visibility", { visible: true });
+  assert.deepEqual(mock.appLifecycleLog, [
+    { kind: "show" },
+    { kind: "hide" },
+    { kind: "dock", visible: false },
+    { kind: "dock", visible: true },
+  ]);
+
+  const bt = await mock.main.invoke("plugin:app|bundle_type", {});
+  assert.equal(bt, "App");
+  assert.equal(
+    await mock.main.invoke("plugin:app|supports_multiple_windows", {}),
+    true,
+  );
+});
+
+test("menu v2 ops route through the controller", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:menu|create_default", { menuId: "dflt" });
+  await mock.main.invoke("plugin:menu|remove_at", { menuId: "dflt", index: 1 });
+  const items = await mock.main.invoke("plugin:menu|items", { menuId: "dflt" });
+  assert.deepEqual(items, []);
+  await mock.main.invoke("plugin:menu|set_as_window_menu", {
+    menuId: "dflt",
+    label: "main",
+  });
+  await mock.main.invoke("plugin:menu|set_as_windows_menu_for_nsapp", {
+    menuId: "dflt",
+  });
+  await mock.main.invoke("plugin:menu|set_as_help_menu_for_nsapp", {
+    menuId: "dflt",
+  });
+  await mock.main.invoke("plugin:menu|set_icon", {
+    menuId: "dflt",
+    itemId: "about",
+    icon: "Info",
+  });
+  const ops = mock.menuLog.map((l) => l.op);
+  for (const op of [
+    "create_default",
+    "remove_at",
+    "set_as_window_menu",
+    "set_as_windows_menu_for_nsapp",
+    "set_as_help_menu_for_nsapp",
+    "set_icon",
+  ]) {
+    assert.ok(ops.includes(op), `menu op ${op} not routed`);
+  }
+});
+
+test("image rgba/size round trip tracks fromRGBA envelopes only", async () => {
+  const { mock } = buildApp();
+  const w = 2;
+  const h = 3;
+  const env = new Uint8Array(8 + w * h * 4);
+  const view = new DataView(env.buffer);
+  view.setUint32(0, w, true);
+  view.setUint32(4, h, true);
+  for (let i = 8; i < env.length; i++) env[i] = i & 0xff;
+
+  const id = await mock.main.invoke("plugin:image|from_bytes", {
+    base64: Buffer.from(env).toString("base64"),
+  });
+  assert.ok(typeof id === "number" && id > 0);
+
+  assert.deepEqual(await mock.main.invoke("plugin:image|size", { id }), {
+    width: w,
+    height: h,
+  });
+  const rgba = (await mock.main.invoke("plugin:image|rgba", { id })) as
+    | Uint8Array
+    | null;
+  assert.ok(rgba instanceof Uint8Array, "rgba resolves to bytes");
+  assert.equal(rgba.length, w * h * 4);
+
+  // A PNG-magic payload must never be mistaken for a dims envelope.
+  const pngId = await mock.main.invoke("plugin:image|from_bytes", {
+    base64: Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("base64"),
+  });
+  assert.equal(await mock.main.invoke("plugin:image|size", { id: pngId }), null);
+  assert.equal(await mock.main.invoke("plugin:image|rgba", { id: pngId }), null);
+
+  // Destroying the image clears its stored meta.
+  await mock.main.invoke("plugin:image|destroy", { id });
+  assert.equal(await mock.main.invoke("plugin:image|size", { id }), null);
 });
 
 test("app metadata + config commands", async () => {

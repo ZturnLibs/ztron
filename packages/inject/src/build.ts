@@ -20,6 +20,15 @@ export interface InitScriptOptions {
   invokeKey: string;
   /** Window metadata exposed as `__TAURI_INTERNALS__.metadata`. */
   metadata?: Record<string, unknown>;
+  /**
+   * This window's label. When provided it is baked into the script
+   * (per-window `loadHtml` path); when absent the script falls back to a
+   * `#ztron-window=<label>` URL-hash marker appended by `App.createWindow`
+   * for shared pages (Vite dev server / ztron:// assets), so that
+   * `metadata.currentWindow.label` resolves per webview either way
+   * (Tauri injects per-webview init scripts natively).
+   */
+  label?: string;
 }
 
 /**
@@ -29,11 +38,28 @@ export interface InitScriptOptions {
 export function buildInitScript(options: InitScriptOptions): string {
   const metadata = JSON.stringify(options.metadata ?? {});
   const invokeKey = JSON.stringify(options.invokeKey);
+  const bakedLabel = options.label ? JSON.stringify(options.label) : "null";
 
   return `;(function () {
   var __KEY__ = ${invokeKey}
   var __CB__ = {}
   var __CB_ID__ = 0
+
+  // Per-webview label: baked at script build time when the backend loads
+  // per-window HTML, else resolved from the #ztron-window= hash marker that
+  // App.createWindow appends to shared URLs (dev server / ztron:// assets).
+  var __META__ = ${metadata}
+  var __LABEL__ = ${bakedLabel}
+  if (!__LABEL__) {
+    var __HASH_M__ = /ztron-window=([^&]+)/.exec(location.hash || "")
+    if (__HASH_M__) {
+      try { __LABEL__ = decodeURIComponent(__HASH_M__[1]) } catch (_e) { /* keep undefined */ }
+    }
+  }
+  if (__LABEL__) {
+    __META__.currentWindow = { label: __LABEL__ }
+    __META__.currentWebview = { label: __LABEL__ }
+  }
 
   function transformCallback(callback, once) {
     var id = ++__CB_ID__
@@ -80,7 +106,7 @@ export function buildInitScript(options: InitScriptOptions): string {
     postMessage: function (message) {
       window.__TAURI_IPC__(message)
     },
-    metadata: ${metadata}
+    metadata: __META__
   }
   window.isTauri = true
 })();

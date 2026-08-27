@@ -16,11 +16,12 @@ export class Webview {
 
   /** The current webview (label from the bootstrap metadata). */
   static getCurrent(): Webview {
-    const label = (
-      globalThis.window?.__TAURI_INTERNALS__?.metadata as
-        { label?: string } | undefined
-    )?.label;
-    return new Webview(label ?? "main");
+    const meta = globalThis.window?.__TAURI_INTERNALS__?.metadata as
+      | { label?: string; currentWebview?: { label?: string } }
+      | undefined;
+    return new Webview(
+      meta?.currentWebview?.label ?? meta?.label ?? "main",
+    );
   }
 
   /**

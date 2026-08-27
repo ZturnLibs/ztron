@@ -34,6 +34,19 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  examples/menuprobe:
+    dependencies:
+      '@zturnlibs/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@zturnlibs/runtime-ffi':
+        specifier: workspace:*
+        version: link:../../packages/runtime-ffi
+    devDependencies:
+      '@zturnlibs/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   examples/multiwin:
     dependencies:
       '@zturnlibs/api':
@@ -58,6 +71,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@zturnlibs/core':
+        specifier: workspace:*
+        version: link:../core
       '@zturnlibs/inject':
         specifier: workspace:*
         version: link:../inject

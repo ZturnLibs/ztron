@@ -1,0 +1,14 @@
+{
+  "entry": "src/main.ts",
+  "identifier": "com.ztron.menuprobe",
+  "version": "0.1.0",
+  "windows": [
+    {
+      "label": "main",
+      "title": "menu probe",
+      "width": 420,
+      "height": 180,
+      "html": "<p>menu v2 probe</p>"
+    }
+  ]
+}

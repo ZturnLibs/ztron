@@ -1906,6 +1906,322 @@ static void menu_destroy(const char *menu_id) {
   g_menus[idx] = NULL;
   g_menu_ids[idx][0] = '\0';
 }
+
+/* ---- G4 (A2): native-icon items / structured traversal / scoping ---- */
+
+/* Tauri NativeIcon -> AppKit stock NSImageName. Unmapped kinds degrade to a
+   plain item ([NSImage imageNamed:] returns nil and we skip the setImage). */
+static const char *nativeicon_image_name(const char *kind) {
+  if (!kind[0]) return NULL;
+  if (!strcmp(kind, "Add")) return "NSAddTemplate";
+  if (!strcmp(kind, "Advanced")) return "NSAdvanced";
+  if (!strcmp(kind, "Bluetooth")) return "NSBluetoothTemplate";
+  if (!strcmp(kind, "Bookmarks")) return "NSBookmarksTemplate";
+  if (!strcmp(kind, "Caution")) return "NSCaution";
+  if (!strcmp(kind, "ColorPanel")) return "NSColorPanel";
+  if (!strcmp(kind, "ColumnView")) return "NSColumnViewTemplate";
+  if (!strcmp(kind, "Computer")) return "NSComputer";
+  if (!strcmp(kind, "EnterFullScreen")) return "NSEnterFullScreenTemplate";
+  if (!strcmp(kind, "Everyone")) return "NSEveryone";
+  if (!strcmp(kind, "ExitFullScreen")) return "NSExitFullScreenTemplate";
+  if (!strcmp(kind, "FlowView")) return "NSFlowViewTemplate";
+  if (!strcmp(kind, "Folder")) return "NSFolder";
+  if (!strcmp(kind, "FolderBurnable")) return "NSFolderBurnable";
+  if (!strcmp(kind, "FolderSmart")) return "NSFolderSmart";
+  if (!strcmp(kind, "FollowLinkFreestanding"))
+    return "NSFollowLinkFreestandingTemplate";
+  if (!strcmp(kind, "FontPanel")) return "NSFontPanel";
+  if (!strcmp(kind, "GoLeft")) return "NSGoLeftTemplate";
+  if (!strcmp(kind, "GoRight")) return "NSGoRightTemplate";
+  if (!strcmp(kind, "Home")) return "NSHomeDirectory";
+  if (!strcmp(kind, "IChatTheater")) return "NSIChatTheaterTemplate";
+  if (!strcmp(kind, "IconView")) return "NSIconViewTemplate";
+  if (!strcmp(kind, "Info")) return "NSInfo";
+  if (!strcmp(kind, "InvalidDataFreestanding"))
+    return "NSInvalidDataFreestandingTemplate";
+  if (!strcmp(kind, "LeftFacingTriangle")) return "NSLeftFacingTriangleTemplate";
+  if (!strcmp(kind, "ListView")) return "NSListViewTemplate";
+  if (!strcmp(kind, "LockLocked")) return "NSLockLockedTemplate";
+  if (!strcmp(kind, "LockUnlocked")) return "NSLockUnlockedTemplate";
+  if (!strcmp(kind, "MenuMixedState")) return "NSMenuMixedStateTemplate";
+  if (!strcmp(kind, "MenuOnState")) return "NSMenuOnStateTemplate";
+  if (!strcmp(kind, "MobileMe")) return "NSMobileMe";
+  if (!strcmp(kind, "MultipleDocuments")) return "NSMultipleDocuments";
+  if (!strcmp(kind, "Network")) return "NSNetwork";
+  if (!strcmp(kind, "Path")) return "NSPathTemplate";
+  if (!strcmp(kind, "PreferencesGeneral")) return "NSPreferencesGeneral";
+  if (!strcmp(kind, "QuickLook")) return "NSQuickLookTemplate";
+  if (!strcmp(kind, "RefreshFreestanding"))
+    return "NSRefreshFreestandingTemplate";
+  if (!strcmp(kind, "Refresh")) return "NSRefreshTemplate";
+  if (!strcmp(kind, "Remove")) return "NSRemoveTemplate";
+  if (!strcmp(kind, "RevealFreestanding"))
+    return "NSRevealFreestandingTemplate";
+  if (!strcmp(kind, "RightFacingTriangle"))
+    return "NSRightFacingTriangleTemplate";
+  if (!strcmp(kind, "Share")) return "NSShareTemplate";
+  if (!strcmp(kind, "Slideshow")) return "NSSlideshowTemplate";
+  if (!strcmp(kind, "SmartBadge")) return "NSSmartBadgeTemplate";
+  if (!strcmp(kind, "StatusAvailable")) return "NSStatusAvailable";
+  if (!strcmp(kind, "StatusNone")) return "NSStatusNone";
+  if (!strcmp(kind, "StatusPartiallyAvailable"))
+    return "NSStatusPartiallyAvailable";
+  if (!strcmp(kind, "StatusUnavailable")) return "NSStatusUnavailable";
+  if (!strcmp(kind, "StopProgressFreestanding"))
+    return "NSStopProgressFreestandingTemplate";
+  if (!strcmp(kind, "StopProgress")) return "NSStopProgressTemplate";
+  if (!strcmp(kind, "TrashEmpty")) return "NSTrashEmpty";
+  if (!strcmp(kind, "TrashFull")) return "NSTrashFull";
+  if (!strcmp(kind, "User")) return "NSUser";
+  if (!strcmp(kind, "UserAccounts")) return "NSUserAccounts";
+  if (!strcmp(kind, "UserGroup")) return "NSUserGroup";
+  if (!strcmp(kind, "UserGuest")) return "NSUserGuest";
+  return NULL;
+}
+
+static id nativeicon_load(const char *kind) {
+  const char *name = nativeicon_image_name(kind);
+  if (!name) return NULL;
+  id img = OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSImage"),
+                     sel_registerName("imageNamed:"), zt_nsstring(name));
+  return img; /* nil for unknown names -> caller skips the icon */
+}
+
+/* IconMenuItem: NSMenuItem + stock named image. checked<0 = non-check item */
+static void menu_add_icon_item(const char *menu_id, const char *item_id,
+                               const char *text, int enabled, int checked,
+                               const char *icon_kind) {
+  int idx = menu_index(menu_id);
+  if (idx < 0 || g_menu_ref_count >= MAX_MENU_REFS) return;
+  id item = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMenuItem"),
+                     sel_registerName("alloc"));
+  item = OBJC_MSG(id(*)(id, SEL, id, SEL, id), item,
+                  sel_registerName("initWithTitle:action:keyEquivalent:"),
+                  zt_nsstring(text), sel_registerName("menuItemClicked:"),
+                  zt_nsstring(""));
+  id img = nativeicon_load(icon_kind);
+  if (img)
+    OBJC_MSG(void (*)(id, SEL, id), item, sel_registerName("setImage:"), img);
+  int tag = g_menu_ref_count;
+  strncpy(g_menu_refs[tag].menu_id, menu_id,
+          sizeof(g_menu_refs[tag].menu_id) - 1);
+  strncpy(g_menu_refs[tag].item_id, item_id,
+          sizeof(g_menu_refs[tag].item_id) - 1);
+  g_menu_ref_count++;
+  OBJC_MSG(void (*)(id, SEL, id), item, sel_registerName("setTarget:"),
+           g_menu_target);
+  OBJC_MSG(void (*)(id, SEL, long), item, sel_registerName("setTag:"), tag);
+  OBJC_MSG(void (*)(id, SEL, BOOL), item, sel_registerName("setEnabled:"),
+           enabled);
+  if (checked >= 0)
+    OBJC_MSG(void (*)(id, SEL, long), item, sel_registerName("setState:"),
+             checked ? 1 : 0);
+  OBJC_MSG(void (*)(id, SEL, id), g_menus[idx], sel_registerName("addItem:"),
+           item);
+}
+
+/* removeItemAtIndex with ref tombstone (menu_find_item skips empties). */
+static void menu_remove_at(const char *menu_id, long at) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  id arr = OBJC_MSG(id (*)(id, SEL), g_menus[idx],
+                    sel_registerName("itemArray"));
+  if (!arr) return;
+  unsigned long n =
+      (unsigned long)OBJC_MSG(unsigned long (*)(id, SEL), arr,
+                              sel_registerName("count"));
+  if (at < 0 || (unsigned long)at >= n) return;
+  id item = OBJC_MSG(id (*)(id, SEL, unsigned long), arr,
+                     sel_registerName("objectAtIndex:"), (unsigned long)at);
+  if (!item) return;
+  long tag = (long)OBJC_MSG(long (*)(id, SEL), item, sel_registerName("tag"));
+  OBJC_MSG(void (*)(id, SEL, id), g_menus[idx], sel_registerName("removeItem:"),
+           item);
+  OBJC_MSG(void (*)(id, SEL), item, sel_registerName("release"));
+  if (tag >= 0 && tag < g_menu_ref_count &&
+      strcmp(g_menu_refs[tag].menu_id, menu_id) == 0) {
+    g_menu_refs[tag].menu_id[0] = '\0'; /* tombstone the ref */
+  }
+}
+
+/* Structured snapshot of every child (upstream Menu.items()/get()). */
+static void menu_items_query(const char *menu_id, int req_id) {
+  if (req_id < 0) return;
+  int idx = menu_index(menu_id);
+  if (idx < 0) {
+    zt_reply_null(req_id);
+    return;
+  }
+  id arr = OBJC_MSG(id (*)(id, SEL), g_menus[idx],
+                    sel_registerName("itemArray"));
+  if (!arr) {
+    zt_reply_null(req_id);
+    return;
+  }
+  unsigned long count =
+      (unsigned long)OBJC_MSG(unsigned long (*)(id, SEL), arr,
+                              sel_registerName("count"));
+  size_t cap = count * 220 + 32;
+  if (cap > (1 << 20)) cap = 1 << 20;
+  char *out = (char *)calloc(1, cap);
+  strncat(out, "[", cap - strlen(out) - 1);
+  unsigned long shown = count > 96 ? 96 : count;
+  for (unsigned long i = 0; i < shown; i++) {
+    id item = OBJC_MSG(id (*)(id, SEL, unsigned long), arr,
+                       sel_registerName("objectAtIndex:"), i);
+    if (!item) continue;
+    long tag = (long)OBJC_MSG(long (*)(id, SEL), item,
+                              sel_registerName("tag"));
+    const char *iid = "";
+    const char *mid = "";
+    if (tag >= 0 && tag < g_menu_ref_count) {
+      iid = g_menu_refs[tag].item_id;
+      mid = g_menu_refs[tag].menu_id;
+    }
+    int enabled = wnd_bool(item, "isEnabled");
+    long state = (long)OBJC_MSG(long (*)(id, SEL), item,
+                                sel_registerName("state"));
+    id title = OBJC_MSG(id (*)(id, SEL), item, sel_registerName("title"));
+    const char *u = title
+                        ? (const char *)OBJC_MSG(const char *(*)(id, SEL),
+                                                 title,
+                                                 sel_registerName("UTF8String"))
+                        : "";
+    int sep = (int)(long)OBJC_MSG(long (*)(id, SEL), item,
+                                  sel_registerName("isSeparatorItem"));
+    id sub = OBJC_MSG(id (*)(id, SEL), item, sel_registerName("submenu"));
+    char etitle[256];
+    zt_json_escape(u ? u : "", etitle, sizeof(etitle));
+    char eid[64];
+    zt_json_escape(iid ? iid : "", eid, sizeof(eid));
+    char entry[512];
+    snprintf(entry, sizeof(entry),
+             "%s{\"id\":\"%s\",\"menuId\":\"%s\",\"title\":\"%s\","
+             "\"enabled\":%s,\"checked\":%s,\"separator\":%s,"
+             "\"hasSubmenu\":%s}",
+             i ? "," : "", eid, mid ? mid : "", etitle,
+             enabled ? "true" : "false", state == 1 ? "true" : "false",
+             sep ? "true" : "false", sub ? "true" : "false");
+    strncat(out, entry, cap - strlen(out) - 1);
+  }
+  strncat(out, "]", cap - strlen(out) - 1);
+  /* reply via generic query_result envelope: {"type":..,"req_id":n,"result":…} */
+  char prefix[48];
+  snprintf(prefix, sizeof(prefix),
+           "{\"type\":\"query_result\",\"req_id\":%d,\"result\":", req_id);
+  memmove(out + strlen(prefix), out, strlen(out) + 1);
+  memcpy(out, prefix, strlen(prefix));
+  size_t len = strlen(out);
+  out[len] = '}';
+  out[len + 1] = '\0';
+  zt_send_line(out);
+  free(out);
+}
+
+/* Sets/replaces a stock native icon on an EXISTING item (upstream
+   IconMenuItem.setIcon). Unknown kinds are a no-op (imageNamed nil). */
+static void menu_set_item_icon(const char *menu_id, const char *item_id,
+                               const char *kind) {
+  id item = menu_find_item(menu_id, item_id);
+  if (!item || !kind[0]) return;
+  id img = nativeicon_load(kind);
+  if (!img) return;
+  OBJC_MSG(void (*)(id, SEL, id), item, sel_registerName("setImage:"), img);
+}
+
+/* Mounts this menu as a specific window's menu bar (document-window model). */
+static void menu_set_window_menu(const char *menu_id, const char *label) {
+  int idx = menu_index(menu_id);
+  webview_t wv = zt_webview(label);
+  void *wnd = wv ? zt_window_of(wv) : NULL;
+  if (idx < 0 || !wnd) return;
+  OBJC_MSG(void (*)(id, SEL, id), (id)wnd, sel_registerName("setMenu:"),
+           g_menus[idx]);
+}
+
+/* NSApp-level auxiliary menus (Window / Help roles). */
+static void menu_set_nsapp_aux(const char *menu_id, const char *which) {
+  int idx = menu_index(menu_id);
+  if (idx < 0) return;
+  id app = zt_nsapp();
+  if (!strcmp(which, "windows"))
+    OBJC_MSG(void (*)(id, SEL, id), app, sel_registerName("setWindowsMenu:"),
+             g_menus[idx]);
+  else if (!strcmp(which, "help"))
+    OBJC_MSG(void (*)(id, SEL, id), app, sel_registerName("setHelpMenu:"),
+             g_menus[idx]);
+}
+
+/* Builds the standard macOS application menu tree under one root id
+   (Tauri Menu::default parity): App/Edit/View/Window/Help. */
+static void menu_create_default(const char *root) {
+  char sid[56];
+  char iid[72];
+  menu_create(root);
+
+#define ZT_SUB(GROUP)                                                     \
+  do {                                                                    \
+    snprintf(sid, sizeof(sid), "%s." #GROUP, root);                       \
+    menu_add_submenu_item(root, sid, #GROUP);                             \
+  } while (0)
+  /* The walker below targets each submenu by re-registering its id, mirroring
+     how config-driven trees flow through the same primitives. */
+  ZT_SUB(app);
+  {
+    char appid[56];
+    snprintf(appid, sizeof(appid), "%s.app", root);
+    snprintf(iid, sizeof(iid), "%s.about", appid);
+    menu_add_predefined(appid, iid, "about", "About", 1);
+    menu_add_item(appid, "$sep0", "", 1, 1, -1);
+    snprintf(iid, sizeof(iid), "%s.hide", appid);
+    menu_add_predefined(appid, iid, "hide", "Hide", 1);
+    snprintf(iid, sizeof(iid), "%s.hideOthers", appid);
+    menu_add_predefined(appid, iid, "hideOthers", "Hide Others", 1);
+    snprintf(iid, sizeof(iid), "%s.showAll", appid);
+    menu_add_predefined(appid, iid, "showAll", "Show All", 1);
+    menu_add_item(appid, "$sep1", "", 1, 1, -1);
+    snprintf(iid, sizeof(iid), "%s.quit", appid);
+    menu_add_predefined(appid, iid, "quit", "Quit", 1);
+  }
+  ZT_SUB(edit);
+  {
+    char eid[56];
+    snprintf(eid, sizeof(eid), "%s.edit", root);
+    snprintf(iid, sizeof(iid), "%s.undo", eid);
+    menu_add_predefined(eid, iid, "undo", "Undo", 1);
+    snprintf(iid, sizeof(iid), "%s.redo", eid);
+    menu_add_predefined(eid, iid, "redo", "Redo", 1);
+    menu_add_item(eid, "$sep0", "", 1, 1, -1);
+    snprintf(iid, sizeof(iid), "%s.cut", eid);
+    menu_add_predefined(eid, iid, "cut", "Cut", 1);
+    snprintf(iid, sizeof(iid), "%s.copy", eid);
+    menu_add_predefined(eid, iid, "copy", "Copy", 1);
+    snprintf(iid, sizeof(iid), "%s.paste", eid);
+    menu_add_predefined(eid, iid, "paste", "Paste", 1);
+    snprintf(iid, sizeof(iid), "%s.selectAll", eid);
+    menu_add_predefined(eid, iid, "selectAll", "Select All", 1);
+  }
+  ZT_SUB(view);
+  {
+    char vid[56];
+    snprintf(vid, sizeof(vid), "%s.view", root);
+    snprintf(iid, sizeof(iid), "%s.fullscreen", vid);
+    menu_add_predefined(vid, iid, "fullscreen", "Toggle Full Screen", 1);
+  }
+  ZT_SUB(window);
+  {
+    char wid[56];
+    snprintf(wid, sizeof(wid), "%s.window", root);
+    snprintf(iid, sizeof(iid), "%s.minimize", wid);
+    menu_add_predefined(wid, iid, "minimize", "Minimize", 1);
+    snprintf(iid, sizeof(iid), "%s.zoom", wid);
+    menu_add_predefined(wid, iid, "maximize", "Zoom", 1);
+    menu_add_item(wid, "$sep0", "", 1, 1, -1);
+    snprintf(iid, sizeof(iid), "%s.front", wid);
+    menu_add_predefined(wid, iid, "bringAllToFront", "Bring All to Front", 1);
+  }
+#undef ZT_SUB
+}
 static id menu_find_item(const char *menu_id, const char *item_id) {
   int idx = menu_index(menu_id);
   if (idx < 0) return NULL;
@@ -2461,6 +2777,32 @@ static int dispatch(Msg *m, webview_t w) {
     if (m->req_id >= 0) zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
+  if (strcmp(m->type, "app_hide") == 0) {
+    /* Whole-app hide (NSApp hide:) — windows stay alive, just off-screen. */
+    OBJC_MSG(void (*)(id, SEL, id), zt_nsapp(), sel_registerName("hide:"),
+             (id)0);
+    return 1;
+  }
+  if (strcmp(m->type, "app_show") == 0) {
+    /* Upstream AppHandle::show: unhide the app, then activate it. */
+    id app = zt_nsapp();
+    if (wnd_bool(app, "isHidden"))
+      OBJC_MSG(void (*)(id, SEL), app,
+               sel_registerName("unhideWithoutActivation"));
+    OBJC_MSG(void (*)(id, SEL, BOOL), app,
+             sel_registerName("activateIgnoringOtherApps:"), 1);
+    return 1;
+  }
+  if (strcmp(m->type, "app_set_dock_visibility") == 0) {
+    /* Dock icon on/off = activation policy Regular(0)/Accessory(1); the
+       same switch set_skip_taskbar uses, exposed as a distinct API. */
+    OBJC_MSG(void (*)(id, SEL, long), zt_nsapp(),
+             sel_registerName("setActivationPolicy:"),
+             m->bool_val ? 0 /* NSApplicationActivationPolicyRegular */
+                         : 1 /* NSApplicationActivationPolicyAccessory */);
+    return 1;
+  }
+
   if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
@@ -2484,6 +2826,35 @@ static int dispatch(Msg *m, webview_t w) {
   if (strcmp(m->type, "menu_item_info") == 0) { menu_item_info(m->str, m->id, m->req_id); return 1; }
   if (strcmp(m->type, "menu_add_submenu_item") == 0) { menu_add_submenu_item(m->str, m->id, m->str2); return 1; }
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
+  if (strcmp(m->type, "menu_add_icon_item") == 0) {
+    menu_add_icon_item(m->str, m->id, m->str2, m->status, -1, m->aux);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_remove_at") == 0) {
+    menu_remove_at(m->str, m->x >= 0 ? m->x : m->req_index);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_items") == 0) {
+    menu_items_query(m->str, m->req_id);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_set_item_icon") == 0) {
+    menu_set_item_icon(m->str, m->id, m->aux);
+    return 1;
+  }
+
+  if (strcmp(m->type, "menu_set_window_menu") == 0) {
+    menu_set_window_menu(m->str, m->win_label);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_set_nsapp_aux") == 0) {
+    menu_set_nsapp_aux(m->str, m->aux);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_create_default") == 0) {
+    menu_create_default(m->str);
+    return 1;
+  }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "menu_item_set_enabled") == 0) { menu_set_item_enabled(m->str, m->id, m->status); return 1; }
   if (strcmp(m->type, "menu_item_set_title") == 0) { menu_set_item_title(m->str, m->id, m->str2); return 1; }

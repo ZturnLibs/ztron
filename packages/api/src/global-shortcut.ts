@@ -21,6 +21,21 @@ export async function unregisterShortcut(id: string): Promise<boolean> {
   return invoke("plugin:global-shortcut|unregister", { id });
 }
 
+/**
+ * Registers a batch of hotkeys in one call (upstream `registerAll`).
+ * Returns per-entry success flags, in order.
+ */
+export async function registerAll(
+  entries: Array<{ id: string; accelerator: string }>,
+): Promise<boolean[]> {
+  return invoke("plugin:global-shortcut|register_all", { entries });
+}
+
+/** Unregisters every hotkey registered by this process (upstream name). */
+export async function unregisterAll(): Promise<boolean> {
+  return invoke("plugin:global-shortcut|unregister_all");
+}
+
 /** Whether a shortcut with this id is currently registered. */
 export async function isRegistered(id: string): Promise<boolean> {
   return invoke("plugin:global-shortcut|is_registered", { id });
@@ -41,6 +56,8 @@ export async function onShortcut(
 export const globalShortcut = {
   register: registerShortcut,
   unregister: unregisterShortcut,
+  registerAll,
+  unregisterAll,
   isRegistered,
   onShortcut,
 };

@@ -27,10 +27,28 @@ export { openerPlugin } from "./opener.js";
 export type { OpenerPluginOptions } from "./opener.js";
 export { updaterPlugin, compareVersions } from "./updater.js";
 export type {
+  UpdaterArtifact,
   UpdaterManifest,
   UpdateCheck,
   UpdaterPluginOptions,
 } from "./updater.js";
+export { compareSemver } from "./semver.js";
+export {
+  verifyMinisig,
+  parsePublicKeyFile,
+  parseSignatureFile,
+  parseSecretKeyFile,
+  generateKeypair,
+  signMinisig,
+  dumpSignatureFile,
+  dumpPublicKeyFile,
+} from "./minisign.js";
+export type {
+  VerifyResult as MinisignVerifyResult,
+  MinisignPublicKey,
+  MinisignSignature,
+  UnencryptedSecretKey,
+} from "./minisign.js";
 export { sqlPlugin } from "./sql.js";
 export type { SqlPluginOptions } from "./sql.js";
 export { autostartPlugin } from "./autostart.js";

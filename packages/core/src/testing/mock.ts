@@ -358,18 +358,32 @@ export class MockRuntime implements RuntimeAdapter {
   };
 
   exitLog: number[] = [];
-  imageLog: Array<{ kind: string; id?: number }> = [];
+  /** Monotonic image-id source (mirrors real registries issuing fresh rids). */
+  private nextImageId = 0;  imageLog: Array<{ kind: string; id?: number }> = [];
   readonly image: import("../runtime.js").ImageController = {
     fromBytes: async () => {
       this.imageLog.push({ kind: "bytes" });
-      return 1;
+      return ++this.nextImageId;
     },
     fromPath: async () => {
       this.imageLog.push({ kind: "path" });
-      return 2;
+      return ++this.nextImageId;
     },
     destroy: (id) => {
       this.imageLog.push({ kind: "destroy", id });
+    },
+  };
+  /** Whole-app visibility ops (`plugin:app|show/hide/set_dock_visibility`). */
+  appLifecycleLog: Array<{ kind: string; visible?: boolean }> = [];
+  readonly application: import("../runtime.js").ApplicationController = {
+    show: () => {
+      this.appLifecycleLog.push({ kind: "show" });
+    },
+    hide: () => {
+      this.appLifecycleLog.push({ kind: "hide" });
+    },
+    setDockVisibility: (visible) => {
+      this.appLifecycleLog.push({ kind: "dock", visible });
     },
   };
   relaunchCount = 0;
@@ -442,6 +456,31 @@ export class MockRuntime implements RuntimeAdapter {
       return Promise.resolve(this.itemInfoValue);
     },
     onEvent: () => {},
+    removeItemAt: (menuId, index) => {
+      this.menuLog.push({ op: "remove_at", payload: { menuId, index } });
+    },
+    items: async () => [],
+    createDefaultMenu: (menuId) => {
+      this.menuLog.push({ op: "create_default", payload: { menuId } });
+    },
+    setAsWindowMenu: (menuId, label) => {
+      this.menuLog.push({ op: "set_as_window_menu", payload: { menuId, label } });
+    },
+    setAsWindowsMenuForNSApp: (menuId) => {
+      this.menuLog.push({
+        op: "set_as_windows_menu_for_nsapp",
+        payload: { menuId },
+      });
+    },
+    setAsHelpMenuForNSApp: (menuId) => {
+      this.menuLog.push({
+        op: "set_as_help_menu_for_nsapp",
+        payload: { menuId },
+      });
+    },
+    setItemIcon: (menuId, itemId, icon) => {
+      this.menuLog.push({ op: "set_icon", payload: { menuId, itemId, icon } });
+    },
   };
 
   dialogLog: Array<{ kind: string; options?: unknown }> = [];
