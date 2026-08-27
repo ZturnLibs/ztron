@@ -632,10 +632,37 @@ static void dock_set_badge(const char *text) {
 static void dock_set_progress(double progress) {
   id tile = zt_dock_tile();
   if (!tile) return;
-  if (progress < 0) {
+  if (progress < 0 && progress > -3) {
     OBJC_MSG(void(*)(id, SEL, id), tile, sel_registerName("setContentView:"),
              (id)NULL);
     OBJC_MSG(void(*)(id, SEL), tile, sel_registerName("display"));
+    return;
+  }
+  if (progress == -3) {
+    /* Indeterminate: swap-in a spinning bar (started once, reused). */
+    typedef struct { double x, y, w, h; } ZtNSRectI;
+    ZtNSRectI full = {0, 0, 128, 128};
+    id v = OBJC_MSG(id (*)(id, SEL, ZtNSRectI), (id)objc_getClass("NSView"),
+                    sel_registerName("alloc"), *(ZtNSRectI *)&full);
+    v = OBJC_MSG(id (*)(id, SEL, ZtNSRectI), v,
+                 sel_registerName("initWithFrame:"), *(ZtNSRectI *)&full);
+    if (!v) return;
+    ZtNSRectI bar = {0, 0, full.w, 20};
+    id pi = OBJC_MSG(id (*)(id, SEL, ZtNSRectI),
+                     (id)objc_getClass("NSProgressIndicator"),
+                     sel_registerName("alloc"), *(ZtNSRectI *)&bar);
+    pi = OBJC_MSG(id (*)(id, SEL, ZtNSRectI), pi,
+                  sel_registerName("initWithFrame:"), *(ZtNSRectI *)&bar);
+    if (!pi) { OBJC_MSG(void (*)(id, SEL), v, sel_registerName("release")); return; }
+    OBJC_MSG(void (*)(id, SEL, BOOL), pi, sel_registerName("setIndeterminate:"), YES);
+    OBJC_MSG(void (*)(id, SEL, BOOL), pi, sel_registerName("setBezeled:"), NO);
+    OBJC_MSG(void (*)(id, SEL, long), pi, sel_registerName("setControlSize:"), 1);
+    OBJC_MSG(void (*)(id, SEL, id), pi,
+             sel_registerName("setAutoresizingMask:"), (id)NULL);
+    OBJC_MSG(void (*)(id, SEL, id), v, sel_registerName("addSubview:"), pi);
+    OBJC_MSG(void (*)(id, SEL, id), tile, sel_registerName("setContentView:"), v);
+    OBJC_MSG(void (*)(id, SEL, id), pi, sel_registerName("startAnimation:"), (id)NULL);
+    OBJC_MSG(void (*)(id, SEL), tile, sel_registerName("display"));
     return;
   }
   /* Layout a determinate NSProgressIndicator inside the dock tile
@@ -971,7 +998,9 @@ static void handle_window_op(Msg *m, webview_t w) {
   } else if (strcmp(m->type, "request_user_attention") == 0) {
     OBJC_MSG(void(*)(id, SEL, long), zt_nsapp(),
              sel_registerName("requestUserAttention:"),
-             m->bool_val ? 1 /* NSCriticalRequest */ : 0 /* NSInformationalRequest */);
+             m->bool_val
+                 ? 10 /* NSCriticalRequest (real AppKit raw value) */
+                 : 0 /* NSInformationalRequest */);
   } else if (strcmp(m->type, "maximize") == 0) {
     if (!wnd_bool(wnd, "isZoomed")) wnd_void(wnd, "zoom:");
   } else if (strcmp(m->type, "unmaximize") == 0) {
@@ -2619,7 +2648,9 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
   if (strcmp(m->type, "set_progress_bar") == 0) {
-    dock_set_progress(m->opacity_val);
+    /* -3 sentinel: upstream ProgressBarStatus.Indeterminate spinning bar */
+    dock_set_progress(strcmp(m->aux, "indeterminate") == 0 ? -3.0
+                                                           : m->opacity_val);
     return 1;
   }
   if (strcmp(m->type, "set_badge_count") == 0) {

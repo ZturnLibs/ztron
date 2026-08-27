@@ -37,7 +37,7 @@
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
 | B1 | 事件缺 WINDOW_SUSPENDED/RESUMED/WINDOW_CREATED/WEBVIEW_CREATED（native 仅映射 11 种） | event/mod.rs 16 个 TauriEvent | host C + core | macOS 可验 | ☐ |
-| B2 | cursor_position 要求 label 参数、无全局独立查询（`plugin:window\|cursor_position` 应为全局鼠标位置）；api 缺 `cursorPosition` 独立导出 | window.plugin | host C + api | macOS 可验 | ☐ |
+| B2 ✓ | cursor_position 无窗全局回退本就内建（无 wnd 直接 mouse_screen）；api 新增零参 standalone cursorPosition() 导出
 | B3 ✓ | app 级 show/hide（NSApp hide:/unhideWithoutActivation+activate；G2 批次，DESIGN §102） | core:app app_show/app_hide | host C + core + api | macOS 可验（multiwin APP_LIFECYCLE_OK ✓） | ✓ |
 | B4 ✓ | setDockVisibility（activationPolicy Regular/Accessory，与 skip_taskbar 同机制独立 API；G2 批次） | core:app set_dock_visibility | host C + core + api | macOS 可验（multiwin ✓） | ✓ |
 | B5 | default_window_icon（默认窗图标查询） | core:app | host C + core + api | macOS 可验 | ☐ |
@@ -57,10 +57,10 @@
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
 | C1 ✓ | **CloseRequestedEvent 类 + preventDefault/isPreventDefault**：onCloseRequested(handler) 语义改为「执行 handler→未 prevent 则 destroy()」动态决策（G1 批次落地，2026-08-27，DESIGN §101） | api/src/window.ts CloseRequestedEvent + onCloseRequested | api（host 无关） | 本机可验 | ✓ |
-| C2 | CursorIcon 类型常量表（32 图标联合类型+常量） | api window.ts | api 类型 | 本机可验 | ☐ |
-| C3 | ProgressBarStatus 枚举（None/Normal/Indeterminate/Paused/Error）+ ProgressBarState 接口 | api window.ts | api + core 扩展 | 本机可验（macOS progress bar 已有） | ☐ |
-| C4 | requestUserAttention 吃 UserAttentionType（core 现 cast bool 丢弃类型，app.ts:603-612） | core:window | core 小改 | macOS 可验 | ☐ |
-| C5 | dpi Size/Position 包装器类（Size.toLogical/toPhysical、Position 同） | api/src/dpi.ts | api | 本机可验 | ☐ |
+| C2 ✓ | CursorIcon 常量表（35 联合成员含 resize 族；as-const 对象+派生类型）
+| C3 ✓ | ProgressBarStatus 枚举贯通：api 状态对象归一化→wire -3 哨兵→host 不确定态旋转条分支（setContentView+startAnimation）；None 清除
+| C4 ✓ | request_user_attention 修正真实 AppKit raw 值 Critical=10/Info=0（原误发 1），enum 贯通保留
+| C5 ✓ | dpi Size/Position 包装器（源自适应 Logical/Physical 判别，to* 双向换算 + toJSON 带判别键）
 | C6 | EventTarget.App 语义：app 目标路由到 app 级监听而非等同 Any 全局广播；windows/webviews 分组语义核对 | api event.ts EventTarget kind ×5 | core eventManager | 本机可验 | ☐ |
 | C7 | BaseDirectory 枚举（23 值）导出 + fs/path 各 fn options.baseDir 支持 | api path.ts BaseDirectory | api + core path/fs | 本机可验 | ☐ |
 | C8 | mocks 模块：mockIPC/mockWindows/mockConvertFileSrc/clearMocks（前端单测工具面） | api/src/mocks.ts | api | 本机可验 | ☐ |

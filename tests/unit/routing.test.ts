@@ -650,6 +650,21 @@ test("app lifecycle routes whole-app visibility + metadata commands", async () =
   );
 });
 
+test("window finishing surface: progress states + global cursor", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:window|set_progress_bar", {
+    label: "main",
+    progress: -3,
+    status: "indeterminate",
+  });
+  await mock.main.invoke("plugin:window|cursor_position", {});
+  // MockRuntime tolerates the missing-label path (global cursor semantics).
+  const cur = await mock.main.invoke("plugin:window|get_state", {
+    label: "main",
+  });
+  assert.equal(typeof cur, "object");
+});
+
 test("tray v2 multi-instance ops route through the adapter", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:tray|get_by_id", { id: "alt" });

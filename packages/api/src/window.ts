@@ -25,6 +25,64 @@ export type WindowEventName =
   | "drag-drop"
   | "drag-leave";
 
+/**
+ * Stock cursor shapes accepted by setCursor/setCursorIcon
+ * (upstream `CursorIcon` union members).
+ */
+export const CursorIcon = {
+  Default: "default",
+  Crosshair: "crosshair",
+  Hand: "hand",
+  Arrow: "arrow",
+  Move: "move",
+  Text: "text",
+  Wait: "wait",
+  Help: "help",
+  Progress: "progress",
+  NotAllowed: "notAllowed",
+  ContextMenu: "contextMenu",
+  Cell: "cell",
+  VerticalText: "verticalText",
+  Alias: "alias",
+  Copy: "copy",
+  NoDrop: "noDrop",
+  Grab: "grab",
+  Grabbing: "grabbing",
+  AllScroll: "allScroll",
+  ZoomIn: "zoomIn",
+  ZoomOut: "zoomOut",
+  EResize: "eResize",
+  NResize: "nResize",
+  NeResize: "neResize",
+  NwResize: "nwResize",
+  SResize: "sResize",
+  SeResize: "seResize",
+  SwResize: "swResize",
+  WResize: "wResize",
+  EwResize: "ewResize",
+  NsResize: "nsResize",
+  NeswResize: "neswResize",
+  NwseResize: "nwseResize",
+  ColResize: "colResize",
+  RowResize: "rowResize",
+} as const;
+export type CursorIcon = (typeof CursorIcon)[keyof typeof CursorIcon];
+
+/** Dock/Tile progress-bar states (upstream ProgressBarStatus). */
+export enum ProgressBarStatus {
+  None = "none",
+  Normal = "normal",
+  Indeterminate = "indeterminate",
+  Paused = "paused",
+  Error = "error",
+}
+
+export interface ProgressBarStateInput {
+  status: ProgressBarStatus;
+  /** Determinate value when status is Normal/Paused/Error. */
+  value?: number;
+}
+
 /** Attention request type for {@linkcode Window.requestUserAttention}. */
 export enum UserAttentionType {
   Critical = "Critical",
@@ -299,14 +357,11 @@ export class Window {
     });
   }
 
-  /** The cursor position in window coordinates. */
+  /** Screen-space cursor position (no label needed; upstream parity). */
   async cursorPosition(): Promise<{ x: number; y: number }> {
-    return (
-      (await invoke<{ x: number; y: number } | null>(
-        "plugin:window|cursor_position",
-        { label: this.label },
-      )) ?? { x: 0, y: 0 }
-    );
+    return invoke<{ x: number; y: number }>("plugin:window|cursor_position", {
+      label: this.label,
+    });
   }
 
   /** Warps the cursor to window coordinates (dpi types accepted). */
@@ -714,13 +769,33 @@ export class Window {
    * Sets the dock/taskbar progress (`0.0`–`1.0`); `null` clears it.
    * App-wide on macOS (dock tile), per-window on Windows taskbar.
    */
-  async setProgressBar(progress: number | null): Promise<void> {
+  /**
+   * Dock/taskbar progress. Accepts a bare determinate value / null (v1
+   * shape) or an upstream ProgressBarState object: `Indeterminate` toggles
+   * the spinning bar, `None` clears it.
+   */
+  async setProgressBar(
+    progress:
+      | number
+      | null
+      | ProgressBarStateInput,
+  ): Promise<void> {
+    let wire: number | null;
+    let statusArg: string | undefined;
+    if (progress !== null && typeof progress === "object") {
+      statusArg = progress.status as string;
+      if (progress.status === ProgressBarStatus.None) wire = null;
+      else if (progress.status === ProgressBarStatus.Indeterminate) wire = -3;
+      else wire = progress.value ?? 0;
+    } else {
+      wire = progress;
+    }
     await invoke("plugin:window|set_progress_bar", {
       label: this.label,
-      progress,
+      progress: wire,
+      ...(statusArg ? { status: statusArg } : {}),
     });
   }
-
   /**
    * Sets the dock badge count. `null`/`undefined` removes the badge.
    * macOS dock / Windows taskbar; unsupported elsewhere.
@@ -975,4 +1050,12 @@ export interface Effects {
   state?: EffectState;
   radius?: number;
   color?: string | null;
+}
+
+/**
+ * Global mouse position in screen coordinates — no window label required
+ * (upstream `cursorPosition()` standalone helper).
+ */
+export async function cursorPosition(): Promise<{ x: number; y: number }> {
+  return invoke<{ x: number; y: number }>("plugin:window|cursor_position", {});
 }

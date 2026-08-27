@@ -101,3 +101,69 @@ export function normalizePosition(
   }
   return { x: a.x, y: a.y };
 }
+
+/** Upstream dpi.Size wrapper — logical OR physical resolution. */
+export class Size {
+  readonly type: "Logical" | "Physical";
+  constructor(source: LogicalSize | PhysicalSize | { width: number; height: number; type?: string }) {
+    if (source instanceof LogicalSize) {
+      this.width = source.width;
+      this.height = source.height;
+      this.type = "Logical";
+    } else if (source instanceof PhysicalSize) {
+      this.width = source.width;
+      this.height = source.height;
+      this.type = "Physical";
+    } else {
+      const t = (source as { type?: string }).type === "Physical" ? "Physical" : "Logical";
+      this.type = t;
+      this.width = source.width;
+      this.height = source.height;
+    }
+  }
+  width: number;
+  height: number;
+  toLogical(scaleFactor: number): LogicalSize {
+    return this.type === "Logical"
+      ? new LogicalSize(this.width, this.height)
+      : new PhysicalSize(this.width, this.height).toLogical(scaleFactor);
+  }
+  toPhysical(scaleFactor: number): PhysicalSize {
+    return this.type === "Physical"
+      ? new PhysicalSize(this.width, this.height)
+      : new LogicalSize(this.width, this.height).toPhysical(scaleFactor);
+  }
+  toJSON(): { width: number; height: number; type: string } {
+    return { width: this.width, height: this.height, type: this.type };
+  }
+}
+
+/** Upstream dpi.Position wrapper — logical OR physical resolution. */
+export class Position {
+  readonly type: "Logical" | "Physical";
+  x: number;
+  y: number;
+  constructor(source: LogicalPosition | PhysicalPosition | { x: number; y: number; type?: string }) {
+    if (source instanceof LogicalPosition) {
+      this.x = source.x; this.y = source.y; this.type = "Logical";
+    } else if (source instanceof PhysicalPosition) {
+      this.x = source.x; this.y = source.y; this.type = "Physical";
+    } else {
+      this.type = (source as { type?: string }).type === "Physical" ? "Physical" : "Logical";
+      this.x = source.x; this.y = source.y;
+    }
+  }
+  toLogical(scaleFactor: number): LogicalPosition {
+    return this.type === "Logical"
+      ? new LogicalPosition(this.x, this.y)
+      : new PhysicalPosition(this.x, this.y).toLogical(scaleFactor);
+  }
+  toPhysical(scaleFactor: number): PhysicalPosition {
+    return this.type === "Physical"
+      ? new PhysicalPosition(this.x, this.y)
+      : new LogicalPosition(this.x, this.y).toPhysical(scaleFactor);
+  }
+  toJSON(): { x: number; y: number; type: string } {
+    return { x: this.x, y: this.y, type: this.type };
+  }
+}

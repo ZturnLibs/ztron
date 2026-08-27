@@ -29,6 +29,9 @@ export {
   setupDragRegion,
   UserAttentionType,
   CloseRequestedEvent,
+  CursorIcon,
+  ProgressBarStatus,
+  cursorPosition,
   Effect,
   EffectState,
   getAllWindows,
@@ -46,6 +49,8 @@ export {
   PhysicalSize,
   LogicalPosition,
   PhysicalPosition,
+  Size,
+  Position,
 } from "./dpi.js";
 export type { SizeLike, PositionLike } from "./dpi.js";
 export {

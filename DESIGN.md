@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 106. G8 window 收尾组(TS 层为主)
+
+- **CursorIcon**:35 成员 as-const 表(default/crosshair/…32 图标+rowResize 等),setCursor/setCursorIcon 直接受类型化字符串(宿主端早已透传 NSSetCursor)
+- **ProgressBarStatus 贯通**:api 接受 number|null|{status,value};None→null 清除、Indeterminate→wire -3 哨兵;host.c aux 槽承载状态串(status 与既有整型 status 槽同名共存,json_str 先读后 int 兜底),dock tile 新增不确定态分支(setIndeterminate+startAnimation);修复 requestUserAttention 把 AppKit raw 值写成 1 的旧账(实为 NSCriticalRequest=10)
+- **dpi**:补 Size/Position 包装器(与上游同名同语义,toLogical/toPhysical 双向);四个 dpi 类 toJSON 已带判别键,C13 核对通过无需改
+- **cursorPosition 全局化**:host cursor_position 无窗口本就回退全局鼠标(ZtPoint 帮手),api 新增零参 standalone 函数导出即可用——B2 实为零代码项
+- **教训**:脚本切片替换切点落在泛型闭合 `}>` 处制造语法碎片,`pnpm build` 报 649 连锁错时必须先看首个文件级错误而非测试名;修复后 87 tests / 86 pass / 1 skip,typecheck 0 err,原生 -Werror 干净
+
 ## 104. G4 Menu v2(NativeIcon 图标项/default 菜单/结构化遍历/三处挂载)
 
 - **协议桥(host.c/h)**:Msg 增 `aux[256]`(图标 kind 等第二文本槽,text/icon 不再互占 str2)+ `req_index`("at" 索引);解析行同步
