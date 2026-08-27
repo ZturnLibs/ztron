@@ -402,6 +402,10 @@ export class MockRuntime implements RuntimeAdapter {
     apply: (op, payload) => {
       this.trayLog.push({ op, payload });
     },
+    getById: (id) => {
+      this.trayLog.push({ op: "get_by_id", payload: { id } });
+      return false;
+    },
     onEvent: () => {},
   };
 

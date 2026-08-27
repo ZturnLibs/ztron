@@ -66,6 +66,27 @@ void (async () => {
   } catch (e) {
     console.log("MENU_V2_FAIL:" + String(e).slice(0, 80));
   }
+
+  // Tray multi-instance surface (G5 / B9): id creation -> existence query ->
+  // left-click toggle -> removal. Legacy default instance untouched here.
+  try {
+    runtime.tray.apply("create", { title: "", id: "g5-alt" });
+    let exists = await runtime.tray.getById?.("g5-alt");
+    if (exists !== true) throw new Error("getById(alt) != true after create");
+    runtime.tray.apply("set_show_menu_on_left_click", {
+      id: "g5-alt",
+      visible: false,
+    });
+    runtime.tray.apply("set_show_menu_on_left_click", {
+      id: "g5-alt",
+      visible: true,
+    });
+    runtime.tray.apply("remove_by_id", { id: "g5-alt" });
+    exists = await runtime.tray.getById?.("g5-alt");
+    console.log(exists === false ? "TRAY_V2_OK" : `TRAY_V2_FAIL:${exists}`);
+  } catch (e) {
+    console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
+  }
   await sleep(200);
   app.getWebview("main")?.terminate();
 })();

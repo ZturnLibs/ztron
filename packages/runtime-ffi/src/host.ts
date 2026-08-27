@@ -389,7 +389,8 @@ export class HostRuntime implements RuntimeAdapter {
   #handles = new Map<string, HostWebviewHandle>();
   #requests = new Map<number, (result: unknown) => void>();
   #nextReqId = 1;
-  #trayEventCb: ((event: "click") => void) | null = null;
+  #trayEventCb: ((event: import("@zturnlibs/core").TrayEventPayload) => void) | null =
+    null;
   #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
     null;
   #shortcutEventCb: ((event: { shortcutId: string }) => void) | null = null;
@@ -411,7 +412,22 @@ export class HostRuntime implements RuntimeAdapter {
     apply: (op, payload) => {
       switch (op) {
         case "create":
-          this.send({ type: "tray_create", title: payload?.title ?? "" });
+          this.send({
+            type: "tray_create",
+            title: payload?.title ?? "",
+            label: payload?.id ?? "",
+          });
+          break;
+        case "remove_by_id":
+          this.send({ type: "tray_remove_by_id", label: payload?.id ?? "" });
+          break;
+        case "set_show_menu_on_left_click":
+          this.send({
+            type: "tray_set_show_menu_on_left_click",
+            label: payload?.id ?? "",
+            value:
+              (payload as { visible?: boolean } | undefined)?.visible ?? true,
+          });
           break;
         case "set_title":
           this.send({ type: "tray_set_title", title: payload?.title ?? "" });
@@ -457,6 +473,10 @@ export class HostRuntime implements RuntimeAdapter {
           break;
       }
     },
+    getById: (id) =>
+      this.sendRequest("tray_get_by_id", { menu_id: "", label: id }) as
+        | boolean
+        | Promise<boolean>,
     onEvent: (cb) => {
       this.#trayEventCb = cb;
     },
@@ -894,7 +914,8 @@ export class HostRuntime implements RuntimeAdapter {
         break;
       }
       case "tray_event": {
-        this.#trayEventCb?.(String(msg.event) as "click");
+        const ev = msg as unknown as import("@zturnlibs/core").TrayEventPayload;
+        this.#trayEventCb?.(ev);
         break;
       }
       case "menu_event": {

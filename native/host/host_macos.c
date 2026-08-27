@@ -1569,93 +1569,176 @@ static void monitors_reply(int req_id, int mode, void *wnd, double x, double y) 
   free(out);
 }
 
-/* ---- system tray (NSStatusItem) ---- */
+/* ---- system tray (NSStatusItem, multi-instance since G5/B9) ---- */
 
-static void *g_status_item = NULL;
+#define MAX_TRAYS 8
+
+typedef struct {
+  char id[32];
+  id item;
+  void *button;      /* for click attribution */
+  char menu_id[64];  /* attached context/tray menu ("" = none) */
+  int menu_on_left;  /* upstream setShowMenuOnLeftClick (default true) */
+} TrayRec;
+
+static TrayRec g_trays[MAX_TRAYS];
+static int g_tray_count = 0;
 static id g_tray_target = NULL;
 
-static void emit_tray_event(const char *event) {
-  char buf[128];
-  snprintf(buf, sizeof(buf), "{\"type\":\"tray_event\",\"event\":\"%s\"}", event);
-  zt_send_line(buf);
+/* "" (or absent) resolves to the FIRST tray — preserves the pre-G5
+   single-tray wire contract byte-for-byte. */
+static int tray_pick(const char *tid) {
+  if (!tid || !tid[0]) return g_tray_count > 0 ? 0 : -1;
+  for (int i = 0; i < g_tray_count; i++)
+    if (strcmp(g_trays[i].id, tid) == 0) return i;
+  return -1;
 }
-static void zt_tray_click(id s, SEL c, id sender) { (void)s; (void)c; (void)sender; emit_tray_event("click"); }
-
-static void tray_create(const char *title) {
-  void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
-  id item = OBJC_MSG(id(*)(id, SEL, double), bar, sel_registerName("statusItemWithLength:"), -1.0);
-  if (item) {
-    OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"), zt_nsstring(title));
-    id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
-    OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
-    OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
-    /* statusItemWithLength: returns an autoreleased item; retain it so the
-       stored g_status_item survives the next autorelease-pool drain. */
-    g_status_item = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("retain"));
+static void zt_tray_click(id s, SEL c, id sender) {
+  (void)s; (void)c;
+  /* attribute the click to the owning tray record */
+  const char *tid = "";
+  int btn_right = 0;
+  long count = 1;
+  double mx = 0, my = 0;
+  id ce = OBJC_MSG(id (*)(id, SEL), (id)objc_getClass("NSEvent"),
+                   sel_registerName("currentEvent"));
+  if (ce) {
+    long clicks = (long)OBJC_MSG(long (*)(id, SEL), ce,
+                                 sel_registerName("clickCount"));
+    if (clicks > 0) count = clicks;
+    unsigned long buttons =
+        (unsigned long)OBJC_MSG(unsigned long (*)(id, SEL), ce,
+                                sel_registerName("pressedMouseButtons"));
+    btn_right = (buttons & 1UL) ? 0 : ((buttons & 2UL) ? 1 : 0);
+    /* 0 = leftMouse(bit0) 1 = right(bit1); coords in global screen space */
+    ZtPoint p = zt_mouse_screen();
+    mx = p.x; my = p.y;
   }
-}
-static void tray_set_title(const char *title) {
-  if (g_status_item) {
-    OBJC_MSG(void(*)(id, SEL, id), g_status_item, sel_registerName("setTitle:"), zt_nsstring(title));
-  }
-}
-static void tray_set_tooltip(const char *tooltip) {
-  if (g_status_item) {
-    OBJC_MSG(void(*)(id, SEL, id), g_status_item, sel_registerName("setToolTip:"), zt_nsstring(tooltip));
-  }
-}
-static void tray_set_icon(const char *path) {
-  if (g_status_item && path && path[0]) {
-    /* imageWithContentsOfFile: is gone on modern macOS; use alloc/init. */
-    id image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
-                        sel_registerName("alloc"));
-    image = OBJC_MSG(id(*)(id, SEL, id), image,
-                     sel_registerName("initWithContentsOfFile:"),
-                     zt_nsstring(path));
-    if (image) {
-      id button = OBJC_MSG(id(*)(id, SEL), g_status_item, sel_registerName("button"));
-      OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setImage:"), image);
-      OBJC_MSG(void(*)(id, SEL), image, sel_registerName("release"));
+  (void)sender;
+  for (int i = 0; i < g_tray_count; i++) {
+    if (g_trays[i].button && *(void **)sender == g_trays[i].button) {
+      tid = g_trays[i].id; break;
     }
   }
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
+           "\"button\":\"%s\",\"clickCount\":%ld,\"double\":%s,"
+           "\"x\":%.0f,\"y\":%.0f}",
+           count >= 2 ? "doubleClick" : "click", tid,
+           btn_right ? "right" : "left", count,
+           count >= 2 ? "true" : "false", mx, my);
+  zt_send_line(buf);
 }
-/* Sets the tray icon from a registered image id (from the image registry). */
+
+static void tray_create_ext(const char *title, const char *tid) {
+  if (g_tray_count >= MAX_TRAYS) return;
+  if (!tid || !tid[0]) tid = "main";
+  void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
+  id item = OBJC_MSG(id(*)(id, SEL, double), bar, sel_registerName("statusItemWithLength:"), -1.0);
+  if (!item) return;
+  OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"), zt_nsstring(title));
+  id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
+  OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
+  OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
+  /* statusItemWithLength: returns an autoreleased item; retain it so the
+     stored record survives the next autorelease-pool drain. */
+  TrayRec *r = &g_trays[g_tray_count++];
+  memset(r, 0, sizeof(*r));
+  strncpy(r->id, tid, sizeof(r->id) - 1);
+  r->item = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("retain"));
+  r->button = *(void **)&button;
+  r->menu_on_left = 1;
+}
+
+static void tray_set_title(const char *title) {
+  int ti = tray_pick("");
+  if (ti < 0) return;
+  OBJC_MSG(void(*)(id, SEL, id), g_trays[ti].item, sel_registerName("setTitle:"), zt_nsstring(title));
+}
+static void tray_set_tooltip(const char *tooltip) {
+  int ti = tray_pick("");
+  if (ti < 0) return;
+  OBJC_MSG(void(*)(id, SEL, id), g_trays[ti].item, sel_registerName("setToolTip:"), zt_nsstring(tooltip));
+}
+static void tray_set_icon(const char *path) {
+  int ti = tray_pick("");
+  if (ti < 0 || !path || !path[0]) return;
+  id image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
+                      sel_registerName("alloc"));
+  image = OBJC_MSG(id(*)(id, SEL, id), image,
+                   sel_registerName("initWithContentsOfFile:"),
+                   zt_nsstring(path));
+  if (image) {
+    id button = OBJC_MSG(id(*)(id, SEL), g_trays[ti].item, sel_registerName("button"));
+    OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setImage:"), image);
+    OBJC_MSG(void(*)(id, SEL), image, sel_registerName("release"));
+  }
+}
 static void tray_set_icon_id(int image_id) {
+  int ti = tray_pick("");
   id image = image_by_id(image_id);
-  if (g_status_item && image) {
-    id button = OBJC_MSG(id(*)(id, SEL), g_status_item, sel_registerName("button"));
+  if (ti >= 0 && image) {
+    id button = OBJC_MSG(id(*)(id, SEL), g_trays[ti].item, sel_registerName("button"));
     OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setImage:"), image);
   }
 }
-static void tray_destroy(void) {
-  if (g_status_item) {
-    void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
-    OBJC_MSG(void(*)(id, SEL, id), bar, sel_registerName("removeStatusItem:"), g_status_item);
-    OBJC_MSG(void(*)(id, SEL), g_status_item, sel_registerName("release"));
-    g_status_item = NULL;
-  }
+static void tray_destroy(const char *tid) {
+  int ti = tray_pick(tid);
+  if (ti < 0) return;
+  void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
+  OBJC_MSG(void(*)(id, SEL, id), bar, sel_registerName("removeStatusItem:"), g_trays[ti].item);
+  OBJC_MSG(void(*)(id, SEL), g_trays[ti].item, sel_registerName("release"));
+  memmove(&g_trays[ti], &g_trays[ti + 1],
+          sizeof(TrayRec) * (size_t)(g_tray_count - ti - 1));
+  g_tray_count--;
 }
 /* NSStatusItem has a settable `visible` property (10.12+). */
 static void tray_set_visible(int visible) {
-  if (g_status_item) {
-    OBJC_MSG(void(*)(id, SEL, BOOL), g_status_item,
+  int ti = tray_pick("");
+  if (ti >= 0) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), g_trays[ti].item,
              sel_registerName("setVisible:"), visible ? 1 : 0);
   }
 }
 /* Marks the CURRENT button image as a template (adapts to light/dark bars).
    Must run after setIcon (the image is copied per call). */
 static void tray_set_icon_template(int on) {
-  if (!g_status_item) return;
-  id button = OBJC_MSG(id(*)(id, SEL), g_status_item, sel_registerName("button"));
+  int ti = tray_pick("");
+  if (ti < 0) return;
+  id button = OBJC_MSG(id(*)(id, SEL), g_trays[ti].item, sel_registerName("button"));
   id image = OBJC_MSG(id(*)(id, SEL), button, sel_registerName("image"));
   if (!image) return;
-  /* setImage: copies the image? No — the button retains the SAME instance,
-     so setTemplate: on it persists until the next setImage:. */
+  /* setImage: retains the SAME instance, so setTemplate: persists until the
+     next setImage:. */
   OBJC_MSG(void(*)(id, SEL, BOOL), image, sel_registerName("setTemplate:"),
            on ? 1 : 0);
-  /* refresh so the template rendering takes effect immediately */
   OBJC_MSG(void(*)(id, SEL, BOOL), button, sel_registerName("setNeedsDisplay:"), 1);
 }
+
+/* G5/B9 additions ------------------------------------------------------- */
+
+static void tray_get_by_id(const char *tid, int req_id) {
+  if (req_id >= 0)
+    zt_reply_query(req_id, tray_pick(tid) >= 0 ? "true" : "false");
+}
+static void tray_remove_by_id(const char *tid) { tray_destroy(tid); }
+
+/* Toggles whether the attached menu shows on LEFT click. With
+   menuOnLeft=false the attachment is detached (menu stays registered so the
+   app can still popup() it programmatically). */
+/* Toggles whether an attached menu shows on LEFT click. menuOnLeft=false
+   detaches (menu registry keeps it for programmatic popup()). Relinking
+   itself lives after the menu registry (tray_relink_menu). */
+static void tray_relink_menu(const char *tid);
+
+static void tray_set_show_menu_on_left_click(const char *tid, int on) {
+  int ti = tray_pick(tid);
+  if (ti < 0) return;
+  g_trays[ti].menu_on_left = on;
+  tray_relink_menu(tid ? tid : "");
+}
+
 static void install_tray_target(void) {
   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
@@ -2222,6 +2305,19 @@ static void menu_create_default(const char *root) {
   }
 #undef ZT_SUB
 }
+/* Relinks [statusItem setMenu:] per current menuOnLeft flag (G5/B9). */
+static void tray_relink_menu(const char *tid) {
+  int ti = tray_pick(tid);
+  if (ti < 0) return;
+  id menu = NULL;
+  if (g_trays[ti].menu_on_left && g_trays[ti].menu_id[0]) {
+    int mi = menu_index(g_trays[ti].menu_id);
+    if (mi >= 0) menu = g_menus[mi];
+  }
+  OBJC_MSG(void (*)(id, SEL, id), g_trays[ti].item,
+           sel_registerName("setMenu:"), menu);
+}
+
 static id menu_find_item(const char *menu_id, const char *item_id) {
   int idx = menu_index(menu_id);
   if (idx < 0) return NULL;
@@ -2316,11 +2412,16 @@ static void menu_popup(const char *menu_id, webview_t w, int x, int y) {
            (id)NULL, loc, view);
 }
 /* Attaches a registered menu to the tray (left-click shows it on macOS). */
+static void tray_relink_menu(const char *tid);
+
 static void tray_set_menu(const char *menu_id) {
+  int ti = tray_pick("");
   int idx = menu_index(menu_id);
-  if (idx < 0 || !g_status_item) return;
-  OBJC_MSG(void(*)(id, SEL, id), g_status_item, sel_registerName("setMenu:"),
-           g_menus[idx]);
+  if (ti < 0) return;
+  strncpy(g_trays[ti].menu_id, menu_id, sizeof(g_trays[0].menu_id) - 1);
+  if (!g_trays[ti].menu_on_left) return; /* detached; popup() only */
+  OBJC_MSG(void(*)(id, SEL, id), g_trays[ti].item,
+           sel_registerName("setMenu:"), g_menus[idx]);
 }
 static void zt_menu_click(id s, SEL c, id sender) {
   (void)s; (void)c;
@@ -2803,7 +2904,7 @@ static int dispatch(Msg *m, webview_t w) {
     return 1;
   }
 
-  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
+  if (strcmp(m->type, "tray_create") == 0) { tray_create_ext(m->id, m->win_label); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
   if (strcmp(m->type, "tray_set_icon") == 0) {
@@ -2811,7 +2912,19 @@ static int dispatch(Msg *m, webview_t w) {
     else tray_set_icon(m->str2);
     return 1;
   }
-  if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
+  if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(m->win_label); return 1; }
+  if (strcmp(m->type, "tray_get_by_id") == 0) {
+    tray_get_by_id(m->win_label, m->req_id);
+    return 1;
+  }
+  if (strcmp(m->type, "tray_remove_by_id") == 0) {
+    tray_remove_by_id(m->win_label);
+    return 1;
+  }
+  if (strcmp(m->type, "tray_set_show_menu_on_left_click") == 0) {
+    tray_set_show_menu_on_left_click(m->win_label, m->bool_val ? 1 : 0);
+    return 1;
+  }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }
   if (strcmp(m->type, "menu_add_item") == 0) { menu_add_item(m->str, m->id, m->str2, m->status, m->bool_val, m->checked); return 1; }

@@ -650,6 +650,24 @@ test("app lifecycle routes whole-app visibility + metadata commands", async () =
   );
 });
 
+test("tray v2 multi-instance ops route through the adapter", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:tray|get_by_id", { id: "alt" });
+  await mock.main.invoke("plugin:tray|remove_by_id", { id: "alt" });
+  await mock.main.invoke("plugin:tray|set_show_menu_on_left_click", {
+    id: "alt",
+    value: false,
+  });
+  const ops = mock.trayLog.map((l) => l.op);
+  for (const op of [
+    "get_by_id",
+    "remove_by_id",
+    "set_show_menu_on_left_click",
+  ]) {
+    assert.ok(ops.includes(op), `tray op ${op} not routed`);
+  }
+});
+
 test("menu v2 ops route through the controller", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:menu|create_default", { menuId: "dflt" });

@@ -58,6 +58,24 @@ export async function onTrayClick(
   return listen("tauri://tray-click", () => handler());
 }
 
+/** Whether a tray instance with this id exists. */
+export function getTrayById(id: string): Promise<boolean> {
+  return invoke<boolean>("plugin:tray|get_by_id", { id });
+}
+
+/** Removes an extra tray instance by id. */
+export function removeTrayById(id: string): Promise<void> {
+  return invoke("plugin:tray|remove_by_id", { id });
+}
+
+/** Toggles left-click menu behavior for an instance (default = legacy one). */
+export function setShowMenuOnLeftClick(
+  on: boolean,
+  id?: string,
+): Promise<void> {
+  return invoke("plugin:tray|set_show_menu_on_left_click", { id, value: on });
+}
+
 export const tray = {
   create: createTray,
   setTitle: setTrayTitle,
@@ -70,21 +88,75 @@ export const tray = {
 
 /**
  * Class-based tray API — a port of `@tauri-apps/api/tray` `TrayIcon`.
- * Wraps the functional surface; one tray per app (the host keeps a single
- * NSStatusItem / Shell_NotifyIcon / StatusNotifier).
+ * G5/B9: the host keeps up to MAX_TRAYS NSStatusItems; the no-id methods
+ * target the legacy default instance, `id`-bearing ones address others.
  */
 export class TrayIcon {
-  /** Creates the native tray item (title/tooltip optional). */
+  readonly id: string;
+
+  private constructor(id = "") {
+    this.id = id;
+  }
+
+  /** Creates the native tray item (title/tooltip optional; id for extra instances). */
   static async create(options: {
     title?: string;
     tooltip?: string;
     icon?: ImageLike;
+    id?: string;
+    menuOnLeftClick?: boolean;
   } = {}): Promise<TrayIcon> {
-    await createTray({ title: options.title ?? "", tooltip: options.tooltip ?? "" });
+    if (options.menuOnLeftClick !== undefined) {
+      await setShowMenuOnLeftClick(options.menuOnLeftClick, options.id);
+    }
+    await createTray({
+      title: options.title ?? "",
+      tooltip: options.tooltip ?? "",
+      ...(options.id ? { id: options.id } : {}),
+    });
     if (options.icon !== undefined) {
       await setTrayIcon(options.icon);
     }
-    return new TrayIcon();
+    return new TrayIcon(options.id);
+  }
+
+  /** Whether an instance with this id exists (upstream TrayIcon.getById). */
+  static async getById(id: string): Promise<boolean> {
+    return invoke<boolean>("plugin:tray|get_by_id", { id });
+  }
+
+  /** Removes an instance by id (upstream TrayIcon.removeById). */
+  static async removeById(id: string): Promise<void> {
+    await invoke("plugin:tray|remove_by_id", { id });
+  }
+
+  /** Toggles left-click menu attachment for the given instance. */
+  async setShowMenuOnLeftClick(on: boolean): Promise<void> {
+    await invoke("plugin:tray|set_show_menu_on_left_click", {
+      id: this.id,
+      value: on,
+    });
+  }
+
+  /**
+   * Rich click stream (G5/B9): handler receives attribution when the host can
+   * provide it — button/clickCount/double/screen coords; legacy `onClick`
+   * keeps its zero-arg shape.
+   */
+  onDetailedClick(
+    handler: (e: {
+      event: string;
+      trayId?: string;
+      button?: "left" | "right";
+      clickCount?: number;
+      double?: boolean;
+      x?: number;
+      y?: number;
+    }) => void,
+  ): Promise<() => Promise<void>> {
+    return listen<{ event: string }>("tauri://tray-click", (e) =>
+      handler(e.payload as never),
+    );
   }
 
   async setTitle(title: string): Promise<void> {

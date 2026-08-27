@@ -274,6 +274,9 @@ export class App {
       "plugin:tray|set_menu",
       "plugin:tray|set_visible",
       "plugin:tray|set_icon_as_template",
+      "plugin:tray|get_by_id",
+      "plugin:tray|remove_by_id",
+      "plugin:tray|set_show_menu_on_left_click",
       "plugin:tray|destroy",
       "plugin:menu|create",
       "plugin:menu|set_as_app_menu",
@@ -1008,6 +1011,23 @@ export class App {
         ctx.app; /* app-wide tray */
         this.#adapter.tray?.apply("set_visible", {
           visible: Boolean((args as { visible?: boolean }).visible),
+        });
+      },
+      "plugin:tray|get_by_id": (args) => {
+        const r = this.#adapter.tray?.getById?.(
+          String((args as { id?: string }).id ?? ""),
+        );
+        return r ?? false;
+      },
+      "plugin:tray|remove_by_id": (args) => {
+        const id = String((args as { id?: string }).id ?? "");
+        this.#adapter.tray?.apply("remove_by_id", { id });
+      },
+      "plugin:tray|set_show_menu_on_left_click": (args) => {
+        const a = args as { id?: string; value?: boolean };
+        this.#adapter.tray?.apply("set_show_menu_on_left_click", {
+          id: a.id,
+          visible: a.value !== false,
         });
       },
       "plugin:tray|set_icon_as_template": (args) => {

@@ -74,7 +74,7 @@ Final spike: **86 deterministic checks, all pass** (now drivable as `ztron check
 ## Tests
 
 ```
-pnpm test       # 84 tests: 83 pass / 1 skip (surface + unit + core + crypto/minisign)
+pnpm test       # 86 tests: 85 pass / 1 skip (surface + unit + core + crypto/minisign)
 pnpm test:unit  # unit suite only
 ```
 

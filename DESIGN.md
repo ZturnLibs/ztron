@@ -1306,3 +1306,11 @@ ZtronApp.app/Contents/
 - **教训两则**:①把探针插进既有 try/catch 时落点切进 catch 体成死代码——结构插入后必须读回上下文行再判归属;②示例的 check 走 GUI 子进程时禁用 `| tail` 管道(host/tjs 继承 stdout 使 tail 永挂),统一 `>file 2>&1 + timeout -k`;③menuprobe 与 multiwin 的 AppBuilder 形参(runtime,identifier)+window() 布线差异即 "tray of undefined" 类启动崩来源——新例一律以可运行的同类例为模板逐字段对照
 - **环境漂移追加**:本机 multiwin 的 destroy-flood 段新现 libwebview lambda PAC SIGSEGV(G2 同链路尚稳),崩溃栈直指 §98 已论证的 UAF 关联裸指针投递路径;hello maximize 卡死同批漂移。两项隔离进「待外部回归」,本地门禁由 ci.sh 全链在恢复环境的机器上重建基准
 
+## 105. G5 Tray 多实例(TrayRec 注册表)+ 点击事件富化
+
+- **C 重构(host_macos.c)**:单例 g_status_item → `TrayRec[8]`{id,item,button,menu_id,menu_on_left};`tray_pick("")` 首记录兜底保旧线契约零破坏;12 处 set 函数体改查表;`tray_create_ext(title,label)`——**教训:分发行若不同步传新参,create 的 id 永落 main,getById 恒 false,"构建绿≠接线绿"必须由探针闭环证明**(两次实测才抓出);`tray_set_menu` 挂载时登记 menu_id 并尊重 menu_on_left=false 摘除;新增 get_by_id(query 回链 bool)/remove_by_id(memmove 收缩)/set_show_menu_on_left_click(经 tray_relink_menu,后置于菜单注册表以防前向可见性错位)
+- **点击富化**:zt_tray_click 现按 sender 指针归属所属实例、读 currentEvent clickCount(≥2 报 doubleClick)、pressedMouseButtons 判左右键、全局屏幕坐标(复用 §G4 前已存在的 ZtPoint/zt_mouse_screen 帮手,不自造 msgSend-stret 结构转换);payload 含 trayId/button/clickCount/double/x/y
+- **上层**:TrayOp 增三 op + TrayEventPayload 类型(core 导出);ffi TrayController.apply 泛化路由、查询走专用 getById(sendRequest)而非 apply(void);core 内建 +3 命令/ACL/registry 同步;api TrayIcon 增 readonly id、getById/removeById statics、setShowMenuOnLeftClick(id)、onDetailedClick(旧 onClick 零参形状不动)
+- **验证**:routing 新增三 op 断言(**86 tests / 85 pass / 1 skip**,typecheck 0 err);menuprobe 双探针 `MENU_V2_OK`+`TRAY_V2_OK` exit 0(create→exists=true→toggle↔→remove→exists=false 于真实 NSStatusItem 实例闭环);ci.sh expect 追加 TRAY_V2_OK
+- 尾项入 GAP:B9 ◐——move/enter/leave 事件族(NSTrackingArea)、setTempDirPath(Win-only 上游)、MouseDown/MouseUp 分相
+

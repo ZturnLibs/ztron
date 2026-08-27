@@ -44,7 +44,7 @@
 | B6 ✓ | bundle_type 查询 + BundleType 枚举（exe 路径判定 .app/Nsis/Msi/AppImage；安装器标记待 F3 接入；G2 批次） | core:app bundle_type | core + api | 本机可验 | ✓ |
 | B7 ✓ | supports_multiple_windows 查询（桌面恒 true；G2 批次） | core:app supports_multiple_windows | core + api | 本机可验 | ✓ |
 | B8 ✓ | getIdentifier 独立函数 + plugin:app\|identifier 命令（G2 批次） | core:app identifier | core + api | 本机可验 | ✓ |
-| B9 | Tray 多实例 id 体系：getById/removeById；setTempDirPath；setIconWithAsTemplate；setShowMenuOnLeftClick；TrayIconEvent 富化（坐标/左右键 MouseDown/MouseUp/click/doubleClick/move/enter/leave + MouseButton/ButtonState 类型；现仅裸 click） | core:tray 12 条；api/src/tray.ts TrayIconOptions/event 类型 | host C + runtime + core + api | macOS 可验（除 tempDir 部分） | ☐ |
+| B9 | Tray 多实例 id 体系：getById/removeById；setTempDirPath；setIconWithAsTemplate；setShowMenuOnLeftClick；TrayIconEvent 富化（坐标/左右键 MouseDown/MouseUp/click/doubleClick/move/enter/leave + MouseButton/ButtonState 类型；现仅裸 click） | core:tray 12 条；api/src/tray.ts TrayIconOptions/event 类型 | host C + runtime + core + api | macOS 可验（除 tempDir 部分） | ◐ |
 | B10 | menu 对齐 22 条核对：set_accelerator 命令名、is_checked 查询形态（Ztron 是 set_item_checked 双向？核对 item_info）、text/is_enabled 查询命令独立性 | menu/plugin.rs | core 核对 | 本机可验 | ☐ |
 | B11 | Image 对齐 5 条：rgba()/size() 读回 + static new()(RGBA)；**已完成 fromRGBA 链路读回（core 侧 dims/像素登记）+ `Image.new` 别名；PNG/path 载入的图像读回待 C 层 decode（NSImage→RGBA 落地后开放 rgba()/size() 完整语义）** | core:image new/from_bytes/from_path/rgba/size | core + api | 本机可验 | ◐ |
 | B12 | path 对齐 8 条：resolve_directory（BaseDirectory 解析）;Ztron 用 baseline_dir 近似——对齐命令名/语义；BaseDirectory 枚举进 path 插件协议 | path/plugin.rs | core + api | 本机可验 | ☐ |
@@ -117,6 +117,10 @@
 
 > **A2 进度注（G4，DESIGN §104）**：功能面已落地——NativeIcon×56 表、IconMenuItem 创建期 icon 字段、setItemIcon 运行时换图、Menu.default()（create_default 五组建制 App/Edit/View/Window）、items() 结构化快照、removeAt(tombstone)、setAsWindowMenu/setAsWindowsMenuForNSApp/setAsHelpMenuForNSApp；api 补 NativeIcon/AboutMetadata/IconMenuItemOptions 类型与 Menu.default/new/snapshot/removeAt/窗口挂载方法。**剩余尾项**：真·上游式 rid 资源类（Submenu/CheckMenuItem/RadioMenuItem/PredefinedMenuItem/IconMenuItem 独立实例类）、AboutMetadata 点击面板 options、Legacy "Ed"(non-prehashed) 摘要模式默认关闭仅显式开启。
 > **环境注**：本机 darwin 25.2 上 multiwin 的 destroy-flood 段出现 libwebview 消息处理 lambda 的 PAC SIGSEGV（§98 UAF 家族表现，G2 时同一链路尚稳）——menuprobe 因此从多窗洪泛中剥离独立成例；hello maximize 卡死同属该批环境漂移，两项均在待外部回归清单。
+
+
+> **B9 进度注（G5，DESIGN §105）**：已落地——TrayRec×8 注册表（旧无-id 协议默认落 main 记录，线格式零破坏）、tray_create 携带 label=id、get_by_id（query 回链）/remove_by_id/set_show_menu_on_left_click（false 即摘除 setMenu 挂载，注册保留可 popup）；点击事件富化：宿主按 sender 归属 trayId、clickCount≥2 判 doubleClick、左右键判定、全局屏幕坐标（ZtPoint 帮手）。api 层 TrayIcon.getById/removeById statics、setShowMenuOnLeftClick(id)/onDetailedClick。**尾项**：move/enter/leave 事件族（需 NSTrackingArea 挂 button）、setTempDirPath（上游仅 Windows 有意义）、MouseDown/MouseUp 分相事件。
+> **互操作验证**：menuprobe `TRAY_V2_OK`（create→exists=true→toggle 双向→remove→exists=false 全闭环于真 NSStatusItem 实例）。
 ---
 
 # 执行批次（Phase G 规划）

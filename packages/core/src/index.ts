@@ -116,6 +116,7 @@ export type {
   ImageController,
   ApplicationController,
   MenuItemsSnapshot,
+  TrayEventPayload,
   OpenDialogOptions,
   SaveDialogOptions,
   MessageDialogOptions,

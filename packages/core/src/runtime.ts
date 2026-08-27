@@ -245,11 +245,28 @@ export type TrayOp =
   | "set_menu"
   | "set_visible"
   | "set_icon_template"
+  | "get_by_id"
+  | "remove_by_id"
+  | "set_show_menu_on_left_click"
   | "destroy";
+
+/** Rich tray event payload (G5/B9 — click attribution is best-effort). */
+export interface TrayEventPayload {
+  event: string;
+  /** Owning tray id ("" for the legacy default instance). */
+  trayId?: string;
+  button?: "left" | "right";
+  clickCount?: number;
+  double?: boolean;
+  x?: number;
+  y?: number;
+}
 
 /** Tray payload for `TrayController.apply`. */
 export interface TrayPayload {
   title?: string;
+  /** Explicit multi-instance id ("" / omitted = the legacy default). */
+  id?: string;
   tooltip?: string;
   /** Icon file path. */
   icon?: string;
@@ -266,7 +283,9 @@ export interface TrayPayload {
 /** System tray controller provided by the runtime backend. */
 export interface TrayController {
   apply(op: TrayOp, payload?: TrayPayload): void;
-  onEvent(cb: (event: "click") => void): void;
+  /** Whether an instance with this id exists (G5/B9 multi-instance). */
+  getById?(id: string): boolean | Promise<boolean>;
+  onEvent(cb: (event: TrayEventPayload) => void): void;
 }
 
 /** A menu item (translated from Tauri's `MenuItem`). */
