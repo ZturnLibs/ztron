@@ -6,6 +6,7 @@
  * before the request is dispatched.
  */
 import { HttpScope, type HttpScopeConfig } from "../httpScope.js";
+import { RawResponse } from "../ipc/raw.js";
 import type { Plugin } from "../plugin.js";
 import type { CommandContext } from "../commands/index.js";
 import { bytesToB64 } from "./fs.js";
@@ -63,21 +64,46 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
     name: "http",
     commands: {
       async fetch(args, ctx) {
-        const { url, method, headers, body, timeoutMs } = args as {
+        const { url, method, headers, body, timeoutMs, responseType } = args as {
           url: string;
           method?: string;
           headers?: Record<string, string>;
-          body?: string;
+          /** string | Uint8Array/ArrayBuffer(b64 envelope) | plain object (auto-JSON). */
+          body?:
+            | string
+            | { __bytesB64?: string; json?: unknown };
           /** Abort the request after N ms (scope-checked URL only). */
           timeoutMs?: number;
+          /** "text" (default) | "json" | "binary" (Raw b64 envelope). */
+          responseType?: "text" | "json" | "binary";
         };
         if (!scope.permits(url)) {
           throw new Error(`http scope denied: ${url}`);
         }
+        // Body normalization (G9/D4): plain objects serialize to JSON with an
+        // implicit content-type; binary arrives as a {__bytesB64} envelope
+        // (FormData/streams are explicitly unsupported under tjs fetch).
+        let wireBody: string | Uint8Array | undefined;
+        const mergedHeaders: Record<string, string> = { ...(headers ?? {}) };
+        if (body != null) {
+          if (typeof body === "string") {
+            wireBody = body;
+          } else if (typeof (body as { __bytesB64?: string }).__bytesB64 === "string") {
+            wireBody = Buffer.from(
+              (body as { __bytesB64: string }).__bytesB64,
+              "base64",
+            );
+            mergedHeaders["content-type"] ??=
+              "application/octet-stream";
+          } else {
+            wireBody = JSON.stringify(body);
+            mergedHeaders["content-type"] ??= "application/json";
+          }
+        }
         const resp = await fetch(url, {
           method: method ?? "GET",
-          headers: headers ?? {},
-          body: body ?? undefined,
+          headers: mergedHeaders,
+          body: wireBody,
           ...(timeoutMs && timeoutMs > 0
             ? { signal: AbortSignal.timeout(timeoutMs) }
             : {}),
@@ -115,6 +141,25 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
           }
         }
 
+        if (responseType === "json") {
+          const text = await resp.text();
+          let parsed: unknown = null;
+          try {
+            parsed = text ? JSON.parse(text) : null;
+          } catch {
+            parsed = null; // parity: upstream yields null on non-JSON bodies
+          }
+          return { status: resp.status, ok: resp.ok, headers: respHeaders, json: parsed };
+        }
+        if (responseType === "binary") {
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          let bin = "";
+          const chunk = 0x8000;
+          for (let i = 0; i < buf.length; i += chunk) {
+            bin += String.fromCharCode(...buf.subarray(i, i + chunk));
+          }
+          return new RawResponse(btoa(bin));
+        }
         const text = await resp.text();
         const out: HttpResponse = {
           status: resp.status,

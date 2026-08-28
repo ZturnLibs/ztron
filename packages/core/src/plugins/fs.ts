@@ -69,7 +69,54 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
     stat: "plugin:fs|stat",
     watch: "plugin:fs|watch",
     unwatch: "plugin:fs|unwatch",
+    open: "plugin:fs|open",
+    read: "plugin:fs|read",
+    seek: "plugin:fs|seek",
+    write: "plugin:fs|write",
+    flush: "plugin:fs|flush",
+    close: "plugin:fs|close",
+    truncate: "plugin:fs|truncate",
+    lstat: "plugin:fs|lstat",
+    read_link: "plugin:fs|read_link",
+    chmod: "plugin:fs|chmod",
   } as const;
+
+  /* ---- G9/D3: handle-style IO (cursor over whole-file primitives) ----
+     Real tjs exposes no portable streaming file object across versions, so
+     handles buffer the file and persist on flush/close. Upstream command
+     surface preserved; large-file streaming stays ledger-noted. */
+  interface FileHandleRec {
+    path: string;
+    bytes: Uint8Array;
+    pos: number;
+    write: boolean;
+    append: boolean;
+    dirty: boolean;
+  }
+  const handles = new Map<number, FileHandleRec>();
+  let nextHandleId = 1;
+
+  function b64Encode(bytes: Uint8Array): string {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+  function b64Decode(b64: string): Uint8Array {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function persistHandle(h: FileHandleRec): Promise<void> {
+    if (!h.write) throw new Error("fs: handle not opened for writing");
+    await scope.check(h.path);
+    await tjs.writeFile(h.path, h.bytes);
+    h.dirty = false;
+  }
 
   /* Live watchers (id -> tjs FileWatcher); closed by unwatch or app exit. */
   const watchers = new Map<string, { close(): void }>();
@@ -160,12 +207,147 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         ]);
         await tjs.rename(src, dst);
       },
+      async open(args) {
+        const { path, write = false, append = false, create = false } = args as {
+          path: string;
+          write?: boolean;
+          append?: boolean;
+          create?: boolean;
+        };
+        const canon = await scope.check(path);
+        let bytes = new Uint8Array();
+        try {
+          bytes = new Uint8Array(await tjs.readFile(canon));
+        } catch (e) {
+          if (!create) throw e;
+        }
+        const id = nextHandleId++;
+        handles.set(id, {
+          path: canon,
+          bytes,
+          pos: append ? bytes.length : 0,
+          write: write || append,
+          append,
+          dirty: false,
+        });
+        return { id };
+      },
+      async read(args) {
+        const { id, length } = args as { id: number; length: number };
+        const h = handles.get(Number(id));
+        if (!h) throw new Error("fs: unknown handle");
+        const slice = h.bytes.subarray(h.pos, h.pos + Math.max(0, length));
+        h.pos += slice.length;
+        return { data: b64Encode(slice), read: slice.length };
+      },
+      async seek(args) {
+        const { id, offset, whence = "start" } = args as {
+          id: number;
+          offset: number;
+          whence?: "start" | "current" | "end";
+        };
+        const h = handles.get(Number(id));
+        if (!h) throw new Error("fs: unknown handle");
+        const base =
+          whence === "end"
+            ? h.bytes.length
+            : whence === "current"
+              ? h.pos
+              : 0;
+        h.pos = Math.min(Math.max(0, base + Number(offset)), h.bytes.length);
+        return { pos: h.pos };
+      },
+      async write(args) {
+        const { id, data } = args as { id: number; data: string };
+        const h = handles.get(Number(id));
+        if (!h) throw new Error("fs: unknown handle");
+        if (!h.write) throw new Error("fs: handle not opened for writing");
+        const chunk = b64Decode(data);
+        if (h.pos >= h.bytes.length) {
+          const merged = new Uint8Array(h.pos + chunk.length);
+          merged.set(h.bytes);
+          merged.set(chunk, h.pos);
+          h.bytes = merged;
+        } else {
+          h.bytes.set(chunk, h.pos);
+        }
+        h.pos += chunk.length;
+        h.dirty = true;
+        await persistHandle(h);
+        return { written: chunk.length };
+      },
+      async flush(args) {
+        const { id } = args as { id: number };
+        const h = handles.get(Number(id));
+        if (!h) throw new Error("fs: unknown handle");
+        if (h.dirty) await persistHandle(h);
+        return { flushed: true };
+      },
+      async close(args) {
+        const { id } = args as { id: number };
+        const h = handles.get(Number(id));
+        if (!h) return { closed: false };
+        if (h.dirty) await persistHandle(h);
+        handles.delete(Number(id));
+        return { closed: true };
+      },
+      async truncate(args) {
+        const { path, length } = args as { path: string; length: number };
+        const canon = await scope.check(path);
+        if (!tjs.truncate) {
+          throw new Error("fs: truncate unsupported on this tjs runtime");
+        }
+        await tjs.truncate(canon, Number(length));
+        return { truncated: true };
+      },
+      async lstat(args) {
+        const { path } = args as { path: string };
+        const canon = await scope.check(path);
+        if (!tjs.lstat) {
+          throw new Error("fs: lstat unsupported on this tjs runtime");
+        }
+        const st = (await tjs.lstat(canon)) as {
+          size: number;
+          mode: number;
+          isSymlink?: boolean;
+        };
+        return {
+          size: st.size,
+          mode: st.mode,
+          isSymlink: st.isSymlink ?? false,
+        };
+      },
+      async read_link(args) {
+        const { path } = args as { path: string };
+        const canon = await scope.check(path);
+        if (!tjs.readLink) {
+          throw new Error("fs: readLink unsupported on this tjs runtime");
+        }
+        return { target: await tjs.readLink(canon) };
+      },
+      async chmod(args) {
+        const { path, mode } = args as { path: string; mode: number };
+        const canon = await scope.check(path);
+        if (!tjs.chmod) {
+          throw new Error("fs: chmod unsupported on this tjs runtime");
+        }
+        await tjs.chmod(canon, Number(mode));
+        return { mode: Number(mode) };
+      },
       async watch(args, ctx) {
-        const { path, id, ch } = args as {
+        const { path, id, ch, recursive } = args as {
           path: string;
           id: string;
           ch?: { kind: "channel"; id: number };
+          recursive?: boolean;
         };
+        if (recursive) {
+          /* libuv fs_event has no portable recursive mode (upstream uses the
+             notify crate); refuse instead of silently flattening. */
+          throw new Error(
+            "fs.watch: recursive watching is not supported by this platform watcher",
+          );
+        }
         const canon = await scope.check(path);
         const channel = ch ? ctx.getChannel(ch.id) : undefined;
         if (!channel) throw new Error("fs.watch requires a channel");
@@ -200,7 +382,29 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
         } satisfies FileMeta;
       },
     },
+
     permissions: [
+      {
+        identifier: "fs:allow-open",
+        commands: [fsCommands.open, fsCommands.close, fsCommands.flush,
+                   fsCommands.read, fsCommands.seek, fsCommands.write],
+      },
+      {
+        identifier: "fs:allow-truncate",
+        commands: [fsCommands.truncate],
+      },
+      {
+        identifier: "fs:allow-lstat",
+        commands: [fsCommands.lstat],
+      },
+      {
+        identifier: "fs:allow-read-link",
+        commands: [fsCommands.read_link],
+      },
+      {
+        identifier: "fs:allow-chmod",
+        commands: [fsCommands.chmod],
+      },
       {
         identifier: "fs:allow-read-file",
         description: "Allows reading binary files via plugin:fs|read_file.",

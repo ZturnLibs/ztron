@@ -4,7 +4,37 @@ import type { UnlistenFn } from "./event.js";
 
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 
+/** A client-side logger sink (upstream attachLogger shape). */
+export type LogSink = (record: {
+  level: LogLevel;
+  payload: string;
+}) => void;
+
+const sinks = new Set<LogSink>();
+
+/**
+ * Registers a client-side logger sink receiving every `log*` call made from
+ * this page (upstream attachLogger parity for the webview target; backend
+ * targets keep their own sinks).
+ */
+export function attachLogger(sink: LogSink): () => void {
+  sinks.add(sink);
+  return () => detachLogger(sink);
+}
+
+/** Removes a previously attached sink. */
+export function detachLogger(sink: LogSink): void {
+  sinks.delete(sink);
+}
+
 export function log(level: LogLevel, message: string): Promise<void> {
+  for (const sink of sinks) {
+    try {
+      sink({ level, payload: message });
+    } catch {
+      /* user sink errors never break logging */
+    }
+  }
   return invoke<void>("plugin:log|log", { level, message });
 }
 export const trace = (m: string) => log("trace", m);

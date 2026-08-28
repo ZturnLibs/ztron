@@ -51,6 +51,14 @@ declare const tjs: {
   exePath: string;
   realPath(p: string): Promise<string>;
   readFile(p: string, options?: { encoding?: string }): Promise<Uint8Array>;
+  /* G9/D3 stat-family + truncate: feature-detected at runtime (txiki
+     exposes these on current builds; older vendored copies may not). */
+  chmod?(p: string, mode: number): Promise<void>;
+  lstat?(
+    p: string,
+  ): Promise<{ size: number; mode: number; isSymlink?: boolean }>;
+  readLink?(p: string): Promise<string>;
+  truncate?(p: string, len: number): Promise<void>;
   writeFile(p: string, data: string | Uint8Array): Promise<void>;
   stat(p: string): Promise<{
     size: number;

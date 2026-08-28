@@ -66,7 +66,13 @@ export {
   renameFile,
   stat,
 } from "./fs.js";
-export type { DirEntry, FileMeta } from "./fs.js";
+export type { DirEntry, FileMeta, FsPathOptions, OpenOptions } from "./fs.js";
+export { open as openFile, FileHandle, lstat, readLink, truncate, chmod } from "./fs.js";
+export { BaseDirectory, resolveBaseDirectory } from "./path.js";
+export { attachLogger, detachLogger } from "./log.js";
+export type { LogSink } from "./log.js";
+export { Store } from "./store.js";
+export type { StoreChangeEvent } from "./store.js";
 export {
   path,
   join,

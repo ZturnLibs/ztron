@@ -12,12 +12,55 @@ export interface HttpResponse {
   body: string;
 }
 
+export interface HttpResponse {
+  status: number;
+  ok: boolean;
+  headers: Record<string, string>;
+  body: string;
+  /** Present when responseType:"json". */
+  json?: unknown;
+  /** Present when responseType:"binary" (bytes). */
+  binary?: Uint8Array;
+}
+
+export type HttpRequestBody =
+  | string
+  | Uint8Array
+  | ArrayBuffer
+  /** Plain objects auto-serialize to JSON (+ implicit content-type). */
+  | Record<string, unknown>;
+
 export interface FetchOptions {
   method?: string;
   headers?: Record<string, string>;
-  body?: string;
+  body?: HttpRequestBody;
   /** Abort the request after N milliseconds. */
   timeoutMs?: number;
+  /** "text" (default) | "json" | "binary". Streaming stays fetchStream(). */
+  responseType?: "text" | "json" | "binary";
+}
+
+function normalizeBody(
+  body: HttpRequestBody | undefined,
+): Record<string, unknown> | undefined {
+  if (body === undefined) return undefined;
+  if (typeof body === "string") return { body };
+  if (body instanceof Uint8Array) {
+    return { body: { __bytesB64: toB64(body) } };
+  }
+  if (body instanceof ArrayBuffer) {
+    return { body: { __bytesB64: toB64(new Uint8Array(body)) } };
+  }
+  return { body };
+}
+
+function toB64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
 }
 
 /** Performs a scoped HTTP request; throws if the URL is out of scope. */
@@ -25,7 +68,8 @@ export function fetch(
   url: string,
   options: FetchOptions = {},
 ): Promise<HttpResponse> {
-  const args: InvokeArgs = { url, ...options };
+  const { body, ...rest } = options;
+  const args: InvokeArgs = { url, ...rest, ...normalizeBody(body) };
   return invoke<HttpResponse>("plugin:http|fetch", args);
 }
 

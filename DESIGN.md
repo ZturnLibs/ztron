@@ -1297,6 +1297,15 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 108. G9 深水插件组(store 资源化/http 类型/fs 句柄/log 多路/BaseDirectory)
+
+- **store v2(D2)**:重写为 StoreRecord{path,data,autoSave,listeners}资源模型;onChange 经 Channel 推 set/delete/reset;saveTo/reset/close/setAutoSave 全家;v1 命令与权限零破坏(**教训:整文件重写吞了 v1 permissions 与 store:write 集,hello capability 引用即炸——重写插件必须先 git show 旧权限面比对回填**)
+- **http(D4)**:body 三态(string/二进制 b64 信封/普通对象自动 JSON+隐式 content-type);responseType json(坏 JSON 得 null,与上游一致)/binary(RawResponse);FormData/请求体流/proxy 留明示不支持(tjs fetch 能力外)
+- **fs(D3)**:open/read/seek/write/flush/close 句柄游标模型——**设计取舍如实记录:真实 tjs 无跨版本可移植的流式文件对象,句柄在内存缓冲、flush/close 落盘,命令面先行对齐,大文件流式留待真实 tjs.open 绑定**;lstat/readLink/truncate/chmod 走运行时 feature-detect(tjs-global 类型标可选+调用守卫),stub 全语义单测;watch recursive 明示拒错(libuv fs_event 无可移植递归;上游系 notify-crate)
+- **log(D6)/path(C7)**:attachLogger/detachLogger 客户端 sink 多路(sink 异常不破坏日志);BaseDirectory 23 值 as-const + resolveBaseDirectory + v1 fs 函数 options.baseDir(相对拼接/绝对直通)
+- **验证**:tjs-stub 扩 chmod/lstat/readLink/truncate;routing 新增 store 生命周期、fs 句柄往返(write→seek→read→close→read_file 断言落盘内容→chmod/lstat→truncate)、recursive 拒错三组;**91 tests / 90 pass / 1 skip**,typecheck 0 err
+- 新增命令:fs ×10、store ×7(ACL 权限同步);manifest API_EXPORTS +12(Store/FileHandle/BaseDirectory/resolveBaseDirectory/attachLogger/detachLogger/openFile/lstat/readLink/truncate/chmod/cursorPosition 前批已记)
+
 ## 107. G6 webview 面(print/devtools 桩/背景色/定位查询)
 
 - **print**:wry 同款语义——`WebView::print()` 就是把 `window.print()` 喂给页面;Ztron 走既有 eval 通道零 C 改动,routing 断言 evalLog 含 window.print

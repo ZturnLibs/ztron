@@ -62,7 +62,7 @@
 | C4 ✓ | request_user_attention 修正真实 AppKit raw 值 Critical=10/Info=0（原误发 1），enum 贯通保留
 | C5 ✓ | dpi Size/Position 包装器（源自适应 Logical/Physical 判别，to* 双向换算 + toJSON 带判别键）
 | C6 | EventTarget.App 语义：app 目标路由到 app 级监听而非等同 Any 全局广播；windows/webviews 分组语义核对 | api event.ts EventTarget kind ×5 | core eventManager | 本机可验 | ☐ |
-| C7 | BaseDirectory 枚举（23 值）导出 + fs/path 各 fn options.baseDir 支持 | api path.ts BaseDirectory | api + core path/fs | 本机可验 | ☐ |
+| C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 | mocks 模块：mockIPC/mockWindows/mockConvertFileSrc/clearMocks（前端单测工具面） | api/src/mocks.ts | api | 本机可验 | ☐ |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |
 | C10 | withGlobalTauri 等价：`window.__ZTRON__`(IIFE 全局命名空间入口) + conf 开关 | rollup bundle.global.js 通道 | cli build | 本机可验 | ☐ |
@@ -75,11 +75,11 @@
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
 | D1 ✓ | **updater 安全链**：minisign 兼容签名校验（纯 TS ed25519/sha512/blake2b，与 jedisct1/minisign 线格式对齐；pubkey 配置即 fail-closed 门禁）、SemVer 2.0.0 precedence、downloadAndInstall 进度事件（Started/Progress/Finished 经 Channel）——G3 批次落地，DESIGN §103；install modes(passive/basicUi) 待 GUI 层后续 | plugins-workspace/updater v2 | core + api + CLI signer | 本机可验（单测互操作全绿 + CLI 冒烟） | ✓ |
-| D2 | **store 资源化**：Store rid/id 多实例资源、onChange 监听器（Channel）、autoSave 开关、close/reset/saveTo/save 命令全家 | plugins-workspace/store v2 | core + api | 本机可验 | ☐ |
-| D3 | **fs 高级面**：handle 式 IO（open/read/write/close FileHandle 资源 + seek/readDir/大文件流式）、lstat/readLink/truncate/chmod、watch recursive/immediate 选项、visibilities、size 上限 scope | plugins-workspace/fs v2（iOS 安全区例外可挂起） | core(tjs) + api | 本机可验（tjs 能力内） | ☐ |
-| D4 | **http 类型完整**：body ArrayBuffer/Uint8Array/JSON 自动序列化/FormData、responseType json/text/binary/stream、请求体流式（fetchSend/connect 流）、danger.config(proxy/connectivity) | plugins-workspace/http v2 reqwest 面 | core + api（tjs fetch 能力边界内最大化） | 本机可验 | ☐ |
+| D2 ✓ | **store 资源化**：Store 实例语义（load/save/saveTo/reset/close/setAutoSave + onChange Channel 推 set/delete/reset）、v1 path 命令面零破坏、权限集 read/write/default 重组（hello capability 的 store:write 保持）——G9 批次 |
+| D3 ◐ | **fs 高级面**：handle 式 IO（open/read/seek/write/flush/close，游标+flush-on-close，命令面与上游对齐；大文件流式待真实 tjs.open 绑定）、lstat/readLink/truncate/chmod（运行时 feature-detect，stub 全语义单测）、watch recursive 明示不支持（libuv fs_event 无可移植递归）、scope 路径模型维持（上游本就无大小上限，台账原项系误记已删）——G9 批次 |
+| D4 ◐ | **http 类型完整**：body 扩展（Uint8Array/ArrayBuffer→b64 信封、普通对象自动 JSON+隐式 content-type）、responseType json（解析失败得 null 与上游一致）/binary（Raw 信封）；FormData/请求体流式/proxy-connectivity 为 tjs fetch 能力外，留明示不支持语义——G9 批次 |
 | D5 | **cli 插件声明式 schema**：config 内 args/subcommands clap 形态（description/takes_value/index/required/defaultValue conflicts matches 返回结构） | plugins-workspace/cli v2 | core + conf | 本机可验 | ☐ |
-| D6 | log：attachLogger/detachLogger 多路日志分发、format 函数注入、timeStrategy | plugins-workspace/log v2 | api/core | 本机可验 | ☐ |
+| D6 ◐ | log：attachLogger/detachLogger 客户端多路 sink（上游 webview-target 语义对齐）——G9 批次；format 函数注入/timeStrategy 待续 |
 | D7 | dialog 选项级核对：filters/maxFiles/canCreateDirectories/ directory、消息 kinds、响应对象形态 | plugins-workspace/dialog v2 | 核对+补 | 本机可验 | ☐ |
 | D8 | shell：Command cwd/env/encoding 选项、validator scope（shell open 权限正则进 ACL）、spawn 三事件流核对 | plugins-workspace/shell v2 | core 核对 | 本机可验 | ☐ |
 | D9 ◐ | websocket/upload/persisted-scope/deep-link/window-state/sql/os/autostart/single-instance/opener/notification/clipboard/global-shortcut 批量选项级核对——**GS registerAll/unregisterAll 已落地**（core 侧登记表驱动，DESIGN §101）；其余插件的选项级核对仍待办 | 各官方插件 v2 README/command 表 | core 核对 | 本机可验 | ◐ |

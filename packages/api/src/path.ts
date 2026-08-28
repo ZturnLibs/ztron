@@ -176,3 +176,68 @@ export const path = {
   executableDir,
   resourceDir,
 };
+
+/**
+ * Upstream BaseDirectory names (23) — pass to fs/path fns as
+ * `options.baseDir`; values resolve against the directory getters in this
+ * module (Tauri strings, e.g. `BaseDirectory.AppConfig === "AppConfig"`).
+ */
+export const BaseDirectory = {
+  Audio: "Audio",
+  Cache: "Cache",
+  Config: "Config",
+  Data: "Data",
+  LocalData: "LocalData",
+  Document: "Document",
+  Download: "Download",
+  Picture: "Picture",
+  Public: "Public",
+  Video: "Video",
+  Resource: "Resource",
+  Temp: "Temp",
+  AppConfig: "AppConfig",
+  AppData: "AppData",
+  AppLocalData: "AppLocalData",
+  AppCache: "AppCache",
+  AppLog: "AppLog",
+  Desktop: "Desktop",
+  Executable: "Executable",
+  Font: "Font",
+  Home: "Home",
+  Runtime: "Runtime",
+  Template: "Template",
+} as const;
+export type BaseDirectory = (typeof BaseDirectory)[keyof typeof BaseDirectory];
+
+/** Resolves a BaseDirectory name to its absolute path. */
+export async function resolveBaseDirectory(
+  base: BaseDirectory | string,
+): Promise<string> {
+  switch (base) {
+    case "Audio": return audioDir();
+    case "Cache": return cacheDir();
+    case "Config": return configDir();
+    case "Data": return dataDir();
+    case "LocalData": return localDataDir();
+    case "Document": return documentDir();
+    case "Download": return downloadDir();
+    case "Picture": return pictureDir();
+    case "Public": return publicDir();
+    case "Video": return videoDir();
+    case "Resource": return resourceDir();
+    case "Temp": return tempDir();
+    case "AppConfig": return appConfigDir();
+    case "AppData": return appDataDir();
+    case "AppLocalData": return appLocalDataDir();
+    case "AppCache": return appCacheDir();
+    case "AppLog": return appLogDir();
+    case "Desktop": return desktopDir();
+    case "Executable": return executableDir();
+    case "Font": return fontDir();
+    case "Home": return homeDir();
+    case "Runtime": return runtimeDir();
+    case "Template": return templateDir();
+    default:
+      throw new Error(`path: unknown BaseDirectory "${base}"`);
+  }
+}

@@ -650,6 +650,95 @@ test("app lifecycle routes whole-app visibility + metadata commands", async () =
   );
 });
 
+test("store resource lifecycle: load/autoSave/reset/close", async () => {
+  const { mock } = buildApp();
+  const loaded = await mock.main.invoke("plugin:store|load", {
+    path: "g9.json",
+    autoSave: true,
+  });
+  assert.equal(loaded.storeId, "g9.json");
+  await mock.main.invoke("plugin:store|set", {
+    path: "g9.json",
+    key: "k",
+    value: 42,
+  });
+  assert.equal(
+    await mock.main.invoke("plugin:store|get", { path: "g9.json", key: "k" }),
+    42,
+  );
+  const saved = await mock.main.invoke("plugin:store|save", {
+    path: "g9.json",
+  });
+  void saved;
+  await mock.main.invoke("plugin:store|reset", { path: "g9.json" });
+  assert.equal(
+    await mock.main.invoke("plugin:store|get", { path: "g9.json", key: "k" }),
+    null,
+  );
+  const closed = await mock.main.invoke("plugin:store|close", {
+    path: "g9.json",
+  });
+  assert.deepEqual(closed, { closed: true });
+
+  // on_change without a channel is a hard error (parity with fs.watch)
+  await assert.rejects(() =>
+    mock.main.invoke("plugin:store|on_change", { path: "g9.json" }),
+  );
+});
+
+test("fs handle IO: open/write/seek/read/flush/close round trip", async () => {
+  const { mock } = buildApp();
+  const { id } = (await mock.main.invoke("plugin:fs|open", {
+    path: "/tmp/ztron-test/handle.bin",
+    write: true,
+    create: true,
+  })) as { id: number };
+  const payload = Buffer.from("hello handles").toString("base64");
+  const w = await mock.main.invoke("plugin:fs|write", { id, data: payload });
+  assert.equal(w.written, 13);
+  await mock.main.invoke("plugin:fs|seek", { id, offset: 0, whence: "start" });
+  const r = (await mock.main.invoke("plugin:fs|read", { id, length: 5 })) as {
+    data: string;
+  };
+  assert.equal(Buffer.from(r.data, "base64").toString(), "hello");
+  await mock.main.invoke("plugin:fs|close", { id });
+
+  // persisted content proves flush-on-close
+  const bytes = await mock.main.invoke("plugin:fs|read_file", {
+    path: "/tmp/ztron-test/handle.bin",
+  });
+  assert.equal(Buffer.from(bytes as Uint8Array).toString(), "hello handles");
+
+  // chmod/lstat/truncate route (stub-backed)
+  await mock.main.invoke("plugin:fs|chmod", {
+    path: "/tmp/ztron-test/handle.bin",
+    mode: 0o600,
+  });
+  const st = (await mock.main.invoke("plugin:fs|lstat", {
+    path: "/tmp/ztron-test/handle.bin",
+  })) as { mode: number };
+  assert.equal(st.mode & 0o777, 0o600);
+  await mock.main.invoke("plugin:fs|truncate", {
+    path: "/tmp/ztron-test/handle.bin",
+    length: 5,
+  });
+  const t = await mock.main.invoke("plugin:fs|read_text", {
+    path: "/tmp/ztron-test/handle.bin",
+  });
+  assert.equal(t, "hello");
+});
+
+test("fs.watch recursive is an explicit unsupported error", async () => {
+  const { mock } = buildApp();
+  await assert.rejects(() =>
+    mock.main.invoke("plugin:fs|watch", {
+      path: "/work",
+      id: "w1",
+      recursive: true,
+    }),
+  );
+});
+
 test("webview v2 ops: print evals page print, bg color, honest devtools stub", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:webview|print", {});

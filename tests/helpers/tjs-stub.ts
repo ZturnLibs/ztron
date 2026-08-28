@@ -117,6 +117,37 @@ class TjsStub {
     return out;
   }
 
+  /* ---- G9: handle IO + stat family (libuv-flavored semantics) ---- */
+
+  async chmod(p: string, mode: number): Promise<void> {
+    const f = this.#files.get(normalize(p));
+    if (!f) throw makeEnoent(p);
+    f.mode = (f.mode & ~0o777) | (mode & 0o777);
+  }
+
+  async lstat(
+    p: string,
+  ): Promise<{ size: number; mode: number; mtime?: string; isSymlink: boolean }> {
+    const st = await this.stat(p);
+    return { ...st, isSymlink: false };
+  }
+
+  async readLink(p: string): Promise<string> {
+    const f = this.#files.get(normalize(p));
+    if (!f) throw makeEnoent(p);
+    // no symlink modeling in the stub: readLink mirrors realPath
+    return normalize(p);
+  }
+
+  async truncate(p: string, len: number): Promise<void> {
+    const f = this.#files.get(normalize(p));
+    if (!f) throw makeEnoent(p);
+    const next = len < f.data.length ? f.data.slice(0, len) : f.data;
+    const grown = new Uint8Array(len);
+    grown.set(next);
+    f.data = grown;
+  }
+
   /** Fake command runner: `sh -c 'echo ...'` and `echo` echo their args. */
   spawn(
     cmd: string[],
