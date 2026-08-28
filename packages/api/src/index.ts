@@ -23,6 +23,7 @@ export { Window } from "./window.js";
 export { WebviewWindow, getCurrentWebviewWindow } from "./webview-window.js";
 export {
   Webview,
+  getCurrentWebview,
   getAllWebviews,
 } from "./webview.js";
 export {

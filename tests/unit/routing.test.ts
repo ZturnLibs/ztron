@@ -650,6 +650,25 @@ test("app lifecycle routes whole-app visibility + metadata commands", async () =
   );
 });
 
+test("webview v2 ops: print evals page print, bg color, honest devtools stub", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:webview|print", {});
+  assert.ok(
+    mock.handles[0]?.evalLog.some((js) => js.includes("window.print")),
+    "print must delegate to window.print()",
+  );
+  await mock.main.invoke("plugin:webview|set_background_color", {
+    label: "main",
+    color: "#101010",
+  });
+  const dt = (await mock.main.invoke("plugin:webview|toggle_devtools", {})) as {
+    supported: boolean;
+    platform: string;
+  };
+  assert.equal(dt.supported, false);
+  assert.equal(dt.platform, "darwin");
+});
+
 test("window finishing surface: progress states + global cursor", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:window|set_progress_bar", {

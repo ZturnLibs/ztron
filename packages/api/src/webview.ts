@@ -25,6 +25,57 @@ export class Webview {
   }
 
   /**
+   * Opens the page print dialog (wry parity: delegates to the page's own
+   * window.print()).
+   */
+  async print(): Promise<void> {
+    await invoke("plugin:webview|print", { label: this.label });
+  }
+
+  /** Webview-layer background color (single-webview era: window surface). */
+  async setBackgroundColor(color: string): Promise<void> {
+    await invoke("plugin:webview|set_background_color", {
+      label: this.label,
+      color,
+    });
+  }
+
+  /**
+   * Toggles the inspector. Upstream parity note: macOS WKWebView exposes no
+   * public toggle (devtools are enabled in debug builds), so the host
+   * reports `supported: false` there instead of failing silently.
+   */
+  async toggleDevtools(): Promise<{
+    supported: boolean;
+    platform: string;
+    reason?: string;
+  }> {
+    return invoke("plugin:webview|toggle_devtools", { label: this.label });
+  }
+
+  /**
+   * Webview position (single-webview era: congruent with the owning
+   * window's outer position — the bare multi-webview split lands in G7).
+   */
+  async position(): Promise<{ x: number; y: number }> {
+    return invoke("plugin:window|get_position", { label: this.label });
+  }
+
+  /** Webview size (window-congruent; see {@linkcode Webview.position}). */
+  async size(): Promise<{ width: number; height: number }> {
+    return invoke("plugin:window|inner_size", { label: this.label });
+  }
+
+  /**
+   * Looks up a webview by label. In the single-webview-per-window era a
+   * webview exists exactly when its window does.
+   */
+  static async getByLabel(label: string): Promise<Webview | null> {
+    const list = await getAllWebviews();
+    return list.find((w) => w.label === label) ?? null;
+  }
+
+  /**
    * Clears all browsing data for the webview's store: cookies, cache,
    * local/session storage, IndexedDB (WKWebsiteDataStore / WebView2
    * profile equivalents).
@@ -92,3 +143,6 @@ export async function getAllWebviews(): Promise<Webview[]> {
   const labels = await invoke<string[]>("plugin:window|get_all_windows", {});
   return labels.map((l) => new Webview(l));
 }
+
+/** Upstream naming alias of {@linkcode Webview.getCurrent}. */
+export const getCurrentWebview = (): Webview => Webview.getCurrent();

@@ -1297,6 +1297,13 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 107. G6 webview 面(print/devtools 桩/背景色/定位查询)
+
+- **print**:wry 同款语义——`WebView::print()` 就是把 `window.print()` 喂给页面;Ztron 走既有 eval 通道零 C 改动,routing 断言 evalLog 含 window.print
+- **toggleDevtools 的"诚桩"**:macOS WKWebView 无公开开关(上游 tauri 亦在 macOS 跳过 open_devtools,debug 构建常开)——命令返回 `{supported:false,platform:"darwin",reason}` 而非假装切换;这是"移植上游"与"移植文档化平台限制"的边界样本
+- **setBackgroundColor/position/size/getByLabel/getCurrentWebview**:背景色复用 handle 既有能力;position/size 单 webview 时代与窗口同余(注明 G7 拆分前置);getAllWebviews 维持窗口注册表映射直至裸 webview 落地
+- **验证**:88 tests / 87 pass / 1 skip + typecheck 0 err;真宿主路径风险≈0(print 走已回归的 eval,背景色复用 P7 期已验的窗口级命令)
+
 ## 106. G8 window 收尾组(TS 层为主)
 
 - **CursorIcon**:35 成员 as-const 表(default/crosshair/…32 图标+rowResize 等),setCursor/setCursorIcon 直接受类型化字符串(宿主端早已透传 NSSetCursor)

@@ -161,6 +161,9 @@ export class App {
       "plugin:event|emit_to",
       "plugin:webview|create",
       "plugin:webview|clear_all_browsing_data",
+      "plugin:webview|print",
+      "plugin:webview|set_background_color",
+      "plugin:webview|toggle_devtools",
       "plugin:window|close",
       "plugin:window|prevent_close",
       "plugin:window|destroy",
@@ -1012,6 +1015,24 @@ export class App {
         this.#adapter.tray?.apply("set_visible", {
           visible: Boolean((args as { visible?: boolean }).visible),
         });
+      },
+      "plugin:webview|print": (_args, ctx) => {
+        /* wry parity: WebView::print() delegates to the page's window.print() */
+        ctx.webview.eval("window.print();");
+      },
+      "plugin:webview|set_background_color": (args, ctx) => {
+        const { color } = args as { color: string };
+        ctx.webview.setBackgroundColor(color);
+      },
+      "plugin:webview|toggle_devtools": () => {
+        /* Honest upstream parity: macOS WKWebView exposes NO public
+           devtools toggling (tauri skips open_devtools on macOS too);
+           devtools are enabled in debug builds instead. */
+        return {
+          supported: false,
+          platform: "darwin",
+          reason: "WKWebView has no public devtools toggle; enabled in debug builds",
+        };
       },
       "plugin:tray|get_by_id": (args) => {
         const r = this.#adapter.tray?.getById?.(

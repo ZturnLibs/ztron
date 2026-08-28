@@ -28,6 +28,9 @@ export const COMMANDS: readonly string[] = [
   // ---- window ----
   "plugin:webview|create",
   "plugin:webview|clear_all_browsing_data",
+  "plugin:webview|print",
+  "plugin:webview|set_background_color",
+  "plugin:webview|toggle_devtools",
   "plugin:window|show",
   "plugin:window|hide",
   "plugin:window|close",
@@ -334,6 +337,7 @@ export const API_EXPORTS: readonly string[] = [
   "cursorPosition",
   "getAllWindows",
   "Webview",
+  "getCurrentWebview",
   "getAllWebviews",
   "availableMonitors",
   "currentMonitor",
