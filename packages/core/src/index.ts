@@ -62,6 +62,12 @@ export {
   uploadPlugin,
   persistedScopePlugin,
   localhostPlugin,
+  barcodeScannerPlugin,
+  biometricPlugin,
+  geolocationPlugin,
+  hapticsPlugin,
+  nfcPlugin,
+  PluginUnavailable,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,

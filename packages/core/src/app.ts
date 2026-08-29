@@ -241,6 +241,10 @@ export class App {
       "plugin:window|set_file_drop_enabled",
       "plugin:window|set_cursor_grab",
       "plugin:window|set_icon",
+      "plugin:window|activity_name",
+      "plugin:window|set_activity_name",
+      "plugin:window|scene_identifier",
+      "plugin:window|set_scene_identifier",
       "plugin:window|set_overlay_icon",
       "plugin:window|set_effects",
       "plugin:window|clear_effects",
@@ -714,6 +718,14 @@ export class App {
           "set_cursor_visible",
           Boolean((args as { visible?: boolean }).visible),
         );
+      },
+      "plugin:window|activity_name": () => null,
+      "plugin:window|set_activity_name": () => {
+        /* Android-only upstream; accepted as a documented no-op on desktop. */
+      },
+      "plugin:window|scene_identifier": () => null,
+      "plugin:window|set_scene_identifier": () => {
+        /* iOS-only upstream; accepted as a documented no-op on desktop. */
       },
       "plugin:window|cursor_position": async (_args, ctx) =>
         ctx.webview.getCursorPosition(),

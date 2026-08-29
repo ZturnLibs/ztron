@@ -73,6 +73,11 @@ export { attachLogger, detachLogger } from "./log.js";
 export type { LogSink } from "./log.js";
 export { Store } from "./store.js";
 export { localhost, start as startLocalhost, stop as stopLocalhost } from "./localhost.js";
+export { scan as scanBarcode } from "./barcode-scanner.js";
+export { authenticate, biometricStatus } from "./biometric.js";
+export { getCurrentPosition, watchPosition, clearWatch } from "./geolocation.js";
+export { impactOccurred, notificationOccurred, selectionChanged } from "./haptics.js";
+export { nfcScan, nfcWrite, nfcStop } from "./nfc.js";
 export type { LocalhostStatus } from "./localhost.js";
 export type { StoreChangeEvent } from "./store.js";
 export {

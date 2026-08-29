@@ -740,6 +740,53 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
   );
 });
 
+test("mobile parity stubs fail closed with PluginUnavailable", async () => {
+  const { mock } = buildApp();
+  const cases: Array<[string, string]> = [
+    ["plugin:barcode-scanner|scan", "barcode-scanner"],
+    ["plugin:biometric|authenticate", "biometric"],
+    ["plugin:geolocation|get_current_position", "geolocation"],
+    ["plugin:haptics|impact_occurred", "haptics"],
+    ["plugin:nfc|scan", "nfc"],
+  ];
+  for (const [cmd, plugin] of cases) {
+    try {
+      await mock.main.invoke(cmd, {});
+      assert.fail(`${cmd} should reject off-platform`);
+    } catch (e) {
+      // Rejections cross the wire serialized (upstream Tauri shape): either a
+      // real PluginUnavailable (same-process) or {error: "<message>"}.
+      const err = e as { name?: string; message?: string; error?: string };
+      const text = err.name ?? "";
+      const detail = err.message ?? err.error ?? "";
+      assert.ok(
+        text === "PluginUnavailable" ||
+          (text === "" && detail.includes("unavailable on this platform") &&
+            detail.includes(plugin)),
+        `${cmd} wrong rejection: ${JSON.stringify(err)}`,
+      );
+    }
+  }
+
+  // B15 window stubs: queries null, setters no-op
+  assert.equal(
+    await mock.main.invoke("plugin:window|activity_name", { label: "main" }),
+    null,
+  );
+  await mock.main.invoke("plugin:window|set_activity_name", {
+    label: "main",
+    name: "Main",
+  });
+  assert.equal(
+    await mock.main.invoke("plugin:window|scene_identifier", { label: "main" }),
+    null,
+  );
+  await mock.main.invoke("plugin:window|set_scene_identifier", {
+    label: "main",
+    id: "scene-1",
+  });
+});
+
 test("localhost origin serves scoped files over fetch handler", async () => {
   const { mock } = buildApp();
   const started = (await mock.main.invoke("plugin:localhost|start", {})) as {

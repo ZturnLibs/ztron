@@ -26,6 +26,11 @@ import {
   websocketPlugin,
   windowStatePlugin,
   localhostPlugin,
+  barcodeScannerPlugin,
+  biometricPlugin,
+  geolocationPlugin,
+  hapticsPlugin,
+  nfcPlugin,
 } from "../../packages/core/dist/index.js";
 import { installTjs } from "./tjs-stub.ts";
 
@@ -55,6 +60,11 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
     .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
     .plugin(logPlugin())
     .plugin(localhostPlugin({ dir: "/tmp/ztron-test" }))
+    .plugin(barcodeScannerPlugin())
+    .plugin(biometricPlugin())
+    .plugin(geolocationPlugin())
+    .plugin(hapticsPlugin())
+    .plugin(nfcPlugin())
     .plugin(
       shellPlugin({
         scope: [

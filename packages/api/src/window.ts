@@ -357,6 +357,29 @@ export class Window {
     });
   }
 
+  /** Android-only upstream: current activity name (null on desktop). */
+  async activityName(): Promise<string | null> {
+    return invoke("plugin:window|activity_name", { label: this.label });
+  }
+
+  /** Android-only upstream: accepted as a documented no-op on desktop. */
+  async setActivityName(name: string): Promise<void> {
+    await invoke("plugin:window|set_activity_name", { label: this.label, name });
+  }
+
+  /** iOS-only upstream: current scene identifier (null on desktop). */
+  async sceneIdentifier(): Promise<string | null> {
+    return invoke("plugin:window|scene_identifier", { label: this.label });
+  }
+
+  /** iOS-only upstream: accepted as a documented no-op on desktop. */
+  async setSceneIdentifier(id: string): Promise<void> {
+    await invoke("plugin:window|set_scene_identifier", {
+      label: this.label,
+      id,
+    });
+  }
+
   /** Screen-space cursor position (no label needed; upstream parity). */
   async cursorPosition(): Promise<{ x: number; y: number }> {
     return invoke<{ x: number; y: number }>("plugin:window|cursor_position", {
