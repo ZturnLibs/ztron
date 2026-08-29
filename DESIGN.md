@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 110. G12 移动插件桩批(barcode/biometric/geo/haptics/nfc)+ B15 窗口桩
+
+- **统一语义**:`PluginUnavailable`(name+plugin/command 字段)fail-closed;命令面/权限集/permission-set 与上游对齐;桌面运行时抛错即文档——按用户指令"平台不支持也移植,待环境后验证"
+- **序列化现实**:跨 invoke 的拒绝被 JSON 化为 `{error}`(上游同构),测试断言双形态(同进程类实例 name / 线上 error 字符串含 plugin 名)
+- **B15**:activity_name(Android)/scene_identifier(iOS) get→null + set 文档化 no-op,api Window 四方法
+- **验证**:93 tests / 92 pass / 1 skip,typecheck 0 err;生成器样板三处机械坑(双逗号/重导出未入作用域/选项类型 lower-case)全被编译器按序抓净
+- **台账注**:E 系列 ✓ 仅指"命令面移植完成";真实移动宿主验证待用户提供环境(验证后置约定)
+
 ## 109. G11 localhost 插件(E1)
 
 - **实现**:`tjs.serve({fetch,port:0})` fetch-handler 服目录;PathScope 以服务目录为锚+防 `/..` 逃逸;扩展名→MIME 表(常见 web 资产,兜底 octet-stream);403(出锚)/404(缺失)语义;start(幂等 already)/stop(status 化返回)/status 三命令+localhost:default 权限集

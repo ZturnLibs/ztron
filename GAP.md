@@ -50,7 +50,7 @@
 | B12 | path 对齐 8 条：resolve_directory（BaseDirectory 解析）;Ztron 用 baseline_dir 近似——对齐命令名/语义；BaseDirectory 枚举进 path 插件协议 | path/plugin.rs | core + api | 本机可验 | ☐ |
 | B13 | resources close 走独立 core:resources\|close 权限面核对（Ztron Resource.close 路径验证） | resources/plugin.rs | core 核对 | 本机可验 | ☐ |
 | B14 | window 查询粒度补齐：inner_position 独立准确值（现为 outer 近似）、outer_size 独立于 get_frame 快照语义核对 | window/plugin.rs | host C | macOS 可验 | ☐ |
-| B15 | ActivityName(Android)/sceneIdentifier(iOS)：命令面移植 + 返回桩 | window/plugin.rs | core 桩 | 移动[移植] | ☐ |
+| B15 ✓ | ActivityName(Android)/sceneIdentifier(iOS)：get→null + set 文档化 no-op 四命令 + api Window 四方法——G12 | window/plugin.rs | core+api | 桌面已验 | ✓ |
 
 # C. @tauri-apps/api 包层（v2.11.1 逐导出对齐）
 
@@ -90,11 +90,11 @@
 |----|------|------|-----|------|------|
 | E1 ✓ | **localhost**：`tjs.serve` fetch-handler 服文件（PathScope 根锚定+扩展名 MIME 表+403/404 语义），start/stop/status 命令 + api localhost/start·stopLocalhost；menuprobe LOCALHOST_OK（真 tjs.serve 临时端口往返）——G11 批次 | plugins-workspace/localhost | core+api | macOS 本机可验 | ✓ |
 | E2 | **stronghold** | 加密存储（Rust stronghold；TS 重写方案：libsodium 存档引擎——先做 argon2/xchacha20 兼容面） | core + native 绑定 | macOS 可验（重） | ☐ |
-| E3 | barcode-scanner | 上游仅移动端（MLKit/VisionKit）。移植：command 面 + api + mockable adapter 桩 | api + core 桩 | 移动[移植] | ☐ |
-| E4 | biometric | authenticate API；上游移动，macOS 可选接 LocalAuthentication | core 桩（Mac 后续） | 移动[移植] | ☐ |
-| E5 | geolocation | getCurrentPosition/watchPosition | core 桩 | 移动[移植] | ☐ |
-| E6 | haptics | impactOccurred/notificationOccurred/selectionChanged | core 桩 | 移动[移植] | ☐ |
-| E7 | nfc | scan/write/stop | core 桩 | 移动[移植] | ☐ |
+| E3 ✓ | barcode-scanner：scan 命令面移植，off-platform 抛 PluginUnavailable（序列化形态测试断言）——G12 | barcode-scanner v2 | core 桩+api | 桌面拒错已验；真机待环境 | ✓ |
+| E4 ✓ | biometric：authenticate/status 命令面移植（同上）；macOS Touch ID 真实现留作可选升级（LAContext）——G12 | biometric v2 | core 桩+api | 桌面拒错已验 | ✓ |
+| E5 ✓ | geolocation：getCurrentPosition/watchPosition/clearWatch 命令面移植——G12 | geolocation v2 | core 桩+api | 桌面拒错已验 | ✓ |
+| E6 ✓ | haptics：impactOccurred/notificationOccurred/selectionChanged 命令面移植——G12 | haptics v2 | core 桩+api | 桌面拒错已验 | ✓ |
+| E7 ✓ | nfc：scan/write/stop 命令面移植——G12 | nfc v2 | core 桩+api | 桌面拒错已验 | ✓ |
 
 > 已实现 23：fs/http/shell/dialog/clipboard-manager/sql/store/updater/deep-link/cli/os/log/notification/opener/global-shortcut/autostart/single-instance/persisted-scope/positioner/process/upload/websocket/window-state
 
