@@ -1297,6 +1297,13 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 109. G11 localhost 插件(E1)
+
+- **实现**:`tjs.serve({fetch,port:0})` fetch-handler 服目录;PathScope 以服务目录为锚+防 `/..` 逃逸;扩展名→MIME 表(常见 web 资产,兜底 octet-stream);403(出锚)/404(缺失)语义;start(幂等 already)/stop(status 化返回)/status 三命令+localhost:default 权限集
+- **类型接线教训**:tjs-global.d.ts 里已存在一份**严格旧 serve 重载**(single-instance 依赖 listenIp),新增长槽位版必须错名(serveLenient)或运行时双派——同名叠加会静默把旧重载顶成 optional 使 single-instance 编译崩;命名区分后 localhost 端 `in` 探测双派调用
+- **验证**:tjs-stub serve 存 handler 供路由驱动(miss→404/stop 幂等断言);buildApp 注册进面(表面测试清单同步);menuprobe 真宿主 `LOCALHOST_OK:61793`(临时端口→__miss__ 404 往返)——三探针(MENU/TRAY/LOCALHOST)全绿
+- **状态**:92 tests / 91 pass / 1 skip,typecheck 0 err
+
 ## 108. G9 深水插件组(store 资源化/http 类型/fs 句柄/log 多路/BaseDirectory)
 
 - **store v2(D2)**:重写为 StoreRecord{path,data,autoSave,listeners}资源模型;onChange 经 Channel 推 set/delete/reset;saveTo/reset/close/setAutoSave 全家;v1 命令与权限零破坏(**教训:整文件重写吞了 v1 permissions 与 store:write 集,hello capability 引用即炸——重写插件必须先 git show 旧权限面比对回填**)

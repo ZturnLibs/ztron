@@ -25,6 +25,7 @@ import {
   uploadPlugin,
   websocketPlugin,
   windowStatePlugin,
+  localhostPlugin,
 } from "../../packages/core/dist/index.js";
 import { installTjs } from "./tjs-stub.ts";
 
@@ -53,6 +54,7 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
     .plugin(osPlugin())
     .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
     .plugin(logPlugin())
+    .plugin(localhostPlugin({ dir: "/tmp/ztron-test" }))
     .plugin(
       shellPlugin({
         scope: [

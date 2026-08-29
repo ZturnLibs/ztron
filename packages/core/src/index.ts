@@ -61,6 +61,7 @@ export {
   networkPlugin,
   uploadPlugin,
   persistedScopePlugin,
+  localhostPlugin,
 } from "./plugins/index.js";
 export type {
   FsPluginOptions,
@@ -88,6 +89,7 @@ export type {
   UploadPluginOptions,
   PersistedScopePluginOptions,
   PathPluginOptions,
+  LocalhostPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";

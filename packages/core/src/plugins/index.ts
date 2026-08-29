@@ -63,4 +63,6 @@ export { networkPlugin } from "./network.js";
 export { uploadPlugin } from "./upload.js";
 export type { UploadPluginOptions } from "./upload.js";
 export { persistedScopePlugin } from "./persisted-scope.js";
+export { localhostPlugin } from "./localhost.js";
+export type { LocalhostPluginOptions } from "./localhost.js";
 export type { PersistedScopePluginOptions } from "./persisted-scope.js";

@@ -137,6 +137,7 @@ step "menuprobe spike (ztron check --expect)"
 run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect MENU_V2_OK \
     --expect TRAY_V2_OK \
+    --expect LOCALHOST_OK \
     > /tmp/ci-menuprobe.log 2>&1 \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log

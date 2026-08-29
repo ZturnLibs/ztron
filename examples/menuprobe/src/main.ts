@@ -87,6 +87,20 @@ void (async () => {
   } catch (e) {
     console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
   }
+
+  // Localhost origin (G11 / E1): real tjs.serve, fetch-handler round trip.
+  try {
+    const { localhostPlugin } = await import("@zturnlibs/core");
+    const lp = localhostPlugin({ dir: tjs.cwd });
+    const started = (await lp.commands.start({})) as { port: number };
+    const resp = await fetch(`http://localhost:${started.port}/__miss__`);
+    await lp.commands.stop({});
+    console.log(
+      resp.status === 404 ? `LOCALHOST_OK:${started.port}` : `LOCALHOST_FAIL:${resp.status}`,
+    );
+  } catch (e) {
+    console.log("LOCALHOST_FAIL:" + String(e).slice(0, 60));
+  }
   await sleep(200);
   app.getWebview("main")?.terminate();
 })();

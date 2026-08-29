@@ -59,6 +59,12 @@ declare const tjs: {
   ): Promise<{ size: number; mode: number; isSymlink?: boolean }>;
   readLink?(p: string): Promise<string>;
   truncate?(p: string, len: number): Promise<void>;
+  /* G11: fetch-style HTTP server (txiki `serve`) — the legacy stricter
+     overload below stays; localhost uses this lenient one. */
+  serveLenient?(options: {
+    fetch: (request: Request) => Response | Promise<Response>;
+    port?: number;
+  }): { readonly port: number; close(): Promise<void> | void };
   writeFile(p: string, data: string | Uint8Array): Promise<void>;
   stat(p: string): Promise<{
     size: number;

@@ -19,6 +19,9 @@ import { COMMAND_SET, API_EXPORT_SET } from "../helpers/manifest.ts";
 const INTEGRATION_ONLY = new Set([
   "plugin:fs|watch",
   "plugin:store|on_change",
+  "plugin:localhost|start",
+  "plugin:localhost|stop",
+  "plugin:localhost|status",
   "plugin:fs|unwatch",
   "plugin:path|join",
   "plugin:path|resolve",

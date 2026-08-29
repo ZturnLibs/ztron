@@ -8,6 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../helpers/buildApp.ts";
+import { getTjs } from "../helpers/tjs-stub.ts";
 
 test("webview create routes through the app", async () => {
   const { mock } = buildApp();
@@ -737,6 +738,28 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
       recursive: true,
     }),
   );
+});
+
+test("localhost origin serves scoped files over fetch handler", async () => {
+  const { mock } = buildApp();
+  const started = (await mock.main.invoke("plugin:localhost|start", {})) as {
+    port: number;
+    origin: string;
+  };
+  assert.equal(started.port, 18888);
+  assert.equal(started.origin, "http://localhost:18888");
+
+  const tjs = getTjs();
+  // out-of-scope absolute escape -> 403/404 family, in-root miss -> 404
+  const miss = await tjs.lastServeHandler!(
+    new Request("http://localhost:18888/nope.js"),
+  );
+  assert.equal(miss.status, 404);
+
+  const stopped = await mock.main.invoke("plugin:localhost|stop", {});
+  assert.deepEqual(stopped, { stopped: true });
+  const again = await mock.main.invoke("plugin:localhost|stop", {});
+  assert.deepEqual(again, { stopped: false });
 });
 
 test("webview v2 ops: print evals page print, bg color, honest devtools stub", async () => {

@@ -192,8 +192,25 @@ class TjsStub {
     };
   }
 
-  serve(): Promise<{ port: number; close(): void }> {
-    return Promise.resolve({ port: 18888, close: () => {} });
+  /** Fetch-style HTTP server (G11): stores the handler so tests can drive it. */
+  lastServeHandler:
+    | ((request: Request) => Response | Promise<Response>)
+    | null = null;
+
+  serve(options:
+    | { fetch: (request: Request) => Response | Promise<Response>; port?: number }
+    | ((request: Request) => Response | Promise<Response>)): {
+    readonly port: number;
+    close(): Promise<void>;
+  } {
+    this.lastServeHandler =
+      typeof options === "function" ? options : options.fetch;
+    return {
+      port: (typeof options === "object" && options.port) || 18888,
+      close: async () => {
+        this.lastServeHandler = null;
+      },
+    };
   }
 }
 

@@ -88,7 +88,7 @@
 
 | ID | 插件 | 说明 | 层 | 平台 | 状态 |
 |----|------|------|-----|------|------|
-| E1 | **localhost** | 资产经 http://localhost 提供（中间件代理 ztron:// 资产） | core/host 复用 scheme 服务 | macOS 本机可验 | ☐ |
+| E1 ✓ | **localhost**：`tjs.serve` fetch-handler 服文件（PathScope 根锚定+扩展名 MIME 表+403/404 语义），start/stop/status 命令 + api localhost/start·stopLocalhost；menuprobe LOCALHOST_OK（真 tjs.serve 临时端口往返）——G11 批次 | plugins-workspace/localhost | core+api | macOS 本机可验 | ✓ |
 | E2 | **stronghold** | 加密存储（Rust stronghold；TS 重写方案：libsodium 存档引擎——先做 argon2/xchacha20 兼容面） | core + native 绑定 | macOS 可验（重） | ☐ |
 | E3 | barcode-scanner | 上游仅移动端（MLKit/VisionKit）。移植：command 面 + api + mockable adapter 桩 | api + core 桩 | 移动[移植] | ☐ |
 | E4 | biometric | authenticate API；上游移动，macOS 可选接 LocalAuthentication | core 桩（Mac 后续） | 移动[移植] | ☐ |

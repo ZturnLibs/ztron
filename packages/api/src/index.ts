@@ -72,6 +72,8 @@ export { BaseDirectory, resolveBaseDirectory } from "./path.js";
 export { attachLogger, detachLogger } from "./log.js";
 export type { LogSink } from "./log.js";
 export { Store } from "./store.js";
+export { localhost, start as startLocalhost, stop as stopLocalhost } from "./localhost.js";
+export type { LocalhostStatus } from "./localhost.js";
 export type { StoreChangeEvent } from "./store.js";
 export {
   path,
