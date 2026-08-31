@@ -140,8 +140,12 @@ export class Webview {
 
 /** All live webviews as `Webview` handles. */
 export async function getAllWebviews(): Promise<Webview[]> {
-  const labels = await invoke<string[]>("plugin:window|get_all_windows", {});
-  return labels.map((l) => new Webview(l));
+  /* G15: real webview registry query (was a window-registry alias). */
+  const list = await invoke<Array<{ label: string }>>(
+    "plugin:webview|get_all_webviews",
+    {},
+  );
+  return list.map((w) => new Webview(w.label));
 }
 
 /** Upstream naming alias of {@linkcode Webview.getCurrent}. */

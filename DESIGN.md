@@ -1297,6 +1297,12 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 114. G15 对拍缺口清剿(ACL KNOWN_GAPS 8→3)
+
+- **分流**:8 项缺口按性质三分——①可实现即做:app|default_window_icon(返回 null=未设,上游 Option 语义)/fetch_data_store_identifiers(Android-only 上游,桌面 [])/remove_data_store(文档化 no-op)/webview|get_all_webviews(真实 webview 注册表查询,替换 window 注册表别名实现);②已覆盖:path|resolve_directory 由 baseline_dir 承担(BaseDirectory 解析角色),从白名单摘除;③真架构件保留:webview setAutoResize/reparent(G7 裸 multi-webview 拆分)+tray set_temp_dir_path(Windows-only 无 macOS 语义)
+- **对拍白名单缩至 3**:paridad 断言随实现同步收紧——白名单只许"已审计的结构性缺失",能实现的必须实现,这是 F9 机制的自愈闭环(首跑抓 40+→显式化→逐批消灭)
+- **验证**:109 tests / 108 pass / 1 skip,typecheck 0 err
+
 ## 113. G13 打包工具链移植(bundler 全集/公证链/updater 工件)
 
 - **bundler.ts 六 packer**(F3):nsis(完整 MUI2 安装脚本:目录/快捷方式/卸载段/resources 递归 File)、msi(WiX .wxs:Product/UpgradeCode/Media/Feature)、appimage(AppDir:AppRun+desktop+icon)、deb(DEBIAN/control 依赖 webkit2gtk4.1+copyright)、rpm(spec 依赖表)——**设计原则:确定性控制文件 100% 生成,工具缺失返回 built:false+精确 reason(脚本就绪可跑)**,验证后置约定贯穿;bundleAll 派发器接 conf.bundle.targets(字符串/数组/all)

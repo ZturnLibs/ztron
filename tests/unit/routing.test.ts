@@ -740,6 +740,24 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
   );
 });
 
+test("known-gap closures: app icon/data-store stubs + real webview list", async () => {
+  const { mock } = buildApp();
+  assert.equal(
+    await mock.main.invoke("plugin:app|default_window_icon", {}),
+    null,
+  );
+  assert.deepEqual(
+    await mock.main.invoke("plugin:app|fetch_data_store_identifiers", {}),
+    [],
+  );
+  assert.deepEqual(
+    await mock.main.invoke("plugin:app|remove_data_store", { id: "x" }),
+    { removed: false },
+  );
+  const wvs = (await mock.main.invoke("plugin:webview|get_all_webviews", {})) as Array<{ label: string }>;
+  assert.ok(Array.isArray(wvs) && wvs.some((w) => w.label === "main"));
+});
+
 test("mobile parity stubs fail closed with PluginUnavailable", async () => {
   const { mock } = buildApp();
   const cases: Array<[string, string]> = [

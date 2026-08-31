@@ -69,13 +69,10 @@ const NAME_MAP: Record<string, string> = {
 
 /** Upstream commands with NO Ztron implementation yet (audited gaps). */
 const KNOWN_GAPS = new Set([
-  "plugin:app|default_window_icon",
-  "plugin:app|fetch_data_store_identifiers",
-  "plugin:app|remove_data_store",
-  "plugin:path|resolve_directory", // baseline_dir covers the BaseDirectory resolve role
-  "plugin:webview|get_all_webviews",
+  // Bare multi-webview split (G7 architecture work):
   "plugin:webview|setAutoResize",
   "plugin:webview|reparent",
+  // Windows-only upstream (no meaning on macOS):
   "plugin:tray|set_temp_dir_path",
 ]);
 

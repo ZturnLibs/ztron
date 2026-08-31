@@ -285,6 +285,10 @@ export class App {
       "plugin:app|set_dock_visibility",
       "plugin:app|bundle_type",
       "plugin:app|supports_multiple_windows",
+      "plugin:app|default_window_icon",
+      "plugin:app|fetch_data_store_identifiers",
+      "plugin:app|remove_data_store",
+      "plugin:webview|get_all_webviews",
       "plugin:app|get_config",
       "plugin:image|from_bytes",
       "plugin:image|rgba",
@@ -827,6 +831,22 @@ export class App {
       "plugin:app|bundle_type": () =>
         bundleTypeFromExecutable(this.executableHint()),
       "plugin:app|supports_multiple_windows": () => true,
+      "plugin:app|default_window_icon": () => {
+        /* No app-icon registration exists yet; null == "none set" (upstream
+           returns Option<Image>). The dock icon rides conf/Info.plist. */
+        return null;
+      },
+      "plugin:app|fetch_data_store_identifiers": () => {
+        /* Android-only upstream (DataStore SDK); empty on desktop. */
+        return [];
+      },
+      "plugin:app|remove_data_store": () => {
+        /* Android-only upstream; documented no-op on desktop. */
+        return { removed: false };
+      },
+      "plugin:webview|get_all_webviews": () =>
+        this.listWindowLabels().map((label) => ({ label })),
+
       "plugin:image|from_bytes": async (args) => {
         const base64 = String((args as { base64?: string }).base64 ?? "");
         const id = (await this.#adapter.image?.fromBytes(base64)) ?? -1;

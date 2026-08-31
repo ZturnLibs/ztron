@@ -68,6 +68,21 @@ export async function hideApplication(): Promise<void> {
   await invoke("plugin:app|hide", {});
 }
 
+/** The registered default window icon (null when none set). */
+export async function defaultWindowIcon(): Promise<null> {
+  return invoke("plugin:app|default_window_icon", {});
+}
+
+/** Android-only upstream: known data-store identifiers (empty on desktop). */
+export async function fetchDataStoreIdentifiers(): Promise<string[]> {
+  return invoke("plugin:app|fetch_data_store_identifiers", {});
+}
+
+/** Android-only upstream: removes one data store (no-op on desktop). */
+export async function removeDataStore(id: string): Promise<{ removed: boolean }> {
+  return invoke("plugin:app|remove_data_store", { id });
+}
+
 /** Toggles the macOS Dock icon for the running application. */
 export async function setDockVisibility(visible: boolean): Promise<void> {
   await invoke("plugin:app|set_dock_visibility", { visible });
@@ -84,4 +99,7 @@ export const app = {
   show: showApplication,
   hide: hideApplication,
   setDockVisibility,
+  defaultWindowIcon,
+  fetchDataStoreIdentifiers,
+  removeDataStore,
 };
