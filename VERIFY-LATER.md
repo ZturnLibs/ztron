@@ -56,10 +56,10 @@
 - **现象**：MULTI_WINDOW_OK 后 `win.maximize()` 处挂起（53 checks 超时）
 - **归因**：stash 全部改动后干净基线同样卡死 → darwin 25.2 窗管行为漂移，非任何批次回归（DESIGN §102 记录）
 
-### C2. multiwin destroy-flood 段 SIGSEGV
-- **现象**：10 轮建/毁窗洪泛后 host 崩（PAC failure in libwebview message handler lambda）→ EPIPE 连锁
-- **归因**：§98 论证的 vendored-webview UAF 投递路径（同家族曾三 PR 上游）；G2 时同链路尚稳 → 系统更新显形；崩溃栈已存 `~/Library/Logs/DiagnosticReports/ztron-host-*.ips`
-- **当前门禁替代**：menuprobe/multiwin 其余探针独立验证全绿；hello FULL_OK 待此两项修复后自然恢复
+### ~~C2. multiwin destroy-flood 段 SIGSEGV~~ —— 已修复（DESIGN §116）
+- **根因**：vendored webview cocoa 后端的 script-message lambda 经 associated object 持有裸 `this`；窗口销毁（主队列延后的 webview_destroy）free 引擎后，WebKit IPC 管道中仍在途的 didPostMessage 稍后投递 → 虚调用读已释放内存 → SIGSEGV
+- **修复**（webview-local.patch 内三重防护）：引擎存活注册表（构造注册/析构入口摘除）+ lambda 投递前 is_alive 校验（死指针→丢弃消息）+ 析构置空 associated 指针（兼防地址复用）
+- **验证**：修复后 multiwin 连续 8 轮 5/5 检查全过（含 STRESS_OK）exit 0，.ips 崩溃计数零增长；此前该阶段几乎必崩
 
 ### C3. macOS Actions 全链 job
 - **归因**：macos runner 10×计费烧穿免费额度（DESIGN §100），已降 workflow_dispatch

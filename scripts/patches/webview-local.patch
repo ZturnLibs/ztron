@@ -40,10 +40,72 @@ index 8ee1d94..169bf24 100644
    using namespace webview::detail;
    return api_filter([=] { return cast_to_webview(w)->terminate(); });
 diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
-index 1a0a2c6..adf35db 100755
+index 1a0a2c6..01b2f5f 100755
 --- a/core/include/webview/detail/backends/cocoa_webkit.hh
 +++ b/core/include/webview/detail/backends/cocoa_webkit.hh
-@@ -108,6 +108,16 @@ public:
+@@ -53,7 +53,9 @@
+ #include <functional>
+ #include <list>
+ #include <memory>
++#include <mutex>
+ #include <string>
++#include <unordered_set>
+ 
+ #include <objc/objc-runtime.h>
+ 
+@@ -86,6 +88,35 @@ namespace cocoa_webkit {
+ using namespace cocoa;
+ using namespace webkit;
+ 
++// ---- Ztron local fix (UAF on late script-message delivery) ----------------
++// A WKScriptMessage delivered after engine teardown used to dereference a
++// dangling associated `this` (SIGSEGV under destroy-flood). Engines
++// register here at construction and unregister at destructor entry; the
++// message-handler lambda refuses to dispatch through pointers that are not
++// alive anymore, so late deliveries become benign drops.
++namespace ztron_engine_liveness {
++inline std::mutex &mutex() {
++  static std::mutex m;
++  return m;
++}
++inline std::unordered_set<const void *> &live() {
++  static std::unordered_set<const void *> s;
++  return s;
++}
++inline void add(const void *p) {
++  std::lock_guard<std::mutex> lk(mutex());
++  live().insert(p);
++}
++inline void remove(const void *p) {
++  std::lock_guard<std::mutex> lk(mutex());
++  live().erase(p);
++}
++inline bool is_alive(const void *p) {
++  std::lock_guard<std::mutex> lk(mutex());
++  return live().count(p) != 0;
++}
++} // namespace ztron_engine_liveness
++
+ class cocoa_wkwebview_engine : public engine_base {
+ public:
+   cocoa_wkwebview_engine(bool debug, void *window)
+@@ -102,12 +133,32 @@ public:
+ 
+   virtual ~cocoa_wkwebview_engine() {
+     objc::autoreleasepool arp;
++    // Ztron local fix: leave the live registry and sever the handler's
++    // associated pointer BEFORE any teardown so in-flight WKScriptMessage
++    // deliveries cannot dispatch through freed memory (also defeats
++    // address-reuse by a newer engine).
++    ztron_engine_liveness::remove(this);
++    if (m_script_message_handler) {
++      set_associated_webview(m_script_message_handler, nullptr);
++      objc::release(m_script_message_handler);
++      m_script_message_handler = nullptr;
++    }
+     if (m_window) {
+       if (m_webview) {
+         if (auto ui_delegate{WKWebView_get_UIDelegate(m_webview)}) {
            WKWebView_set_UIDelegate(m_webview, nullptr);
            objc::release(ui_delegate);
          }
@@ -60,7 +122,7 @@ index 1a0a2c6..adf35db 100755
          objc::release(m_webview);
          m_webview = nullptr;
        }
-@@ -177,6 +187,28 @@ protected:
+@@ -177,6 +228,28 @@ protected:
      return {};
    }
  
@@ -89,7 +151,21 @@ index 1a0a2c6..adf35db 100755
    noresult dispatch_impl(std::function<void()> f) override {
      dispatch_async_f(dispatch_get_main_queue(), new dispatch_fn_t(f),
                       (dispatch_function_t)([](void *arg) {
-@@ -444,11 +476,57 @@ private:
+@@ -311,6 +384,13 @@ private:
+           cls, objc::selector("userContentController:didReceiveScriptMessage:"),
+           (IMP)(+[](id self, SEL, id, id msg) {
+             auto w = get_associated_webview(self);
++            // Ztron local fix: engines unregister at destructor entry, so a
++            // message delivered after teardown drops instead of dispatching
++            // through freed memory.
++            if (w == nullptr ||
++                !ztron_engine_liveness::is_alive(w)) {
++              return;
++            }
+             w->on_message(
+                 NSString_get_UTF8String(WKScriptMessage_get_body(msg)));
+           }),
+@@ -444,11 +524,57 @@ private:
      m_window = nullptr;
      dispatch([this] { on_window_destroyed(); });
    }
@@ -147,9 +223,27 @@ index 1a0a2c6..adf35db 100755
      m_manager = WKWebViewConfiguration_get_userContentController(config);
  
      auto preferences = WKWebViewConfiguration_get_preferences(config);
-@@ -612,8 +690,109 @@ private:
+@@ -503,11 +629,12 @@ private:
+       WKWebView_set_inspectable(m_webview, true);
+     }
+ 
+-    auto script_message_handler =
+-        objc::autorelease(create_script_message_handler());
++    m_script_message_handler = objc::retain(
++        objc::autorelease(create_script_message_handler()));
+     WKUserContentController_addScriptMessageHandler(
+-        m_manager, script_message_handler,
++        m_manager, m_script_message_handler,
+         NSString_stringWithUTF8String("__webview__"));
++    ztron_engine_liveness::add(this);
+ 
+     add_init_script("function(message) {\n\
+   return window.webkit.messageHandlers.__webview__.postMessage(message);\n\
+@@ -611,9 +738,111 @@ private:
+   id m_widget{};
    id m_webview{};
    id m_manager{};
++  id m_script_message_handler{};
    bool m_is_window_shown{};
 +  std::string m_scheme{};
 +  std::string m_scheme_root{};

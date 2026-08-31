@@ -1297,6 +1297,15 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 116. 崩溃修复:script-message UAF(destroy-flood SIGSEGV)根因与闭环
+
+- **崩溃样本**(macOS 26.2/25C56,进程启动 2.6s 即崩=stress 早期):帧0=`create_script_message_handler()::lambda operator()+208`,来自 `ScriptMessageHandlerDelegate::didPostMessage` 的 WebKit IPC 主线程投递;SIGSEGV 地址带 PAC 特征=野指针
+- **根因链**:①cocoa 后端全库单管道——每引擎恰一个 `"__webview__"` handler 实例,`objc_setAssociatedObject` 挂裸 `this`,bind 名走消息体;②宿主侧 destroy 已延后主队列(destroy_later)且旧补丁已摘 handler/US,但 **associated 指针从未置空**;③stress 页 25ms 间隔 postMessage,IPC 管道常驻在途消息——引擎 free 后某条在途 didPostMessage 仍投递→lambda 取悬挂 this→`w->on_message` 虚调用读 freed vtable。§98 的结构性论证至此拿到本机可复现实证
+- **修复**(cocoa_webkit.hh,进 webview-local.patch):`ztron_engine_liveness` 命名空间——引擎构造注册/析构**入口**摘除(锁保护 set);lambda `is_alive(w)` 不活即 return(迟到消息=良性丢弃,窗口已死语义正确);析构入口先置空 handler 的 associated 指针再 release(兼防新引擎地址复用打错路由);handler 实例改成员持有(`m_script_message_handler` retain)
+- **验证**:修复前 .ips 计数随跑增长;修复后 multiwin 5+3 连跑全 5/5(含 STRESS_OK)exit 0、崩溃零增长;menuprobe 3/3 不回归;单测 110/109、typecheck 0;patch 以 `git apply --check --reverse` 闭环校验
+- **顺手修正**:multiwin 残留的 G4 菜单探针(旧阈值 12,正确为 4,职责已归 menuprobe)清除——此前它把绿跑误判 exit 1
+- **上游意义**:§1369 PR 的不可复现困境自此解除——本补丁即最小修(注册表+校验≈20 行),可携复现器与修复重开上游对话
+
 ## 115. G7 裸 multi-webview 裁决与能力探针
 
 - **可行性勘察定案**:vendored webview C API 为 **1 webview:1 window 创建期绑死**(webview_create(debug,window)/get_window 返回宿主窗/无 reparent 或独立 set_visible 入口)——同窗多 webview/reparent/autoResize 需改 vendored 库本体,属上游 wry 级工程且本机不可验;按"移植上游现行面+不破坏稳定面"裁定:**C 层不动,语义层做实**
