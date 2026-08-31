@@ -48,7 +48,45 @@ export interface WindowConfig {
   titleBarStyle?: "visible" | "transparent" | "overlay";
   /** App-wide theme at startup: "dark" | "light" | omitted (system). */
   theme?: "dark" | "light";
+  /** Window drop-shadow (macOS NSWindow.hasShadow). */
+  shadow?: boolean;
+  /** Focus the window right after creation (upstream WindowConfig.focus). */
+  focus?: boolean;
+  /** Master switch for file drag&drop events (P26; default true). */
+  dragDropEnabled?: boolean;
 }
+
+/**
+ * Upstream WindowConfig keys this host does not implement yet. The schema
+ * ACCEPTS them (parity) and fromConfig warns via its onWarn hook; they are
+ * preserved on the config for the future platform work.
+ */
+export const DECLARED_UNSUPPORTED_WINDOW_FIELDS = [
+  "userAgent",
+  "incognito",
+  "proxyUrl",
+  "zoomHotkeysEnabled",
+  "browserExtensionsEnabled",
+  "useHttpsScheme",
+  "backgroundThrottling",
+  "javascriptDisabled",
+  "acceptFirstMouse",
+  "hiddenTitle",
+  "parent",
+  "preventOverflow",
+  "tabbingIdentifier",
+] as const;
+
+/** Full upstream WindowConfig key set for schema awareness. */
+export const UPSTREAM_WINDOW_FIELDS = [
+  ...DECLARED_UNSUPPORTED_WINDOW_FIELDS,
+  "label","create","url","center","x","y","width","height","minWidth",
+  "minHeight","maxWidth","maxHeight","resizable","maximizable","minimizable",
+  "closable","title","fullscreen","focus","transparent","maximized","visible",
+  "decorations","alwaysOnBottom","alwaysOnTop","visibleOnAllWorkspaces",
+  "contentProtected","skipTaskbar","theme","titleBarStyle","shadow",
+  "windowEffects","devtools","backgroundColor","dragDropEnabled",
+] as const;
 
 /** Window state operations translated from Tauri's `tao`/window plugin. */
 export type WindowStateOp =

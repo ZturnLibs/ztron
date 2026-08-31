@@ -13,6 +13,7 @@ import {
 } from "./ipc/eventManager.js";
 import { IpcHub, type InvokeHandler } from "./ipc/mod.js";
 import { PluginManager, type Plugin } from "./plugin.js";
+import { DECLARED_UNSUPPORTED_WINDOW_FIELDS } from "./runtime.js";
 import type {
   MenuConfig,
   OpenDialogOptions,
@@ -41,6 +42,30 @@ export interface AppConfig {
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
   withGlobalTauri?: boolean;
+  macOSPrivateApi?: boolean;
+  csp?: string;
+  /** Resolved security block (csp/devCsp/capabilities/assetProtocol/…). */
+  security?: {
+    csp?: string;
+    devCsp?: string;
+    capabilities?: string[] | string;
+    assetProtocol?: { scope?: string[] | string; requireLiteralLeadingDot?: boolean };
+    freezePrototype?: boolean;
+  };
+  /** Frontend build wiring (devUrl/frontendDist/before* commands). */
+  build?: {
+    devUrl?: string;
+    frontendDist?: string;
+    beforeDevCommand?: string;
+    beforeBuildCommand?: string;
+    beforeBundleCommand?: string;
+  };
+  /** Packaging block (F3 tooling consumes it later). */
+  bundle?: Record<string, unknown>;
+  /** Third-party plugin config (e.g. { cli: …, localhost: { dir, port } }). */
+  plugins?: Record<string, unknown>;
+  mainBinaryName?: string;
+  productName?: string;
   /** Override the default `__TAURI_INTERNALS__` init script. */
   initScript?: string;
   /**
@@ -1174,8 +1199,9 @@ export class App {
     }
 
     for (const cfg of this.config.windows) {
-      const handle = this.createWindow(cfg);
-      this.#applyStartupWindowState(cfg, handle);
+      // createWindow applies startup states itself now (G10): same ops, one
+      // code path for the run loop and dev/test creation.
+      this.createWindow(cfg);
     }
     await Promise.all(
       [...this.#windows.values()].map(({ handle }) => handle.run()),
@@ -1186,6 +1212,7 @@ export class App {
   createWindow(cfg: WindowConfig): WebviewHandle {
     const handle = this.#adapter.createWindow(cfg);
     this.#windows.set(cfg.label, { handle, events: new EventTarget() });
+    this.#applyStartupWindowState(cfg, handle);
 
     // Bind the IPC entry FIRST so `window.__TAURI_IPC__` exists in the page.
     // The `__TAURI_INTERNALS__` bootstrap is embedded into the page itself
@@ -1217,6 +1244,7 @@ export class App {
         invokeKey: this.#invokeKey,
         metadata: { identifier: this.config.identifier },
         label: cfg.label,
+        withGlobalTauri: this.config.withGlobalTauri,
       });
 
     if (cfg.html !== undefined) {
@@ -1261,6 +1289,10 @@ export class App {
     if (cfg.theme) handle.setTheme(cfg.theme);
     if (cfg.x !== undefined && cfg.y !== undefined)
       handle.setPosition(cfg.x, cfg.y);
+    if (cfg.shadow !== undefined) handle.windowState("set_shadow", cfg.shadow);
+    if (cfg.focus) handle.windowState("set_focus");
+    if (cfg.dragDropEnabled === false)
+      handle.windowState("set_file_drop_enabled", false);
   }
 
   /** Convenience: register a single command. */
@@ -1361,12 +1393,51 @@ export class AppBuilder {
    * frontend root via `"frontend://<path>"` (the CLI resolves it to the dev
    * server / built index) or any absolute URL.
    */
-  fromConfig(conf: ProjectConfigFile, opts?: { frontendUrl?: string }): this {
-    validateProjectConfig(conf);
+  fromConfig(
+    conf: ProjectConfigFile,
+    opts?: {
+      frontendUrl?: string;
+      /** Receives schema-awareness warnings (unknown/unsupported keys). */
+      onWarn?: (message: string) => void;
+    },
+  ): this {
+    validateProjectConfig(conf, opts);
     if (conf.identifier) this.#config.identifier = conf.identifier;
-    if (conf.appName) this.#config.appName = conf.appName;
+    if (conf.appName ?? conf.productName)
+      this.#config.appName = conf.appName ?? conf.productName;
+    if (conf.productName) this.#config.productName = conf.productName;
+    if (conf.mainBinaryName)
+      this.#config.mainBinaryName = conf.mainBinaryName;
     if (conf.version) this.#config.version = conf.version;
+
+    // F1: structured blocks (legacy top-level csp/capabilities stay live).
+    const sec = conf.app?.security ?? {};
+    this.#config.security = {
+      csp: sec.csp ?? conf.csp,
+      devCsp: sec.devCsp,
+      capabilities: sec.capabilities ?? conf.capabilities,
+      assetProtocol: sec.assetProtocol,
+      freezePrototype: sec.freezePrototype,
+    };
+    if (this.#config.security.csp !== undefined)
+      this.#config.csp = this.#config.security.csp;
+    if (conf.app?.withGlobalTauri !== undefined)
+      this.#config.withGlobalTauri = conf.app.withGlobalTauri;
+    if (conf.app?.macOSPrivateApi !== undefined)
+      this.#config.macOSPrivateApi = conf.app.macOSPrivateApi;
+    if (conf.build) this.#config.build = conf.build;
+    if (conf.bundle) this.#config.bundle = conf.bundle;
+    if (conf.plugins) this.#config.plugins = conf.plugins;
+
     for (const w of conf.windows ?? []) {
+      const declared = DECLARED_UNSUPPORTED_WINDOW_FIELDS.filter((k) => k in w);
+      if (declared.length) {
+        opts?.onWarn?.(
+          `ztron.conf.json: window "${w.label ?? "main"}" declares keys this ` +
+            `host does not implement yet (kept on config): ${declared.join(", ")}`,
+        );
+      }
+
       const { url, ...rest } = w;
       /* "frontend" resolves to the dev server / built index (dev flow),
          any other string loads as an absolute URL, absent falls back to
@@ -1396,18 +1467,97 @@ export class AppBuilder {
 
 /** The `ztron.conf.json` shape (CLI-validated, consumed via fromConfig). */
 export interface ProjectConfigFile {
+  $schema?: string;
   entry?: string;
   frontend?: string;
   identifier?: string;
+  /** Alias of appName (upstream naming). */
+  productName?: string;
   appName?: string;
+  mainBinaryName?: string;
   version?: string;
+  /** Legacy top-level CSP — prefer app.security.csp (both work). */
   csp?: string;
+  /** Legacy top-level capability list — prefer app.security.capabilities. */
+  capabilities?: string[] | string;
+  build?: {
+    devUrl?: string;
+    frontendDist?: string;
+    beforeDevCommand?: string;
+    beforeBuildCommand?: string;
+    beforeBundleCommand?: string;
+  };
+  app?: {
+    withGlobalTauri?: boolean;
+    macOSPrivateApi?: boolean;
+    security?: {
+      csp?: string;
+      devCsp?: string;
+      capabilities?: string[] | string;
+      assetProtocol?: {
+        scope?: string[] | string;
+        requireLiteralLeadingDot?: boolean;
+      };
+      freezePrototype?: boolean;
+    };
+  };
+  bundle?: {
+    active?: boolean;
+    targets?: string | string[];
+    icon?: string | string[];
+    resources?: string[];
+    category?: string;
+    publisher?: string;
+    homepage?: string;
+    shortDescription?: string;
+    longDescription?: string;
+    copyright?: string;
+    license?: string;
+  };
+  plugins?: Record<string, unknown>;
   windows?: Array<Partial<WindowConfig> & { label?: string }>;
   [key: string]: unknown;
 }
 
-/** Throws on invalid ztron.conf.json content (schema check). */
-export function validateProjectConfig(conf: ProjectConfigFile): void {
+const KNOWN_TOP_LEVEL = new Set([
+  "$schema","entry","frontend","identifier","productName","appName",
+  "mainBinaryName","version","csp","capabilities","build","app","bundle",
+  "plugins","windows",
+]);
+
+/** Throws on invalid ztron.conf.json content; warns on unknown keys. */
+export function validateProjectConfig(
+  conf: ProjectConfigFile,
+  opts?: { onWarn?: (message: string) => void },
+): void {
+  const warn = (m: string) => opts?.onWarn?.(m);
+  for (const k of Object.keys(conf)) {
+    if (!KNOWN_TOP_LEVEL.has(k)) {
+      warn(`ztron.conf.json: unknown top-level key "${k}" (kept as-is)`);
+    }
+  }
+  if (conf.build) {
+    if (typeof conf.build !== "object")
+      throw new Error("ztron.conf.json: build must be an object");
+    for (const k of ["devUrl","frontendDist","beforeDevCommand","beforeBuildCommand","beforeBundleCommand"]) {
+      const v = (conf.build as Record<string, unknown>)[k];
+      if (v !== undefined && typeof v !== "string")
+        throw new Error(`ztron.conf.json: build.${k} must be a string`);
+    }
+  }
+  if (conf.app) {
+    if (typeof conf.app !== "object")
+      throw new Error("ztron.conf.json: app must be an object");
+    if (
+      conf.app.withGlobalTauri !== undefined &&
+      typeof conf.app.withGlobalTauri !== "boolean"
+    )
+      throw new Error("ztron.conf.json: app.withGlobalTauri must be boolean");
+  }
+  if (conf.bundle && typeof conf.bundle !== "object")
+    throw new Error("ztron.conf.json: bundle must be an object");
+  if (conf.plugins && typeof conf.plugins !== "object")
+    throw new Error("ztron.conf.json: plugins must be an object");
   if (conf.windows !== undefined) {
     if (!Array.isArray(conf.windows)) {
       throw new Error("ztron.conf.json: windows must be an array");

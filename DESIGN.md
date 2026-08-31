@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 111. G10 conf/bundle schema 全量(F1/F2)+ withGlobalTauri(C10)
+
+- **schema**:ProjectConfigFile 扩至上游形态($schema/productName/mainBinaryName/build五键/app{withGlobalTauri,macOSPrivateApi,security五键}/bundle 11键/plugins{}),旧顶层 csp/capabilities 兼容(app.security 优先);validateProjectConfig 类型检查+KNOWN_TOP_LEVEL 外键 onWarn 警告(不致命,保持宽容);fromConfig 全量入 AppConfig(security/build/bundle/plugins/productName/mainBinaryName)
+- **WindowConfig**:新增 shadow/focus/dragDropEnabled 三创建期字段;**重构:applier 从 run() 移入 createWindow**——run 循环与 dev/test 路径统一,启动态在测试侧可直接断言(本次 set_focus 断言即靠此修正);DECLARED_UNSUPPORTED_WINDOW_FIELDS(13 键)schema 接受+警告保留,UPSTREAM_WINDOW_FIELDS 全集导出
+- **C10**:buildInitScript 新增 withGlobalTauri → `window.__ZTRON__=__TAURI_INTERNALS__`;conf→bootstrap 贯通
+- **教训**:①AppConfig 是 app.ts/runtime.ts 双处声明,扩展需同步两份;②index 的 runtime 导出有 type-only 与 value 两块,值常量误入 type 块=TS2300 重复;③测试驱动的启动语义必须走生产同一路径(createWindow),私有方法直调是反模式
+- **验证**:新 tests/unit/conf-schema.test.ts 五组(结构化摄取/类型拒绝+未知键警告/不支持键警告/启动三态应用/__ZTRON__ 注入);**98 tests / 97 pass / 1 skip**,typecheck 0 err
+
 ## 110. G12 移动插件桩批(barcode/biometric/geo/haptics/nfc)+ B15 窗口桩
 
 - **统一语义**:`PluginUnavailable`(name+plugin/command 字段)fail-closed;命令面/权限集/permission-set 与上游对齐;桌面运行时抛错即文档——按用户指令"平台不支持也移植,待环境后验证"

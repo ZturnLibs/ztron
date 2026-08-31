@@ -45,15 +45,37 @@ Usage:
 const DEFAULT_ENTRY = "./src/main.ts";
 
 interface ProjectConfig {
+  $schema?: string;
   entry?: string;
   frontend?: string;
   appName?: string;
-  /** Content-Security-Policy header/value; defaults to a permissive-but-sane one. */
+  productName?: string;
+  mainBinaryName?: string;
+  /** Legacy top-level CSP — prefer app.security.csp (both work). */
   csp?: string;
   identifier?: string;
   version?: string;
+  build?: Record<string, string>;
+  app?: {
+    withGlobalTauri?: boolean;
+    macOSPrivateApi?: boolean;
+    security?: {
+      csp?: string;
+      devCsp?: string;
+      capabilities?: string[] | string;
+      assetProtocol?: { scope?: string[] | string };
+      freezePrototype?: boolean;
+    };
+  };
+  bundle?: Record<string, unknown>;
+  plugins?: Record<string, unknown>;
   /** Declarative startup windows (label/title/size/position/startup states). */
   windows?: Array<Record<string, unknown>>;
+}
+
+/** Effective CSP: app.security.csp wins over the legacy top-level key. */
+function effectiveCsp(conf: ProjectConfig): string | undefined {
+  return conf.app?.security?.csp ?? conf.csp;
 }
 
 /** Default CSP injected into the built index.html. */

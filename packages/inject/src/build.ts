@@ -29,6 +29,9 @@ export interface InitScriptOptions {
    * (Tauri injects per-webview init scripts natively).
    */
   label?: string;
+  /** Expose the internals namespace as `window.__ZTRON__` (upstream
+      withGlobalTauri parity, C10). */
+  withGlobalTauri?: boolean;
 }
 
 /**
@@ -109,6 +112,7 @@ export function buildInitScript(options: InitScriptOptions): string {
     metadata: __META__
   }
   window.isTauri = true
+  ${options.withGlobalTauri ? "window.__ZTRON__ = window.__TAURI_INTERNALS__;" : ""}
 })();
 `;
 }

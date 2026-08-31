@@ -65,7 +65,7 @@
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 | mocks 模块：mockIPC/mockWindows/mockConvertFileSrc/clearMocks（前端单测工具面） | api/src/mocks.ts | api | 本机可验 | ☐ |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |
-| C10 | withGlobalTauri 等价：`window.__ZTRON__`(IIFE 全局命名空间入口) + conf 开关 | rollup bundle.global.js 通道 | cli build | 本机可验 | ☐ |
+| C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __TAURI_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
 | C11 | @zturnlibs/api 子路径 exports 结构核对（./index,./app,…./window 每模块独立 entry） | package.json exports | api 打包 | 本机可验 | ☐ |
 | C12 | effect EffectState 跟随态（FollowsWindowActiveState/Active/Inactive 贯穿 setEffects 协议核对） | api window.ts | 核对 | 本机可验 | ☐ |
 | C13 |dpi Physical/Logical 序列化 [SERIALIZE_TO_IPC_FN]/toJSON 契约核对（invoke 传输尺寸参数兼容上游写法） | api dpi.ts | api 核对 | 本机可验 | ☐ |
@@ -102,8 +102,8 @@
 
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
-| F1 | **tauri.conf.json 顶层 schema 全量**：productName/mainBinaryName/$schema/version(引用解析)/app{withGlobalTauri(C10),trayIcon,macOSPrivateApi,enableGtkAppId,security{csp,devCsp,freezePrototype(F8),dangerousDisableAssetCspModification,assetProtocol{scope,requireLiteralLeadingDot},pattern(F8),capabilities,headers}}/build{devUrl,frontendDist,beforeDevCommand,beforeBuildCommand,beforeBundleCommand}/bundle(F3 全家)/plugins{} 传参机制（D5 也消费它） | crates/tauri-utils/config.rs | CLI + core | 本机可验 | ☐ |
-| F2 | **WindowConfig 63 字段创建期全量**：userAgent、dragDropEnabled、preventOverflow、fullscreen、focus(ed)、maximized、visible、shadow、incognito、parent(子窗)、proxyUrl、zoomHotkeysEnabled、browserExtensionsEnabled、useHttpsScheme、devtools、backgroundThrottling、javascriptDisabled、acceptFirstMouse、tabbingIdentifier、hiddenTitle + Windows(noRedirectionBitmap/windowClassName/additionalBrowserArgs)/Linux 桩 + Android/iOS 桩 | config.rs:1930-2377 | host C + runtime + core + conf | macOS 大部分可验 | ☐ |
+| F1 ◐ | **tauri.conf.json 顶层 schema 全量**：ProjectConfigFile 扩展 $schema/productName/mainBinaryName/build{五命令}/app{withGlobalTauri,macOSPrivateApi,security{csp,devCsp,capabilities,assetProtocol,freezePrototype}}/bundle(11 键)/plugins{}；旧顶层 csp/capabilities 兼容直通；校验器类型检查+未知键 onWarn；fromConfig 结构化入 AppConfig——G10。剩余：build/bundle 值真正驱动 CLI 管线（G13 接线）|
+| F2 ◐ | **WindowConfig 创建期扩展**：新增 shadow/focus/dragDropEnabled 三字段进 #applyStartupWindowState（applier 移入 createWindow 单路径）；DECLARED_UNSUPPORTED_WINDOW_FIELDS 13 键（userAgent/incognito/proxyUrl/parent 等）schema 接受+onWarn 文档化保留；UPSTREAM_WINDOW_FIELDS 全集导出——G10。剩余：新键对应宿主实现随平台批（F2 尾项=13 键的 host 实现）|
 | F3 | **bundler 7 格式缺失**：WindowsMsi(wix 工具链编排)/Nsis(模板语言)/AppImage(runtime 挂载)/Deb(control+ar)/Rpm(rpm 构建)/IosBundle/标准 Updater 工件 —— 先移植生成逻辑代码（宿主脚本形态，输出产物），Win/Linux/待环境验证；dmg background/windowPos 配置（DmgConfig 5 字段）同理 | tauri-bundler/src/bundle | scripts + cli::build | 代码移植[验证后置]，dmg 部分本机可验 | ☐ |
 | F4 ◐ | **CLI 子命令**：**signer 已落地**（generate/sign/verify，无密码 secret key；scrypt 加密 key 待续）——G3 批次；icon/info/add/migrate 仍待办 | tauri-cli crates + js cli | cli | icon/info 本机可验；add/migrate 适配 Ztron 语境 | ◐ |
 | F5 | **Developer ID 签名 + 公证链**：signingIdentity/hardenedRuntime/entitlements/infoPlist 注入/notarytool 工作流 | tauri-bundler macos + tauri-macos-sign | cli::build codesign 环节 | 代码移植[验证后置——需证书] | ☐ |

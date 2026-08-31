@@ -129,6 +129,10 @@ export type {
   SaveDialogOptions,
   MessageDialogOptions,
 } from "./runtime.js";
+export {
+  DECLARED_UNSUPPORTED_WINDOW_FIELDS,
+  UPSTREAM_WINDOW_FIELDS,
+} from "./runtime.js";
 export { StateManager } from "./state.js";
 export {
   PermissionRegistry,
@@ -149,3 +153,6 @@ export type {
   PathScopeLike,
   AclDecision,
 } from "./acl/index.js";
+
+export { validateProjectConfig } from "./app.js";
+export type { ProjectConfigFile } from "./app.js";
