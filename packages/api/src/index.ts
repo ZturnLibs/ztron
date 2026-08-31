@@ -281,3 +281,10 @@ export {
   exit as exitApp,
   relaunch as relaunchApp,
 } from "./process.js";
+
+export {
+  mockIPC,
+  mockWindows,
+  mockConvertFileSrc,
+  clearMocks,
+} from "./mocks.js";

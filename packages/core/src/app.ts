@@ -172,9 +172,12 @@ export class App {
     this.buildAcl(options.plugins ?? []);
   }
 
+  /** The populated permission registry (audit/F9 parity checks read it). */
+  #registry = new PermissionRegistry();
+
   /** Builds the permission registry + resolved ACL and arms the IPC gate. */
   private buildAcl(plugins: Plugin[]): void {
-    const registry = new PermissionRegistry();
+    const registry = this.#registry;
 
     // Register core (built-in) permissions: one allow per built-in command,
     // plus a `core:default` set that grants all of them. Apps reference this
@@ -371,6 +374,15 @@ export class App {
         ? permissiveAcl()
         : resolveAcl(registry, capabilities);
     this.#hub.setAcl(acl);
+  }
+
+  /** Read-only registry snapshot: identifier -> granted command names. */
+  permissionSnapshot(): Map<string, string[]> {
+    const out = new Map<string, string[]>();
+    for (const perm of this.#registry.listPermissions()) {
+      out.set(perm.identifier, perm.commands ?? []);
+    }
+    return out;
   }
 
   /** Best-effort host executable path (tjs backend or Node fallback). */

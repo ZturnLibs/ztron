@@ -35,6 +35,16 @@ export class PermissionRegistry {
     return this.#permissions.get(identifier);
   }
 
+  /** All registered permissions (F9 parity audits enumerate these). */
+  listPermissions(): Permission[] {
+    return [...this.#permissions.values()];
+  }
+
+  /** All registered permission sets. */
+  listSets(): PermissionSet[] {
+    return [...this.#sets.values()];
+  }
+
   /**
    * Recursively expands an identifier into the underlying permissions.
    * A set identifier expands to its members (which may themselves be sets).

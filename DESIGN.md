@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 112. G14 治理基建(ACL 对拍/mocks/driver/isolation 裁决)
+
+- **F9 对拍**:新 acl-parity.test.ts 三断言——上游 9 插件 ~163 命令逐条映射到 Ztron 权限面;**首跑即抓出 40+ 命名分歧**,价值在于把分歧显式化:NAME_MAP 30+ 条(window 无前缀 vs Ztron 显式 get_/set_ 前缀、menu 上游类方法 vs 命令面、webview 驼峰)、KNOWN_GAPS 8 条(default_window_icon/dataStore×2/get_all_webviews 真实化/autoResize/reparent/set_temp_dir_path/resolve_directory)进入待办视野;deny 权限 `!cmd` 负向语法纳入第二断言;registry 增 listPermissions/listSets,App.permissionSnapshot() 只读暴露(曾试私有字段反射,TS 立即拒绝——改公共 API 一行)
+- **C8 mocks**:四件套对齐 @tauri-apps/api/mocks;mockWindows 同时播种三形元数据(currentWindow/currentWebview 对象 + 平铺 label + __TAURI_METADATA__ 兼容探测)
+- **F7 driver**:packages/driver 新包(W3C 骨架):/status 握手、new-session→平台表派发(Linux WebKitWebDriver/Windows msedgedriver/darwin 无 remote 同上游)、spawn+CLI 入口;请求级转发待目标平台(GAP 验证后置约定)
+- **F8 isolation 裁决**:核上游——tauri v2 pattern(隔离 iframe)已整体废弃(模块移除/文档下线/isolation.md 不存在);按"移植上游**现行**面"原则裁定不实现,冻结原型仅留档;GAP 行标注依据
+- **验证**:101 tests / 100 pass / 1 skip(typecheck 0 err,driver 0 err);workspace 增 driver 后 build-all 干净
+
 ## 111. G10 conf/bundle schema 全量(F1/F2)+ withGlobalTauri(C10)
 
 - **schema**:ProjectConfigFile 扩至上游形态($schema/productName/mainBinaryName/build五键/app{withGlobalTauri,macOSPrivateApi,security五键}/bundle 11键/plugins{}),旧顶层 csp/capabilities 兼容(app.security 优先);validateProjectConfig 类型检查+KNOWN_TOP_LEVEL 外键 onWarn 警告(不致命,保持宽容);fromConfig 全量入 AppConfig(security/build/bundle/plugins/productName/mainBinaryName)

@@ -63,7 +63,7 @@
 | C5 ✓ | dpi Size/Position 包装器（源自适应 Logical/Physical 判别，to* 双向换算 + toJSON 带判别键）
 | C6 | EventTarget.App 语义：app 目标路由到 app 级监听而非等同 Any 全局广播；windows/webviews 分组语义核对 | api event.ts EventTarget kind ×5 | core eventManager | 本机可验 | ☐ |
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
-| C8 | mocks 模块：mockIPC/mockWindows/mockConvertFileSrc/clearMocks（前端单测工具面） | api/src/mocks.ts | api | 本机可验 | ☐ |
+| C8 ✓ | mocks.ts 四件套：mockIPC（内存 invoke）/mockWindows（currentWindow·currentWebview·label 三形 metadata）/mockConvertFileSrc/clearMocks（全量还原）——G14 |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |
 | C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __TAURI_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
 | C11 | @zturnlibs/api 子路径 exports 结构核对（./index,./app,…./window 每模块独立 entry） | package.json exports | api 打包 | 本机可验 | ☐ |
@@ -108,9 +108,9 @@
 | F4 ◐ | **CLI 子命令**：**signer 已落地**（generate/sign/verify，无密码 secret key；scrypt 加密 key 待续）——G3 批次；icon/info/add/migrate 仍待办 | tauri-cli crates + js cli | cli | icon/info 本机可验；add/migrate 适配 Ztron 语境 | ◐ |
 | F5 | **Developer ID 签名 + 公证链**：signingIdentity/hardenedRuntime/entitlements/infoPlist 注入/notarytool 工作流 | tauri-bundler macos + tauri-macos-sign | cli::build codesign 环节 | 代码移植[验证后置——需证书] | ☐ |
 | F6 ◐ | updater 工件标准化：manifest `platforms.*.signature` 字段已进入协议并被 install/install_stream 强制校验（G3）；`ztron build` 自动产出 latest.json+.minisig 工件待接线 | tauri-bundler Updater type | cli::build | 本机可验 | ◐ |
-| F7 | tauri-driver 等价：WebDriver intermediary server（接收 W3C 请求→转发平台驱动；macOS 上游亦未支持，移植 node 实现 Linux msedgedriver/WebKitWebDriver 转发面） | crates/tauri-driver/server.rs | 新包 driver | 代码移植[验证后置] | ☐ |
-| F8 | isolation pattern（前端隔离 iframe 加密通道）+ freezePrototype CSP 强化 | tauri pattern isolate + security | inject + core + conf | 本机可验（设计敏感，放后批） | ☐ |
-| F9 | ACL 权限面全量核对：163 条 allow/deny 逐一映射 Ztron capability 词表（含 per-plugin default.toml 组合、scope 可携带 permission、platform 条件字段） | build.rs define_permissions 生成规则 | core ACL 核对脚本（对拍测试） | 本机可验 | ☐ |
+| F7 ◐ | @zturnlibs/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |
+| F8 ◐ | isolation pattern 评估结论（DESIGN §112）：上游该能力已废弃（pattern 模块移除、文档下线），按"移植上游现行面"原则 Ztron 不实现，仅冻结原型留作开关件——G14 |
+| F9 ✓ | ACL 对拍测试（tests/unit/acl-parity.test.ts）：上游 9 插件命令表→Ztron 权限面映射完整性断言；NAME_MAP 显式登记 30+ 命名分歧（window 前缀/menu 类方法/webview 驼峰等）、KNOWN_GAPS 8 项审计白名单（default_window_icon/dataStore/autoResize/reparent 等）；deny `!cmd` 语法纳入校验；App.permissionSnapshot() 只读暴露——G14 |
 | F10 | IPC 增强：ipc origin/远程域 capability 条件（remote url 匹配）核对 | acl capability remote | core 核对 | 本机可验 | ☐ |
 
 
