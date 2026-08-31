@@ -151,6 +151,10 @@
 
 opacity/transparent 运行时设置（上游 v2 仅 conf 层 shadow 侧保留）、setTrafficLightPosition 运行时版（上游仅 conf）、onFocused/onBlurred 便捷事件、setupDragRegion、Raw IPC 信封（base64-in-JSON，Tauri Android 同构建议）、fs.watch FSEvents 端到端、clipboard HTML flavor（上游无）、完整体键反注入 invokeKey。
 
+## 交付件
+
+- **VERIFY-LATER.md** — 全部"移植完成、待环境验证"项的执行清单(A 待目标平台/B 待凭证/C 本机环境漂移),含每项所需环境+验证命令+判定标准;环境就位后按单执行即可闭环。
+
 ## 维护说明
 
 - 每次迭代收尾把完成的 ID 行改 ✓ 并在 DESIGN.md 追加 §N 章节实录（教训/证据 tag 必记）。
