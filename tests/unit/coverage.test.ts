@@ -321,6 +321,7 @@ const UNIT_COVERED = new Set([
   "plugin:app|fetch_data_store_identifiers",
   "plugin:app|remove_data_store",
   "plugin:webview|get_all_webviews",
+  "plugin:webview|capabilities",
   "plugin:webview|set_background_color",
   "plugin:webview|toggle_devtools",
   "plugin:menu|remove_at",

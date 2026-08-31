@@ -289,6 +289,7 @@ export class App {
       "plugin:app|fetch_data_store_identifiers",
       "plugin:app|remove_data_store",
       "plugin:webview|get_all_webviews",
+      "plugin:webview|capabilities",
       "plugin:app|get_config",
       "plugin:image|from_bytes",
       "plugin:image|rgba",
@@ -846,6 +847,16 @@ export class App {
       },
       "plugin:webview|get_all_webviews": () =>
         this.listWindowLabels().map((label) => ({ label })),
+      "plugin:webview|capabilities": () => ({
+        /* G7 posture: the vendored webview C API binds 1 webview to 1
+           window at creation; same-window multi-webview + reparent are
+           upstream-wry-scale changes. Surface the honest capability map
+           so apps can adapt (upstream webview_version() spirit). */
+        multipleWebviewsPerWindow: false,
+        reparent: false,
+        autoResize: false,
+        perWindow: true,
+      }),
 
       "plugin:image|from_bytes": async (args) => {
         const base64 = String((args as { base64?: string }).base64 ?? "");

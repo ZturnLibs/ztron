@@ -29,7 +29,7 @@
 
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
-| A1 | **裸 Webview / 单窗多 webview**：窗口内创建裸 webview（create_webview 与 create_webview_window 分离）、webview 级 position/size getter、setAutoResize、reparent、webview 级 hide/show/setSize/setPosition/setFocus/setBackgroundColor、print、internal_toggle_devtools 程序化开关、getAllWebviews/getByLabel 真实化（现为 window 别名假象） | `crates/tauri/src/webview/plugin.rs` 18 条命令；`api/src/webview.ts` Webview 类 | host C + runtime + core + api | macOS 本机可验 | ◐ |
+| A1 ◐ | **裸 Webview/单窗多 webview——已裁决为平台边界**(DESIGN §115):vendored C API 1:1 创建期绑定,同窗多 webview/reparent/autoResize 需改库本体;能力探针 plugin:webview\|capabilities 诚实上报;Ztron 等价物=多窗口 per-window webview(跨窗控制/事件/destroy 已真实)|
 | A2 | **Menu 类体系**：IconMenuItem 类 + NativeIcon 枚举（56 系统图标）、Menu.default()/default app menu 自动生成、AboutMetadata（about 元数据）、setAsWindowMenu + setAsWindowsMenuForNSApp/setAsHelpMenuForNSApp、prepend/removeAt/items 实时结构化遍历、Submenu/CheckMenuItem/RadioMenuItem 独立类形态（现 children 数组近似）、menu set_icon 命令 | `api/src/menu.ts + menu/*.ts`；`crates/tauri/src/menu/plugin.rs` 22 条 | host C + runtime + core + api | macOS 本机可验 | ◐ |
 
 # B. core 命令面（逐条对齐 build.rs PLUGINS）

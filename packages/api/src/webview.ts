@@ -76,6 +76,20 @@ export class Webview {
   }
 
   /**
+   * Host webview capability map (G7): one webview per window on this
+   * backend; same-window multi-webview/reparent/autoResize are reported
+   * as false instead of silently no-op'ing.
+   */
+  static async capabilities(): Promise<{
+    multipleWebviewsPerWindow: boolean;
+    reparent: boolean;
+    autoResize: boolean;
+    perWindow: boolean;
+  }> {
+    return invoke("plugin:webview|capabilities", {});
+  }
+
+  /**
    * Clears all browsing data for the webview's store: cookies, cache,
    * local/session storage, IndexedDB (WKWebsiteDataStore / WebView2
    * profile equivalents).

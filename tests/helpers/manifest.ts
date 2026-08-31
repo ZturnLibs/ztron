@@ -27,6 +27,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:app|fetch_data_store_identifiers",
   "plugin:app|remove_data_store",
   "plugin:webview|get_all_webviews",
+  "plugin:webview|capabilities",
   "plugin:process|exit",
   "plugin:process|relaunch",
   // ---- window ----

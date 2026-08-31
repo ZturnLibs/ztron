@@ -1297,6 +1297,13 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 115. G7 裸 multi-webview 裁决与能力探针
+
+- **可行性勘察定案**:vendored webview C API 为 **1 webview:1 window 创建期绑死**(webview_create(debug,window)/get_window 返回宿主窗/无 reparent 或独立 set_visible 入口)——同窗多 webview/reparent/autoResize 需改 vendored 库本体,属上游 wry 级工程且本机不可验;按"移植上游现行面+不破坏稳定面"裁定:**C 层不动,语义层做实**
+- **能力探针**:plugin:webview|capabilities 返回 {multipleWebviewsPerWindow:false,reparent:false,autoResize:false,perWindow:true}——应用可查询适配(上游 webview_version() 精神);api Webview.capabilities() 静态;G15 遗留的 setAutoResize/reparent 对拍白名单由"待办"转正为"已文档化的平台边界",与 darwin 无 WebDriver remote、macOS 无 devtools 开关同类
+- **GAP A1 随之收口为 ◐→边界注记**:窗口内多 webview 在 Ztron 的等价物=多窗口(each per-window webview),跨窗控制/事件/destroy 均已真实;真正同窗嵌 webview 留待 vendored 库升级或自研容器层(单列远期)
+- **验证**:110 tests / 109 pass / 1 skip,typecheck 0 err
+
 ## 114. G15 对拍缺口清剿(ACL KNOWN_GAPS 8→3)
 
 - **分流**:8 项缺口按性质三分——①可实现即做:app|default_window_icon(返回 null=未设,上游 Option 语义)/fetch_data_store_identifiers(Android-only 上游,桌面 [])/remove_data_store(文档化 no-op)/webview|get_all_webviews(真实 webview 注册表查询,替换 window 注册表别名实现);②已覆盖:path|resolve_directory 由 baseline_dir 承担(BaseDirectory 解析角色),从白名单摘除;③真架构件保留:webview setAutoResize/reparent(G7 裸 multi-webview 拆分)+tray set_temp_dir_path(Windows-only 无 macOS 语义)

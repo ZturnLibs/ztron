@@ -740,6 +740,16 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
   );
 });
 
+test("webview capabilities report the honest per-window model", async () => {
+  const { mock } = buildApp();
+  const caps = (await mock.main.invoke("plugin:webview|capabilities", {})) as {
+    multipleWebviewsPerWindow: boolean;
+    perWindow: boolean;
+  };
+  assert.equal(caps.multipleWebviewsPerWindow, false);
+  assert.equal(caps.perWindow, true);
+});
+
 test("known-gap closures: app icon/data-store stubs + real webview list", async () => {
   const { mock } = buildApp();
   assert.equal(
