@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 113. G13 打包工具链移植(bundler 全集/公证链/updater 工件)
+
+- **bundler.ts 六 packer**(F3):nsis(完整 MUI2 安装脚本:目录/快捷方式/卸载段/resources 递归 File)、msi(WiX .wxs:Product/UpgradeCode/Media/Feature)、appimage(AppDir:AppRun+desktop+icon)、deb(DEBIAN/control 依赖 webkit2gtk4.1+copyright)、rpm(spec 依赖表)——**设计原则:确定性控制文件 100% 生成,工具缺失返回 built:false+精确 reason(脚本就绪可跑)**,验证后置约定贯穿;bundleAll 派发器接 conf.bundle.targets(字符串/数组/all)
+- **公证链**(F5):macSignAndNotarize=codesign(entitlements+--options runtime)→ditto zip→notarytool submit --wait→stapler;无凭证时输出完整命令 plan(可复制执行);环境变量 ZTRON_SIGN_IDENTITY/ZTRON_NOTARY_*
+- **updater 工件**(F6 收口):packUpdaterArtifacts 产 latest.json+独立 .minisig(G3 signer 复用);单测断言 manifest 形状+签名与 manifest 内嵌一致+verifyMinisig 闭环+篡改拒绝
+- **教训**:①脚本注入切点又落在实参列表中段(build 849 连锁错)——结构性注入后必须立即 build 验证再继续;②测试解构 {publicKeyText} 后以 {pubkeyText,} 简写传参=ReferenceError,Node 行号直指即修;③dist 与 src 可能脱期,排查先 grep dist
+- **验证**:bundler.test.ts 七组全绿(**108 tests / 107 pass / 1 skip**,typecheck 0 err);nsis/msi/appimage/deb/rpm 真机产物待目标平台(GAP 验证后置)
+
 ## 112. G14 治理基建(ACL 对拍/mocks/driver/isolation 裁决)
 
 - **F9 对拍**:新 acl-parity.test.ts 三断言——上游 9 插件 ~163 命令逐条映射到 Ztron 权限面;**首跑即抓出 40+ 命名分歧**,价值在于把分歧显式化:NAME_MAP 30+ 条(window 无前缀 vs Ztron 显式 get_/set_ 前缀、menu 上游类方法 vs 命令面、webview 驼峰)、KNOWN_GAPS 8 条(default_window_icon/dataStore×2/get_all_webviews 真实化/autoResize/reparent/set_temp_dir_path/resolve_directory)进入待办视野;deny 权限 `!cmd` 负向语法纳入第二断言;registry 增 listPermissions/listSets,App.permissionSnapshot() 只读暴露(曾试私有字段反射,TS 立即拒绝——改公共 API 一行)

@@ -24,6 +24,12 @@ import {
   symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import {
+  bundleAll,
+  macSignAndNotarize,
+  packUpdaterArtifacts,
+  type PackageType,
+} from "./bundler.js";
 import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
@@ -847,6 +853,9 @@ async function buildApp(cwd: string, entry: string): Promise<void> {
       frontendDist: dirname(frontendIndex),
       tjs,
     });
+    /* G13: conf-driven extra targets (nsis/msi/appimage/deb/rpm skeletons),
+       Developer-ID sign+notarize chain, and updater artifacts. */
+    await bundleExtraTargets(cwd, { outDir, appName }, readProjectConfig(cwd));
   } else {
     // Cross-platform packaging: same layout for Linux/Windows.
     // Linux: <dist>/<appName>/ ; Windows: <dist>/ZtronApp/.
@@ -936,6 +945,100 @@ function buildIcns(png: string, outIcns: string): void {
     rmSync(iconset, { recursive: true, force: true });
   }
 }
+
+
+
+/**
+ * G13 wiring: ztron.conf.json bundle.targets drives the portable packers
+ * (each emits its control files/manifests and reports built:false with the
+ * exact toolchain reason where the host cannot run it). When
+ * ZTRON_SIGN_IDENTITY is a real Developer-ID identity, runs the
+ * sign+notarize chain; when ZTRON_UPDATER_KEYS=<pub>,<sk> paths are set,
+ * emits latest.json + .minisig next to the artifacts.
+ */
+async function bundleExtraTargets(
+  cwd: string,
+  o: { outDir: string; appName: string },
+  conf: ProjectConfig,
+): Promise<void> {
+  const bundleConf = (conf.bundle ?? {}) as {
+    targets?: string | string[];
+  };
+  const requestedRaw = bundleConf.targets;
+  const requested: PackageType[] = (
+    Array.isArray(requestedRaw)
+      ? requestedRaw
+      : typeof requestedRaw === "string"
+        ? requestedRaw === "all"
+          ? ["nsis", "msi", "appimage", "deb", "rpm"]
+          : requestedRaw.split(",").map((t) => t.trim())
+        : []
+  ).filter((t): t is PackageType =>
+    ["nsis", "msi", "appimage", "deb", "rpm"].includes(t),
+  );
+  if (requested.length) {
+    const cfg = {
+      identifier: conf.identifier ?? "com.ztron.app",
+      productName: conf.productName ?? o.appName,
+      version: conf.version ?? "0.1.0",
+      resources: (conf.bundle as { resources?: string[] } | undefined)?.resources,
+      icons: (conf.bundle as { icon?: string[] } | undefined)?.icon,
+    };
+    const bin = join(o.outDir, `${o.appName}.app`, "Contents", "MacOS", "ztron");
+    const results = bundleAll(o.outDir, cfg, { binPath: bin, targets: requested });
+    for (const r of results) {
+      console.log(
+        `[ztron] bundle ${r.type}: ${r.built ? r.path : `skeleton -> ${r.path} (${r.reason})`}`,
+      );
+    }
+  }
+
+  // Developer-ID chain (only when a real identity is configured).
+  const identity = process.env.ZTRON_SIGN_IDENTITY;
+  if (identity && identity !== "-") {
+    const appPath = join(o.outDir, `${o.appName}.app`);
+    const res = macSignAndNotarize(appPath, {
+      identity,
+      hardenedRuntime: true,
+      notarize: {
+        appleId: process.env.ZTRON_NOTARY_APPLE_ID,
+        teamId: process.env.ZTRON_NOTARY_TEAM_ID,
+      },
+    });
+    console.log(`[ztron] codesign: ${res.signed ? "ok" : "FAILED"}`);
+    console.log(`[ztron] notarize: ${res.notarized ? "ok" : "skipped/plan-only"}`);
+    if (!res.notarized) {
+      for (const cmd of res.plan) console.log(`[ztron]   plan: ${cmd}`);
+    }
+  }
+
+  // Updater artifacts (F6) — sign + latest.json when key paths are given.
+  const keys = process.env.ZTRON_UPDATER_KEYS;
+  if (keys) {
+    const [pubPath, skPath] = keys.split(",").map((x) => x.trim());
+    const rf: (p: string, enc: "utf8") => string = (pp, enc) =>
+      readFileSync(pp, enc);
+    const artifact =
+      existsSync(join(o.outDir, `${o.appName}.dmg`))
+        ? join(o.outDir, `${o.appName}.dmg`)
+        : join(o.outDir, `${o.appName}.app`);
+    const out = await packUpdaterArtifacts(o.outDir, artifact, {
+      version: conf.version ?? "0.1.0",
+      platformKey: "darwin",
+      pubkeyText: rf(pubPath ?? "", "utf8"),
+      secretKeyText: rf(skPath ?? "", "utf8"),
+      baseUrl: process.env.ZTRON_UPDATER_BASE ?? "http://localhost:8080",
+    });
+    console.log(`[ztron] updater manifest: ${out.manifestPath}`);
+    console.log(`[ztron] updater signature: ${out.signaturePath}`);
+  }
+  void cwd;
+}
+
+function appBundlePath(o: PackOptions): string {
+  return join(o.outDir, `${o.appName}.app`);
+}
+
 
 async function packMacApp(o: PackOptions): Promise<void> {
   const macosDir = join(o.outDir, `${o.appName}.app`, "Contents", "MacOS");

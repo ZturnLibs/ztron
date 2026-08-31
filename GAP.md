@@ -104,10 +104,10 @@
 |----|------|----------|----|------|------|
 | F1 ◐ | **tauri.conf.json 顶层 schema 全量**：ProjectConfigFile 扩展 $schema/productName/mainBinaryName/build{五命令}/app{withGlobalTauri,macOSPrivateApi,security{csp,devCsp,capabilities,assetProtocol,freezePrototype}}/bundle(11 键)/plugins{}；旧顶层 csp/capabilities 兼容直通；校验器类型检查+未知键 onWarn；fromConfig 结构化入 AppConfig——G10。剩余：build/bundle 值真正驱动 CLI 管线（G13 接线）|
 | F2 ◐ | **WindowConfig 创建期扩展**：新增 shadow/focus/dragDropEnabled 三字段进 #applyStartupWindowState（applier 移入 createWindow 单路径）；DECLARED_UNSUPPORTED_WINDOW_FIELDS 13 键（userAgent/incognito/proxyUrl/parent 等）schema 接受+onWarn 文档化保留；UPSTREAM_WINDOW_FIELDS 全集导出——G10。剩余：新键对应宿主实现随平台批（F2 尾项=13 键的 host 实现）|
-| F3 | **bundler 7 格式缺失**：WindowsMsi(wix 工具链编排)/Nsis(模板语言)/AppImage(runtime 挂载)/Deb(control+ar)/Rpm(rpm 构建)/IosBundle/标准 Updater 工件 —— 先移植生成逻辑代码（宿主脚本形态，输出产物），Win/Linux/待环境验证；dmg background/windowPos 配置（DmgConfig 5 字段）同理 | tauri-bundler/src/bundle | scripts + cli::build | 代码移植[验证后置]，dmg 部分本机可验 | ☐ |
+| F3 ◐ | **bundler 产物器全集**：cli/src/bundler.ts 六 packer（nsis 完整 .nsi 安装脚本/msi WiX .wxs/appimage AppDir 布局/deb DEBIAN+control+rpm spec）——确定性控制文件全量生成+工具缺失时 built:false 带明示 reason（脚本就绪可跑）；app/dmg 沿用既有 macOS 实现。真机产物验证待目标平台——G13 |
 | F4 ◐ | **CLI 子命令**：**signer 已落地**（generate/sign/verify，无密码 secret key；scrypt 加密 key 待续）——G3 批次；icon/info/add/migrate 仍待办 | tauri-cli crates + js cli | cli | icon/info 本机可验；add/migrate 适配 Ztron 语境 | ◐ |
-| F5 | **Developer ID 签名 + 公证链**：signingIdentity/hardenedRuntime/entitlements/infoPlist 注入/notarytool 工作流 | tauri-bundler macos + tauri-macos-sign | cli::build codesign 环节 | 代码移植[验证后置——需证书] | ☐ |
-| F6 ◐ | updater 工件标准化：manifest `platforms.*.signature` 字段已进入协议并被 install/install_stream 强制校验（G3）；`ztron build` 自动产出 latest.json+.minisig 工件待接线 | tauri-bundler Updater type | cli::build | 本机可验 | ◐ |
+| F5 ◐ | **macSignAndNotarize**：codesign(entitlements+runtime options)→ditto 压缩→notarytool submit --wait→stapler 全链；凭证缺失时输出完整命令计划(plan)；ZTRON_SIGN_IDENTITY/NOTARY_* 环境变量驱动。真凭证链验证待用户提供——G13 |
+| F6 ✓ | **updater 工件**：packUpdaterArtifacts 产 latest.json(version/notes/pub_date/platforms.url+sha256+signature)+独立 .minisig，G3 minisign 验签闭环测试（含篡改拒绝）；ZTRON_UPDATER_KEYS 环境变量接 cli build——G13 |
 | F7 ◐ | @zturnlibs/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |
 | F8 ◐ | isolation pattern 评估结论（DESIGN §112）：上游该能力已废弃（pattern 模块移除、文档下线），按"移植上游现行面"原则 Ztron 不实现，仅冻结原型留作开关件——G14 |
 | F9 ✓ | ACL 对拍测试（tests/unit/acl-parity.test.ts）：上游 9 插件命令表→Ztron 权限面映射完整性断言；NAME_MAP 显式登记 30+ 命名分歧（window 前缀/menu 类方法/webview 驼峰等）、KNOWN_GAPS 8 项审计白名单（default_window_icon/dataStore/autoResize/reparent 等）；deny `!cmd` 语法纳入校验；App.permissionSnapshot() 只读暴露——G14 |
