@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 123. G20 F4 收官:signer 加密 secret key(scrypt)
+
+- **格式**:`kdf_alg="Sc"` 的 SeckeyStruct——scrypt(password, salt32, N, r, p=1) 流 XOR 覆盖尾 104 字节(keynum+sk+blake2b-256 chk),N/r 直接打包进 opslimit/memlimit 两 u64le 槽(默认 N=2^14,r=8 ≡ libsodium scryptsalsa208sha256 默认,字节布局与 minisign 对齐);解密以 blake2b 校验门拒错密码(与上游同语义)
+- **E2 密码学族复用**:scrypt/chacha20poly1305/sha256 族即 stronghold 批(G20 前)产物——一次实现两处消费,这正是纯 TS 栈的红利
+- **CLI**:generate --password / sign --password / ZTRON_SIGNER_PASSWORD 环境变量;无密码路径零变化
+- **测试**:往返(加密→解密→keynum/sk 全等→签名可验)/错密码拒/无密码显式错/明文 key 不受影响;b64 不含明文 sk 片段断言;126 tests / 125 pass
+- **注记**:真·minisign 二进制互测仍属 VERIFY-LATER B2(需 brew 环境);N/r 自打包槽意味着非默认参数的跨工具互操作以本工具链为界
+
 ## 122. E2 stronghold 落地(纯 TS 密码学族 + 加密 KV 快照)
 
 - **原语族**(packages/core/src/plugins/crypto/):sha256(手写 K 表=sha512 常量高 32 位同源)/hmac/pbkdf2(多块)、scrypt(salsa20/8+ROMix)、chacha20-poly1305(poly1305 BigInt 累加器)。**对拍铁律**:全部过 node:crypto 交叉验证(随机向量 ct+tag 逐字节)+RFC 官方向量(poly1305 §2.5.2/salsa §8/scrypt §12 空输入/AEAD §2.8.2)

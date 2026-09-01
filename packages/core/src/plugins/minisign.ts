@@ -19,6 +19,7 @@
  * batch (see GAP.md F4 note).
  */
 import { blake2b } from "./crypto/blake2b.js";
+import { scrypt } from "./crypto/scrypt.js";
 import {
   publicKeyFromSeed,
   signDetached,
@@ -239,41 +240,110 @@ export function generateKeypair(comment = "ztron signer"): {
   };
 }
 
-/** SeckeyStruct: "Ed"‖"\0\0"‖"B2"‖salt₃₂(0)‖ops₈(0)‖mem₈(0)‖keynum₈‖sk₆₄‖chk₃₂ */
-function dumpSecretKeyFile(secret: UnencryptedSecretKey): string {
-  const body = new Uint8Array(
-    2 + 2 + 2 + 32 + 8 + 8 + 8 + 64 + 32,
-  );
+/** SeckeyStruct layout (158 B):
+ *  "Ed" | kdf_alg(2) | "B2" | kdf_salt(32) | opslimit=N u64le | memlimit=r
+ *  u64le | keynum(8) | sk(64) | blake2b-256 chk(32).
+ * kdf_alg "\0\0" = unencrypted (zero salt/limits); "Sc" = scrypt stream XOR
+ * over the trailing 104 bytes (keynum+sk+chk) — minisign/libsodium format
+ * with our explicit N,r packing (default N=2^14, r=8 ≡ libsodium defaults). */
+export function dumpSecretKeyFile(
+  secret: UnencryptedSecretKey,
+  comment = "minisign encrypted secret key",
+): string {
+  const body = new Uint8Array(158);
   let off = 0;
   body.set(utf8(PK_MAGIC), off); off += 2;
-  off += 2; // kdf_alg KDFNONE = \0\0 (already zero)
+  off += 2; // KDFNONE
   body.set(utf8("B2"), off); off += 2;
-  off += 48; // salt(32) + opslimit(8) + memlimit(8), zeros for no-KDF
+  off += 32 + 8 + 8; // salt + limits (zeros for no-KDF)
   body.set(secret.keynum, off); off += 8;
   body.set(secret.sk64, off); off += 64;
-  // checksum: BLAKE2b-256 over (sig_alg ‖ keynum ‖ sk) — seckey_compute_chk()
   const chkInput = new Uint8Array(2 + 8 + 64);
   chkInput.set(utf8(PK_MAGIC), 0);
   chkInput.set(secret.keynum, 2);
   chkInput.set(secret.sk64, 10);
   body.set(blake2b(chkInput, 32), off);
+  return `${untrustedComment(comment)}${b64encode(body)}\n`;
+}
+
+/** Serializes an ENCRYPTED secret key (kdf_alg "Sc", scrypt N/r packed into
+ *  the opslimit/memlimit slots — matches minisign's byte layout for the
+ *  default libsodium parameters). */
+export function dumpEncryptedSecretKeyFile(
+  secret: UnencryptedSecretKey,
+  password: string,
+  opts: { n?: number; r?: number } = {},
+): string {
+  const n = opts.n ?? 1 << 14;
+  const r = opts.r ?? 8;
+  const salt = new Uint8Array(32);
+  const g = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
+  if (g?.getRandomValues) g.getRandomValues(salt);
+  else for (let i = 0; i < 32; i++) salt[i] = Math.floor(Math.random() * 256);
+
+  const plain = new Uint8Array(104);
+  plain.set(secret.keynum, 0);
+  plain.set(secret.sk64, 8);
+  const chkInput = new Uint8Array(2 + 8 + 64);
+  chkInput.set(utf8(PK_MAGIC), 0);
+  chkInput.set(secret.keynum, 2);
+  chkInput.set(secret.sk64, 10);
+  plain.set(blake2b(chkInput, 32), 72);
+
+  const stream = scrypt(utf8(password), salt, n, r, 1, 104);
+  const enc = new Uint8Array(104);
+  for (let i = 0; i < 104; i++) enc[i] = plain[i]! ^ stream[i]!;
+
+  const body = new Uint8Array(158);
+  let off = 0;
+  body.set(utf8(PK_MAGIC), off); off += 2;
+  body.set(utf8("Sc"), off); off += 2;
+  body.set(utf8("B2"), off); off += 2;
+  body.set(salt, off); off += 32;
+  const dv = new DataView(body.buffer);
+  dv.setBigUint64(off, BigInt(n), true); off += 8;
+  dv.setBigUint64(off, BigInt(r), true); off += 8;
+  body.set(enc, off);
   return `${untrustedComment("minisign encrypted secret key")}${b64encode(body)}\n`;
 }
 
-/** Loads an unencrypted secret key from its file text.
-    Layout: alg₂‖kdf₂‖chk₂‖salt₃₂‖ops₈‖mem₈‖keynum₈‖sk₆₄‖chk₃₂ (=158B). */
-export function parseSecretKeyFile(text: string): UnencryptedSecretKey {
+/** Loads a secret key: unencrypted as-is, or "Sc"-encrypted via password
+ *  (scrypt stream XOR + blake2b checksum gate; wrong passwords fail the
+ *  checksum exactly like upstream). */
+export function parseSecretKeyFile(
+  text: string,
+  password?: string,
+): UnencryptedSecretKey {
   const blob = firstBase64Line(text);
   if (blob.length !== 158 || ascii(blob.slice(0, 2)) !== PK_MAGIC) {
-    throw new Error("minisign: unsupported secret key (need unencrypted)");
+    throw new Error("minisign: unsupported secret key");
   }
   const kdfAlg = ascii(blob.slice(2, 4));
-  if (kdfAlg !== "\x00\x00") {
-    throw new Error("minisign: password-protected secret keys not supported");
+  const chkAlg = ascii(blob.slice(4, 6));
+  if (chkAlg !== "B2") {
+    throw new Error("minisign: unsupported checksum algorithm");
   }
-  const keynum = blob.slice(54, 62);
-  const sk64 = blob.slice(62, 126);
-  const expectedChk = blob.slice(126, 158);
+  const salt = blob.subarray(6, 38);
+  const dv = new DataView(blob.buffer, blob.byteOffset);
+  const n = Number(dv.getBigUint64(38, true));
+  const r = Number(dv.getBigUint64(46, true));
+  let tail = blob.subarray(54);
+  if (kdfAlg === "\x00\x00") {
+    /* unencrypted */
+  } else if (kdfAlg === "Sc") {
+    if (!password) {
+      throw new Error("minisign: password required for this secret key");
+    }
+    const stream = scrypt(utf8(password), salt, n, r, 1, 104);
+    const dec = new Uint8Array(104);
+    for (let i = 0; i < 104; i++) dec[i] = tail[i]! ^ stream[i]!;
+    tail = dec;
+  } else {
+    throw new Error("minisign: unsupported KDF");
+  }
+  const keynum = tail.subarray(0, 8);
+  const sk64 = tail.subarray(8, 72);
+  const expectedChk = tail.subarray(72, 104);
   const chkInput = new Uint8Array(2 + 8 + 64);
   chkInput.set(utf8(PK_MAGIC), 0);
   chkInput.set(keynum, 2);
@@ -281,7 +351,7 @@ export function parseSecretKeyFile(text: string): UnencryptedSecretKey {
   const actual = blake2b(chkInput, 32);
   for (let i = 0; i < 32; i++) {
     if (actual[i] !== expectedChk[i]) {
-      throw new Error("minisign: secret key checksum mismatch");
+      throw new Error("minisign: wrong password for that key");
     }
   }
   return { keynum, sk64 };

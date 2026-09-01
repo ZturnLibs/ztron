@@ -53,6 +53,7 @@ export {
   signMinisig,
   dumpSignatureFile,
   dumpPublicKeyFile,
+  dumpEncryptedSecretKeyFile,
   sqlPlugin,
   autostartPlugin,
   windowStatePlugin,
