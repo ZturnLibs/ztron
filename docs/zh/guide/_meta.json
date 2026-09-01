@@ -1,0 +1,9 @@
+[
+  { "text": "架构总览", "link": "/guide/architecture" },
+  { "text": "调用后端命令", "link": "/guide/ipc" },
+  { "text": "事件与 Channel", "link": "/guide/events" },
+  { "text": "窗口", "link": "/guide/window" },
+  { "text": "配置 ztron.conf.json", "link": "/guide/config" },
+  { "text": "安全模型", "link": "/guide/security" },
+  { "text": "从 Tauri 迁移", "link": "/guide/tauri-migration" }
+]
