@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 121. G19 托盘 hover 事件 + CLI 工具四件;本机签名校验栈楔死事件
+
+- **B9 尾(代码完,验证挂起)**:ZtronTrayHoverTarget 每托盘独立 owner(associated trayId)+NSTrackingArea(Entered|Exited|MouseMoved|ActiveAlways)挂 status button——enter/leave/move 事件带 trayId+全局坐标;**无 isa-swizzle**(P26 教训贯彻);MouseDown/Up 分相并入 click payload(NSStatusBarButton 未子类化,诚实记边界)
+- **F4 尾**:`ztron icon`（sips 十尺寸 iconset+iconutil icns,单测真跑断言产物）、`info`（tjs/host/libwebview/conf/capabilities/sips 体检）、`add`（capability JSON 脚手架+接线提示）、`migrate`（tauri.conf.json→ztron.conf.json 纯映射:productName/identifier/version/frontendDist→frontend/csp/windows 字段白名单/index.html→frontend/未知字段丢弃/devUrl 转注记,单测全覆盖）
+- **环境事件(重要)**:19:15 起**本机所有新建可执行文件 exec 挂起**——hello-world 级 cc 产物也卡 dyld_start(sample 实证);既存二进制(node/git/sips)正常;trustdFileHelper 一度三实例;sudo 需密码无法自救。**影响**:原生/spike 验证全部受阻(B9 hover/menuprobe/hello 均无法跑);**绕行**:构建直连 node node_modules/typescript/bin/tsc(避 pnpm .bin 新包装脚本)、测试直连 node --test——120/119 全绿
+- **待用户**:sudo pkill -9 trustd trustdFileHelper syspolicyd(或重启)后,重跑 `bash scripts/ci.sh` 即可恢复全链验证并补 B9 真机确认
+- 验证:cli-tools.test.ts 两项(migrate 映射/icon 真生成)+全量 120/119、typecheck 直连过
+
 ## 120. G18 cli 声明式 schema(D5)+ 菜单上游式类面(A2 收尾)
 
 - **D5**:cli 插件重写——CliSchema/CliArgDef/CliSubcommandDef（clap 形态）;编译期建 byName/byLong/byShort/positional 四表;解析器升级:short/long/inline =/takesValue/multiple 累积/index 位置槽/default 回填/required+conflicts 校验(抛错)/嵌套子命令递归;旧扁平形态自动合成 schema 保零破坏;**教训:未声明 flag 的宽容回退(吃下一 token 作值)是旧行为契约,strict 化会破 back-compat 测试**;6 组新单测

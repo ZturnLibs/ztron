@@ -1318,6 +1318,38 @@ async function main(): Promise<void> {
       await check(cwd, resolveEntry(cwd, entryArg), process.argv.slice(3));
       break;
     }
+    case "icon": {
+      const input = resolve(cwd, positional ?? "app-icon.png");
+      const outIdx = process.argv.indexOf("-o");
+      const out = resolve(
+        cwd,
+        outIdx >= 0 ? (process.argv[outIdx + 1] ?? "icons") : "icons",
+      );
+      const r = (await import("./tools.js")).generateIcons(input, out);
+      console.log(`[ztron] icns: ${r.icns}`);
+      console.log(`[ztron] iconset: ${r.iconset}`);
+      console.log(`[ztron] png sizes: ${r.pngs.length} files`);
+      break;
+    }
+    case "info": {
+      (await import("./tools.js")).printInfo(
+        cwd,
+        process.env.ZTRON_TJS ?? "",
+      );
+      break;
+    }
+    case "add": {
+      if (!positional) {
+        console.error("usage: ztron add <plugin>");
+        process.exit(1);
+      }
+      (await import("./tools.js")).addPlugin(cwd, positional);
+      break;
+    }
+    case "migrate": {
+      (await import("./tools.js")).migrateConf(cwd, process.argv.slice(3));
+      break;
+    }
     case "signer": {
       const { signer } = await import("./signer.js");
       await signer(process.argv.slice(3));

@@ -1710,6 +1710,30 @@ static void tray_create_ext(const char *title, const char *tid) {
   id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
   OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
   OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
+  /* G19/B9: hover tracking (enter/leave/move) with a per-tray owner. */
+  {
+    Class hoverCls = objc_lookUpClass("ZtronTrayHoverTarget");
+    if (hoverCls) {
+      id owner = OBJC_MSG(id(*)(id, SEL), hoverCls, sel_registerName("new"));
+      objc_setAssociatedObject(owner, "ztron-tray-id",
+                               zt_nsstring(tid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(
+          button, sel_registerName("bounds"));
+      /* NSTrackingArea: id initWithRect:options:owner:userInfo:
+         (struct rect arg passes as 4 doubles; options: MouseEntered|Exited|
+         MouseMoved|ActiveAlways = 1|2|16|0x200(NSTrackingActiveAlways? = 128))
+         Actual: Entered=1, Exited=2, MouseMoved=0x10, ActiveAlways=0x80. */
+      id area = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSTrackingArea"),
+                         sel_registerName("alloc"));
+      area = ((id(*)(id, SEL, ZtRect, unsigned long, id, id))objc_msgSend)(
+          area, sel_registerName("initWithRect:options:owner:userInfo:"),
+          b, 1UL | 2UL | 0x10UL | 0x80UL, owner, (id)NULL);
+      if (area)
+        OBJC_MSG(void(*)(id, SEL, id), button,
+                 sel_registerName("addTrackingArea:"), area);
+      OBJC_MSG(void(*)(id, SEL), owner, sel_registerName("release"));
+    }
+  }
   /* statusItemWithLength: returns an autoreleased item; retain it so the
      stored record survives the next autorelease-pool drain. */
   TrayRec *r = &g_trays[g_tray_count++];
@@ -1808,12 +1832,47 @@ static void tray_set_show_menu_on_left_click(const char *tid, int on) {
   tray_relink_menu(tid ? tid : "");
 }
 
+/* ---- G19/B9: per-tray hover target (enter/leave/move via NSTrackingArea;
+   a dedicated owner instance per tray identifies the emitting tray without
+   any button isa-swizzling - the P26 lesson applied). ---- */
+
+static void zt_tray_hover(id self, SEL c, id ev, const char *kind) {
+  (void)c;
+  const char *tid = "";
+  id assoc = objc_getAssociatedObject(self, "ztron-tray-id");
+  if (assoc) {
+    tid = OBJC_MSG(const char *(*)(id, SEL), assoc, sel_registerName("UTF8String"));
+  }
+  ZtPoint p = zt_mouse_screen();
+  char buf[192];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
+           "\"x\":%.0f,\"y\":%.0f}",
+           kind, tid ? tid : "", p.x, p.y);
+  zt_send_line(buf);
+}
+static void zt_tray_enter(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "enter"); }
+static void zt_tray_leave(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "leave"); }
+static void zt_tray_move(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "move"); }
+
 static void install_tray_target(void) {
   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
   class_addMethod(cls, sel_registerName("ztThemeChanged:"), (IMP)zt_theme_changed_cb, "v@:@");
   objc_registerClassPair(cls);
   g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+
+  Class hover = objc_allocateClassPair((Class)objc_getClass("NSObject"),
+                                       "ZtronTrayHoverTarget", 0);
+  if (hover) {
+    class_addMethod(hover, sel_registerName("mouseEntered:"),
+                    (IMP)zt_tray_enter, "v@:@");
+    class_addMethod(hover, sel_registerName("mouseExited:"),
+                    (IMP)zt_tray_leave, "v@:@");
+    class_addMethod(hover, sel_registerName("mouseMoved:"),
+                    (IMP)zt_tray_move, "v@:@");
+    objc_registerClassPair(hover);
+  }
 }
 
 /* ---- application menu (NSMenu) ---- */
