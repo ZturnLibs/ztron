@@ -9,8 +9,6 @@ TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（�
 
 | Rust 模块 | Ztron TS 等价物 |
 | --- | --- |
-| Rust 模块               | Ztron TS 等价物                                |
-| ----------------------- | ---------------------------------------------- |
 | `tauri-runtime-wry`     | `runtime-ffi`(tjs:ffi 绑 webview C API)        |
 | `tauri` core            | `core`(命令/事件/state/插件)                   |
 | `tauri-codegen` 注入    | `inject`(嵌入页面 HTML)                        |

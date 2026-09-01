@@ -1,0 +1,9 @@
+[
+  { "text": "Architecture Overview", "link": "/guide/architecture" },
+  { "text": "Calling Backend Commands", "link": "/guide/ipc" },
+  { "text": "Events & Channel", "link": "/guide/events" },
+  { "text": "Windows", "link": "/guide/window" },
+  { "text": "Configuring ztron.conf.json", "link": "/guide/config" },
+  { "text": "Security Model", "link": "/guide/security" },
+  { "text": "Migrating from Tauri", "link": "/guide/tauri-migration" }
+]
