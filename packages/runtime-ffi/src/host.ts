@@ -326,11 +326,13 @@ export class HostWebviewHandle implements WebviewHandle {
     op: WindowStateOp,
     value?: boolean,
     effect?: { material?: string; state?: number; radius?: number },
-  ): boolean | Promise<boolean> {
+  ): boolean | Promise<boolean> | { x: number; y: number } | null {
     /* Query ops: boolean probes plus the inner-position geometry query.
        sendQuery coerces to boolean, so geometry rides the raw request. */
     if (op === "get_inner_position") {
-      return this.#rt.sendRequest(op, {}, this.label);
+      return this.#rt.sendRequest(op, {}, this.label) as unknown as
+        | { x: number; y: number }
+        | null;
     }
     if (op.startsWith("is_")) {
       return this.#rt.sendQuery(op, this.label);
@@ -818,6 +820,16 @@ export class HostRuntime implements RuntimeAdapter {
     destroy: (id) => {
       this.send({ type: "image_destroy", label: "main", image_id: String(id) });
     },
+    rgba: (id) =>
+      this.sendRequest("image_rgba_query", {
+        label: "main",
+        image_id: String(id),
+      }) as Promise<string | null>,
+    dims: (id) =>
+      this.sendRequest("image_dims_query", {
+        label: "main",
+        image_id: String(id),
+      }) as Promise<{ width: number; height: number } | null>,
   };
 
   /** Process controller (implements `RuntimeAdapter.process`). */

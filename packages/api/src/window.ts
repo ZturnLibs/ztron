@@ -18,6 +18,8 @@ export type WindowEventName =
   | "focus"
   | "blur"
   | "close-requested"
+  | "suspended"
+  | "resumed"
   | "scale-change"
   | "theme-changed"
   | "drag-enter"
@@ -106,6 +108,8 @@ const WINDOW_EVENT = {
   focus: "tauri://focus",
   blur: "tauri://blur",
   "close-requested": "tauri://close-requested",
+  "suspended": "tauri://suspended",
+  "resumed": "tauri://resumed",
   "scale-change": "tauri://scale-change",
   "theme-changed": "tauri://theme-changed",
   "drag-enter": "tauri://drag-enter",

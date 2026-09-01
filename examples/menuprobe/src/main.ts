@@ -88,6 +88,32 @@ void (async () => {
     console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
   }
 
+  // G17/B11: real decode readback for a PATH-loaded image.
+  try {
+    const path = `${tjs.cwd}/../../assets/app-icon.png`;
+    const st = await tjs.stat(path).catch(() => null);
+    if (!st) {
+      console.log("IMG_READBACK_SKIP:no-icon");
+    } else {
+      const rid = await runtime.image.fromPath(path);
+      const dims = await runtime.image.dims?.(rid);
+      const b64 = await runtime.image.rgba?.(rid);
+      if (
+        dims &&
+        dims.width > 0 &&
+        typeof b64 === "string" &&
+        b64.length > 100
+      ) {
+        console.log(`IMG_READBACK_OK:${dims.width}x${dims.height}:${b64.length}`);
+        runtime.image.destroy(rid);
+      } else {
+        console.log("IMG_READBACK_FAIL:" + JSON.stringify(dims) + ":" + (b64?.length ?? 0));
+      }
+    }
+  } catch (e) {
+    console.log("IMG_READBACK_FAIL:" + String(e).slice(0, 60));
+  }
+
   // G16/B14: inner position query (contentLayoutRect -> screen coords).
   try {
     const main = app.getWebview("main") as

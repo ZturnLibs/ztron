@@ -141,6 +141,8 @@ export type WindowEvent =
   | "focus"
   | "blur"
   | "close"
+  | "suspended"
+  | "resumed"
   | "scale-change"
   | "theme-change"
   | "drag-enter"
@@ -254,7 +256,7 @@ export interface WebviewHandle {
     op: WindowStateOp,
     value?: boolean,
     effect?: { material?: string; state?: number; radius?: number },
-  ): boolean | Promise<boolean>;
+  ): boolean | Promise<boolean> | { x: number; y: number } | null;
   /** Registers a handler for native window events. */
   onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
   /**
@@ -522,6 +524,10 @@ export interface ImageController {
   fromPath(path: string): Promise<number>;
   /** Releases a registered image. */
   destroy(id: number): void;
+  /** Host-decoded RGBA pixels (b64) for PNG/path-loaded images. */
+  rgba?(id: number): Promise<string | null>;
+  /** Host-decoded pixel dims for PNG/path-loaded images. */
+  dims?(id: number): Promise<{ width: number; height: number } | null>;
 }
 
 /** Application-level (whole-app) visibility control — Tauri `AppHandle::show/hide`
