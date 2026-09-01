@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 122. E2 stronghold 落地(纯 TS 密码学族 + 加密 KV 快照)
+
+- **原语族**(packages/core/src/plugins/crypto/):sha256(手写 K 表=sha512 常量高 32 位同源)/hmac/pbkdf2(多块)、scrypt(salsa20/8+ROMix)、chacha20-poly1305(poly1305 BigInt 累加器)。**对拍铁律**:全部过 node:crypto 交叉验证(随机向量 ct+tag 逐字节)+RFC 官方向量(poly1305 §2.5.2/salsa §8/scrypt §12 空输入/AEAD §2.8.2)
+- **排障实录(四错连抓,全程 node 对拍驱动)**:①poly1305 的 s 切片读 key[0..16] 应 key[16..32];②clamp 掩码末组抄成 0ffffffc 应 0fffffff——node tag 对拍当场暴露;③scrypt Integerify 误取末 32 位字/再误 512 位 Horner——正确为**末块首字 & (N-1)**(2 的幂 N 下高位为 2^32 倍数自动归零);④romix 用 XY.subarray 共享 scratch 自覆盖(结构逐行对照 ricmoo/scrypt-js 仍看不出,改**独立 scratch 数组**后矩阵全绿)——教训:内存共享缓冲区在"看起来只是别名"时最隐蔽,密码学实现**必须**以对拍+向量为门禁而非目测
+- **插件**:ZTSH1 快照头(magic|salt16|N,r,p|nonce12|ct|tag16);12 命令生命周期(与 store v2 同形);密码进程内存持有(与上游 keyring 语义对齐注记);scrypt 默认 N=2^14,r=8(libsodium moderate);tjs-stub 内存 FS 下磁盘往返由 close→load 真实走通
+- **测试**:5 组原语对拍 + 生命周期(不透明快照断言:密文不含明文/ZTSH1 魔数/错密码拒/重开数据完整/密文位翻转 fail-closed);**125 tests / 124 pass / 1 skip**(环境楔死未恢复,直连 node --test 路径)
+- **api**:Stronghold 类(绑路径+会话密码)+stronghold 函数面+loadStronghold 导出
+
 ## 121. G19 托盘 hover 事件 + CLI 工具四件;本机签名校验栈楔死事件
 
 - **B9 尾(代码完,验证挂起)**:ZtronTrayHoverTarget 每托盘独立 owner(associated trayId)+NSTrackingArea(Entered|Exited|MouseMoved|ActiveAlways)挂 status button——enter/leave/move 事件带 trayId+全局坐标;**无 isa-swizzle**(P26 教训贯彻);MouseDown/Up 分相并入 click payload(NSStatusBarButton 未子类化,诚实记边界)
