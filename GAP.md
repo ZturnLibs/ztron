@@ -78,7 +78,7 @@
 | D2 ✓ | **store 资源化**：Store 实例语义（load/save/saveTo/reset/close/setAutoSave + onChange Channel 推 set/delete/reset）、v1 path 命令面零破坏、权限集 read/write/default 重组（hello capability 的 store:write 保持）——G9 批次 |
 | D3 ◐ | **fs 高级面**：handle 式 IO（open/read/seek/write/flush/close，游标+flush-on-close，命令面与上游对齐；大文件流式待真实 tjs.open 绑定）、lstat/readLink/truncate/chmod（运行时 feature-detect，stub 全语义单测）、watch recursive 明示不支持（libuv fs_event 无可移植递归）、scope 路径模型维持（上游本就无大小上限，台账原项系误记已删）——G9 批次 |
 | D4 ◐ | **http 类型完整**：body 扩展（Uint8Array/ArrayBuffer→b64 信封、普通对象自动 JSON+隐式 content-type）、responseType json（解析失败得 null 与上游一致）/binary（Raw 信封）；FormData/请求体流式/proxy-connectivity 为 tjs fetch 能力外，留明示不支持语义——G9 批次 |
-| D5 | **cli 插件声明式 schema**：config 内 args/subcommands clap 形态（description/takes_value/index/required/defaultValue conflicts matches 返回结构） | plugins-workspace/cli v2 | core + conf | 本机可验 | ☐ |
+| D5 ✓ | cli 声明式 schema（G18）：clap 形态 args/subcommands（short/long/inline=/takesValue/multiple/required/conflicts/index/default/嵌套子命令）+ CliArgDef/CliSchema 类型导出；旧扁平 {subcommands,booleans} 兼容自动合成；6 组新单测——实现|
 | D6 ◐ | log：attachLogger/detachLogger 客户端多路 sink（上游 webview-target 语义对齐）——G9 批次；format 函数注入/timeStrategy 待续 |
 | D7 ✓ | dialog 选项：filters（allowedFileTypes CSV）/maxFiles（多选+JSON 数组回执，api 返回 string\|string[]\|null）/canCreateDirectories 全链接入；modal 交互本机不自动测（注册级已测）——G16 实现|
 | D8 ✓ | shell：Command cwd/env 选项已在（G 早期）；program/args scope 匹配（matchScope+正则 args）已在；审计通过——G16|

@@ -399,6 +399,8 @@ export interface MenuController {
   removeItem(menuId: string, itemId: string): void;
   /** Removes a runtime item by structural index (upstream removeAt). */
   removeItemAt?(menuId: string, index: number): void;
+  /** Attaches a child menu as a submenu item (runtime Submenu creation). */
+  addSubmenu?(menuId: string, childId: string, text: string): void;
   /** Structured snapshot of every child of this menu (upstream items()). */
   items?(menuId: string): Promise<MenuItemsSnapshot>;
   /** Builds the standard platform application menu under one root id. */

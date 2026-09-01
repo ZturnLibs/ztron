@@ -639,6 +639,16 @@ export class HostRuntime implements RuntimeAdapter {
     removeItemAt: (menuId, index) => {
       this.send({ type: "menu_remove_at", menu_id: menuId, at: index });
     },
+    addSubmenu: (menuId, childId, text) => {
+      /* wire: menu_id=parent (str), id=child, text=str2 — mirrors the
+         config-walker's menu_add_submenu_item triple. */
+      this.send({
+        type: "menu_add_submenu_item",
+        menu_id: menuId,
+        submenu: childId,
+        text,
+      });
+    },
     items: async (menuId) => {
       const r = await this.sendRequest("menu_items", { menu_id: menuId });
       return Array.isArray(r)
