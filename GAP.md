@@ -61,7 +61,7 @@
 | C3 ✓ | ProgressBarStatus 枚举贯通：api 状态对象归一化→wire -3 哨兵→host 不确定态旋转条分支（setContentView+startAnimation）；None 清除
 | C4 ✓ | request_user_attention 修正真实 AppKit raw 值 Critical=10/Info=0（原误发 1），enum 贯通保留
 | C5 ✓ | dpi Size/Position 包装器（源自适应 Logical/Physical 判别，to* 双向换算 + toJSON 带判别键）
-| C6 | EventTarget.App 语义：app 目标路由到 app 级监听而非等同 Any 全局广播；windows/webviews 分组语义核对 | api event.ts EventTarget kind ×5 | core eventManager | 本机可验 | ☐ |
+| C6 ◐ | EventTarget.App 语义——**窗口事件已改 emitTo 按 label 定向（上游语义，C1 根因修复，DESIGN §117）**；剩 App-kind 独立路由与 windows/webviews 分组语义核对|
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 ✓ | mocks.ts 四件套：mockIPC（内存 invoke）/mockWindows（currentWindow·currentWebview·label 三形 metadata）/mockConvertFileSrc/clearMocks（全量还原）——G14 |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |

@@ -52,10 +52,10 @@
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
 
-### C1. hello 全链 maximize 卡死
-- **现象**：MULTI_WINDOW_OK 后 `win.maximize()` 处挂起（53 checks 超时）
-- **归因**：stash 全部改动后干净基线同样卡死 → darwin 25.2 窗管行为漂移，非任何批次回归（DESIGN §102 记录）
-
+### ~~C1. hello 全链 maximize 卡死~~ —— 已修复（DESIGN §117）
+- **真相**：两处自身回归被误判为环境漂移——①G1 窗口事件全局广播 + onCloseRequested 自动销毁兜底，别窗 close-requested 泄漏致 main 被毁；②G3 的 `Buffer.from` 在 tjs 无此全局直接抛错（单测跑在 Node 下有 Buffer，而唯一执行 tjs 的 hello spike 恒红，掩盖了 15 个批次）
+- **修复**：窗口事件 emitTo 按 label 定向（上游语义）+ plugins/b64.ts 双运行时安全助手
+- **验证**：hello 86 检查 FULL_OK 连续 3 轮；**ci.sh 全链 exit 0 首次达成**
 ### ~~C2. multiwin destroy-flood 段 SIGSEGV~~ —— 已修复（DESIGN §116）
 - **根因**：vendored webview cocoa 后端的 script-message lambda 经 associated object 持有裸 `this`；窗口销毁（主队列延后的 webview_destroy）free 引擎后，WebKit IPC 管道中仍在途的 didPostMessage 稍后投递 → 虚调用读已释放内存 → SIGSEGV
 - **修复**（webview-local.patch 内三重防护）：引擎存活注册表（构造注册/析构入口摘除）+ lambda 投递前 is_alive 校验（死指针→丢弃消息）+ 析构置空 associated 指针（兼防地址复用）
@@ -67,11 +67,10 @@
 
 ---
 
-## 附：本会话验收快照（2026-08-31）
+## 附：验收快照（2026-09-01 更新，C 类隔离项清零）
 
 - 单测 **110 tests / 109 pass / 1 skip**（Node 下需真 tjs 的 PathScope 用例）
 - typecheck 全仓 0 错误；原生 `-Wall -Werror` 干净
-- menuprobe 探针 `MENU_V2_OK / TRAY_V2_OK / LOCALHOST_OK` exit 0（真宿主）
-- multiwin `SECOND_WINDOW_OK / SECOND_OPS_OK / APP_LIFECYCLE_OK` exit 0
+- **ci.sh 全链 exit 0（首次）**：hello 86 FULL_OK ×3 + multiwin 5/5 ×2 + menuprobe 3/3
 - 提交序列：`69d6e8c..27c2a76` 共 16 个（G1–G15 + 台账）
 - GAP.md 消号 55 项；余项三类化：待环境（本清单）/ 远期深水（stronghold、同窗 webview、自研容器层）/ 平台边界（已文档化探针）
