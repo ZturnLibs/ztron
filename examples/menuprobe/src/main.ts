@@ -88,6 +88,24 @@ void (async () => {
     console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
   }
 
+  // G16/B14: inner position query (contentLayoutRect -> screen coords).
+  try {
+    const main = app.getWebview("main") as
+      | { windowState(op: string): Promise<unknown> }
+      | undefined;
+    const ip = (await main?.windowState("get_inner_position")) as
+      | { x: number; y: number }
+      | null
+      | undefined;
+    if (ip && typeof ip.x === "number" && typeof ip.y === "number") {
+      console.log(`INNER_POS_OK:${Math.round(ip.x)},${Math.round(ip.y)}`);
+    } else {
+      console.log("INNER_POS_FAIL:" + JSON.stringify(ip));
+    }
+  } catch (e) {
+    console.log("INNER_POS_FAIL:" + String(e).slice(0, 60));
+  }
+
   // Localhost origin (G11 / E1): real tjs.serve, fetch-handler round trip.
   try {
     const { localhostPlugin } = await import("@zturnlibs/core");

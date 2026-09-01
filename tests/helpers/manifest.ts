@@ -58,6 +58,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:window|set_decorations",
   "plugin:window|get_frame",
   "plugin:window|get_position",
+  "plugin:window|inner_position",
   "plugin:window|get_state",
   "plugin:window|get_title",
   "plugin:window|get_theme",
@@ -123,6 +124,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:tray|set_icon",
   "plugin:tray|destroy",
   // ---- menu ----
+  "plugin:resources|close",
   "plugin:menu|create",
   "plugin:menu|set_as_app_menu",
   "plugin:menu|set_item_enabled",

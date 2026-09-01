@@ -2482,14 +2482,56 @@ static void dialog_open(Msg *m) {
            m->bool_val ? NO : YES);
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseDirectories:"),
            m->bool_val ? YES : NO);
+  /* G16/D7: wire slots — width=maxFiles, height=canCreateDirectories,
+     aux=comma-joined extension filter (shared Msg fields). */
+  int max_files = m->width > 1 ? m->width : 1;
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setAllowsMultipleSelection:"),
-           NO);
+           max_files > 1 ? YES : NO);
+  if (m->height)
+    OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanCreateDirectories:"),
+             YES);
+  if (m->aux[0]) {
+    /* Build an NSArray of extension strings from the CSV in m->aux. */
+    id arr = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMutableArray"),
+                      sel_registerName("array"));
+    char csv[256];
+    strncpy(csv, m->aux, sizeof(csv) - 1);
+    csv[sizeof(csv) - 1] = '\0';
+    char *save = NULL;
+    for (char *tok = strtok_r(csv, ",", &save); tok;
+         tok = strtok_r(NULL, ",", &save)) {
+      OBJC_MSG(void(*)(id, SEL, id), arr, sel_registerName("addObject:"),
+               zt_nsstring(tok));
+    }
+    if (OBJC_MSG(unsigned long(*)(id, SEL), arr, sel_registerName("count")) > 0)
+      OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setAllowedFileTypes:"), arr);
+  }
   long resp = (long)OBJC_MSG(long(*)(id, SEL), panel, sel_registerName("runModal"));
   if (resp == NS_MODAL_OK) {
     id urls = OBJC_MSG(id(*)(id, SEL), panel, sel_registerName("URLs"));
-    id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls, sel_registerName("objectAtIndex:"), 0);
-    const char *path = OBJC_MSG(const char *(*)(id, SEL), url, sel_registerName("fileSystemRepresentation"));
-    zt_reply_string(m->req_id, path ? path : "");
+    unsigned long n = OBJC_MSG(unsigned long(*)(id, SEL), urls, sel_registerName("count"));
+    if (n > 1) {
+      /* Multi-select: reply a JSON array of escaped paths. */
+      char buf[4096];
+      size_t off = 0;
+      buf[off++] = '[';
+      for (unsigned long i = 0; i < n && i < 64; i++) {
+        id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls,
+                          sel_registerName("objectAtIndex:"), i);
+        const char *path = OBJC_MSG(const char *(*)(id, SEL), url,
+                                    sel_registerName("fileSystemRepresentation"));
+        char esc[512];
+        zt_json_escape(path ? path : "", esc, sizeof(esc));
+        off += (size_t)snprintf(buf + off, sizeof(buf) - off, "%s\"%s\"",
+                                i ? "," : "", esc);
+      }
+      snprintf(buf + off, sizeof(buf) - off, "]");
+      zt_reply_query(m->req_id, buf);
+    } else {
+      id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls, sel_registerName("objectAtIndex:"), 0);
+      const char *path = OBJC_MSG(const char *(*)(id, SEL), url, sel_registerName("fileSystemRepresentation"));
+      zt_reply_string(m->req_id, path ? path : "");
+    }
   } else {
     zt_reply_null(m->req_id);
   }
@@ -2705,6 +2747,33 @@ static int dispatch(Msg *m, webview_t w) {
                "{\"width\":%g,\"height\":%g}}",
                m->req_id, b.width, b.height);
       zt_send_line(buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "get_inner_position") == 0) {
+    void *wnd = zt_window_of(w);
+    if (m->req_id >= 0 && wnd) {
+      /* contentLayoutRect is an NSRect struct return -> arch-specific
+         indirect return (same ABI treatment as zt_wnd_frame). */
+      ZtRect clr;
+#if defined(__aarch64__)
+      clr = ((ZtRect(*)(id, SEL))objc_msgSend)(
+          (id)wnd, sel_registerName("contentLayoutRect"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          (id)wnd, sel_registerName("contentLayoutRect"), &clr);
+#endif
+      /* Base-coords origin (bottom-left of the content area) -> screen. */
+      ZtPoint base = {clr.x, clr.y};
+      ZtPoint scr = zt_base_to_screen(wnd, base);
+      char buf[96];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"x\":%g,\"y\":%g}}",
+               m->req_id, scr.x, scr.y);
+      zt_send_line(buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
     }
     return 1;
   }

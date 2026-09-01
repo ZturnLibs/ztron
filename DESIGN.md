@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 118. G16 核对批(十项收口:四实现+六审计通过)
+
+- **实现四项**:①C11 api exports 子路径 12 条(upstream 同构,tsc 逐文件产物天然满足);②B13 plugin:resources\|close(rid→image 注册表;基类 Resource.close 此前指向不存在的命令——真 bug,单测漏因 mock 不走该命令);③B14 inner_position 独立查询(host: contentLayoutRect 结构体返回复用 zt_wnd_frame 的 arch 分派 ABI + convertBaseToScreen;core 命令;api 切换);④D7 dialog 选项(filters CSV→allowedFileTypes、maxFiles→多选+JSON 数组回执、canCreateDirectories;复用 Msg 的 width/height/aux 槽位零解析器改动)
+- **审计通过零改动**:B10(menu 等价映射已在 F9 NAME_MAP 显式化)、B12(resolveBaseDirectory+baseline_dir 覆盖)、C12(EffectState -1/0/1→跳过/active/inactive 映射正确)、C13(G8 已验)、D8(Command cwd/env+matchScope 正则早已在)
+- **接线小坑三连**(各 30 秒级):探针用错句柄(runtime 无 getWebview→app.getWebview);windowState 查询判定只认 is_ 前缀;sendQuery 把任意结果 `===true` 强转布尔——几何查询须走 sendRequest 原始通道
+- **验证**:menuprobe 增第四探针 `INNER_POS_OK:1070,934`(真机 contentLayoutRect 往返)4/4 exit 0;hello 85 FULL_OK 回归通过;单测 111/110+typecheck 0;原生 -Werror 干净
+- **F10 半步**:capability.remote 入 schema(解析+携带+注释),enforcement 待 origin 追踪(ztron:// 单源模型暂无适用面)——诚实记为 ◐
+
 ## 117. C1 hello 卡死根因链:两处自伤 + 一次误判的完整法医记录
 
 - **症状**:hello 自 G2 起恒停 53 检查(MULTI_WINDOW_OK 后 maximize 段)

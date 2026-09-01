@@ -314,6 +314,8 @@ const UNIT_COVERED = new Set([
   "plugin:store|close",
   "plugin:store|set_auto_save",
   "plugin:tray|get_by_id",
+  "plugin:resources|close",
+  "plugin:window|inner_position",
   "plugin:tray|remove_by_id",
   "plugin:tray|set_show_menu_on_left_click",
   "plugin:webview|print",

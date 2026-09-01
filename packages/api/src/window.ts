@@ -759,7 +759,12 @@ export class Window {
    * frame origin — exact content origin needs titlebar-height measurement.
    */
   async innerPosition(): Promise<{ x: number; y: number }> {
-    return this.outerPosition();
+    return (
+      (await invoke<{ x: number; y: number } | null>(
+        "plugin:window|inner_position",
+        { label: this.label },
+      )) ?? { x: 0, y: 0 }
+    );
   }
 
   /** Toggles a transparent window background. */

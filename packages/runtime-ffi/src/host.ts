@@ -327,8 +327,12 @@ export class HostWebviewHandle implements WebviewHandle {
     value?: boolean,
     effect?: { material?: string; state?: number; radius?: number },
   ): boolean | Promise<boolean> {
-    const query = op.startsWith("is_");
-    if (query) {
+    /* Query ops: boolean probes plus the inner-position geometry query.
+       sendQuery coerces to boolean, so geometry rides the raw request. */
+    if (op === "get_inner_position") {
+      return this.#rt.sendRequest(op, {}, this.label);
+    }
+    if (op.startsWith("is_")) {
       return this.#rt.sendQuery(op, this.label);
     }
     this.#rt.send({
@@ -673,11 +677,25 @@ export class HostRuntime implements RuntimeAdapter {
 
   /** Native dialog controller (implements `RuntimeAdapter.dialog`). */
   readonly dialog: DialogController = {
-    open: (options) =>
-      this.sendRequest("dialog_open", {
+    open: (options) => {
+      /* Wire reuse: width/maxFiles, height/canCreateDirs, aux/ext-CSV —
+         shared Msg slots, no host.c parser additions needed. */
+      const maxFiles = options.maxFiles ?? (options.multiple ? 2 : 1);
+      return this.sendRequest("dialog_open", {
         title: options.title ?? "Open",
         directory: options.directory ?? false,
-      }).then((r) => (typeof r === "string" ? r : null)),
+        width: maxFiles,
+        height: options.canCreateDirectories ? 1 : 0,
+        aux: (options.filters ?? []).join(","),
+      }).then((r) => {
+        if (typeof r === "string") {
+          return r.startsWith("[")
+            ? (JSON.parse(r) as string[])
+            : r;
+        }
+        return null;
+      });
+    },
     save: (options) =>
       this.sendRequest("dialog_save", {
         title: options.title ?? "Save",

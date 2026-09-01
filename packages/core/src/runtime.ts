@@ -102,6 +102,7 @@ export type WindowStateOp =
   | "center"
   | "set_focus"
   | "is_focused"
+  | "get_inner_position"
   | "set_file_drop_enabled"
   | "set_visible"
   | "set_resizable"
@@ -421,6 +422,12 @@ export interface OpenDialogOptions {
   title?: string;
   directory?: boolean;
   multiple?: boolean;
+  /** Upstream parity: allowed extensions, e.g. ["png","jpg"]. */
+  filters?: string[];
+  /** Max selectable files (>1 enables multi-select). */
+  maxFiles?: number;
+  /** Save/create-directories permission (NSSavePanel semantics). */
+  canCreateDirectories?: boolean;
 }
 
 /** Native save-dialog options. */
@@ -439,7 +446,8 @@ export interface MessageDialogOptions {
 
 /** Native dialog controller provided by the runtime backend. */
 export interface DialogController {
-  open(options: OpenDialogOptions): Promise<string | null>;
+  /** maxFiles>1 may resolve an array of paths (upstream shape). */
+  open(options: OpenDialogOptions): Promise<string | string[] | null>;
   save(options: SaveDialogOptions): Promise<string | null>;
   message(options: MessageDialogOptions): Promise<number>;
   /** OK/Cancel alert — resolves true when confirmed (Tauri `ask`). */

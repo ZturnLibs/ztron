@@ -10,6 +10,12 @@ import type { InvokeArgs } from "./core.js";
 export interface OpenDialogOptions {
   title?: string;
   directory?: boolean;
+  multiple?: boolean;
+  /** Allowed extensions, e.g. ["png","jpg"]. */
+  filters?: string[];
+  /** Max selectable files (>1 enables multi-select; result becomes an array). */
+  maxFiles?: number;
+  canCreateDirectories?: boolean;
 }
 
 export interface SaveDialogOptions {
@@ -30,8 +36,16 @@ export interface MessageDialogOptionsFull extends MessageDialogOptions {
 /** Shows a native open-file (or directory) dialog; null if cancelled. */
 export async function open(
   options: OpenDialogOptions = {},
-): Promise<string | null> {
-  return invoke<string | null>("plugin:dialog|open", options as InvokeArgs);
+): Promise<string | string[] | null> {
+  /* maxFiles>1 / multiple may return an array (upstream shape). */
+  const multi = (options.maxFiles ?? (options.multiple ? 2 : 1)) > 1;
+  const r = await invoke<unknown>("plugin:dialog|open", options as InvokeArgs);
+  if (r == null) return null;
+  if (typeof r === "string") {
+    if (!multi) return r;
+    return r.startsWith("[") ? (JSON.parse(r) as string[]) : r;
+  }
+  return r as string[];
 }
 
 /** Shows a native save dialog; null if cancelled. */
