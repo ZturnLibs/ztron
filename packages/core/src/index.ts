@@ -63,6 +63,7 @@ export {
   uploadPlugin,
   persistedScopePlugin,
   localhostPlugin,
+  strongholdPlugin,
   barcodeScannerPlugin,
   biometricPlugin,
   geolocationPlugin,
@@ -163,3 +164,5 @@ export type {
   CliArgDef,
   CliSubcommandDef,
 } from "./plugins/index.js";
+
+export type { StrongholdPluginOptions } from "./plugins/index.js";

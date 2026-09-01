@@ -82,3 +82,6 @@ export type { HapticsPluginOptions } from "./haptics.js";
 export type { NfcPluginOptions } from "./nfc.js";
 export type { LocalhostPluginOptions } from "./localhost.js";
 export type { PersistedScopePluginOptions } from "./persisted-scope.js";
+
+export { strongholdPlugin } from "./stronghold.js";
+export type { StrongholdPluginOptions } from "./stronghold.js";

@@ -303,3 +303,6 @@ export {
   mockConvertFileSrc,
   clearMocks,
 } from "./mocks.js";
+
+export { Stronghold, stronghold, load as loadStronghold } from "./stronghold.js";
+export type { StrongholdStatus } from "./stronghold.js";

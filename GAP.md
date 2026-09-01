@@ -89,7 +89,7 @@
 | ID | 插件 | 说明 | 层 | 平台 | 状态 |
 |----|------|------|-----|------|------|
 | E1 ✓ | **localhost**：`tjs.serve` fetch-handler 服文件（PathScope 根锚定+扩展名 MIME 表+403/404 语义），start/stop/status 命令 + api localhost/start·stopLocalhost；menuprobe LOCALHOST_OK（真 tjs.serve 临时端口往返）——G11 批次 | plugins-workspace/localhost | core+api | macOS 本机可验 | ✓ |
-| E2 | **stronghold** | 加密存储（Rust stronghold；TS 重写方案：libsodium 存档引擎——先做 argon2/xchacha20 兼容面） | core + native 绑定 | macOS 可验（重） | ☐ |
+| E2 ✓ | **stronghold（TS 重写方案落地）**：纯 TS 密码学族（sha256/hmac/pbkdf2/scrypt/chacha20-poly1305，全部对 node:crypto/RFC 向量对拍）+ ZTSH1 快照格式（salt+参数+nonce+AEAD 密文+tag）+ 12 命令插件（load/get/set/has/remove/keys/clear/save/save_to/close/reload）+ api Stronghold 类；错密码/密文篡改 fail-closed 实测——G20/DESIGN §122|
 | E3 ✓ | barcode-scanner：scan 命令面移植，off-platform 抛 PluginUnavailable（序列化形态测试断言）——G12 | barcode-scanner v2 | core 桩+api | 桌面拒错已验；真机待环境 | ✓ |
 | E4 ✓ | biometric：authenticate/status 命令面移植（同上）；macOS Touch ID 真实现留作可选升级（LAContext）——G12 | biometric v2 | core 桩+api | 桌面拒错已验 | ✓ |
 | E5 ✓ | geolocation：getCurrentPosition/watchPosition/clearWatch 命令面移植——G12 | geolocation v2 | core 桩+api | 桌面拒错已验 | ✓ |
