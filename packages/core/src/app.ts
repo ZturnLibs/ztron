@@ -217,6 +217,7 @@ export class App {
       "plugin:window|set_decorations",
       "plugin:window|get_frame",
       "plugin:window|get_position",
+      "plugin:window|inner_position",
       "plugin:window|get_state",
       "plugin:window|get_title",
       "plugin:window|get_theme",
@@ -319,6 +320,7 @@ export class App {
       "plugin:tray|remove_by_id",
       "plugin:tray|set_show_menu_on_left_click",
       "plugin:tray|destroy",
+      "plugin:resources|close",
       "plugin:menu|create",
       "plugin:menu|set_as_app_menu",
       "plugin:menu|set_item_enabled",
@@ -582,6 +584,11 @@ export class App {
         );
       },
       "plugin:window|get_frame": async (_args, ctx) => ctx.webview.getFrame(),
+      "plugin:window|inner_position": (args, ctx) =>
+        ctx.webview.windowState("get_inner_position") as unknown as
+          | { x: number; y: number }
+          | Promise<{ x: number; y: number } | null>
+          | null,
       "plugin:window|get_position": async (_args, ctx) => {
         const f = await ctx.webview.getFrame();
         return f ? { x: f.x, y: f.y } : null;
@@ -833,6 +840,13 @@ export class App {
       "plugin:app|bundle_type": () =>
         bundleTypeFromExecutable(this.executableHint()),
       "plugin:app|supports_multiple_windows": () => true,
+      "plugin:resources|close": (args) => {
+        /* Generic rid closer (upstream core:resources). Ztron's rid space
+           is the image registry; menus/trays expose explicit destroy
+           commands and do not ride the generic closer. */
+        const rid = Number((args as { rid?: number }).rid ?? -1);
+        this.#adapter.image?.destroy(rid);
+      },
       "plugin:app|default_window_icon": () => {
         /* No app-icon registration exists yet; null == "none set" (upstream
            returns Option<Image>). The dock icon rides conf/Info.plist. */
@@ -1141,7 +1155,8 @@ export class App {
         this.#adapter.menu?.destroyMenu((args as { menuId: string }).menuId);
       },
       "plugin:dialog|open": async (args) =>
-        this.#adapter.dialog?.open((args as OpenDialogOptions) ?? {}) ?? null,
+        (await this.#adapter.dialog?.open((args as OpenDialogOptions) ?? {})) ??
+        null,
       "plugin:dialog|save": async (args) =>
         this.#adapter.dialog?.save((args as SaveDialogOptions) ?? {}) ?? null,
       "plugin:dialog|message": async (args) =>

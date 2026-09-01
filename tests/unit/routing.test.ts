@@ -740,6 +740,20 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
   );
 });
 
+test("G16 audit closures: resources close + inner position routing", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:resources|close", { rid: 7 });
+  assert.ok(
+    mock.imageLog.some((l) => l.kind === "destroy" && l.id === 7),
+    "resources|close routes to the image registry",
+  );
+  const ip = await mock.main.invoke("plugin:window|inner_position", {
+    label: "main",
+  });
+  void ip; /* mock returns the windowState passthrough; wire shape covered
+              by the real-host probe below */
+});
+
 test("webview capabilities report the honest per-window model", async () => {
   const { mock } = buildApp();
   const caps = (await mock.main.invoke("plugin:webview|capabilities", {})) as {

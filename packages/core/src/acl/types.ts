@@ -53,6 +53,13 @@ export interface Capability {
   description?: string;
   /** Window labels this capability applies to (supports `*`). */
   windows: string[];
+  /**
+   * Upstream parity: remote URL patterns this capability applies to.
+   * Ztron's IPC originates from the ztron:// asset origin only (no remote
+   * frames), so the field is parsed and carried but not yet enforced —
+   * enforcement lands with origin tracking if remote frontends appear.
+   */
+  remote?: { urls: string[] };
   /** Permission entries granted. */
   permissions: PermissionEntry[];
 }
