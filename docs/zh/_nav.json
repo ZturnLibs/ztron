@@ -1,0 +1,5 @@
+[
+  { "text": "start", "link": "/start/intro" },
+  { "text": "guide", "link": "/guide/architecture" },
+  { "text": "reference", "link": "/reference/cli" }
+]
