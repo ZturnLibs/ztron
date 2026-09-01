@@ -36,7 +36,7 @@
 
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
-| B1 | 事件缺 WINDOW_SUSPENDED/RESUMED/WINDOW_CREATED/WEBVIEW_CREATED（native 仅映射 11 种） | event/mod.rs 16 个 TauriEvent | host C + core | macOS 可验 | ☐ |
+| B1 ✓ | 事件族补齐：WINDOW/WEBVIEW_CREATED 建窗广播（core createWindow，upstream app-wide 语义）；SUSPENDED/RESUMED 命名面+路由映射（macOS 桌面不触发，移动生命周期对齐）；api 增 TauriEvent 16 常量枚举——G17 实现|
 | B2 ✓ | cursor_position 无窗全局回退本就内建（无 wnd 直接 mouse_screen）；api 新增零参 standalone cursorPosition() 导出
 | B3 ✓ | app 级 show/hide（NSApp hide:/unhideWithoutActivation+activate；G2 批次，DESIGN §102） | core:app app_show/app_hide | host C + core + api | macOS 可验（multiwin APP_LIFECYCLE_OK ✓） | ✓ |
 | B4 ✓ | setDockVisibility（activationPolicy Regular/Accessory，与 skip_taskbar 同机制独立 API；G2 批次） | core:app set_dock_visibility | host C + core + api | macOS 可验（multiwin ✓） | ✓ |
@@ -46,7 +46,7 @@
 | B8 ✓ | getIdentifier 独立函数 + plugin:app\|identifier 命令（G2 批次） | core:app identifier | core + api | 本机可验 | ✓ |
 | B9 | Tray 多实例 id 体系：getById/removeById；setTempDirPath；setIconWithAsTemplate；setShowMenuOnLeftClick；TrayIconEvent 富化（坐标/左右键 MouseDown/MouseUp/click/doubleClick/move/enter/leave + MouseButton/ButtonState 类型；现仅裸 click） | core:tray 12 条；api/src/tray.ts TrayIconOptions/event 类型 | host C + runtime + core + api | macOS 可验（除 tempDir 部分） | ◐ |
 | B10 ✓ | menu 22 条核对：命令面等价映射已显式登记于 F9 NAME_MAP（类方法↔命令面/查询经 item_info 三合一/set_accelerator=set_item_accel）；无语义缺口——G16 审计|
-| B11 | Image 对齐 5 条：rgba()/size() 读回 + static new()(RGBA)；**已完成 fromRGBA 链路读回（core 侧 dims/像素登记）+ `Image.new` 别名；PNG/path 载入的图像读回待 C 层 decode（NSImage→RGBA 落地后开放 rgba()/size() 完整语义）** | core:image new/from_bytes/from_path/rgba/size | core + api | 本机可验 | ◐ |
+| B11 ✓ | Image 读回全量：宿主注册期真解码（TIFF→NSBitmapImageRep→CGImage→CGBitmapContext RGBA），image_rgba_query/dims_query 回链 + core 回退（fromRGBA 信封优先）；menuprobe IMG_READBACK_OK:1024x1024 真机验证——G17 实现|
 | B12 ✓ | path resolve_directory：api resolveBaseDirectory（23 目录 getter）+baseline_dir 承担其角色，NAME_MAP 记录命名分歧；BaseDirectory 枚举已导出——G16 审计|
 | B13 ✓ | core:resources\|close 命令落地（rid→image 注册表路由；menu/tray 走各自 destroy），Resource.close 基类不再指向空命令——G16 实现|
 | B14 ✓ | inner_position 独立精确值：host contentLayoutRect→convertBaseToScreen 新查询 op + core 命令 + api 切换；menuprobe INNER_POS_OK:1070,934 真机验证——G16 实现|
@@ -61,7 +61,7 @@
 | C3 ✓ | ProgressBarStatus 枚举贯通：api 状态对象归一化→wire -3 哨兵→host 不确定态旋转条分支（setContentView+startAnimation）；None 清除
 | C4 ✓ | request_user_attention 修正真实 AppKit raw 值 Critical=10/Info=0（原误发 1），enum 贯通保留
 | C5 ✓ | dpi Size/Position 包装器（源自适应 Logical/Physical 判别，to* 双向换算 + toJSON 带判别键）
-| C6 ◐ | EventTarget.App 语义——**窗口事件已改 emitTo 按 label 定向（上游语义，C1 根因修复，DESIGN §117）**；剩 App-kind 独立路由与 windows/webviews 分组语义核对|
+| C6 ✓ | EventTarget 语义收口：窗口事件按 label 定向（C1 修复）；App-kind=广播的设计正当性入注（两进程模型无进程内监听器，与上游 app.emit 到达所有窗口一致）——G17|
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 ✓ | mocks.ts 四件套：mockIPC（内存 invoke）/mockWindows（currentWindow·currentWebview·label 三形 metadata）/mockConvertFileSrc/clearMocks（全量还原）——G14 |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |

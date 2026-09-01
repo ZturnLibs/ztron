@@ -897,13 +897,19 @@ export class App {
         this.#adapter.image?.fromPath(
           String((args as { path?: string }).path ?? ""),
         ) ?? -1,
-      "plugin:image|rgba": (args) => {
-        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
-        return meta ? new RawResponse(meta.rgbaB64) : null;
+      "plugin:image|rgba": async (args) => {
+        const id = Number((args as { id?: number }).id);
+        const meta = this.#imageMeta.get(id);
+        if (meta) return new RawResponse(meta.rgbaB64);
+        /* B11: PNG/path images were decoded host-side at registration. */
+        const b64 = await this.#adapter.image?.rgba?.(id);
+        return b64 ? new RawResponse(b64) : null;
       },
-      "plugin:image|size": (args) => {
-        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
-        return meta ? { width: meta.width, height: meta.height } : null;
+      "plugin:image|size": async (args) => {
+        const id = Number((args as { id?: number }).id);
+        const meta = this.#imageMeta.get(id);
+        if (meta) return { width: meta.width, height: meta.height };
+        return (await this.#adapter.image?.dims?.(id)) ?? null;
       },
       "plugin:image|destroy": (args) => {
         const id = Number((args as { id?: number }).id ?? -1);
@@ -1302,6 +1308,11 @@ export class App {
       }
     });
 
+    /* B1 (upstream parity): creation notifications are app-wide broadcasts
+       (upstream emits WINDOW_CREATED/WEBVIEW_CREATED from the event loop). */
+    this.emit("tauri://window-created", { label: cfg.label });
+    this.emit("tauri://webview-created", { label: cfg.label });
+
     const bootstrap =
       this.config.initScript ??
       buildInitScript({
@@ -1397,6 +1408,10 @@ function windowEventToTauri(
       return "tauri://blur";
     case "close":
       return "tauri://close-requested";
+    case "suspended":
+      return "tauri://suspended";
+    case "resumed":
+      return "tauri://resumed";
     case "scale-change":
       return "tauri://scale-change";
     case "theme-change":

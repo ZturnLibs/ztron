@@ -1297,6 +1297,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 119. G17 小件三连(B1 事件族/B11 图像真读回/C6 收口)
+
+- **B1**:createWindow 广播 tauri://window-created / webview-created（upstream 为 app 级广播,非 per-window——与 C1 的定向规则不冲突:created 语义就是"告知所有人"）;suspended/resumed 进 WindowEvent 联合+映射+api TauriEvent 枚举 16 常量（桌面不触发,移动生命周期命名面）
+- **B11**:宿主 image_add 注册期真解码——TIFF→NSBitmapImageRep→CGImage→CGBitmapContext(8bit RGBA, premultipliedLast)提像素,注册表并行存 rgba/w/h,destroy 释放;image_rgba_query/dims_query 两查询 op;ImageController 增可选 rgba/dims,core 命令回退链（fromRGBA 信封优先,宿主解码兜底）——**fromRGBA/PNG/path 三源 rgba()/size() 全量可读**;menuprobe `IMG_READBACK_OK:1024x1024:5592408` 真机验证（5.6MB b64 走 socket 直发不占 Msg 1MiB 槽）
+- **C6**:App-target=广播的设计正当性入 eventManager 注释——两进程模型无进程内监听器,上游 app.emit 亦到达所有窗口,广播即忠实映射;C6 整项收口 ✓
+- **教训**:探针资源路径以 dev 管线 cwd 计（examples/menuprobe→../../assets）;C 侧声明顺序（并行数组须先于使用处）
+- **验证**:单测 111/110+typecheck 0;menuprobe 5/5（含新探针）exit 0;hello 回归见 commit 前
+
 ## 118. G16 核对批(十项收口:四实现+六审计通过)
 
 - **实现四项**:①C11 api exports 子路径 12 条(upstream 同构,tsc 逐文件产物天然满足);②B13 plugin:resources\|close(rid→image 注册表;基类 Resource.close 此前指向不存在的命令——真 bug,单测漏因 mock 不走该命令);③B14 inner_position 独立查询(host: contentLayoutRect 结构体返回复用 zt_wnd_frame 的 arch 分派 ABI + convertBaseToScreen;core 命令;api 切换);④D7 dialog 选项(filters CSV→allowedFileTypes、maxFiles→多选+JSON 数组回执、canCreateDirectories;复用 Msg 的 width/height/aux 槽位零解析器改动)

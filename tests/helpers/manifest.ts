@@ -367,6 +367,7 @@ export const API_EXPORTS: readonly string[] = [
   "Channel",
   "Resource",
   "listen",
+  "TauriEvent",
   "once",
   "emit",
   "emitTo",

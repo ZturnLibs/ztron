@@ -6,6 +6,7 @@
  * and native dialogs (NSOpenPanel/NSSavePanel/NSAlert).
  */
 #include <string.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -248,18 +249,57 @@ static void zt_reply_frame(int req_id, ZtRect r) {
 #define MAX_IMAGES 32
 static void *g_images[MAX_IMAGES];
 static int g_image_count = 0;
+/* Decoded pixels parallel to the NSImage registry (freed on destroy). */
+static unsigned char *g_image_rgba[MAX_IMAGES];
+static int g_image_rw[MAX_IMAGES];
+static int g_image_rh[MAX_IMAGES];
+
+static unsigned char *image_capture_rgba(id nsImage, int *w, int *h);
 
 static int image_add(id nsImage) {
   if (g_image_count >= MAX_IMAGES) return -1;
   int id = g_image_count;
   g_images[id] = nsImage;
   g_image_count++;
+  /* G17/B11: decode RGBA eagerly so rgba()/size() read back for PNG and
+     path-loaded images too (fromRGBA envelopes stay core-side). */
+  g_image_rgba[id] = image_capture_rgba(nsImage, &g_image_rw[id], &g_image_rh[id]);
   return id;
+}
+
+/* TIFF -> NSBitmapImageRep -> CGImage -> 8-bit RGBA bitmap context. */
+static unsigned char *image_capture_rgba(id nsImage, int *w, int *h) {
+  *w = 0; *h = 0;
+  if (!nsImage) return NULL;
+  id tiff = OBJC_MSG(id(*)(id, SEL), nsImage, sel_registerName("TIFFRepresentation"));
+  if (!tiff) return NULL;
+  id rep = OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSBitmapImageRep"),
+                    sel_registerName("imageRepWithData:"), tiff);
+  if (!rep) return NULL;
+  CGImageRef cg = (CGImageRef)OBJC_MSG(id(*)(id, SEL), rep, sel_registerName("CGImage"));
+  if (!cg) return NULL;
+  size_t cw = CGImageGetWidth(cg), ch = CGImageGetHeight(cg);
+  if (cw == 0 || ch == 0 || cw * ch > (64u * 1024u * 1024u)) return NULL;
+  unsigned char *buf = (unsigned char *)calloc(cw * ch, 4);
+  if (!buf) return NULL;
+  CGContextRef ctx = CGBitmapContextCreate(
+      buf, cw, ch, 8, cw * 4,
+      CGColorSpaceCreateDeviceRGB(),
+      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+  if (!ctx) { free(buf); return NULL; }
+  CGContextDrawImage(ctx, CGRectMake(0, 0, cw, ch), cg);
+  CGContextRelease(ctx);
+  *w = (int)cw; *h = (int)ch;
+  return buf;
 }
 static void image_destroy(int img_id) {
   if (img_id >= 0 && img_id < g_image_count) {
     OBJC_MSG(void(*)(id, SEL), g_images[img_id], sel_registerName("release"));
     g_images[img_id] = NULL;
+    free(g_image_rgba[img_id]);
+    g_image_rgba[img_id] = NULL;
+    g_image_rw[img_id] = 0;
+    g_image_rh[img_id] = 0;
   }
 }
 static id image_by_id(int img_id) {
@@ -2957,6 +2997,44 @@ static int dispatch(Msg *m, webview_t w) {
       char buf[32];
       snprintf(buf, sizeof(buf), "%d", idn);
       zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_rgba_query") == 0) {
+    int img = m->id[0] ? atoi(m->id) : -1;
+    if (m->req_id >= 0 && img >= 0 && img < g_image_count &&
+        g_image_rgba[img]) {
+      size_t n = (size_t)g_image_rw[img] * g_image_rh[img] * 4;
+      size_t b64n = ((n + 2) / 3) * 4 + 1;
+      char *b64 = (char *)malloc(b64n);
+      zt_base64(g_image_rgba[img], n, b64);
+      char pre[64];
+      snprintf(pre, sizeof(pre),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":\"",
+               m->req_id);
+      size_t total = strlen(pre) + strlen(b64) + 3;
+      char *out = (char *)malloc(total);
+      snprintf(out, total, "%s%s\"}", pre, b64);
+      zt_send_line(out);
+      free(b64);
+      free(out);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_dims_query") == 0) {
+    int img = m->id[0] ? atoi(m->id) : -1;
+    if (m->req_id >= 0 && img >= 0 && img < g_image_count &&
+        g_image_rgba[img]) {
+      char buf[128];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"width\":%d,\"height\":%d}}",
+               m->req_id, g_image_rw[img], g_image_rh[img]);
+      zt_send_line(buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
     }
     return 1;
   }

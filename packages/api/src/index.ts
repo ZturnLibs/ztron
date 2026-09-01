@@ -26,6 +26,7 @@ export {
   getCurrentWebview,
   getAllWebviews,
 } from "./webview.js";
+export { TauriEvent } from "./event.js";
 export {
   setupDragRegion,
   UserAttentionType,
