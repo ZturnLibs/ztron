@@ -903,6 +903,25 @@ test("tray v2 multi-instance ops route through the adapter", async () => {
   }
 });
 
+test("menu add_submenu routes; runtime Submenu mounting", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:menu|create", {
+    menu: { id: "m0", items: [] },
+  });
+  await mock.main.invoke("plugin:menu|add_submenu", {
+    menuId: "m0",
+    childId: "m0.sub",
+    text: "Sub",
+  });
+  assert.ok(
+    mock.menuLog.some(
+      (l) =>
+        l.op === "add_submenu" &&
+        (l.payload as { childId: string }).childId === "m0.sub",
+    ),
+  );
+});
+
 test("menu v2 ops route through the controller", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:menu|create_default", { menuId: "dflt" });

@@ -326,6 +326,7 @@ const UNIT_COVERED = new Set([
   "plugin:webview|capabilities",
   "plugin:webview|set_background_color",
   "plugin:webview|toggle_devtools",
+  "plugin:menu|add_submenu",
   "plugin:menu|remove_at",
   "plugin:menu|items",
   "plugin:menu|create_default",

@@ -32,6 +32,8 @@ export type { Plugin } from "./plugin.js";
 export { PathScope } from "./scope.js";
 export type { PathScopeConfig } from "./scope.js";
 export {
+  cliPlugin,
+  parseArgv,
   fsPlugin,
   pathPlugin,
   httpPlugin,
@@ -39,8 +41,7 @@ export {
   storePlugin,
   logPlugin,
   shellPlugin,
-  cliPlugin,
-  openerPlugin,
+    openerPlugin,
   updaterPlugin,
   compareVersions,
   compareSemver,
@@ -82,8 +83,6 @@ export type {
   ShellPluginOptions,
   ShellScopeEntry,
   ExecResult,
-  CliPluginOptions,
-  CliMatches,
   OpenerPluginOptions,
   UpdaterManifest,
   UpdateCheck,
@@ -156,3 +155,11 @@ export type {
 
 export { validateProjectConfig } from "./app.js";
 export type { ProjectConfigFile } from "./app.js";
+
+export type {
+  CliPluginOptions,
+  CliMatches,
+  CliSchema,
+  CliArgDef,
+  CliSubcommandDef,
+} from "./plugins/index.js";

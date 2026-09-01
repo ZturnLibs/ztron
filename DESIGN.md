@@ -1297,6 +1297,12 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 120. G18 cli 声明式 schema(D5)+ 菜单上游式类面(A2 收尾)
+
+- **D5**:cli 插件重写——CliSchema/CliArgDef/CliSubcommandDef（clap 形态）;编译期建 byName/byLong/byShort/positional 四表;解析器升级:short/long/inline =/takesValue/multiple 累积/index 位置槽/default 回填/required+conflicts 校验(抛错)/嵌套子命令递归;旧扁平形态自动合成 schema 保零破坏;**教训:未声明 flag 的宽容回退(吃下一 token 作值)是旧行为契约,strict 化会破 back-compat 测试**;6 组新单测
+- **A2 尾**:api 上游式项类——MenuItemBase(menuId+itemId 包装:text/setText/isEnabled/setEnabled/remove 经 item_info 与既有命令);MenuItem(+setAccelerator)/CheckMenuItem(isChecked/setChecked)/RadioMenuItem/IconMenuItem(setIcon+icon 创建)/PredefinedMenuItem(separator/copy/cut/paste/selectAll/undo/redo/quit/about/minimize/fullscreen 12 工厂)/Submenu 运行时挂载(新 plugin:menu\|add_submenu→宿主 menu_add_submenu_item,复用 wire 三元组);**配置接口 MenuItem→MenuItemOptions 更名(上游命名,消与类的撞名)**——index.ts 的 export 手术三连坑:重复 type 块/误删 cliPlugin/新旧混出,全部编译器按序抓净
+- **验证**:118 tests / 117 pass / 1 skip,typecheck 0;hello 85 FULL_OK、menuprobe 5/5 双回归过
+
 ## 119. G17 小件三连(B1 事件族/B11 图像真读回/C6 收口)
 
 - **B1**:createWindow 广播 tauri://window-created / webview-created（upstream 为 app 级广播,非 per-window——与 C1 的定向规则不冲突:created 语义就是"告知所有人"）;suspended/resumed 进 WindowEvent 联合+映射+api TauriEvent 枚举 16 常量（桌面不触发,移动生命周期命名面）

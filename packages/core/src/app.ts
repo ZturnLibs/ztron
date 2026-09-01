@@ -332,6 +332,7 @@ export class App {
       "plugin:menu|remove_item",
       "plugin:menu|item_info",
       "plugin:menu|destroy",
+      "plugin:menu|add_submenu",
       "plugin:menu|remove_at",
       "plugin:menu|items",
       "plugin:menu|create_default",
@@ -1069,6 +1070,14 @@ export class App {
           itemId: string;
         };
         return this.#adapter.menu?.getItemInfo(menuId, itemId) ?? null;
+      },
+      "plugin:menu|add_submenu": (args) => {
+        const { menuId, childId, text } = args as {
+          menuId: string;
+          childId: string;
+          text: string;
+        };
+        this.#adapter.menu?.addSubmenu?.(menuId, childId, text);
       },
       "plugin:menu|remove_at": (args) => {
         const { menuId, index } = args as { menuId: string; index: number };
