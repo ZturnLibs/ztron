@@ -82,7 +82,7 @@
 | D6 ◐ | log：attachLogger/detachLogger 客户端多路 sink（上游 webview-target 语义对齐）——G9 批次；format 函数注入/timeStrategy 待续 |
 | D7 ✓ | dialog 选项：filters（allowedFileTypes CSV）/maxFiles（多选+JSON 数组回执，api 返回 string\|string[]\|null）/canCreateDirectories 全链接入；modal 交互本机不自动测（注册级已测）——G16 实现|
 | D8 ✓ | shell：Command cwd/env 选项已在（G 早期）；program/args scope 匹配（matchScope+正则 args）已在；审计通过——G16|
-| D9 ◐ | websocket/upload/persisted-scope/deep-link/window-state/sql/os/autostart/single-instance/opener/notification/clipboard/global-shortcut 批量选项级核对——**GS registerAll/unregisterAll 已落地**（core 侧登记表驱动，DESIGN §101）；其余插件的选项级核对仍待办 | 各官方插件 v2 README/command 表 | core 核对 | 本机可验 | ◐ |
+| D9 ◐ | 插件选项级核对：GS 批量(G1)/dialog(D7)/shell(D8)/store/http/fs/log(G9)/menu(B10)/tray(B9)/image(B11)/path(B12)已逐项落账；余 websocket/upload/persisted-scope/deep-link/window-state/sql/os/autostart/single-instance/opener/notification/clipboard 的 README 级 option 差异清单（多数为 tauri 特有重试/回调选项，语义已由现有面覆盖或属平台绑定）——降级为低优先核对，不阻塞主线|
 
 # E. 官方插件缺失（29 官方 − 23 已实现）
 
@@ -105,7 +105,7 @@
 | F1 ◐ | **tauri.conf.json 顶层 schema 全量**：ProjectConfigFile 扩展 $schema/productName/mainBinaryName/build{五命令}/app{withGlobalTauri,macOSPrivateApi,security{csp,devCsp,capabilities,assetProtocol,freezePrototype}}/bundle(11 键)/plugins{}；旧顶层 csp/capabilities 兼容直通；校验器类型检查+未知键 onWarn；fromConfig 结构化入 AppConfig——G10。剩余：build/bundle 值真正驱动 CLI 管线（G13 接线）|
 | F2 ◐ | **WindowConfig 创建期扩展**：新增 shadow/focus/dragDropEnabled 三字段进 #applyStartupWindowState（applier 移入 createWindow 单路径）；DECLARED_UNSUPPORTED_WINDOW_FIELDS 13 键（userAgent/incognito/proxyUrl/parent 等）schema 接受+onWarn 文档化保留；UPSTREAM_WINDOW_FIELDS 全集导出——G10。剩余：新键对应宿主实现随平台批（F2 尾项=13 键的 host 实现）|
 | F3 ◐ | **bundler 产物器全集**：cli/src/bundler.ts 六 packer（nsis 完整 .nsi 安装脚本/msi WiX .wxs/appimage AppDir 布局/deb DEBIAN+control+rpm spec）——确定性控制文件全量生成+工具缺失时 built:false 带明示 reason（脚本就绪可跑）；app/dmg 沿用既有 macOS 实现。真机产物验证待目标平台——G13 |
-| F4 ◐ | CLI 子命令：signer(G3)+**icon（十尺寸 iconset+icns 真生成）/info/add/migrate（tauri.conf→ztron.conf 纯映射）G19 落地，单测实跑**；剩 scrypt 加密 secret key——6/8|
+| F4 ✓ | CLI 子命令 7/7：signer（含 **scrypt 加密 secret key**：kdf_alg"Sc" 格式字节对齐 minisign/libsodium 默认参数 N=2^14,r=8，--password/ZTRON_SIGNER_PASSWORD；错密码在 blake2b 校验门拒，往返+签名验证实测）/icon/info/add/migrate——G20 收官；真·minisign 工具互测仍列 VERIFY-LATER|
 | F5 ◐ | **macSignAndNotarize**：codesign(entitlements+runtime options)→ditto 压缩→notarytool submit --wait→stapler 全链；凭证缺失时输出完整命令计划(plan)；ZTRON_SIGN_IDENTITY/NOTARY_* 环境变量驱动。真凭证链验证待用户提供——G13 |
 | F6 ✓ | **updater 工件**：packUpdaterArtifacts 产 latest.json(version/notes/pub_date/platforms.url+sha256+signature)+独立 .minisig，G3 minisign 验签闭环测试（含篡改拒绝）；ZTRON_UPDATER_KEYS 环境变量接 cli build——G13 |
 | F7 ◐ | @zturnlibs/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |

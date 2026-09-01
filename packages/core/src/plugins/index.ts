@@ -48,6 +48,7 @@ export {
   signMinisig,
   dumpSignatureFile,
   dumpPublicKeyFile,
+  dumpEncryptedSecretKeyFile,
 } from "./minisign.js";
 export type {
   VerifyResult as MinisignVerifyResult,

@@ -150,3 +150,34 @@ test("stronghold vault: lifecycle round trip + wrong password + tamper", async (
       String((e as { error?: string }).error ?? e).includes("wrong password"),
   );
 });
+
+test("signer encrypted secret key: round trip + wrong password (F4 tail)", async () => {
+  const core = await import("../../packages/core/dist/index.js");
+  const { publicKeyText, secret } = core.generateKeypair();
+
+  const encText = core.dumpEncryptedSecretKeyFile(secret, "hunter2", { n: 16, r: 1 });
+  assert.ok(encText.includes("untrusted comment:"));
+  /* the b64 blob must not contain the raw key bytes */
+  assert.ok(!encText.includes(Buffer.from(secret.sk64).toString("base64").slice(0, 24)));
+
+  /* wrong password -> checksum gate */
+  assert.throws(
+    () => core.parseSecretKeyFile(encText, "wrong"),
+    /wrong password/,
+  );
+  /* no password on encrypted key -> explicit error */
+  assert.throws(() => core.parseSecretKeyFile(encText), /password required/);
+
+  /* correct password -> identical key material, signs verifiably */
+  const sk = core.parseSecretKeyFile(encText, "hunter2");
+  assert.deepEqual([...sk.keynum], [...secret.keynum]);
+  assert.deepEqual([...sk.sk64], [...secret.sk64]);
+  const data = te("encrypted-key payload");
+  const sig = core.signMinisig(data, sk, {});
+  assert.equal(core.verifyMinisig(data, sig, publicKeyText).ok, true);
+
+  /* unencrypted files still parse without a password */
+  const plain = core.generateKeypair();
+  const parsed = core.parseSecretKeyFile(plain.secretKeyText);
+  assert.deepEqual([...parsed.sk64], [...plain.secret.sk64]);
+});
