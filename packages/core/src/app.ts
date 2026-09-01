@@ -2,6 +2,7 @@
  * App builder & runtime bootstrap — translated from Tauri's
  * `crates/tauri/src/app.rs` (Builder + App).
  */
+import { b64ToBytes, bytesToB64, readU32LE } from "./plugins/b64.js";
 import { CommandRegistry, type CommandHandlers } from "./commands/index.js";
 import type { CommandContext } from "./commands/index.js";
 import { EventTarget } from "./events.js";
@@ -863,14 +864,14 @@ export class App {
         const id = (await this.#adapter.image?.fromBytes(base64)) ?? -1;
         // `fromRGBA` payloads carry an 8-byte LE dims header + RGBA pixels;
         // PNG payloads start with \x89PNG so width would fail plausibility.
-        const buf = Buffer.from(base64, "base64");
+        const buf = b64ToBytes(base64);
         if (buf.length > 8) {
-          const w = buf.readUInt32LE(0);
-          const h = buf.readUInt32LE(4);
+          const w = readU32LE(buf, 0);
+          const h = readU32LE(buf, 4);
           if (w > 0 && h > 0 && buf.length === 8 + w * h * 4) {
             // Store pixels only (upstream rgba() yields no dims header).
             this.#imageMeta.set(id, {
-              rgbaB64: buf.subarray(8).toString("base64"),
+              rgbaB64: bytesToB64(buf.subarray(8)),
               width: w,
               height: h,
             });
@@ -1272,7 +1273,12 @@ export class App {
     });
     handle.onWindowEvent((event, payload) => {
       const name = windowEventToTauri(event);
-      if (name) this.emit(name, payload);
+      /* Window lifecycle events are TARGETED at the owning window's label
+         (upstream Tauri semantics): a broadcast leak let one window's
+         close-requested reach ANOTHER window's onCloseRequested listener,
+         whose fallback destroy() then killed the main window (C1 root
+         cause). Any-label/global custom events stay broadcast. */
+      if (name) this.emitTo({ kind: "Window", label: cfg.label }, name, payload);
       /* Destroyed/closed runtime windows leave the registry so
          get_all_windows only reports live windows (host already clears
          its webview registry on windowWillClose). */

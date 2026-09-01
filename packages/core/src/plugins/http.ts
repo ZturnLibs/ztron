@@ -7,6 +7,7 @@
  */
 import { HttpScope, type HttpScopeConfig } from "../httpScope.js";
 import { RawResponse } from "../ipc/raw.js";
+import { b64ToBytes } from "./b64.js";
 import type { Plugin } from "../plugin.js";
 import type { CommandContext } from "../commands/index.js";
 import { bytesToB64 } from "./fs.js";
@@ -89,9 +90,8 @@ export function httpPlugin(options: HttpPluginOptions = {}): Plugin {
           if (typeof body === "string") {
             wireBody = body;
           } else if (typeof (body as { __bytesB64?: string }).__bytesB64 === "string") {
-            wireBody = Buffer.from(
+            wireBody = b64ToBytes(
               (body as { __bytesB64: string }).__bytesB64,
-              "base64",
             );
             mergedHeaders["content-type"] ??=
               "application/octet-stream";

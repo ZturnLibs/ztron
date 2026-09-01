@@ -1297,6 +1297,16 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 117. C1 hello 卡死根因链:两处自伤 + 一次误判的完整法医记录
+
+- **症状**:hello 自 G2 起恒停 53 检查(MULTI_WINDOW_OK 后 maximize 段)
+- **误判自纠**:G2 时 stash 干净基线复跑同样卡死→归因"darwin 25.2 环境漂移"并隔离——**此归因错误**;真实原因是基线跑法的偶然失败被当成了决定性证据(教训:单次基线复现≠证明,需多次+同法医深度)
+- **法医链**(本轮):①ps 证明宿主 40s 已退且零 .ips=干净退出非崩溃;②退出路径埋点→"run loop ENDED"无 QUIT;③NSApp 侧探针→stop_run_loop 被调 2 次而 lastWindowClosed/willTerminate 未响;④backtrace→webview_terminate←**我们自己的 on_gui**;⑤ZT_TRACE 全 op 日志→铁证:`window_destroy label=spike-second` 后紧跟 `window_destroy label=main`(前端从未请求销毁 main!)
+- **根因一(G1 自伤)**:窗口生命周期事件全局广播(emit target Any),而 onCloseRequested 包装含"handler 未 preventDefault→this.destroy()"兜底→spike-second 的 close-requested 泄漏到 main 的监听器→main 被自动销毁→宿主 terminate。**修复:窗口事件 emitTo({kind:"Window",label})定向**——上游 Tauri 本就按窗投递(顺带闭 C6 半项)
+- **根因二(G3 自伤)**:core 的 image from_bytes 维度嗅探与 http 二进制 body 用了 `Buffer.from`——**tjs 无 Buffer 全局**,真机即抛"Buffer is not defined";单测全过是因为 Node 里有 Buffer,而唯一跑 tjs 的 hello spike 恰好红着→**红了 15 个批次的集成门禁掩盖了 runtime-only 回归**。修复:plugins/b64.ts(atob/btoa 手写 b64ToBytes/bytesToB64/readU32LE,双运行时安全)
+- **收尾**:全部 zt-trace/backtrace 探针清除,webview-local.patch 再生(429 行,reverse-check 过);multiwin 残留菜单探针(旧阈值)同步清除
+- **终局**:**ci.sh 全链 exit 0 首次达成**——hello 86 检查 FULL_OK(连续 3 轮)+multiwin 5/5×2+menuprobe 3/3+单测 110/109+typecheck 0;三条 spike 首次同场全绿
+
 ## 116. 崩溃修复:script-message UAF(destroy-flood SIGSEGV)根因与闭环
 
 - **崩溃样本**(macOS 26.2/25C56,进程启动 2.6s 即崩=stress 早期):帧0=`create_script_message_handler()::lambda operator()+208`,来自 `ScriptMessageHandlerDelegate::didPostMessage` 的 WebKit IPC 主线程投递;SIGSEGV 地址带 PAC 特征=野指针
