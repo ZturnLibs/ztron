@@ -31,3 +31,4 @@ examples/**/frontend/dist/
 
 # packaged app output (ztron build)
 dist/
+.worktrees/
