@@ -39,11 +39,18 @@ jobs:
       # workspace:* protocols are not publishable; pnpm publish rewrites
       # them to the real version on pack. Publish leaf-first so a scoped
       # dependency exists by the time its dependents publish.
+      - name: rename @ztron -> @zturnlibs/ztron-*
+        run: node scripts/publish-rename.mjs apply
+
       - name: publish
         run: |
           for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
             echo "--- publishing $d"
             (cd "$d" && pnpm publish --no-git-checks --access restricted) || exit 1
           done
+
+      - name: restore manifests
+        if: always()
+        run: node scripts/publish-rename.mjs restore
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
