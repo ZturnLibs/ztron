@@ -155,7 +155,7 @@ export type {
   AclDecision,
 } from "./acl/index.js";
 
-export { validateProjectConfig } from "./app.js";
+export { validateProjectConfig, bundleTypeFromExecutable } from "./app.js";
 export type { ProjectConfigFile } from "./app.js";
 
 export type {
