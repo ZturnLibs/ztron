@@ -14,7 +14,7 @@ import {
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 
-test("icon: sips+iconutil produce a real icns + 10 size PNGs", () => {
+test("icon: sips+iconutil produce a real icns + 10 size PNGs", { skip: process.platform !== "darwin" }, () => {
   const out = mkdtempSync(join(tmpdir(), "ztron-icon-"));
   try {
     const r = generateIcons(join(ROOT, "assets/app-icon.png"), out);

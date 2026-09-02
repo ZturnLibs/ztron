@@ -31,6 +31,10 @@ const ICON_SIZES: Array<[number, number]> = [
   [512, 2],
 ];
 
+function have(bin: string): boolean {
+  return spawnSync("which", [bin], { encoding: "utf8" }).status === 0;
+}
+
 function sipsResize(src: string, size: number, out: string): boolean {
   const r = spawnSync(
     "sips",
@@ -46,6 +50,11 @@ export function generateIcons(
   inputPng: string,
   outDir: string,
 ): { icns: string; iconset: string; pngs: string[] } {
+  if (process.platform !== "darwin" || !have("sips") || !have("iconutil")) {
+    throw new Error(
+      "icon: requires macOS tooling (sips + iconutil) — run on a macOS host",
+    );
+  }
   if (!existsSync(inputPng)) {
     throw new Error(`icon: input not found: ${inputPng}`);
   }
