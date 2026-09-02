@@ -903,6 +903,23 @@ test("tray v2 multi-instance ops route through the adapter", async () => {
   }
 });
 
+test("bundle_type does not misdetect bare .exe (windows runner)", async () => {
+  const { mock } = buildApp();
+  const prev = process.execPath;
+  Object.defineProperty(process, "execPath", {
+    value: "C:\\host\\node.exe",
+    configurable: true,
+  });
+  try {
+    assert.equal(await mock.main.invoke("plugin:app|bundle_type", {}), "App");
+  } finally {
+    Object.defineProperty(process, "execPath", {
+      value: prev,
+      configurable: true,
+    });
+  }
+});
+
 test("menu add_submenu routes; runtime Submenu mounting", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:menu|create", {

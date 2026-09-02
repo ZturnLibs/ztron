@@ -93,7 +93,9 @@ export interface AppOptions {
 export function bundleTypeFromExecutable(exe?: string | null): string {
   const p = (exe ?? "").replace(/\\/g, "/");
   if (/\.app\/contents\/macos\//i.test(p)) return "App";
-  if (/(_setup|_installer)?\.exe$/i.test(p)) return "Nsis";
+  /* Only installer-shaped names imply a format; a bare .exe (e.g. node.exe
+     on a Windows CI runner) is NOT evidence of an NSIS install. */
+  if (/(_setup|_installer)\.exe$/i.test(p)) return "Nsis";
   if (/\.msi$/i.test(p)) return "Msi";
   if (/\.appimage$/i.test(p)) return "AppImage";
   return "App";
