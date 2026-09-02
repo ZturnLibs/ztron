@@ -22,7 +22,22 @@ const PACKAGES = [
 const mapDep = (k) =>
   k.startsWith("@ztron/") ? `@zturnlibs/ztron-${k.slice(7)}` : k;
 
+const EXAMPLES = ["examples/hello", "examples/multiwin", "examples/menuprobe"];
+
 function apply() {
+  /* Examples are not published but their workspace:* deps must resolve to
+     the renamed packages during the frozen install. */
+  for (const dir of EXAMPLES) {
+    const p = `${dir}/package.json`;
+    const d = JSON.parse(readFileSync(p, "utf8"));
+    for (const section of ["dependencies", "devDependencies"]) {
+      if (!d[section]) continue;
+      d[section] = Object.fromEntries(
+        Object.entries(d[section]).map(([k, v]) => [mapDep(k), v]),
+      );
+    }
+    writeFileSync(p, JSON.stringify(d, null, 2) + "\n");
+  }
   for (const dir of PACKAGES) {
     const p = `${dir}/package.json`;
     const d = JSON.parse(readFileSync(p, "utf8"));
@@ -43,7 +58,7 @@ function apply() {
 }
 
 function restore() {
-  for (const dir of PACKAGES) {
+  for (const dir of [...PACKAGES, ...EXAMPLES]) {
     execSync(`git checkout -- ${dir}/package.json`, { stdio: "inherit" });
   }
   console.log("manifests restored");
