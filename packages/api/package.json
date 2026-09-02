@@ -1,6 +1,6 @@
 {
   "name": "@ztron/api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ztron frontend transport layer, translated from @tauri-apps/api/core",
   "type": "module",
   "main": "./dist/index.js",

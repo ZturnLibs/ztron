@@ -1,6 +1,6 @@
 {
   "name": "@ztron/runtime-ffi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ztron WebView runtime backend: tjs:ffi bindings to the webview/webview C API",
   "type": "module",
   "main": "./dist/index.js",

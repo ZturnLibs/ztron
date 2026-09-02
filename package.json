@@ -1,6 +1,6 @@
 {
   "name": "ztron",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "A Tauri-style cross-platform desktop framework rewritten in TypeScript on top of txiki.js + system WebView",
