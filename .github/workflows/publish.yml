@@ -40,7 +40,11 @@ jobs:
       # them to the real version on pack. Publish leaf-first so a scoped
       # dependency exists by the time its dependents publish.
       - name: rename @ztron -> @zturnlibs/ztron-*
-        run: node scripts/publish-rename.mjs apply
+        run: |
+          node scripts/publish-rename.mjs apply
+          # renamed name/deps invalidate the frozen lockfile; this job only
+          # publishes, so install with the lockfile unfrozen.
+          pnpm install --no-frozen-lockfile
 
       - name: publish
         run: |
