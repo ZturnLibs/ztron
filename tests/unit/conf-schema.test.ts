@@ -102,7 +102,7 @@ test("inject: withGlobalTauri exposes the __ZTRON__ namespace", () => {
     invokeKey: "k",
     withGlobalTauri: true,
   });
-  assert.ok(script.includes("window.__ZTRON__ = window.__TAURI_INTERNALS__"));
+  assert.ok(script.includes("window.__ZTRON__ = window.__ZTRON_INTERNALS__"));
   const plain = buildInitScript({ invokeKey: "k" });
   assert.ok(!plain.includes("__ZTRON__"));
 });

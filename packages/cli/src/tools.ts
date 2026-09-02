@@ -137,11 +137,11 @@ export function addPlugin(cwd: string, plugin: string): void {
   console.log(
     `[ztron] register the plugin in your backend entry:\n` +
       `          .plugin(${plugin}Plugin())\n` +
-      `        (import from "@zturnlibs/core")`,
+      `        (import from "@ztron/core")`,
   );
 }
 
-interface TauriConf {
+interface ZtronConfInput {
   productName?: string;
   version?: string;
   identifier?: string;
@@ -182,7 +182,7 @@ const WINDOW_FIELD_MAP: Record<string, string> = {
 };
 
 /** Pure mapping: tauri.conf.json shape -> ztron.conf.json shape. */
-export function convertTauriConf(conf: TauriConf): Record<string, unknown> {
+export function convertTauriConf(conf: ZtronConfInput): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (conf.identifier) out.identifier = conf.identifier;
   if (conf.productName) {
@@ -232,7 +232,7 @@ export function migrateConf(
     throw new Error(`migrate: input not found: ${input}`);
   }
   const converted = convertTauriConf(
-    JSON.parse(readFileSync(input, "utf8")) as TauriConf,
+    JSON.parse(readFileSync(input, "utf8")) as ZtronConfInput,
   );
   writeFileSync(output, JSON.stringify(converted, null, 2) + "\n");
   console.log(`[ztron] migrated ${input} -> ${output}`);

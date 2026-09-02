@@ -65,7 +65,7 @@
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 ✓ | mocks.ts 四件套：mockIPC（内存 invoke）/mockWindows（currentWindow·currentWebview·label 三形 metadata）/mockConvertFileSrc/clearMocks（全量还原）——G14 |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |
-| C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __TAURI_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
+| C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __ZTRON_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
 | C11 ✓ | api 子路径 exports 全量（./app…./window 12 条，upstream 同构）；tsc 逐文件产物天然满足——G16 实现|
 | C12 ✓ | EffectState 协议核对：Follows=-1 跳过显式 setState/Active=0/Inactive=1 与 NSVisualEffectState 映射正确，无需改动——G16 审计|
 | C13 ✓ | dpi toJSON 判别键契约 G8 已验（补翻状态行）|
@@ -108,7 +108,7 @@
 | F4 ✓ | CLI 子命令 7/7：signer（含 **scrypt 加密 secret key**：kdf_alg"Sc" 格式字节对齐 minisign/libsodium 默认参数 N=2^14,r=8，--password/ZTRON_SIGNER_PASSWORD；错密码在 blake2b 校验门拒，往返+签名验证实测）/icon/info/add/migrate——G20 收官；真·minisign 工具互测仍列 VERIFY-LATER|
 | F5 ◐ | **macSignAndNotarize**：codesign(entitlements+runtime options)→ditto 压缩→notarytool submit --wait→stapler 全链；凭证缺失时输出完整命令计划(plan)；ZTRON_SIGN_IDENTITY/NOTARY_* 环境变量驱动。真凭证链验证待用户提供——G13 |
 | F6 ✓ | **updater 工件**：packUpdaterArtifacts 产 latest.json(version/notes/pub_date/platforms.url+sha256+signature)+独立 .minisig，G3 minisign 验签闭环测试（含篡改拒绝）；ZTRON_UPDATER_KEYS 环境变量接 cli build——G13 |
-| F7 ◐ | @zturnlibs/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |
+| F7 ◐ | @ztron/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |
 | F8 ◐ | isolation pattern 评估结论（DESIGN §112）：上游该能力已废弃（pattern 模块移除、文档下线），按"移植上游现行面"原则 Ztron 不实现，仅冻结原型留作开关件——G14 |
 | F9 ✓ | ACL 对拍测试（tests/unit/acl-parity.test.ts）：上游 9 插件命令表→Ztron 权限面映射完整性断言；NAME_MAP 显式登记 30+ 命名分歧（window 前缀/menu 类方法/webview 驼峰等）、KNOWN_GAPS 8 项审计白名单（default_window_icon/dataStore/autoResize/reparent 等）；deny `!cmd` 语法纳入校验；App.permissionSnapshot() 只读暴露——G14 |
 | F10 ◐ | capability remote 字段已入 schema（解析+携带，注释注明 IPC 无 origin 信息故暂不 enforcement——ztron:// 单源模型）；真正 enforcement 待远程前端出现时随 origin 追踪落地——G16|

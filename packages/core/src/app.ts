@@ -25,7 +25,7 @@ import type {
   WindowConfig,
 } from "./runtime.js";
 import { StateManager } from "./state.js";
-import { buildInitScript } from "@zturnlibs/inject";
+import { buildInitScript } from "@ztron/inject";
 import {
   PermissionRegistry,
   ResolvedAcl,
@@ -38,7 +38,7 @@ export interface AppConfig {
   /** Reverse-domain identifier, e.g. `com.example.app`. */
   identifier: string;
   appName?: string;
-  version?: string;  /** The `__TAURI_INVOKE_KEY__` used to authenticate IPC messages. */
+  version?: string;  /** The `__ZTRON_INVOKE_KEY__` used to authenticate IPC messages. */
   invokeKey: string;
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
@@ -67,7 +67,7 @@ export interface AppConfig {
   plugins?: Record<string, unknown>;
   mainBinaryName?: string;
   productName?: string;
-  /** Override the default `__TAURI_INTERNALS__` init script. */
+  /** Override the default `__ZTRON_INTERNALS__` init script. */
   initScript?: string;
   /**
    * Capability files restricting which commands each window may invoke.
@@ -129,16 +129,16 @@ export class App {
     this.#invokeKey = config.invokeKey;
     this.#eventManager = new EventManager((label) => this.getWebview(label));
     this.#adapter.tray?.onEvent(() => {
-      this.emit("tauri://tray-click");
+      this.emit("ztron://tray-click");
     });
     this.#adapter.menu?.onEvent((event) => {
-      this.emit("tauri://menu", event);
+      this.emit("ztron://menu", event);
     });
     this.#adapter.globalShortcut?.onEvent((event) => {
-      this.emit("tauri://global-shortcut", event);
+      this.emit("ztron://global-shortcut", event);
     });
     this.#adapter.deepLink?.onEvent((url) => {
-      this.emit("tauri://deep-link", { url });
+      this.emit("ztron://deep-link", { url });
     });
 
     this.registerBuiltinCommands();
@@ -1288,8 +1288,8 @@ export class App {
     this.#windows.set(cfg.label, { handle, events: new EventTarget() });
     this.#applyStartupWindowState(cfg, handle);
 
-    // Bind the IPC entry FIRST so `window.__TAURI_IPC__` exists in the page.
-    // The `__TAURI_INTERNALS__` bootstrap is embedded into the page itself
+    // Bind the IPC entry FIRST so `window.__ZTRON_IPC__` exists in the page.
+    // The `__ZTRON_INTERNALS__` bootstrap is embedded into the page itself
     // (webview/webview's `webview_init` is a post-handler setter, not a place
     // to inject arbitrary init code — see DESIGN.md §M0 findings).
     handle.onMessage((id, req) => {
@@ -1319,8 +1319,8 @@ export class App {
 
     /* B1 (upstream parity): creation notifications are app-wide broadcasts
        (upstream emits WINDOW_CREATED/WEBVIEW_CREATED from the event loop). */
-    this.emit("tauri://window-created", { label: cfg.label });
-    this.emit("tauri://webview-created", { label: cfg.label });
+    this.emit("ztron://window-created", { label: cfg.label });
+    this.emit("ztron://webview-created", { label: cfg.label });
 
     const bootstrap =
       this.config.initScript ??
@@ -1402,37 +1402,37 @@ export class App {
   }
 }
 
-/** Maps native window events to Tauri's `tauri://*` event names. */
+/** Maps native window events to Tauri's `ztron://*` event names. */
 function windowEventToTauri(
   event: import("./runtime.js").WindowEvent,
 ): string | null {
   switch (event) {
     case "resize":
-      return "tauri://resize";
+      return "ztron://resize";
     case "move":
-      return "tauri://move";
+      return "ztron://move";
     case "focus":
-      return "tauri://focus";
+      return "ztron://focus";
     case "blur":
-      return "tauri://blur";
+      return "ztron://blur";
     case "close":
-      return "tauri://close-requested";
+      return "ztron://close-requested";
     case "suspended":
-      return "tauri://suspended";
+      return "ztron://suspended";
     case "resumed":
-      return "tauri://resumed";
+      return "ztron://resumed";
     case "scale-change":
-      return "tauri://scale-change";
+      return "ztron://scale-change";
     case "theme-change":
-      return "tauri://theme-changed";
+      return "ztron://theme-changed";
     case "drag-enter":
-      return "tauri://drag-enter";
+      return "ztron://drag-enter";
     case "drag-over":
-      return "tauri://drag-over";
+      return "ztron://drag-over";
     case "drag-drop":
-      return "tauri://drag-drop";
+      return "ztron://drag-drop";
     case "drag-leave":
-      return "tauri://drag-leave";
+      return "ztron://drag-leave";
   }
   return null;
 }

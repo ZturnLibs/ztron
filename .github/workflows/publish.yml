@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   publish:
-    name: publish @zturnlibs/* to GitHub Packages
+    name: publish @ztron/* to GitHub Packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
           node-version: 22
           cache: pnpm
           registry-url: https://npm.pkg.github.com
-          scope: "@zturnlibs"
+          scope: "@ztron"
       - name: install
         run: pnpm install --frozen-lockfile
       - name: build (workspace)

@@ -9,8 +9,8 @@
  *  4. backend destroys the second window (registry cleanup path)
  *  5. main terminates → MULTI_WINDOW_RUNTIME_OK + exit 0
  */
-import { AppBuilder } from "@zturnlibs/core";
-import { HostRuntime } from "@zturnlibs/runtime-ffi";
+import { AppBuilder } from "@ztron/core";
+import { HostRuntime } from "@ztron/runtime-ffi";
 
 declare const tjs: {
   env: Record<string, string | undefined>;
@@ -25,7 +25,7 @@ await runtime.connect();
 const invokeKey = tjs.env.ZTRON_INVOKE_KEY ?? "k";
 
 const bootstrap = (next: string) => `
-  window.__TAURI_INTERNALS__.invoke(${JSON.stringify(next)}, {}).then(
+  window.__ZTRON_INTERNALS__.invoke(${JSON.stringify(next)}, {}).then(
     () => {}, () => {},
   );`;
 
@@ -33,7 +33,7 @@ const mainHtml = `<!doctype html>
 <html><body style="font-family:system-ui;padding:2rem">
   <h1>multiwin main</h1>
   <p id="s">spawning…</p>
-  <script>window.__TAURI_INTERNALS__.invoke("spawn", {}).then(
+  <script>window.__ZTRON_INTERNALS__.invoke("spawn", {}).then(
     () => { document.getElementById("s").textContent = "spawned"; },
     (e) => { document.getElementById("s").textContent = "err " + e; },
   );</script>
@@ -97,7 +97,7 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
 <script>
   var n = 0;
   setInterval(function () {
-    window.__TAURI_INTERNALS__.invoke("stress_ping", { n: n++ }).catch(function () {});
+    window.__ZTRON_INTERNALS__.invoke("stress_ping", { n: n++ }).catch(function () {});
   }, 25);
 </script>`;
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

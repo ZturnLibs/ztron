@@ -1,0 +1,6 @@
+Task 1: complete (files committed; local build blocked by macOS 26 native-dlopen deadlock - build verification deferred to CI docs job, see ledger)
+Task 1: complete (commit fc944f5, review approved; build verification deferred to CI - macOS26 dlopen deadlock; i18n.json shape to confirm at CI)
+Task 2: complete (commit 0673e0e, review approved; minors deferred to final review: findPlaceholders skips .mdx, double-walk in --deploy)
+Task 3: complete (commit f38a442, review approved; minors for final review: README/ROADMAP blob-links, cd-line in quick-start)
+Task 4: complete (commit 2aaead3, review approved; deviations: 13 WindowEventNames, 11 CLI cmds documented; minor: tauri-migration duplicated table-header rows -> fix delegated to Task 5)
+Task 5: complete (commit 7146b43, review approved; parity gates green; minors: events.md wording, under-construction parentheticals, H1/H2 style mix -> final review)

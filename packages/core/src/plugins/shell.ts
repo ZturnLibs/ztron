@@ -152,7 +152,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           ...(env ? { env } : {}),
         });
         const dec = new TextDecoder();
-        // Stream stdout/stderr chunks as tauri://shell-output / shell-error.
+        // Stream stdout/stderr chunks as ztron://shell-output / shell-error.
         const pump = async (
           stream: ReadableStream<Uint8Array> | null,
           event: string,
@@ -166,8 +166,8 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           }
         };
         const [, , status] = await Promise.all([
-          pump(proc.stdout, "tauri://shell-output"),
-          pump(proc.stderr, "tauri://shell-error"),
+          pump(proc.stdout, "ztron://shell-output"),
+          pump(proc.stderr, "ztron://shell-error"),
           proc.wait(),
         ]);
         return { code: status.exitStatus ?? 0 };
@@ -212,11 +212,11 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
             ctx.app.emit(event, { chunk: dec.decode(value, { stream: true }) });
           }
         };
-        void pump(proc.stdout, "tauri://shell-output");
-        void pump(proc.stderr, "tauri://shell-error");
+        void pump(proc.stdout, "ztron://shell-output");
+        void pump(proc.stderr, "ztron://shell-error");
         void proc.wait().then((status) => {
           procs.delete(cid);
-          ctx.app.emit("tauri://shell-terminated", {
+          ctx.app.emit("ztron://shell-terminated", {
             cid,
             code: status.exitStatus ?? 0,
           });

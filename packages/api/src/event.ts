@@ -15,28 +15,28 @@ export type EventTarget =
   | { kind: "WebviewWindow"; label: string };
 
 /**
- * Upstream event-name constants (TauriEvent parity). WINDOW_CREATED /
+ * Upstream event-name constants (ZtronEvent parity). WINDOW_CREATED /
  * WEBVIEW_CREATED fire as app-wide broadcasts on window creation;
  * SUSPENDED/RESUMED are mobile-lifecycle events (desktop hosts do not
  * fire them - names carried for platform parity).
  */
-export enum TauriEvent {
-  WINDOW_RESIZED = "tauri://resize",
-  WINDOW_MOVED = "tauri://move",
-  WINDOW_CLOSE_REQUESTED = "tauri://close-requested",
-  WINDOW_DESTROYED = "tauri://destroyed",
-  WINDOW_FOCUS = "tauri://focus",
-  WINDOW_BLUR = "tauri://blur",
-  WINDOW_SCALE_FACTOR_CHANGED = "tauri://scale-change",
-  WINDOW_THEME_CHANGED = "tauri://theme-changed",
-  WINDOW_CREATED = "tauri://window-created",
-  WINDOW_SUSPENDED = "tauri://suspended",
-  WINDOW_RESUMED = "tauri://resumed",
-  WEBVIEW_CREATED = "tauri://webview-created",
-  DRAG_ENTER = "tauri://drag-enter",
-  DRAG_OVER = "tauri://drag-over",
-  DRAG_DROP = "tauri://drag-drop",
-  DRAG_LEAVE = "tauri://drag-leave",
+export enum ZtronEvent {
+  WINDOW_RESIZED = "ztron://resize",
+  WINDOW_MOVED = "ztron://move",
+  WINDOW_CLOSE_REQUESTED = "ztron://close-requested",
+  WINDOW_DESTROYED = "ztron://destroyed",
+  WINDOW_FOCUS = "ztron://focus",
+  WINDOW_BLUR = "ztron://blur",
+  WINDOW_SCALE_FACTOR_CHANGED = "ztron://scale-change",
+  WINDOW_THEME_CHANGED = "ztron://theme-changed",
+  WINDOW_CREATED = "ztron://window-created",
+  WINDOW_SUSPENDED = "ztron://suspended",
+  WINDOW_RESUMED = "ztron://resumed",
+  WEBVIEW_CREATED = "ztron://webview-created",
+  DRAG_ENTER = "ztron://drag-enter",
+  DRAG_OVER = "ztron://drag-over",
+  DRAG_DROP = "ztron://drag-drop",
+  DRAG_LEAVE = "ztron://drag-leave",
 }
 
 export interface Event<T> {

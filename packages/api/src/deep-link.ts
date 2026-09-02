@@ -1,6 +1,6 @@
 /**
  * Deep-link API — a port of Tauri's `tauri-plugin-deep-link`, backed by the
- * built-in `plugin:deep-link|*` commands and the `tauri://deep-link` event.
+ * built-in `plugin:deep-link|*` commands and the `ztron://deep-link` event.
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
@@ -17,7 +17,7 @@ export async function getCurrentUrl(): Promise<string | null> {
 export async function onDeepLink(
   handler: (url: string) => void,
 ): Promise<() => Promise<void>> {
-  return listen<{ url: string }>("tauri://deep-link", (e) =>
+  return listen<{ url: string }>("ztron://deep-link", (e) =>
     handler(e.payload.url),
   );
 }

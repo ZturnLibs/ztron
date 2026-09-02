@@ -99,7 +99,7 @@ export class EventManager {
           continue;
         }
         webview.eval(
-          `window.__TAURI_INTERNALS__.runCallback(${listener.callbackId}, ${serializeEvent(event, eventId, payload)})`,
+          `window.__ZTRON_INTERNALS__.runCallback(${listener.callbackId}, ${serializeEvent(event, eventId, payload)})`,
         );
       }
     }

@@ -4,7 +4,7 @@
  *
  * Any command handler may return a `RawResponse` to deliver binary data: the
  * IpcHub serializes it as the wire envelope `{"__ZTRON_RAW__":"<base64>"}` and
- * the injected `__TAURI_INTERNALS__.invoke` unwraps it into a `Uint8Array`
+ * the injected `__ZTRON_INTERNALS__.invoke` unwraps it into a `Uint8Array`
  * before the promise resolves — so frontend `invoke<Uint8Array>(...)` reads
  * binary directly, and base64 decoding lives in exactly one place.
  *

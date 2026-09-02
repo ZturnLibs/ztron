@@ -3,7 +3,7 @@
  * the WebView backend. Mirrors the role of Tauri's `Runtime` trait
  * (`crates/tauri-runtime`).
  *
- * `@zturnlibs/runtime-ffi` implements this on top of the `webview/webview` C API
+ * `@ztron/runtime-ffi` implements this on top of the `webview/webview` C API
  * via `tjs:ffi`; a future Electron/Neutralino backend can implement the same
  * interface without touching the core.
  */
@@ -134,7 +134,7 @@ export type WindowStateOp =
   | "set_effects"
   | "clear_effects";
 
-/** Native window events pushed from the host (mapped to `tauri://*`). */
+/** Native window events pushed from the host (mapped to `ztron://*`). */
 export type WindowEvent =
   | "resize"
   | "move"

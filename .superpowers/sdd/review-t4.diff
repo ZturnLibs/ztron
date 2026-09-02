@@ -1,0 +1,691 @@
+2aaead3 docs(zh): guide section (7 pages) + CLI reference
+
+ docs/zh/guide/_meta.json         |   9 +++
+ docs/zh/guide/architecture.md    |  46 +++++++++++++++
+ docs/zh/guide/config.md          |  82 +++++++++++++++++++++++++++
+ docs/zh/guide/events.md          |  84 +++++++++++++++++++++++++++
+ docs/zh/guide/ipc.md             |  68 ++++++++++++++++++++++
+ docs/zh/guide/security.md        |  80 ++++++++++++++++++++++++++
+ docs/zh/guide/tauri-migration.md |  53 +++++++++++++++++
+ docs/zh/guide/window.md          |  73 ++++++++++++++++++++++++
+ docs/zh/reference/_meta.json     |   3 +
+ docs/zh/reference/cli.md         | 119 +++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 617 insertions(+)
+
+diff --git a/docs/zh/guide/_meta.json b/docs/zh/guide/_meta.json
+new file mode 100644
+index 0000000..173de57
+--- /dev/null
++++ b/docs/zh/guide/_meta.json
+@@ -0,0 +1,9 @@
++[
++  { "text": "架构总览", "link": "/guide/architecture" },
++  { "text": "调用后端命令", "link": "/guide/ipc" },
++  { "text": "事件与 Channel", "link": "/guide/events" },
++  { "text": "窗口", "link": "/guide/window" },
++  { "text": "配置 ztron.conf.json", "link": "/guide/config" },
++  { "text": "安全模型", "link": "/guide/security" },
++  { "text": "从 Tauri 迁移", "link": "/guide/tauri-migration" }
++]
+diff --git a/docs/zh/guide/architecture.md b/docs/zh/guide/architecture.md
+new file mode 100644
+index 0000000..556029e
+--- /dev/null
++++ b/docs/zh/guide/architecture.md
+@@ -0,0 +1,46 @@
++---
++title: 架构总览
++---
++
++Ztron 是一个用 TypeScript 重写的 Tauri 风格跨平台桌面框架，底层基于
++[txiki.js](https://txikijs.org)（约 2MB 的嵌入式 JS 运行时）与系统
++WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
++
++## 双进程数据流
++
++整个框架由两个进程组成，中间以 TCP/JSON 通信（Plan A 原生宿主方案）：
++
++- **ztron-host（原生 C 进程）**：持有系统 WebView 与 GUI 能力，负责
++  窗口、托盘、菜单、对话框等原生侧资源。
++- **tjs backend（txiki.js 进程）**：异步 JS 后端，承载
++  `@zturnlibs/core` 的 IPC、事件、命令、ACL 能力层、插件与更新器。
++
++前端是普通的 Vite 页面，通过 `@zturnlibs/api` 调用
++`invoke/listen/Channel/fs/http/os/store/log/shell` 等能力；打包时后端经
++`tjs compile` 编译为独立可执行文件，再由 `ztron build` 产出 macOS
++`.app`（含签名）。
++
++## 五个包
++
++| Package | 职责 |
++| --- | --- |
++| `@zturnlibs/api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
++| `@zturnlibs/core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
++| `@zturnlibs/runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
++| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
++| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
++
++## 进程间如何协作
++
++后端启动后通过 `runtime-ffi` 的 socket 与 host 建立连接；前端每一次
++`invoke` 都经由注入脚本 `window.__TAURI_INTERNALS__`（由 `inject` 包嵌入）
++进入 IPC 通道，backend 的命令/插件系统处理后按 Tauri 的协议语义回传。
++窗口创建、事件广播、Channel 流式数据都走同一条 TCP/JSON 通路。
++
++## 深入阅读
++
++- 架构决策、里程碑与风险记录见仓库根目录 `DESIGN.md`
++- 与 Tauri 的能力差距与阶段计划见 `ROADMAP.md`
++- 快速上手见「快速开始」；命令调用细节见 [调用后端命令](/guide/ipc)
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/config.md b/docs/zh/guide/config.md
+new file mode 100644
+index 0000000..24e575e
+--- /dev/null
++++ b/docs/zh/guide/config.md
+@@ -0,0 +1,82 @@
++---
++title: 配置 ztron.conf.json
++---
++
++`ztron.conf.json` 是项目配置文件，由 CLI 在 dev/build 时做双层校验
++（CLI fail-fast + core），经 `AppBuilder.fromConfig` 消费。hello 示例
++的完整配置：
++
++```json
++{
++  "entry": "src/main.ts",
++  "frontend": "frontend",
++  "identifier": "com.ztron.hello",
++  "version": "0.1.0",
++  "windows": [
++    {
++      "label": "main",
++      "title": "Ztron M3",
++      "width": 900,
++      "height": 640,
++      "minWidth": 400,
++      "minHeight": 300,
++      "url": "frontend",
++      "titleBarStyle": "visible",
++      "resizable": true
++    },
++    {
++      "label": "conf-second",
++      "title": "From Config",
++      "width": 360,
++      "height": 240,
++      "html": "<p style=\"font-family:system-ui\">declared in ztron.conf.json</p>",
++      "resizable": false,
++      "alwaysOnTop": true,
++      "x": 120,
++      "y": 120
++    }
++  ]
++}
++```
++
++## 核心字段（P1 子集）
++
++来源：`packages/core/src/app.ts` 的 `ProjectConfigFile` 接口。
++
++| 字段 | 说明 |
++| --- | --- |
++| `entry` | 后端入口文件 |
++| `frontend` | 前端目录 |
++| `identifier` | 应用标识 |
++| `productName` | `appName` 的别名（上游命名） |
++| `appName` | 应用名 |
++| `mainBinaryName` | 主二进制名 |
++| `version` | 版本号 |
++| `csp` | 旧顶层 CSP，建议改用 `app.security.csp`（两者均可） |
++| `capabilities` | 旧顶层 capability 列表，建议改用 `app.security.capabilities` |
++| `build.{devUrl,frontendDist,beforeDevCommand,beforeBuildCommand,beforeBundleCommand}` | 构建钩子与前端产物目录 |
++| `app.{withGlobalTauri,macOSPrivateApi}` | 全局 API 注入开关、macOS 私有 API |
++| `app.security.csp` / `devCsp` | 生产/开发 CSP（见[安全模型](/guide/security)） |
++| `app.security.capabilities` | capability 列表（`string[] \| string`） |
++| `app.security.assetProtocol.{scope,requireLiteralLeadingDot}` | 资产协议 scope |
++| `app.security.freezePrototype` | 冻结原型，防篡改 |
++| `bundle.{active,targets,icon,resources,category,publisher,homepage,shortDescription,longDescription,copyright,license}` | 打包元信息 |
++| `plugins` | 插件配置（`Record<string, unknown>`） |
++| `windows[]` | 声明式窗口启动状态（见[窗口](/guide/window)） |
++
++## 校验行为
++
++`validateProjectConfig`（`packages/core/src/app.ts`）：**未知顶层键告警**
++（保留原值并提示 `unknown top-level key "..." (kept as-is)`）；
++**类型/结构违规抛错**——例如 `build` 不是对象、`build.devUrl` 不是
++字符串、`app.withGlobalTauri` 不是布尔值等均直接抛 `ztron.conf.json:
++...` 错误终止。
++
++Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准。
++
++## 后续
++
++P2 计划从 `ProjectConfigFile` 类型自动生成全量配置参考，届时本页字段
++表将由生成器维护。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/events.md b/docs/zh/guide/events.md
+new file mode 100644
+index 0000000..5e7cb13
+--- /dev/null
++++ b/docs/zh/guide/events.md
+@@ -0,0 +1,84 @@
++---
++title: 事件与 Channel
++---
++
++事件系统让后端与前端双向通信：前端可以监听后端发出的任意命名事件，
++也可以向前端/其他窗口定向发送。监听器注册表位于后端的 `EventManager`，
++API 由 `@zturnlibs/api` 的 `event` 模块提供。
++
++## listen / once / emit / emitTo
++
++真实签名（摘自 `packages/api/src/event.ts`）：
++
++```ts
++export async function listen<T>(
++  event: string,
++  handler: EventCallback<T>,
++  options?: Options,
++): Promise<UnlistenFn>;
++
++export type UnlistenFn = () => Promise<void>;
++```
++
++典型用法：
++
++```ts
++import { listen, once, emit, emitTo } from "@zturnlibs/api";
++
++// 监听（options.target 可指定窗口 label，默认 { kind: "Any" }）
++const unlisten = await listen<{ n: number }>("m3:tick", (e) => {
++  console.log(e.payload.n); // e: { event, id, payload }
++});
++await unlisten(); // 不再需要时取消监听
++
++// 只触发一次，触发后自动取消
++await once("app:ready", () => console.log("ready"));
++
++// 向后端发事件（后端会扇出给所有监听者）
++await emit("frontend:poke", { at: Date.now() });
++
++// 定向发送到指定窗口
++await emitTo("main", "broadcast:x", { v: 1 });
++```
++
++## 窗口事件名
++
++`packages/api/src/window.ts` 的 `WindowEventName` 完整列表（原样）：
++
++```ts
++export type WindowEventName =
++  | "resize"
++  | "move"
++  | "focus"
++  | "blur"
++  | "close-requested"
++  | "suspended"
++  | "resumed"
++  | "scale-change"
++  | "theme-changed"
++  | "drag-enter"
++  | "drag-over"
++  | "drag-drop"
++  | "drag-leave";
++```
++
++其中 `suspended`/`resumed` 是为移动端生命周期保留的名字，桌面 host
++不会触发；`drag-*` 四项对应文件拖放（`tauri://drag-enter/over/drop/leave`）。
++`event.ts` 还导出了 Tauri 对齐的 `TauriEvent` 常量枚举（如
++`TauriEvent.WINDOW_RESIZED = "tauri://resize"`），窗口实例上也提供
++`onResized`/`onMoved`/`onScaleChanged`/`onThemeChanged`/`onDragDropEvent`
++等便捷方法。
++
++## Channel：流式数据
++
++一次性 `invoke` 只能返回单值；需要后端持续推送时，在命令参数里传入
++`{ kind: "channel", id }`，后端经 `ctx.getChannel(id)` 拿到句柄后
++`handle.send(...)` 多次推送、`handle.end()` 收尾——hello 示例的
++`m3:stream` 命令即此模式（`M1_EVENTS_CHANNEL_WINDOW_OK` 已验证）。
++
++## 插件监听器
++
++插件侧还有一条 `plugin:*|__listener` 契约（如 log 插件把日志推给
++webview 目标），P2 的插件页会展开。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/ipc.md b/docs/zh/guide/ipc.md
+new file mode 100644
+index 0000000..4529c6a
+--- /dev/null
++++ b/docs/zh/guide/ipc.md
+@@ -0,0 +1,68 @@
++---
++title: 调用后端命令
++---
++
++命令（command）是前端与后端之间的核心调用方式：前端 `invoke` 一个命令名，
++backend 中注册的 handler 执行并返回结果。Ztron 的协议与 Tauri v2 桌面端
++对齐（JSON + callback/error id + Channel）。
++
++## 声明类型化命令
++
++在 `src/commands.ts` 中用 `defineCommand` 声明（可被 `ztron codegen`
++识别，自动生成前端类型绑定）：
++
++```ts
++// src/commands.ts —— 类型化命令（可被 ztron codegen 识别）
++import { defineCommand } from "@zturnlibs/core";
++
++export const greet = defineCommand("my:greet", {
++  args: {} as { name: string },
++  result: "" as string,
++  handler: (args) => `hello, ${args.name}`,
++});
++```
++
++## 注册命令
++
++在 `src/main.ts` 的 `AppBuilder` setup 回调内注册。类型化命令用
++`commandDef`，无需类型时可内联注册：
++
++```ts
++// src/main.ts —— 注册（setup 回调内）
++app.commandDef(greet);            // 类型化
++app.command("m3:echo-port", () => echoPort);  // 内联
++```
++
++## 前端调用
++
++前端直接 `invoke`，泛型参数即返回值类型：
++
++```ts
++// frontend/src/main.ts —— 前端调用
++import { invoke } from "@zturnlibs/api";
++const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
++```
++
++## codegen：类型安全的 invoke
++
++`ztron codegen` 扫描源码中的 `defineCommand`，在 `src/` 下生成
++`ztron-commands.ts` 类型绑定。之后前端可以以完全类型化的方式调用：
++
++```ts
++// frontend/src/main.ts —— codegen 之后（摘自 hello 示例第 103–110 行）
++const g = await import("../../src/ztron-commands.js");
++const greetRes = await g.invoke("my:greet", { name: "codegen" });
++// greetRes 的类型由命令声明推导为 string
++```
++
++类型真源在 TS 侧（与 Tauri 的 Rust 真源相反），靠 codegen 防止前后端
++类型漂移（`CODEGEN_OK` 已在 hello 示例中验证）。
++
++## 命令与安全
++
++命令并非「注册即所有人可调」：每个命令归属某个插件或 core，能否被前端
++调用由 capability 中的权限串（如 `fs:allow-read-file`）与 scope 共同
++决定——越权调用会在后端被拒绝（验证锚点 `ACL_DENY_OK`）。详见
++[安全模型](/guide/security)。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/security.md b/docs/zh/guide/security.md
+new file mode 100644
+index 0000000..b7cdb4f
+--- /dev/null
++++ b/docs/zh/guide/security.md
+@@ -0,0 +1,80 @@
++---
++title: 安全模型
++---
++
++Ztron 沿用 Tauri v2 的 ACL（访问控制列表）模型：**默认全拒**，前端能
++调用的每个命令、能访问的每条路径/URL 都必须在 capability 中显式授权。
++
++## Capability 文件
++
++`capabilities/*.json` 在应用启动时自动加载（默认目录
++`./capabilities`）。摘自 `examples/hello/capabilities/main.json` 头部：
++
++```json
++{
++  "identifier": "main",
++  "description": "Main window: core + path + fs + http + os + store + log + shell.",
++  "windows": [
++    "main"
++  ],
++  "permissions": [
++    "core:default",
++    "path:default",
++    "fs:write-default",
++    "fs:allow-copy",
++    "fs:allow-rename",
++    "fs:allow-stat",
++    "fs:allow-make-dir",
++    "http:default",
++    "os:default",
++    "store:write",
++    "log:default",
++    "shell:default",
++    "updater:default",
++    "sql:default",
++    "autostart:default",
++    "window-state:write",
++    "single-instance:default",
++    "websocket:default",
++    "local-ip:default",
++    "network:default",
++    "upload:default",
++    "persisted-scope:default",
++    "fs:allow-watch",
++    "fs:allow-read-file",
++    "fs:allow-write-file"
++  ]
++}
++```
++
++`identifier` 是 capability 的名字，`windows` 声明它授权给哪些窗口
++label，`permissions` 是权限串列表。
++
++## 权限串格式
++
++权限串统一为 `plugin:permission` 两段式——插件（或 `core`）名 + 具体
++权限。例如 `fs:allow-read-file` 只授权 fs 插件的 readFile 命令；
++`core:default` 是 core 命令的默认集合。未列出的命令调用会被后端拒绝，
++即使该插件的 handler 已注册（验证锚点 `ACL_DENY_OK`）。
++
++## Scope：三种约束模型
++
++权限之外，涉及文件/网络的插件还有 scope 约束，均摘自 hello 的
++`src/main.ts`：
++
++- **PathScope**（fs/store/sql 等）：路径通配模式。
++  `fsPlugin({ scope: psScope })`，其中持久化基线 `scope: { allow: ["$TMP/**"] }`
++  ——只允许临时目录及子树。
++- **HttpScope**（http/updater）：URL 模式。
++  `httpPlugin({ scope: { allow: [{ url: "https://api.github.com/*" }, { url: "http://localhost:*/*" }] } })`。
++  越界 URL 直接拒绝（验证锚点 `HTTP_SCOPE_DENY_OK`）。
++- **store scope**：store 插件自身也有路径白名单。
++  `storePlugin({ scope: { allow: ["$TMP/**"] } })`。
++
++## CSP
++
++生产 CSP 通过 `app.security.csp` 配置，由框架注入页面；开发环境可用
++`devCsp` 单独配置，避免开发服务器的宽松策略进入生产。旧顶层 `csp`
++键仍可用，但建议迁移到 `app.security.csp`。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/tauri-migration.md b/docs/zh/guide/tauri-migration.md
+new file mode 100644
+index 0000000..1032d26
+--- /dev/null
++++ b/docs/zh/guide/tauri-migration.md
+@@ -0,0 +1,53 @@
++---
++title: 从 Tauri 迁移
++---
++
++Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/api` 即从
++`@tauri-apps/api` 翻译而来），迁移成本主要在后端语言：Rust 换成
++TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（原样
++照抄）：
++
++| Rust 模块 | Ztron TS 等价物 |
++| --- | --- |
++| Rust 模块               | Ztron TS 等价物                                |
++| ----------------------- | ---------------------------------------------- |
++| `tauri-runtime-wry`     | `runtime-ffi`(tjs:ffi 绑 webview C API)        |
++| `tauri` core            | `core`(命令/事件/state/插件)                   |
++| `tauri-codegen` 注入    | `inject`(嵌入页面 HTML)                        |
++| `ipc/mod.rs` 协议       | `core/ipc`(JSON + callback/error id + Channel) |
++| `tauri-plugin`          | TS 插件(注册命令 + 权限)                       |
++| `tauri-bundler`         | `tjs compile` + 平台打包脚本                   |
++| `tauri-utils`(配置/CSP) | zod schema + 注入 CSP                          |
++| `@tauri-apps/api`       | `api`(传输层适配,协议不变)                     |
++
++## 命令迁移
++
++Rust 的 `#[tauri::command]` 宏 + `invoke_handler` 注册，改为
++`defineCommand` 类型化声明（配合 `ztron codegen`）或 `app.command(...)`
++内联注册，再在 `AppBuilder` 的 setup 回调中执行 `app.commandDef(greet)`。
++详见[调用后端命令](/guide/ipc)。
++
++## 配置迁移
++
++`tauri.conf.json` → `ztron.conf.json`，大部分字段同名（`identifier`、
++`version`、`build.*`、`app.security.*`、`bundle.*`、`windows[]` 等），
++类型真源从 Rust 结构体变为 TS 的 `ProjectConfigFile` 接口。字段明细见
++[配置 ztron.conf.json](/guide/config)。
++
++## 前端迁移
++
++通常只需改 import：`@tauri-apps/api` → `@zturnlibs/api`。`invoke`、
++`listen`、`emit` 等签名不变，事件常量 `TauriEvent` 同名保留。
++
++## 差异注记
++
++- IPC 载荷是 JSON，不是 MessagePack——但这与 Tauri v2 桌面端一致：
++  研究修正表明桌面端本就没有 MessagePack，真实目标是
++  `InvokeResponseBody::Raw`；Ztron 的 base64-in-JSON 对齐 Tauri 自己
++  在 Android 上的推荐做法（P24）。
++- `app.withGlobalTauri` 已支持（注入 `window.__TAURI_INTERNALS__` 引导，
++  见 `inject` 包）。
++- 能力覆盖度与差距见 `ROADMAP.md`；Windows/Linux host 尚未提供编译
++  与打包，暂无法承诺迁移后的跨平台时间表。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/window.md b/docs/zh/guide/window.md
+new file mode 100644
+index 0000000..cbad865
+--- /dev/null
++++ b/docs/zh/guide/window.md
+@@ -0,0 +1,73 @@
++---
++title: 窗口
++---
++
++Ztron 支持两种创建窗口的方式：声明式（配置驱动，应用启动时由
++`AppBuilder.fromConfig` 应用启动状态）与运行时（通过 `WebviewWindow`
++编程创建/销毁）。
++
++## 声明式：ztron.conf.json 的 windows[]
++
++摘自 `examples/hello/ztron.conf.json` 的双窗配置——main 窗通过
++`url: "frontend"` 占位符加载 Vite 前端，conf-second 窗直接内联 HTML：
++
++```json
++{
++  "windows": [
++    {
++      "label": "main",
++      "title": "Ztron M3",
++      "width": 900,
++      "height": 640,
++      "minWidth": 400,
++      "minHeight": 300,
++      "url": "frontend",
++      "titleBarStyle": "visible",
++      "resizable": true
++    },
++    {
++      "label": "conf-second",
++      "title": "From Config",
++      "width": 360,
++      "height": 240,
++      "html": "<p style=\"font-family:system-ui\">declared in ztron.conf.json</p>",
++      "resizable": false,
++      "alwaysOnTop": true,
++      "x": 120,
++      "y": 120
++    }
++  ]
++}
++```
++
++字段与 Tauri 的 `WindowConfig` 启动状态对齐；`url: "frontend"` 在 dev
++流程解析为开发服务器/构建产物，其他字符串按绝对 URL 加载，省略时回落
++到内联 HTML。验证锚点：`CONF_WINDOW_OK:From Config`（P14）。
++
++## 运行时：WebviewWindow
++
++`@zturnlibs/api` 提供 `WebviewWindow` 类，可在应用运行中创建与销毁
++窗口（multiwin 示例以此做 10 次创建/销毁压力测试）。runtime 创建的
++窗口同样进入 host 的 webview 注册表，具备 label 路由、per-window 事件
++与关闭时的注册表清理。验证锚点：
++
++- `SECOND_WINDOW_OK label=second` —— hello 示例在运行中真实创建并销毁
++  了一个 runtime 窗口（P9）
++- `MULTI_WINDOW_OK`（P6）—— 多窗架构：host webview 注册表 + label 路由
++  + `WebviewWindow`
++
++## 窗口能力一览
++
++窗口状态（尺寸/位置/最小尺寸约束/可最小化等）、透明度、透明、装饰、
++`titleBarStyle`、dock 进度/角标、`setTheme`、监视器查询
++（`availableMonitors` 等）与全部 13 个窗口事件均已可用（见
++[事件与 Channel](/guide/events)）；关键验证锚点：`WIN_STATE_OK`、
++`WIN_EVENT_OK`、`WIN_V2_EXTRAS_OK`、`MONITORS_OK`。
++
++## 平台边界注记
++
++运行时多窗创建在 macOS 已解锁，但 webview 库在运行循环（run loop）中
++对第二个 webview 的创建有过阻塞历史，修复过程（含引擎析构 UAF 的 lib
++补丁）记录在 `DESIGN.md` §75。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/reference/_meta.json b/docs/zh/reference/_meta.json
+new file mode 100644
+index 0000000..acf01a9
+--- /dev/null
++++ b/docs/zh/reference/_meta.json
+@@ -0,0 +1,3 @@
++[
++  { "text": "CLI 参考", "link": "/reference/cli" }
++]
+diff --git a/docs/zh/reference/cli.md b/docs/zh/reference/cli.md
+new file mode 100644
+index 0000000..daafc4c
+--- /dev/null
++++ b/docs/zh/reference/cli.md
+@@ -0,0 +1,119 @@
++---
++title: CLI 参考
++---
++
++`ztron` CLI 提供 `init`/`dev`/`build`/`codegen`/`check`/`signer`/
++`version` 七个主命令（另有 `icon`/`info`/`add`/`migrate` 辅助工具命令，
++见文末）。命令集以 `packages/cli/src/index.ts` 的分发 switch 为准
++（USAGE 字符串尚未收录 codegen/signer）。
++
++```text
++ztron init [dir]                  在 [dir] 脚手架新项目（默认当前目录）
++ztron dev [--entry <file>]        构建 + 在原生 host + tjs backend 下运行
++ztron build [--entry <file>]      产出独立可执行文件与 .app
++ztron codegen                     扫描 defineCommand，生成 src/ztron-commands.ts 类型绑定
++ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
++                                  回归运行：解析应用上报检查项，FULL_OK 且 0 FAIL 才 exit 0；
++                                  --expect 逗号分隔强制要求的 tag
++ztron signer <sub> [--pk-file f] [--sk-file f]
++                                  minisign 兼容密钥生成/签名/验证（generate 等子命令；
++                                  与 jedisct1/minisign 互验）
++ztron version                     打印版本
++```
++
++## ztron init
++
++```text
++ztron init [dir]
++```
++
++在目标目录（缺省为当前目录）脚手架新项目：生成 `src/main.ts` 入口与
++`frontend/` 前端骨架，以及 `ztron.conf.json`。
++
++```bash
++node packages/cli/dist/index.js init my-app
++```
++
++## ztron dev
++
++```text
++ztron dev [--entry <file>]
++```
++
++构建前端（vite）并在原生 host + tjs backend 下运行应用；
++`--entry` 缺省为 `./src/main.ts`。
++
++```bash
++node ../packages/cli/dist/index.js dev --entry src/main.ts
++```
++
++## ztron build
++
++```text
++ztron build [--entry <file>]
++```
++
++`tjs compile` 打包后端为独立可执行文件，并产出 macOS `.app`
++（ad-hoc 签名；亦支持 `.dmg`）。
++
++```bash
++pnpm --filter @ztron/example-hello build
++```
++
++## ztron codegen
++
++扫描 `src/` 下全部 `.ts` 文件中的 `defineCommand` 声明，按命令名去重
++（后者胜）后生成 `src/ztron-commands.ts` 类型绑定，供前端
++`g.invoke("my:greet", {...})` 类型化调用。
++
++```bash
++node ../packages/cli/dist/index.js codegen
++# [ztron] codegen: 3 command(s) -> src/ztron-commands.ts
++```
++
++## ztron check
++
++```text
++ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
++```
++
++回归运行：走完整 dev 流程启动应用，解析其上报的检查项
++（hello 风格的 `frontend reported` 与裸 `TAG_OK` 行）。只有达到
++`FULL_OK` 且 0 个 FAIL 才 exit 0；harness 的判定覆盖子进程退出码。
++`--expect` 用逗号分隔强制要求的 tag，`--timeout`（毫秒）限定总时长。
++
++```bash
++node packages/cli/dist/index.js check --expect SECOND_WINDOW_OK,STRESS_OK
++```
++
++## ztron signer
++
++```text
++ztron signer <sub> [--pk-file f] [--sk-file f]
++```
++
++minisign 兼容的密钥生成/签名/验证，格式与 jedisct1/minisign 线路级
++互验（本工具产出的签名可被真正的 `minisign` 验证，反之亦然）。
++`generate` 子命令额外支持 `--password`（或环境变量
++`ZTRON_SIGNER_PASSWORD`）以 scrypt 加密写入私钥。
++
++```bash
++ztron signer generate
++# signer: generated key pair
++#   public key: minisign.pub
++#   secret key: minisign.key
++```
++
++## ztron version
++
++```bash
++ztron version   # ztron 0.1.0
++```
++
++## 辅助工具命令
++
++switch 中另有：`ztron icon [input] [-o outDir]`（生成 icns/iconset/
++多尺寸 png）、`ztron info`（打印环境信息）、`ztron add <plugin>`
++（向项目添加插件）、`ztron migrate`（迁移旧配置）。
++
++适用版本：`ztron 0.1.0`

@@ -16,7 +16,7 @@ export class Webview {
 
   /** The current webview (label from the bootstrap metadata). */
   static getCurrent(): Webview {
-    const meta = globalThis.window?.__TAURI_INTERNALS__?.metadata as
+    const meta = globalThis.window?.__ZTRON_INTERNALS__?.metadata as
       | { label?: string; currentWebview?: { label?: string } }
       | undefined;
     return new Webview(

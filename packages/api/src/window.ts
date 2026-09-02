@@ -103,19 +103,19 @@ export interface WindowSizeConstraints {
 }
 
 const WINDOW_EVENT = {
-  resize: "tauri://resize",
-  move: "tauri://move",
-  focus: "tauri://focus",
-  blur: "tauri://blur",
-  "close-requested": "tauri://close-requested",
-  "suspended": "tauri://suspended",
-  "resumed": "tauri://resumed",
-  "scale-change": "tauri://scale-change",
-  "theme-changed": "tauri://theme-changed",
-  "drag-enter": "tauri://drag-enter",
-  "drag-over": "tauri://drag-over",
-  "drag-drop": "tauri://drag-drop",
-  "drag-leave": "tauri://drag-leave",
+  resize: "ztron://resize",
+  move: "ztron://move",
+  focus: "ztron://focus",
+  blur: "ztron://blur",
+  "close-requested": "ztron://close-requested",
+  "suspended": "ztron://suspended",
+  "resumed": "ztron://resumed",
+  "scale-change": "ztron://scale-change",
+  "theme-changed": "ztron://theme-changed",
+  "drag-enter": "ztron://drag-enter",
+  "drag-over": "ztron://drag-over",
+  "drag-drop": "ztron://drag-drop",
+  "drag-leave": "ztron://drag-leave",
 } as const;
 
 /** A physical display (values in physical pixels). */
@@ -167,7 +167,7 @@ export class Window {
 
   /** The current window (label from the bootstrap metadata). */
   static getCurrent(): Window {
-    const meta = globalThis.window?.__TAURI_INTERNALS__?.metadata as
+    const meta = globalThis.window?.__ZTRON_INTERNALS__?.metadata as
       | { label?: string; currentWindow?: { label?: string } }
       | undefined;
     return new Window(meta?.currentWindow?.label ?? meta?.label ?? "main");
@@ -410,7 +410,7 @@ export class Window {
   }
 
   /**
-   * Prevents the window from closing; a `tauri://close-requested` event is
+   * Prevents the window from closing; a `ztron://close-requested` event is
    * emitted instead, letting the frontend confirm (then call destroy()).
    */
   async preventClose(prevent: boolean): Promise<void> {
@@ -873,7 +873,7 @@ export class Window {
     });
   }
 
-  // ---- window events (listen to `tauri://*`) ----
+  // ---- window events (listen to `ztron://*`) ----
 
   private async onEvent<T>(
     event: WindowEventName,

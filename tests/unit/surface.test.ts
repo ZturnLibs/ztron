@@ -1,6 +1,6 @@
 /**
  * Surface coverage — asserts the framework registers EXACTLY the commands in
- * the manifest (no missing, no extra) and that @zturnlibs/api exports every value
+ * the manifest (no missing, no extra) and that @ztron/api exports every value
  * the manifest lists.
  */
 import { test } from "node:test";
@@ -20,7 +20,7 @@ test("surface: the app registers every manifest command (and nothing else)", () 
   assert.deepEqual(extra, [], `unexpected commands: ${extra.join(", ")}`);
 });
 
-test("surface: @zturnlibs/api exports every manifest value", () => {
+test("surface: @ztron/api exports every manifest value", () => {
   const missing = [...API_EXPORT_SET].filter((name) => !(name in api));
   assert.deepEqual(missing, [], `missing api exports: ${missing.join(", ")}`);
 
