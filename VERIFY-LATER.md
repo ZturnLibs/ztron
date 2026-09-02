@@ -38,13 +38,9 @@
 - **验证方法**：设 `ZTRON_SIGN_IDENTITY` 为真身份跑 `ztron build`
 - **判定**：`spctl -a -vv` 通过 + Gatekeeper 首启免拦
 
-### B2. 真·minisign 工具互测（G3 尾注）
-- **就绪内容**：线格式按 jedisct1 源码逐字段对齐 + node:crypto 双向互操作全绿
-- **所需**：`brew install minisign`
-- **验证方法**：`minisign -G` 生成 key → Ztron verify；Ztron signer 签名 → `minisign -V`
-- **判定**：双向 verify 通过
-
-### B3. GitHub Packages 重发布
+### ~~B2. 真·minisign 工具互测~~ —— 已完成（DESIGN §124）
+- **四向互测全绿**：①真 minisign 签名 → 我们验证 ✓；②我们解析真 -W 密钥+签名 → 真 minisign 验证 ✓；③真 minisign 加密密钥 → 我们 scrypt 解密（pickparams 语义对齐，9.2s）→ 签名 → 真 minisign 验证 ✓；④我们写入的加密密钥 → 真 minisign 解密签名 ✓
+- **修复两个真 bug**：-W 密钥 chk 全零（上游只在密码路径算校验和）；opslimit/memlimit 槽的 libsodium pickparams 语义 + 循环退出值 off-by-one### B3. GitHub Packages 重发布
 - **就绪内容**：publish.yml 五包拓扑序流水线（0.1.0 已发成功过）；本会话新增 driver 包待入 publish 清单
 - **所需**：GitHub Actions 额度恢复
 - **验证方法**：打 tag `v*` 触发

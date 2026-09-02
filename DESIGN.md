@@ -1297,6 +1297,16 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 124. 真·minisign 四向互测(VERIFY-LATER B2 闭环)
+
+- **D1**:真 minisign 签名 → verifyMinisig ✓(G3 已验,本轮复证)
+- **D2**:我们解析真 -W seckey → signMinisig → 真 minisign -V 通过——**抓到 bug 1**:`-G -W` 的 chk 字段全零(上游 memset 后只在 encrypt_key 密码路径才算 blake2b 校验和;-W 跳过);修复=chk 门只作用于 "Sc" 密钥,与上游行为一致
+- **D3**:真 minisign 加密密钥(默认 SENSITIVE 参数) → 我们解密——**抓到 bug 2**:两 u64 槽是 libsodium 的 (opslimit,memlimit) 而非 (N,r);按 libsodium pickparams 源码实现映射,**又抓 bug 3**:循环 break 时增量不执行,N=1<<N_log2 用退出值本身(我多减了 1,524288 vs 1048576——native scrypt 对拍矩阵瞬间定位);N=2^20 纯 JS 4.7-9.2s 可接受;错密码在校验门拒 ✓
+- **D4**:我们 dumpEncryptedSecretKeyFile 写的密钥 → 真 minisign 输密码解密并签名 ✓——写入方改为逆 pickparams 打包(opslimit=6·r·n 落 maxN=1.5n 精确还原;libsodium floor n·r·6≥32768 显式拒)
+- **教训**:①"自 round-trip 全绿"≠互操作——两头都用自己的包/解包会掩盖语义分歧,必须真工具对拍;②C 循环 break/increment 时序是移植的暗坑,以数值对拍定位;③签名验证(D1/D2)不涉 KDF 所以 G3 就绿,密钥加密互操作(密码学参数语义)是更深一层的兼容
+- **环境恢复记录**:签名服务楔死自愈;分支事故(G15-G20 落在 feat/docs)已 cherry-pick 六提交回 main
+- **终局**:126 tests / 125 pass + ci.sh 全链 exit 0(hello 85 FULL_OK + multiwin/menuprobe)
+
 ## 123. G20 F4 收官:signer 加密 secret key(scrypt)
 
 - **格式**:`kdf_alg="Sc"` 的 SeckeyStruct——scrypt(password, salt32, N, r, p=1) 流 XOR 覆盖尾 104 字节(keynum+sk+blake2b-256 chk),N/r 直接打包进 opslimit/memlimit 两 u64le 槽(默认 N=2^14,r=8 ≡ libsodium scryptsalsa208sha256 默认,字节布局与 minisign 对齐);解密以 blake2b 校验门拒错密码(与上游同语义)
