@@ -204,11 +204,9 @@ jobs:
       - name: locale parity
         run: pnpm run check:locales
       # Regenerates both locales, then fails on any documented symbol
-      # missing an api-zh.json key (or any orphaned key). Soft until the
-      # translation batches land (P2 T9); remove continue-on-error then.
-      - name: api translation coverage (strict, soft until T9)
+      # missing an api-zh.json key (or any orphaned key).
+      - name: api translation coverage (strict)
         run: pnpm run gen:api:check
-        continue-on-error: true
       # Hard gate: the committed reference/commands.md pages must match a
       # fresh generation from tests/helpers/manifest.ts (no drift).
       - name: command reference drift

@@ -1602,5 +1602,167 @@
   },
   "window-state.windowState.__type.save.__type": {
     "summary": "持久化当前窗口几何并返回所保存的内容。"
+  },
+  "store.Store": {
+    "summary": "资源风格的 store 实例（上游 Store 对齐）：显式生命周期、实例级 autoSave 与变更监听；旧版函数面继续作用于同一批文件。"
+  },
+  "store.Store.load": {
+    "summary": "装载/附着 store 文件（autoSave 缺省为上游的 true）。"
+  },
+  "store.Store.onChange": {
+    "summary": "订阅 set/delete/reset 变更；返回取消监听函数。"
+  },
+  "store.Store.reset": {
+    "summary": "清空 store（按 autoSave 持久化；推送 reset 事件）。"
+  },
+  "store.Store.save": {
+    "summary": "无视 autoSave 立即持久化。"
+  },
+  "store.Store.saveTo": {
+    "summary": "把本 store 的 JSON 持久化到另一个路径。"
+  },
+  "store.Store.close": {
+    "summary": "冲刷（autoSave）并卸载实例。"
+  },
+  "store.StoreChangeEvent": {
+    "summary": "经 onChange 通道推送的变更记录（G9/D2）。"
+  },
+  "log.AttachConsoleOptions.logger": {
+    "summary": "每条记录的自定义 sink（缺省 console.log）。"
+  },
+  "log.LogSink": {
+    "summary": "客户端日志 sink（上游 attachLogger 形态）：接收级别与消息。"
+  },
+  "log.attachConsole": {
+    "summary": "镜像 @tauri-apps/plugin-log 的 attachConsole：经 addPluginListener('log','log',…) 契约订阅后端在 webview 目标下推送的每条记录。返回取消监听函数。"
+  },
+  "log.attachLogger": {
+    "summary": "注册客户端日志 sink，接收本页面发起的每一次 log* 调用（对齐上游 attachLogger 的 webview 目标；后端目标保留各自的 sink）。返回移除函数。"
+  },
+  "log.detachLogger": {
+    "summary": "移除之前注册的 sink。"
+  },
+  "sql.Database.load": {
+    "summary": "打开（或创建）数据库文件；返回一个池化连接。"
+  },
+  "sql.Database.execute": {
+    "summary": "执行 INSERT/UPDATE/DELETE（或任何非 SELECT）语句。"
+  },
+  "sql.Database.select": {
+    "summary": "执行 SELECT 并返回行。"
+  },
+  "stronghold.Stronghold": {
+    "summary": "每保险库句柄（上游 Stronghold 对象精神）：绑定路径，密码在会话期随实例保存。"
+  },
+  "stronghold.Stronghold.close": {
+    "summary": "脏则冲刷，并忘记密码。"
+  },
+  "stronghold.Stronghold.reload": {
+    "summary": "丢弃未保存状态并从磁盘重新打开。"
+  },
+  "internals.CallbackHandle": {
+    "summary": "回调句柄（`transformCallback` 返回的形态，携带数字 id）。"
+  },
+  "internals.Internals": {
+    "summary": "`@zturnlibs/ztron-inject` 必须暴露在 window 全局上的完整契约。"
+  },
+  "internals.Internals.invoke": {
+    "summary": "向后端发送消息并以响应 resolve。"
+  },
+  "internals.Internals.transformCallback": {
+    "summary": "注册一个 JS 回调并把它的标识符返回给后端。"
+  },
+  "internals.Internals.unregisterCallback": {
+    "summary": "按标识符移除之前注册的回调。"
+  },
+  "internals.Internals.runCallback": {
+    "summary": "调用一个已注册的回调（由后端经 eval 触发）。"
+  },
+  "internals.Internals.convertFileSrc": {
+    "summary": "把文件路径转换为 WebView 可加载的 URL。"
+  },
+  "internals.Internals.postMessage": {
+    "summary": "向后端发送一条原始 IPC 消息。"
+  },
+  "internals.Internals.metadata": {
+    "summary": "由后端注入的窗口元数据。"
+  },
+  "internals.InvokeArgs": {
+    "summary": "`Internals.invoke` 接受的命令参数形态。"
+  },
+  "internals.InvokeOptions": {
+    "summary": "转发给后端的 invoke 选项。"
+  },
+  "internals.internals": {
+    "summary": "带友好报错的访问器：不在 Ztron WebView 中运行时抛出异常。"
+  },
+  "mocks.mockIPC": {
+    "summary": "把页面的 invoke 传输换成内存处理器，让前端逻辑无需后端即可单测。"
+  },
+  "mocks.mockWindows": {
+    "summary": "注入窗口元数据（currentWindow/currentWebview 的 label 等）——`Window.getCurrent()` / `Webview.getCurrent()` 读取的形态。"
+  },
+  "mocks.mockConvertFileSrc": {
+    "summary": "覆盖 convertFileSrc，用于资源 URL 断言。"
+  },
+  "mocks.clearMocks": {
+    "summary": "恢复上述 mock 安装的真实传输/元数据。"
+  },
+  "opener.openUrl": {
+    "summary": "用默认（或指定）应用打开 URL。"
+  },
+  "opener.openPath": {
+    "summary": "用默认（或指定）应用打开路径（文件/目录）。"
+  },
+  "opener.revealItemInDir": {
+    "summary": "在文件管理器中显示该路径并选中条目。"
+  },
+  "os.locale": {
+    "summary": "系统 locale 标签（如 \"en-US\"），未知时为 null。"
+  },
+  "os.type": {
+    "summary": "操作系统类型（如 \"Darwin\"、\"Windows_NT\"、\"Linux\"）。"
+  },
+  "os.family": {
+    "summary": "操作系统家族（如 \"macos\"、\"windows\"、\"linux\"）。"
+  },
+  "os.eol": {
+    "summary": "换行序列（\"\\n\" 或 \"\\r\\n\"）。"
+  },
+  "os.os.__type.locale.__type": {
+    "summary": "系统 locale 标签（如 \"en-US\"），未知时为 null。"
+  },
+  "os.os.__type.type.__type": {
+    "summary": "操作系统类型（如 \"Darwin\"、\"Windows_NT\"、\"Linux\"）。"
+  },
+  "os.os.__type.family.__type": {
+    "summary": "操作系统家族（如 \"macos\"、\"windows\"、\"linux\"）。"
+  },
+  "os.os.__type.eol.__type": {
+    "summary": "换行序列（\"\\n\" 或 \"\\r\\n\"）。"
+  },
+  "single-instance.isPrimaryInstance": {
+    "summary": "本进程是否为主（最先启动的）实例。"
+  },
+  "single-instance.onSecondInstance": {
+    "summary": "监听第二个实例试图启动；handler 在主实例上运行，收到副实例的 argv/cwd（argv 目前恒为空数组）。"
+  },
+  "single-instance.singleInstance.__type.isPrimary.__type": {
+    "summary": "本进程是否为主（最先启动的）实例。"
+  },
+  "single-instance.singleInstance.__type.onSecondInstance.__type": {
+    "summary": "监听第二个实例试图启动；handler 在主实例上运行，收到副实例的 argv/cwd（argv 目前恒为空数组）。"
+  },
+  "deep-link.getCurrentUrl": {
+    "summary": "最近一次的深链 URL（应用正常启动时为 null）。"
+  },
+  "deep-link.onDeepLink": {
+    "summary": "订阅应用运行期间打开的深链 URL；handler 收到完整的 `ztron://…` URL。"
+  },
+  "deep-link.deepLink.__type.getCurrentUrl.__type": {
+    "summary": "最近一次的深链 URL（应用正常启动时为 null）。"
+  },
+  "deep-link.deepLink.__type.onDeepLink.__type": {
+    "summary": "订阅应用运行期间打开的深链 URL；handler 收到完整的 `ztron://…` URL。"
   }
 }

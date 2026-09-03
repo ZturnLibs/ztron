@@ -27,5 +27,14 @@
   { "type": "file", "name": "updater", "label": "Updater (updater)" },
   { "type": "file", "name": "persisted-scope", "label": "Persisted Scope (persisted-scope)" },
   { "type": "file", "name": "window-state", "label": "Window State (window-state)" },
-  { "type": "file", "name": "positioner", "label": "Positioner (positioner)" }
+  { "type": "file", "name": "positioner", "label": "Positioner (positioner)" },
+  { "type": "file", "name": "store", "label": "Persistent KV Store (store)" },
+  { "type": "file", "name": "log", "label": "Structured Logging (log)" },
+  { "type": "file", "name": "sql", "label": "SQLite Database (sql)" },
+  { "type": "file", "name": "stronghold", "label": "Encrypted Vault (stronghold)" },
+  { "type": "file", "name": "autostart", "label": "Autostart (autostart)" },
+  { "type": "file", "name": "single-instance", "label": "Single Instance (single-instance)" },
+  { "type": "file", "name": "deep-link", "label": "Deep Link (deep-link)" },
+  { "type": "file", "name": "opener", "label": "Opener (opener)" },
+  { "type": "file", "name": "mobile", "label": "Mobile Plugins Overview (mobile)" }
 ]

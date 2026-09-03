@@ -27,5 +27,14 @@
   { "type": "file", "name": "updater", "label": "应用更新（updater）" },
   { "type": "file", "name": "persisted-scope", "label": "持久化作用域（persisted-scope）" },
   { "type": "file", "name": "window-state", "label": "窗口状态（window-state）" },
-  { "type": "file", "name": "positioner", "label": "窗口定位（positioner）" }
+  { "type": "file", "name": "positioner", "label": "窗口定位（positioner）" },
+  { "type": "file", "name": "store", "label": "持久化键值存储（store）" },
+  { "type": "file", "name": "log", "label": "结构化日志（log）" },
+  { "type": "file", "name": "sql", "label": "SQLite 数据库（sql）" },
+  { "type": "file", "name": "stronghold", "label": "加密保险库（stronghold）" },
+  { "type": "file", "name": "autostart", "label": "开机自启（autostart）" },
+  { "type": "file", "name": "single-instance", "label": "单实例（single-instance）" },
+  { "type": "file", "name": "deep-link", "label": "深层链接（deep-link）" },
+  { "type": "file", "name": "opener", "label": "打开器（opener）" },
+  { "type": "file", "name": "mobile", "label": "移动端插件一览（mobile）" }
 ]
