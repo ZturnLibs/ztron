@@ -41,4 +41,4 @@ pnpm build
 
 `@zturnlibs/ztron-*` 系列包当前以 `workspace:` 协议解析，因此 `ztron init` 脚手架创建的新项目必须位于本 monorepo 内，才能正确解析依赖。发布管线已就绪（打 tag 触发 `publish.yml`，发布到 GitHub Packages）；解除此限制后本节将随之更新。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

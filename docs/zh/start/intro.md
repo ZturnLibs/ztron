@@ -33,4 +33,4 @@ Ztron 是一个 Tauri 风格的跨平台桌面应用框架，核心以 TypeScrip
 
 Ztron 的 API 协议与 `@tauri-apps/api` 同构，`@zturnlibs/ztron-api` 即其移植，前端代码多数情况下只需替换导入来源。IPC、能力（ACL/capabilities）与配置模型均对齐 Tauri v2。两者的差异与迁移注意事项见[迁移指南](/guide/tauri-migration)。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

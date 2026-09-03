@@ -11,7 +11,7 @@ title: 配置 ztron.conf.json
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "windows": [
     {
       "label": "main",
@@ -79,4 +79,4 @@ Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准�
 P2 计划从 `ProjectConfigFile` 类型自动生成全量配置参考，届时本页字段
 表将由生成器维护。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

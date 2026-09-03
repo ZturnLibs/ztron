@@ -83,4 +83,4 @@ pages by the framework; the dev environment can be configured separately with
 legacy top-level `csp` key still works, but migrating to `app.security.csp`
 is recommended.
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

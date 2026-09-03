@@ -75,4 +75,4 @@ has a history of blocking second-webview creation in the run loop; the fix
 (including a lib patch for an engine-destruction UAF) is recorded in
 `DESIGN.md` §75.
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

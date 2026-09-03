@@ -66,9 +66,9 @@ export type WindowEventName =
 
 Of these, `suspended`/`resumed` are names reserved for mobile lifecycles; the
 desktop host never fires them; the four `drag-*` entries correspond to file
-drag & drop (`tauri://drag-enter/over/drop/leave`). `event.ts` also exports
-the Tauri-aligned `TauriEvent` constant enum (e.g.
-`TauriEvent.WINDOW_RESIZED = "tauri://resize"`), and window instances offer
+drag & drop (`ztron://drag-enter/over/drop/leave`). `event.ts` also exports
+the `ZtronEvent` constant enum (the counterpart of upstream `TauriEvent`;
+e.g. `ZtronEvent.WINDOW_RESIZED = "ztron://resize"`), and window instances offer
 convenience methods like `onResized`/`onMoved`/`onScaleChanged`/`onThemeChanged`/`onDragDropEvent`.
 
 ## Channel: Streaming Data
@@ -86,4 +86,4 @@ On the plugin side there is also a `plugin:*|__listener` contract (e.g. the
 log plugin pushing logs to a webview target); the P2 plugins page will expand
 on it.
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

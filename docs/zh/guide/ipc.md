@@ -65,4 +65,4 @@ const greetRes = await g.invoke("my:greet", { name: "codegen" });
 决定——越权调用会在后端被拒绝（验证锚点 `ACL_DENY_OK`）。详见
 [安全模型](/guide/security)。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

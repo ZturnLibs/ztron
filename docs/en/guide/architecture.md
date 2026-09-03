@@ -30,14 +30,14 @@ packaging time the backend is compiled into a standalone executable with
 | `@zturnlibs/ztron-api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
 | `@zturnlibs/ztron-core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
 | `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
-| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
+| `@zturnlibs/ztron-inject` | `window.__ZTRON_INTERNALS__` bootstrap (embedded into page HTML) |
 | `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
 
 ## How the Processes Cooperate
 
 After startup, the backend connects to the host via the `runtime-ffi` socket;
 every frontend `invoke` enters the IPC channel through the injected script
-`window.__TAURI_INTERNALS__` (embedded by the `inject` package), and the
+`window.__ZTRON_INTERNALS__` (embedded by the `inject` package), and the
 backend's command/plugin system replies following Tauri's protocol semantics.
 Window creation, event broadcasting, and Channel streaming data all travel over
 the same TCP/JSON path.
@@ -48,4 +48,4 @@ the same TCP/JSON path.
 - Capability gaps versus Tauri and the phased plan are in `ROADMAP.md`
 - For a fast start see "Quick Start"; for command-call details see [Calling Backend Commands](/guide/ipc)
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

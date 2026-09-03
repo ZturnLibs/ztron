@@ -63,9 +63,9 @@ export type WindowEventName =
 ```
 
 其中 `suspended`/`resumed` 是为移动端生命周期保留的名字，桌面 host
-不会触发；`drag-*` 四项对应文件拖放（`tauri://drag-enter/over/drop/leave`）。
-`event.ts` 还导出了 Tauri 对齐的 `TauriEvent` 常量枚举（如
-`TauriEvent.WINDOW_RESIZED = "tauri://resize"`），窗口实例上也提供
+不会触发；`drag-*` 四项对应文件拖放（`ztron://drag-enter/over/drop/leave`）。
+`event.ts` 还导出了 `ZtronEvent` 常量枚举（上游 `TauriEvent` 的对应物；
+如 `ZtronEvent.WINDOW_RESIZED = "ztron://resize"`），窗口实例上也提供
 `onResized`/`onMoved`/`onScaleChanged`/`onThemeChanged`/`onDragDropEvent`
 等便捷方法。
 
@@ -81,4 +81,4 @@ export type WindowEventName =
 插件侧还有一条 `plugin:*|__listener` 契约（如 log 插件把日志推给
 webview 目标），P2 的插件页会展开。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

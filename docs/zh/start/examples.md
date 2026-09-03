@@ -24,4 +24,4 @@ title: 示例
 
 各示例均依赖 monorepo 内的 workspace 包，需先完成[安装](/start/install)与原生链构建。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

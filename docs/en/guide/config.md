@@ -11,7 +11,7 @@ dev/build time in two layers (CLI fail-fast + core), and consumed via
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "windows": [
     {
       "label": "main",
@@ -81,4 +81,4 @@ P2 plans to auto-generate a full configuration reference from the
 `ProjectConfigFile` type; the field table on this page will then be
 maintained by that generator.
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

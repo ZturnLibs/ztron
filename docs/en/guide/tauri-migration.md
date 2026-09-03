@@ -36,8 +36,10 @@ the TS `ProjectConfigFile` interface. Field details are in
 ## Frontend Migration
 
 Usually just change the import: `@tauri-apps/api` → `@zturnlibs/ztron-api`. The
-signatures of `invoke`, `listen`, `emit`, etc. are unchanged, and the event
-constants `TauriEvent` keep their names.
+signatures of `invoke`, `listen`, `emit`, etc. are unchanged; the event
+constant enum is renamed from upstream `TauriEvent` to `ZtronEvent`, and event
+names now carry the `ztron://` prefix (e.g.
+`ZtronEvent.WINDOW_RESIZED = "ztron://resize"`).
 
 ## Difference Notes
 
@@ -46,9 +48,9 @@ constants `TauriEvent` keep their names.
   and the real target is `InvokeResponseBody::Raw`; Ztron's base64-in-JSON
   matches Tauri's own recommended practice on Android (P24).
 - `app.withGlobalTauri` is supported (injecting the
-  `window.__TAURI_INTERNALS__` bootstrap, see the `inject` package).
+  `window.__ZTRON_INTERNALS__` bootstrap, see the `inject` package).
 - Capability coverage and gaps are in `ROADMAP.md`; Windows/Linux hosts are
   not yet compilable or bundleable, so no post-migration cross-platform
   timeline can be promised.
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

@@ -35,7 +35,9 @@ Rust 的 `#[tauri::command]` 宏 + `invoke_handler` 注册，改为
 ## 前端迁移
 
 通常只需改 import：`@tauri-apps/api` → `@zturnlibs/ztron-api`。`invoke`、
-`listen`、`emit` 等签名不变，事件常量 `TauriEvent` 同名保留。
+`listen`、`emit` 等签名不变；事件常量枚举由上游的 `TauriEvent` 更名为
+`ZtronEvent`，事件名前缀相应为 `ztron://`（如
+`ZtronEvent.WINDOW_RESIZED = "ztron://resize"`）。
 
 ## 差异注记
 
@@ -43,9 +45,9 @@ Rust 的 `#[tauri::command]` 宏 + `invoke_handler` 注册，改为
   研究修正表明桌面端本就没有 MessagePack，真实目标是
   `InvokeResponseBody::Raw`；Ztron 的 base64-in-JSON 对齐 Tauri 自己
   在 Android 上的推荐做法（P24）。
-- `app.withGlobalTauri` 已支持（注入 `window.__TAURI_INTERNALS__` 引导，
+- `app.withGlobalTauri` 已支持（注入 `window.__ZTRON_INTERNALS__` 引导，
   见 `inject` 包）。
 - 能力覆盖度与差距见 `ROADMAP.md`；Windows/Linux host 尚未提供编译
   与打包，暂无法承诺迁移后的跨平台时间表。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

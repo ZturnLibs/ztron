@@ -112,7 +112,7 @@ ztron signer generate
 ## ztron version
 
 ```bash
-ztron version   # ztron 0.1.0
+ztron version   # ztron 0.3.0
 ```
 
 ## Utility Commands
@@ -122,4 +122,4 @@ icns/iconset/multi-size pngs), `ztron info` (print environment info),
 `ztron add <plugin>` (add a plugin to the project), and `ztron migrate`
 (migrate legacy configuration).
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

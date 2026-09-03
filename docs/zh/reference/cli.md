@@ -107,7 +107,7 @@ ztron signer generate
 ## ztron version
 
 ```bash
-ztron version   # ztron 0.1.0
+ztron version   # ztron 0.3.0
 ```
 
 ## 辅助工具命令
@@ -116,4 +116,4 @@ switch 中另有：`ztron icon [input] [-o outDir]`（生成 icns/iconset/
 多尺寸 png）、`ztron info`（打印环境信息）、`ztron add <plugin>`
 （向项目添加插件）、`ztron migrate`（迁移旧配置）。
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`

@@ -27,13 +27,13 @@ WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
 | `@zturnlibs/ztron-api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
 | `@zturnlibs/ztron-core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
 | `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
-| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
+| `@zturnlibs/ztron-inject` | `window.__ZTRON_INTERNALS__` 引导（嵌入页面 HTML） |
 | `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
 
 ## 进程间如何协作
 
 后端启动后通过 `runtime-ffi` 的 socket 与 host 建立连接；前端每一次
-`invoke` 都经由注入脚本 `window.__TAURI_INTERNALS__`（由 `inject` 包嵌入）
+`invoke` 都经由注入脚本 `window.__ZTRON_INTERNALS__`（由 `inject` 包嵌入）
 进入 IPC 通道，backend 的命令/插件系统处理后按 Tauri 的协议语义回传。
 窗口创建、事件广播、Channel 流式数据都走同一条 TCP/JSON 通路。
 
@@ -43,4 +43,4 @@ WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
 - 与 Tauri 的能力差距与阶段计划见 `ROADMAP.md`
 - 快速上手见「快速开始」；命令调用细节见 [调用后端命令](/guide/ipc)
 
-适用版本：`ztron 0.1.0`
+适用版本：`ztron 0.3.0`
