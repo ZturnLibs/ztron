@@ -5,8 +5,9 @@ import { defineConfig } from "rspress/config";
 // 勿改用 import.meta.url（会被打进客户端 bundle 导致构建失败）。
 export default defineConfig({
   root: __dirname,
-  // GitHub Pages 项目页子路径；绑定自定义域名后改为 "/"
-  base: "/ztron/",
+  // GitHub Pages：站点产物根 = 主页（website/），docs 挂 /docs/ 子路径，
+  // 由 website.yml 一次性组装部署（避免两个 workflow 互相覆盖 Pages）。
+  base: "/ztron/docs/",
   lang: "zh",
   title: "Ztron",
   icon: "/zturnlabs-icon.png",

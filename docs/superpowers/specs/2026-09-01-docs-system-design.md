@@ -16,7 +16,7 @@
 | 3 | API 文档产生方式 | **TypeDoc 自动生成 + 手写指南**；中英文都要完整 |
 | 4 | MVP 范围 | **骨架 + 快速开始 + 核心指南**（API 参考、插件页进 P2） |
 | 5 | 双语主从 | **中文为 canonical 源，英文为同步镜像**（手写页） |
-| 6 | 部署 | **GitHub Pages 与国内镜像同流程一起发布**（不分先后）。〔2026-09-03 修订：放弃国内镜像，部署目标仅 GitHub Pages，`deploy-mirror.sh` 已删除〕 |
+| 6 | 部署 | **GitHub Pages 与国内镜像同流程一起发布**（不分先后）。〔2026-09-03 修订 1：放弃国内镜像，仅 GitHub Pages〕〔修订 2：因主页 `website/`（Astro）已占用项目 Pages，docs 并入 `website.yml` 单一部署——站点产物根 = 主页，docs 组装到 `/docs/` 子路径（`base: /ztron/docs/`），独立 `docs-deploy.yml` 删除，杜绝互相覆盖〕 |
 | 7 | 安装形态 | **`docs/` 独立安装**（自带 package.json + lockfile，不进 pnpm workspace） |
 
 **按最佳判断落定、评审时可推翻的一项：**
