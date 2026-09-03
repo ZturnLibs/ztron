@@ -213,5 +213,10 @@ jobs:
       # fresh generation from tests/helpers/manifest.ts (no drift).
       - name: command reference drift
         run: pnpm run gen:commands:check
+      # Hard gate: the committed reference/config.md pages must match a
+      # fresh generation from ProjectConfigFile (packages/core/src/app.ts),
+      # including the zh description coverage in translations/config-zh.json.
+      - name: configuration reference drift
+        run: pnpm run gen:config:check
       - name: build
         run: pnpm run build

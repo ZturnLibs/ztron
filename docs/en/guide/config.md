@@ -6,6 +6,8 @@ title: Configuring ztron.conf.json
 dev/build time in two layers (CLI fail-fast + core), and consumed via
 `AppBuilder.fromConfig`. The hello example's full config:
 
+For the full field table see [Reference · Configuration](/reference/config).
+
 ```json
 {
   "entry": "src/main.ts",

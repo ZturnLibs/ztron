@@ -6,6 +6,8 @@ title: 配置 ztron.conf.json
 （CLI fail-fast + core），经 `AppBuilder.fromConfig` 消费。hello 示例
 的完整配置：
 
+全字段说明见[参考 · 配置](/reference/config)。
+
 ```json
 {
   "entry": "src/main.ts",
