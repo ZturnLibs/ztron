@@ -1,0 +1,34 @@
+---
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+const total = s.plugins.groups.reduce((n, g) => n + g.plugins.length, 0);
+---
+<section class="section" id="plugins">
+  <div class="container">
+    <h2 class="section-title">{s.plugins.heading}<em>{s.plugins.headingAccent}</em></h2>
+    <p class="section-sub">{s.plugins.sub}</p>
+    <div class="groups">
+      {s.plugins.groups.map((g) => (
+        <div class="group">
+          <h3>{g.label}</h3>
+          <div class="chips">
+            {g.plugins.map((p) => <span class="chip">{p}</span>)}
+          </div>
+        </div>
+      ))}
+    </div>
+    <p class="count">{total} = 25 ✓</p>
+  </div>
+</section>
+<style>
+  .groups { display: flex; flex-direction: column; gap: 22px; }
+  .group h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin: 0 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 13.5px; color: var(--text-1);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 16px; transition: border-color 0.15s;
+  }
+  .chip:hover { border-color: var(--accent-to); }
+  .count { font-family: var(--font-mono); color: var(--text-3); font-size: 12.5px; margin-top: 26px; }
+</style>

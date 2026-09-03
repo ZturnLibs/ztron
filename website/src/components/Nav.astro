@@ -1,0 +1,63 @@
+---
+import Logo from './Logo.astro';
+import LangSwitcher from './LangSwitcher.astro';
+import { ANCHORS, REPO } from '../i18n/shared';
+interface Props { s: import('../i18n/types').SiteStrings; locale: 'en' | 'zh' }
+const { s, locale } = Astro.props;
+const links = [
+  [ANCHORS.features, s.nav.features],
+  [ANCHORS.architecture, s.nav.architecture],
+  [ANCHORS.plugins, s.nav.plugins],
+  [ANCHORS.status, s.nav.status],
+  [ANCHORS.quickstart, s.nav.quickstart],
+] as const;
+---
+<header class="nav">
+  <div class="container inner">
+    <a href={import.meta.env.BASE_URL} aria-label="Ztron"><Logo /></a>
+    <nav class="links" data-nav-links>
+      {links.map(([href, label]) => <a href={href}>{label}</a>)}
+      <a class="gh" href={REPO} target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+    <LangSwitcher locale={locale} label={s.nav.langLabel} />
+    <button class="burger" aria-label="menu" aria-expanded="false" data-burger>
+      <svg width="20" height="14" viewBox="0 0 20 14"><path d="M1 1h18M1 7h18M1 13h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
+    </button>
+  </div>
+</header>
+<style>
+  .nav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(10, 12, 16, 0.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .inner { display: flex; align-items: center; gap: 20px; height: 60px; }
+  .links { display: flex; gap: 22px; margin-left: auto; font-size: 14px; color: var(--text-2); }
+  .links a:hover { color: var(--text-1); }
+  .gh { color: var(--text-1); }
+  .burger { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text-1); padding: 6px 9px; }
+  @media (max-width: 768px) {
+    .links {
+      display: none; position: absolute; top: 60px; left: 0; right: 0;
+      flex-direction: column; padding: 16px 24px 20px; gap: 14px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .links.open { display: flex; }
+    .burger { display: block; margin-left: auto; }
+    .inner > :global(.lang) { order: 3; }
+  }
+</style>
+<script>
+  const burger = document.querySelector('[data-burger]');
+  const links = document.querySelector('[data-nav-links]');
+  burger?.addEventListener('click', () => {
+    const open = links?.classList.toggle('open');
+    burger.setAttribute('aria-expanded', String(Boolean(open)));
+  });
+  links?.querySelectorAll('a').forEach((a) =>
+    a.addEventListener('click', () => {
+      links.classList.remove('open');
+      burger?.setAttribute('aria-expanded', 'false');
+    })
+  );
+</script>

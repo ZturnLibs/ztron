@@ -4,3 +4,4 @@ Task 2: complete (commit 0673e0e, review approved; minors deferred to final revi
 Task 3: complete (commit f38a442, review approved; minors for final review: README/ROADMAP blob-links, cd-line in quick-start)
 Task 4: complete (commit 2aaead3, review approved; deviations: 13 WindowEventNames, 11 CLI cmds documented; minor: tauri-migration duplicated table-header rows -> fix delegated to Task 5)
 Task 5: complete (commit 7146b43, review approved; parity gates green; minors: events.md wording, under-construction parentheticals, H1/H2 style mix -> final review)
+PR #1 created: https://github.com/ZturnLibs/ztron/pull/1 (feat/home-page -> main; merged main d575107, synced copy to @zturnlibs/ztron-* rename, tests 126/0)

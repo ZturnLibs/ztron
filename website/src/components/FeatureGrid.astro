@@ -1,0 +1,44 @@
+---
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+const paths: Record<string, string> = {
+  runtime: 'M4 11h8M4 11a7 7 0 0 1 14-2M20 13h-8m8 0a7 7 0 0 1-14 2M6 3l2 2M18 21l-2-2',
+  ts: 'M3 3h18v18H3zM9 9l6 6M15 9l-6 6',
+  plugins: 'M4 7h7l2 3h7v8H4zM4 7V5h5l2 2',
+  acl: 'M12 3l8 3v6c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6zM9 12l2 2 4-4',
+  native: 'M3 5h18v12H3zM8 21h8M12 17v4M7 9h6M7 12h4',
+  tests: 'M5 12l4 4L19 6M5 5v14h14',
+};
+---
+<section class="section" id="features">
+  <div class="container">
+    <h2 class="section-title">{s.features.heading}<em>{s.features.headingAccent}</em></h2>
+    <p class="section-sub">{s.features.sub}</p>
+    <svg width="0" height="0" aria-hidden="true">
+      <defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6" /><stop offset="1" stop-color="#22d3ee" /></linearGradient></defs>
+    </svg>
+    <div class="grid">
+      {s.features.items.map((f) => (
+        <article class="card">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#fg)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d={paths[f.icon]} />
+          </svg>
+          <h3>{f.title}</h3>
+          <p>{f.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+<style>
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; transition: border-color 0.15s, transform 0.15s;
+  }
+  .card:hover { border-color: var(--accent-from); transform: translateY(-2px); }
+  .card h3 { font-size: 16.5px; margin: 14px 0 8px; }
+  .card p { color: var(--text-2); font-size: 14.5px; margin: 0; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>
