@@ -46,7 +46,7 @@ export const zh = {
     backendTitle: 'tjs backend',
     backendBody: 'txiki.js · @ztronlibs/core · IPC · 插件 · ACL · 更新器',
     wireLabel: 'TCP · JSON',
-    frontendLabel: 'Vite 前端 → @zturnlibs/api（invoke · listen · Channel）',
+    frontendLabel: 'Vite 前端 → @zturnlibs/ztron-api（invoke · listen · Channel）',
     packagingLabel: 'tjs compile → ztron build → 签名 .app / .dmg',
   },
   plugins: {
@@ -81,7 +81,7 @@ export const zh = {
       {
         id: 'monorepo',
         label: '在 monorepo 内开发',
-        code: 'pnpm install\nscripts/build-native.sh                 # 构建 tjs + ztron-host + webview 库（macOS）\npnpm --filter @ztron/example-hello dev  # vite 构建 + host + backend',
+        code: 'pnpm install\nscripts/build-native.sh                 # 构建 tjs + ztron-host + webview 库（macOS）\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite 构建 + host + backend',
       },
       {
         id: 'scaffold',
@@ -92,13 +92,13 @@ export const zh = {
   },
   packages: {
     heading: '一个工作区，五个包',
-    sub: '以 @zturnlibs/* 发布到 GitHub Packages。',
+    sub: '以 @zturnlibs/ztron-* 发布到 GitHub Packages。',
     items: [
-      { name: '@zturnlibs/api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
-      { name: '@zturnlibs/core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },
-      { name: '@zturnlibs/runtime-ffi', role: 'HostRuntime socket 适配器（Plan A）+ FFI 参考绑定' },
-      { name: '@zturnlibs/inject', role: '注入页面 HTML 的 window.__TAURI_INTERNALS__ 引导' },
-      { name: '@zturnlibs/cli', role: 'ztron dev / build / codegen / init——Vite 构建 + host + 后端' },
+      { name: '@zturnlibs/ztron-api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
+      { name: '@zturnlibs/ztron-core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },
+      { name: '@zturnlibs/ztron-runtime-ffi', role: 'HostRuntime socket 适配器（Plan A）+ FFI 参考绑定' },
+      { name: '@zturnlibs/ztron-inject', role: '注入页面 HTML 的 window.__TAURI_INTERNALS__ 引导' },
+      { name: '@zturnlibs/ztron-cli', role: 'ztron dev / build / codegen / init——Vite 构建 + host + 后端' },
     ],
   },
   footer: {

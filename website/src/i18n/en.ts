@@ -46,7 +46,7 @@ export const en = {
     backendTitle: 'tjs backend',
     backendBody: 'txiki.js · @ztronlibs/core · IPC · plugins · ACL · updater',
     wireLabel: 'TCP · JSON',
-    frontendLabel: 'Vite frontend → @zturnlibs/api (invoke · listen · Channel)',
+    frontendLabel: 'Vite frontend → @zturnlibs/ztron-api (invoke · listen · Channel)',
     packagingLabel: 'tjs compile → ztron build → signed .app / .dmg',
   },
   plugins: {
@@ -81,7 +81,7 @@ export const en = {
       {
         id: 'monorepo',
         label: 'Inside the monorepo',
-        code: 'pnpm install\nscripts/build-native.sh                 # tjs + ztron-host + webview lib (macOS)\npnpm --filter @ztron/example-hello dev  # vite build + host + backend',
+        code: 'pnpm install\nscripts/build-native.sh                 # tjs + ztron-host + webview lib (macOS)\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite build + host + backend',
       },
       {
         id: 'scaffold',
@@ -92,13 +92,13 @@ export const en = {
   },
   packages: {
     heading: 'One workspace, five packages',
-    sub: 'Published to GitHub Packages as @zturnlibs/*.',
+    sub: 'Published to GitHub Packages as @zturnlibs/ztron-*.',
     items: [
-      { name: '@zturnlibs/api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
-      { name: '@zturnlibs/core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },
-      { name: '@zturnlibs/runtime-ffi', role: 'HostRuntime socket adapter (Plan A) + FFI reference bindings' },
-      { name: '@zturnlibs/inject', role: 'window.__TAURI_INTERNALS__ bootstrap injected into page HTML' },
-      { name: '@zturnlibs/cli', role: 'ztron dev / build / codegen / init — Vite build + host + backend' },
+      { name: '@zturnlibs/ztron-api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
+      { name: '@zturnlibs/ztron-core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },
+      { name: '@zturnlibs/ztron-runtime-ffi', role: 'HostRuntime socket adapter (Plan A) + FFI reference bindings' },
+      { name: '@zturnlibs/ztron-inject', role: 'window.__TAURI_INTERNALS__ bootstrap injected into page HTML' },
+      { name: '@zturnlibs/ztron-cli', role: 'ztron dev / build / codegen / init — Vite build + host + backend' },
     ],
   },
   footer: {
