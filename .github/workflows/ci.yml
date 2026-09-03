@@ -209,5 +209,9 @@ jobs:
       - name: api translation coverage (strict, soft until T9)
         run: pnpm run gen:api:check
         continue-on-error: true
+      # Hard gate: the committed reference/commands.md pages must match a
+      # fresh generation from tests/helpers/manifest.ts (no drift).
+      - name: command reference drift
+        run: pnpm run gen:commands:check
       - name: build
         run: pnpm run build
