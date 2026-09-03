@@ -1,6 +1,15 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { getStrings } from '../i18n';
+const s = getStrings('en');
 ---
-<BaseLayout locale="en" title="Ztron" description="placeholder" altPath="/zh/">
-  <main class="container"><p>Ztron — en placeholder</p></main>
+<BaseLayout locale="en" title={s.meta.title} description={s.meta.description} altPath="/zh/">
+  <Nav s={s} locale="en" />
+  <main>
+    {/* Task 4-9 的分区组件依序插入此处的对应锚点位置 */}
+    <p class="container" style="padding:80px 24px;color:var(--text-3)">sections incoming</p>
+  </main>
+  <Footer s={s} />
 </BaseLayout>

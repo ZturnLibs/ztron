@@ -1,0 +1,20 @@
+---
+interface Props { locale: 'en' | 'zh'; label: string }
+const { locale, label } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const href = locale === 'en' ? `${base}zh/` : base;
+const target = locale === 'en' ? 'zh' : 'en';
+---
+<a class="lang" href={href} data-lang-switch={target}>{label}</a>
+<style>
+  .lang {
+    font-size: 13px; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text-2);
+  }
+  .lang:hover { color: var(--text-1); border-color: var(--accent-from); }
+</style>
+<script>
+  document.querySelectorAll<HTMLAnchorElement>('[data-lang-switch]').forEach((a) =>
+    a.addEventListener('click', () => localStorage.setItem('ztron-lang', a.dataset.langSwitch ?? ''))
+  );
+</script>
