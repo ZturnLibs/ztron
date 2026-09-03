@@ -8,5 +8,14 @@
   { "type": "file", "name": "path", "label": "路径（path）" },
   { "type": "file", "name": "image", "label": "图像（image）" },
   { "type": "file", "name": "dpi", "label": "DPI 几何（dpi）" },
-  { "type": "file", "name": "core", "label": "核心 IPC（core）" }
+  { "type": "file", "name": "core", "label": "核心 IPC（core）" },
+  { "type": "file", "name": "fs", "label": "文件系统（fs）" },
+  { "type": "file", "name": "http", "label": "HTTP 客户端（http）" },
+  { "type": "file", "name": "shell", "label": "命令执行（shell）" },
+  { "type": "file", "name": "websocket", "label": "WebSocket（websocket）" },
+  { "type": "file", "name": "network", "label": "网络信息（network）" },
+  { "type": "file", "name": "local-ip", "label": "本机 IP（local-ip）" },
+  { "type": "file", "name": "upload", "label": "文件上传（upload）" },
+  { "type": "file", "name": "localhost", "label": "本地源服务（localhost）" },
+  { "type": "file", "name": "cli", "label": "命令行参数（cli）" }
 ]

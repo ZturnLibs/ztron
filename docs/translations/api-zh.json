@@ -921,5 +921,275 @@
   },
   "process.process.__type.relaunch.__type": {
     "summary": "重启应用。尽力而为：host 以分离方式 respawn 自身后当前进程终止（打包应用中由启动器 respawn 完整的 host + backend 对）。"
+  },
+  "cli.getArgv": {
+    "summary": "原始 argv（含可执行文件 argv[0]）。"
+  },
+  "cli.getMatches": {
+    "summary": "解析后的 CLI 匹配结果（旗标到值、收在 `_` 的位置参数、子命令树）。"
+  },
+  "fs.FileHandle": {
+    "summary": "作用域内的文件句柄（对齐上游 FileHandle）：读写推进内部游标；close() 会刷出缓冲写入。"
+  },
+  "fs.FileHandle.close": {
+    "summary": "刷出并释放句柄。"
+  },
+  "fs.FileHandle.constructor": {
+    "summary": "内部构造——请通过 open() 创建。"
+  },
+  "fs.FileHandle.flush": {
+    "summary": "把缓冲写入刷到磁盘。"
+  },
+  "fs.FileHandle.read": {
+    "summary": "从游标处读取至多 length 字节（线上为 base64）。"
+  },
+  "fs.FileHandle.seek": {
+    "summary": "移动游标；whence 取 \"start\"（默认）| \"current\" | \"end\"。"
+  },
+  "fs.FileHandle.write": {
+    "summary": "在游标处写入字节（并推进游标）。"
+  },
+  "fs.FsPathOptions": {
+    "summary": "v1 fs 函数接受的可选尾参。"
+  },
+  "fs.FsPathOptions.baseDir": {
+    "summary": "相对路径先按该基目录解析。"
+  },
+  "fs.MakeDirOptions": {
+    "summary": "makeDir 的选项。"
+  },
+  "fs.MakeDirOptions.recursive": {
+    "summary": "按需创建父目录；目录已存在时不报错。"
+  },
+  "fs.OpenOptions": {
+    "summary": "open 的选项。"
+  },
+  "fs.OpenOptions.append": {
+    "summary": "写入定位到文件末尾（隐含 write）。"
+  },
+  "fs.OpenOptions.baseDir": {
+    "summary": "相对路径的基目录。"
+  },
+  "fs.OpenOptions.create": {
+    "summary": "文件缺失时创建（配合 write/append）。"
+  },
+  "fs.WatchEvent": {
+    "summary": "文件系统 watch 事件（对齐 Tauri 的 watchEvent）。"
+  },
+  "fs.WatchEvent.path": {
+    "summary": "被改动条目的路径（监视目录时相对该目录；监视文件时即该文件本身）。"
+  },
+  "fs.WatchEvent.type": {
+    "summary": "\"modify\"（内容变化）| \"rename\"（创建/删除/移动）。"
+  },
+  "fs.chmod": {
+    "summary": "修改文件权限位（unix mode）。"
+  },
+  "fs.copyFile": {
+    "summary": "复制文件（源与目标都必须在作用域内）。"
+  },
+  "fs.exists": {
+    "summary": "检查路径是否存在（作用域外的路径报 false）。"
+  },
+  "fs.lstat": {
+    "summary": "不跟随符号链接的 stat。"
+  },
+  "fs.open": {
+    "summary": "打开一个作用域内的文件句柄。"
+  },
+  "fs.readLink": {
+    "summary": "读取符号链接的目标。"
+  },
+  "fs.remove": {
+    "summary": "删除文件（或空目录）。"
+  },
+  "fs.renameFile": {
+    "summary": "重命名/移动文件（两个路径都必须在作用域内）。"
+  },
+  "fs.stat": {
+    "summary": "查询文件元信息（大小/类型/最后修改时间）。"
+  },
+  "fs.truncate": {
+    "summary": "把文件截断（或零填充扩展）到 length 字节。"
+  },
+  "fs.watch": {
+    "summary": "监视路径变化。后端 watcher 就绪后 resolve 出取消监视函数；之后事件经 handler 流式送达。路径必须位于应用的 fs 作用域内（与所有 fs API 一致）。"
+  },
+  "fs.fs.__type.copyFile.__type": {
+    "summary": "复制文件（源与目标都必须在作用域内）。"
+  },
+  "fs.fs.__type.exists.__type": {
+    "summary": "检查路径是否存在（作用域外的路径报 false）。"
+  },
+  "fs.fs.__type.readDir.__type": {
+    "summary": "列出一个目录的内容。"
+  },
+  "fs.fs.__type.readFile.__type": {
+    "summary": "读取一个二进制文件；以原始字节（Uint8Array）resolve（原始 IPC 响应——注入的 invoke 已解开后端信封）。"
+  },
+  "fs.fs.__type.readText.__type": {
+    "summary": "读取一个文本文件（按 UTF-8 解码）。"
+  },
+  "fs.fs.__type.remove.__type": {
+    "summary": "删除文件（或空目录）。"
+  },
+  "fs.fs.__type.renameFile.__type": {
+    "summary": "重命名/移动文件（两个路径都必须在作用域内）。"
+  },
+  "fs.fs.__type.stat.__type": {
+    "summary": "查询文件元信息（大小/类型/最后修改时间）。"
+  },
+  "fs.fs.__type.watch.__type": {
+    "summary": "监视路径变化。后端 watcher 就绪后 resolve 出取消监视函数；之后事件经 handler 流式送达。路径必须位于应用的 fs 作用域内（与所有 fs API 一致）。"
+  },
+  "fs.fs.__type.writeFile.__type": {
+    "summary": "从原始字节（或直接传 base64 字符串）写入一个二进制文件。"
+  },
+  "fs.fs.__type.writeText.__type": {
+    "summary": "写入一个文本文件。"
+  },
+  "http.FetchOptions.responseType": {
+    "summary": "\"text\"（默认）| \"json\" | \"binary\"。流式请用 fetchStream()。"
+  },
+  "http.FetchOptions.timeoutMs": {
+    "summary": "N 毫秒后中止请求。"
+  },
+  "http.HttpResponse.binary": {
+    "summary": "responseType 为 \"binary\" 时提供（字节）。"
+  },
+  "http.HttpResponse.json": {
+    "summary": "responseType 为 \"json\" 时提供。"
+  },
+  "http.HttpStreamResponse": {
+    "summary": "流式响应：先到 headers，body chunk 随到达逐个给出。"
+  },
+  "http.HttpStreamResponse.body": {
+    "summary": "以字节流形式提供的响应体（渐进送达）。"
+  },
+  "http.fetchStream": {
+    "summary": "执行作用域内的 HTTP 请求，响应体以流交付：status + headers 一到 promise 即 resolve，body 随每个网络 chunk（Uint8Array）到达逐个产出——应用无需缓冲整个响应；流中途出错会让 body 的读取 reject。"
+  },
+  "http.http.__type.fetch.__type": {
+    "summary": "执行一个受作用域约束的 HTTP 请求；URL 超出作用域时抛出异常。"
+  },
+  "http.http.__type.fetchStream.__type": {
+    "summary": "执行作用域内的 HTTP 请求，响应体以流交付：status + headers 一到 promise 即 resolve，body 随每个网络 chunk（Uint8Array）到达逐个产出——应用无需缓冲整个响应；流中途出错会让 body 的读取 reject。"
+  },
+  "local-ip.getLocalIpv4": {
+    "summary": "主接口的 IPv4 地址（未知/离线时为 null）。"
+  },
+  "local-ip.localIp.__type.getLocalIpv4.__type": {
+    "summary": "主接口的 IPv4 地址（未知/离线时为 null）。"
+  },
+  "localhost.start": {
+    "summary": "启动（或报告）localhost 静态资源源。"
+  },
+  "localhost.status": {
+    "summary": "当前源状态。"
+  },
+  "localhost.stop": {
+    "summary": "停止该源。"
+  },
+  "localhost.localhost.__type.start.__type": {
+    "summary": "启动（或报告）localhost 静态资源源。"
+  },
+  "localhost.localhost.__type.status.__type": {
+    "summary": "当前源状态。"
+  },
+  "localhost.localhost.__type.stop.__type": {
+    "summary": "停止该源。"
+  },
+  "network.getLocalIpv4": {
+    "summary": "主接口的 IPv4（未知/离线时为 null）。"
+  },
+  "network.getLocalIpv6": {
+    "summary": "主接口的 IPv6（未知时为 null）。"
+  },
+  "network.getPublicIp": {
+    "summary": "公网 IPv4（离线/服务不可达时为 null）。"
+  },
+  "network.network.__type.getLocalIpv4.__type": {
+    "summary": "主接口的 IPv4（未知/离线时为 null）。"
+  },
+  "network.network.__type.getLocalIpv6.__type": {
+    "summary": "主接口的 IPv6（未知时为 null）。"
+  },
+  "network.network.__type.getPublicIp.__type": {
+    "summary": "公网 IPv4（离线/服务不可达时为 null）。"
+  },
+  "shell.Command": {
+    "summary": "对齐 Tauri `Command` 类的命令构建器。stdout/stderr 经 `ztron://shell-output` / `ztron://shell-error` 事件流式送达。"
+  },
+  "shell.Command.execute": {
+    "summary": "运行命令并收集全量输出，resolve 为该输出。"
+  },
+  "shell.Command.kill": {
+    "summary": "终止已 spawn 的命令（默认 SIGTERM）。"
+  },
+  "shell.Command.on": {
+    "summary": "注册事件监听器；返回 this 以便链式调用。"
+  },
+  "shell.Command.sidecar": {
+    "summary": "不支持（Ztron 无 sidecar 打包）。"
+  },
+  "shell.Command.spawn": {
+    "summary": "spawn 命令并流式发出输出事件；进程退出时 resolve。"
+  },
+  "shell.Command.spawnInteractive": {
+    "summary": "长驻 spawn：启动后 resolve 出命令 id；输出持续经 on(\"stdout\"/\"stderr\") 流式送达，终止经 on(\"terminated\")（{cid, code}）。配合 write 与 kill 驱动交互式进程。"
+  },
+  "shell.Command.status": {
+    "summary": "运行命令并 resolve 其退出码。"
+  },
+  "shell.Command.write": {
+    "summary": "向已 spawn 命令的标准输入写入（spawnInteractive 返回的 cid）。"
+  },
+  "shell.executeStream": {
+    "summary": "执行命令，stdout 块一到就回调 onChunk（适合长时命令）。resolve 为退出码。"
+  },
+  "shell.open": {
+    "summary": "用默认浏览器打开 http(s) URL（发出后不等待）。"
+  },
+  "shell.shell.__type.executeStream.__type": {
+    "summary": "执行命令，stdout 块一到就回调 onChunk（适合长时命令）。resolve 为退出码。"
+  },
+  "shell.shell.__type.open.__type": {
+    "summary": "用默认浏览器打开 http(s) URL（发出后不等待）。"
+  },
+  "upload.upload": {
+    "summary": "把文件内容上传到作用域内的 URL（原始 POST）。"
+  },
+  "upload.uploader.__type.upload.__type": {
+    "summary": "把文件内容上传到作用域内的 URL（原始 POST）。"
+  },
+  "websocket.connect": {
+    "summary": "打开 WebSocket 连接；resolve 出连接 id。"
+  },
+  "websocket.disconnect": {
+    "summary": "关闭连接。"
+  },
+  "websocket.onMessage": {
+    "summary": "监听到达的消息：handler({ id, message })。"
+  },
+  "websocket.onStatus": {
+    "summary": "监听连接状态变化：handler({ id, state })。"
+  },
+  "websocket.sendMessage": {
+    "summary": "在连接上发送文本消息。"
+  },
+  "websocket.websocket.__type.connect.__type": {
+    "summary": "打开 WebSocket 连接；resolve 出连接 id。"
+  },
+  "websocket.websocket.__type.disconnect.__type": {
+    "summary": "关闭连接。"
+  },
+  "websocket.websocket.__type.onMessage.__type": {
+    "summary": "监听到达的消息：handler({ id, message })。"
+  },
+  "websocket.websocket.__type.onStatus.__type": {
+    "summary": "监听连接状态变化：handler({ id, state })。"
+  },
+  "websocket.websocket.__type.sendMessage.__type": {
+    "summary": "在连接上发送文本消息。"
   }
 }

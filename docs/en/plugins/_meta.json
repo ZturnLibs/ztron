@@ -8,5 +8,14 @@
   { "type": "file", "name": "path", "label": "Path (path)" },
   { "type": "file", "name": "image", "label": "Image (image)" },
   { "type": "file", "name": "dpi", "label": "DPI (dpi)" },
-  { "type": "file", "name": "core", "label": "Core (core)" }
+  { "type": "file", "name": "core", "label": "Core (core)" },
+  { "type": "file", "name": "fs", "label": "Filesystem (fs)" },
+  { "type": "file", "name": "http", "label": "HTTP client (http)" },
+  { "type": "file", "name": "shell", "label": "Shell (shell)" },
+  { "type": "file", "name": "websocket", "label": "WebSocket (websocket)" },
+  { "type": "file", "name": "network", "label": "Network (network)" },
+  { "type": "file", "name": "local-ip", "label": "Local IP (local-ip)" },
+  { "type": "file", "name": "upload", "label": "Upload (upload)" },
+  { "type": "file", "name": "localhost", "label": "Localhost (localhost)" },
+  { "type": "file", "name": "cli", "label": "CLI (cli)" }
 ]
