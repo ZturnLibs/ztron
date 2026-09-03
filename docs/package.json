@@ -7,12 +7,17 @@
     "dev": "rspress dev",
     "build": "rspress build",
     "preview": "rspress preview",
+    "gen:api": "node --experimental-strip-types scripts/gen-api-docs.ts",
     "check:locales": "node --experimental-strip-types scripts/check-locales.ts",
     "check:locales:deploy": "node --experimental-strip-types scripts/check-locales.ts --deploy",
     "test": "node --experimental-strip-types --test scripts/*.test.ts"
   },
   "dependencies": {
     "rspress": "^1.40.2"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.0"
   },
   "engines": {
     "node": ">=20"

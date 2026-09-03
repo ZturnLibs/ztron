@@ -1,0 +1,18 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["../packages/api/src"],
+  "entryPointStrategy": "expand",
+  "plugin": ["typedoc-plugin-markdown", "./typedoc.zh-plugin.ts"],
+  "readme": "none",
+  "githubPages": false,
+  "router": "module",
+  "entryFileName": "index.md",
+  "membersWithOwnFile": [],
+  "flattenOutputFiles": true,
+  "hideBreadcrumbs": true,
+  "pageTitleTemplates": {
+    "index": "{projectName}",
+    "module": "{name}"
+  },
+  "cleanOutputDir": true
+}
