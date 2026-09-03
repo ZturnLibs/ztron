@@ -9,8 +9,7 @@ const { locale, title, description, altPath } = Astro.props;
 const htmlLang = locale === 'zh' ? 'zh-CN' : 'en';
 const site = Astro.site ?? new URL('https://zturnlibs.github.io');
 const base = import.meta.env.BASE_URL;
-const canonical = new URL(locale === 'en' ? '.' : './', new URL(base, site));
-const alt = new URL(altPath, new URL(base, site));
+const canonical = new URL(locale === 'en' ? base : base + 'zh/', site);
 ---
 <!doctype html>
 <html lang={htmlLang}>
