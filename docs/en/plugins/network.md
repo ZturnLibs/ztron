@@ -45,7 +45,9 @@ const net4 = await getNetworkIpv4();
 const net6 = await getLocalIpv6();
 const pub = await getPublicIp();
 if (net4) {
-  report("NETWORK_OK:" + net4 + ":" + (net6 ?? "none") + ":" + (pub ?? "none"));
+  report(
+    "NETWORK_OK:" + net4 + ":" + (net6 ?? "none") + ":" + (pub ?? "none"),
+  );
 }
 ```
 

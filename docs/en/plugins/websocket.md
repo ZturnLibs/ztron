@@ -43,7 +43,10 @@ const echo = new Promise<string>((resolve) => {
 });
 const { id } = await websocket.connect("wss://ws.postman-echo.com/raw");
 await websocket.sendMessage(id, "ws-echo-test");
-const echoed = await Promise.race([echo, timeout(8000)]);
+const echoed = await Promise.race([
+  echo,
+  new Promise<string | null>((r) => setTimeout(() => r(null), 8000)),
+]);
 await websocket.disconnect(id);
 if (echoed && echoed.includes("ws-echo-test")) {
   report("WEBSOCKET_OK:" + String(echoed).slice(0, 24));

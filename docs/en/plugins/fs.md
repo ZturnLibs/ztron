@@ -102,10 +102,13 @@ await fs.renameFile("$TMP/ztron_m3_copy.txt", "$TMP/ztron_m3_renamed.txt");
 const meta = await fs.stat("$TMP/ztron_m3_renamed.txt");
 ```
 
-ACL behavior (same section of the file): the capability grants
-`fs:write-default` but not `fs:allow-remove`, so `fs.remove(...)` is
-rejected by the backend with "access denied"; `exists()` on an
-out-of-scope path reports **false instead of throwing**.
+ACL behavior: the frontend's section 4b asserts the denial path — the
+capability grants `fs:write-default` but not `fs:allow-remove`, so
+`fs.remove(...)` is rejected by the backend with "access denied"; the
+"out-of-scope `exists()` reports false instead of throwing" is core's
+own behavior (see the exists command in
+`packages/core/src/plugins/fs.ts`: it returns false when
+`scope.tryCheck` yields null), not a frontend assertion.
 
 # Commands
 

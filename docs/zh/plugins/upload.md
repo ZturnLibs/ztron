@@ -20,7 +20,9 @@ import { uploader, upload } from "@zturnlibs/ztron-api/upload";
 权限：`upload:allow-upload`，权限集 **`upload:default`**。
 
 Scope 是**必填**的插件构造参数，双向受限——文件路径走 PathScope、目标
-URL 走 HttpScope，任一越界即抛 `upload: ... scope denied`。摘自
+URL 走 HttpScope，越界分别被两者拒绝（URL 侧抛
+`upload: url scope denied`，文件侧抛 PathScope 的
+`access denied: … is outside the configured scope`）。摘自
 `examples/hello/src/main.ts`：
 
 ```ts

@@ -97,9 +97,11 @@ await fs.renameFile("$TMP/ztron_m3_copy.txt", "$TMP/ztron_m3_renamed.txt");
 const meta = await fs.stat("$TMP/ztron_m3_renamed.txt");
 ```
 
-ACL 行为（同文件锚点段）：capability 只授了 `fs:write-default` 未授
-`fs:allow-remove`，此时 `fs.remove(...)` 会被后端以 "access denied" 拒绝；
-越界路径上的 `exists()` 则**报 false 而非报错**。
+ACL 行为：前端 4b 段断言了拒绝路径——capability 只授了 `fs:write-default`
+未授 `fs:allow-remove`，`fs.remove(...)` 会被后端以 "access denied" 拒绝；
+而"越界路径 `exists()` 报 false 而非报错"是 core 的既定行为（见
+`packages/core/src/plugins/fs.ts` 的 exists 命令：`scope.tryCheck` 为
+null 时直接返回 false），并非前端断言。
 
 # 命令一览
 

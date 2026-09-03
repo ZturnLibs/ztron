@@ -24,7 +24,9 @@ set.
 
 The scope is a **required** plugin construction option, checked on both
 ends — file paths go through a PathScope and the target URL through an
-HttpScope; either violation throws `upload: ... scope denied`. From
+HttpScope; violations are rejected by each respectively (the URL side
+throws `upload: url scope denied`, the file side PathScope's
+`access denied: … is outside the configured scope`). From
 `examples/hello/src/main.ts`:
 
 ```ts

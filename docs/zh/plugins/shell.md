@@ -53,23 +53,33 @@ Scope 来自插件构造：`shellPlugin({ scope })` 是 `ShellScopeEntry[]`—�
 const pwd = await shell.execute("pwd", [], { cwd: shellTmpDir });
 
 // 5f3. shell.open validates http(s) (rejects file:// without opening)
-try { await shell.open("file:///etc/hosts"); } catch { openRejected = true; }
+let openRejected = false;
+try {
+  await shell.open("file:///etc/hosts");
+} catch {
+  openRejected = true;
+}
 
 // 5f4. shell executeStream (progressive stdout chunks)
 const code = await shell.executeStream(
-  "sh", ["-c", "echo one; sleep 1; echo two; sleep 1; echo three"],
+  "sh",
+  ["-c", "echo one; sleep 1; echo two; sleep 1; echo three"],
   { onChunk: (c) => chunks.push(c) },
 );
 
 // 5f5. shell Command class
-const cmdResult = await new shell.Command("sh", ["-c", "echo cmd-class"]).execute();
+const cmd = new shell.Command("sh", ["-c", "echo cmd-class"]);
+const cmdResult = await cmd.execute();
 
 // 5f6. shell interactive: spawn cat, write stdin, stream stdout, kill
+const lines: string[] = [];
 const interactive = new shell.Command("cat", []);
-interactive.on("stdout", (chunk) => lines.push(String(chunk)));
+interactive.on("stdout", (chunk) => {
+  lines.push(String(chunk));
+});
 const cid = await interactive.spawnInteractive();
 await interactive.write(cid, "echo-me-back\n");
-// ... await interactive.kill(cid, 9);
+// ... await interactive.kill(cid, 9).catch(() => {});
 ```
 
 # 命令一览
