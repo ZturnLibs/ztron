@@ -1,0 +1,50 @@
+name: docs-deploy
+
+on:
+  workflow_dispatch:
+  # P1 验收通过后取消注释启用自动发布（spec §8.2）：
+  # push:
+  #   branches: [main]
+  #   paths: ["docs/**", ".github/workflows/docs-deploy.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: github-pages
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: release gate (parity + no placeholders)
+        run: pnpm run check:locales:deploy
+      - name: build
+        run: pnpm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/doc_build
+      - name: sync china mirror
+        env:
+          CHINA_MIRROR_TARGET: ${{ secrets.CHINA_MIRROR_TARGET }}
+          CHINA_MIRROR_SSH_KEY: ${{ secrets.CHINA_MIRROR_SSH_KEY }}
+        run: bash docs/scripts/deploy-mirror.sh
+        working-directory: .
+      - uses: actions/deploy-pages@v4
