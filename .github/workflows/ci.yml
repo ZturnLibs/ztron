@@ -182,3 +182,26 @@ jobs:
           elif [ $code -ne 0 ]; then
             exit $code
           fi
+
+  docs:
+    name: docs (parity + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install (docs is standalone, not a workspace member)
+        run: pnpm install --frozen-lockfile --ignore-workspace
+      - name: unit tests (scripts)
+        run: pnpm test
+      - name: locale parity
+        run: pnpm run check:locales
+      - name: build
+        run: pnpm run build
