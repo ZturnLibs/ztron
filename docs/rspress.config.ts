@@ -39,7 +39,6 @@ export default defineConfig({
       message: `
         <div>
           <div><a href="https://github.com/ZturnLibs/ztron">GitHub</a> · Ztron</div>
-          <div><a href="https://beian.miit.gov.cn/">鄂ICP备2025110122号</a></div>
         </div>
       `,
     },
