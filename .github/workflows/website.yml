@@ -3,7 +3,8 @@ name: website
 on:
   push:
     branches: [main]
-    paths: ['website/**', '.github/workflows/website.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
+    paths:
+      ['website/**', 'docs/**', '.github/workflows/website.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
   workflow_dispatch:
 
 permissions:
@@ -29,8 +30,18 @@ jobs:
           cache: pnpm
       - name: install
         run: pnpm install --frozen-lockfile
+      - name: install docs deps (standalone, not a workspace member)
+        run: pnpm --dir docs install --frozen-lockfile --ignore-workspace
+      - name: docs release gate (parity + no placeholders)
+        run: pnpm --dir docs run check:locales:deploy
       - name: build website
         run: pnpm --filter @zturnlibs/ztron-website build
+      - name: build docs
+        run: pnpm --dir docs run build
+      - name: assemble (docs under /docs/ subpath of the site artifact)
+        run: |
+          mkdir -p website/dist/docs
+          cp -r docs/doc_build/. website/dist/docs/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist

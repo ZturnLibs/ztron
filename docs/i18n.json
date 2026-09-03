@@ -1,0 +1,6 @@
+{
+  "start": { "zh": "开始", "en": "Start" },
+  "guide": { "zh": "指南", "en": "Guide" },
+  "reference": { "zh": "参考", "en": "Reference" },
+  "plugins": { "zh": "插件", "en": "Plugins" }
+}
