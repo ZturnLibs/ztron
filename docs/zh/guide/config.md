@@ -76,9 +76,6 @@ title: 配置 ztron.conf.json
 
 Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准。
 
-## 后续
-
-P2 计划从 `ProjectConfigFile` 类型自动生成全量配置参考，届时本页字段
-表将由生成器维护。
+完整字段说明见[配置参考](/reference/config)。
 
 适用版本：`ztron 0.3.0`

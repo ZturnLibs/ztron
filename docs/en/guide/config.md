@@ -77,10 +77,6 @@ abort directly with a `ztron.conf.json: ...` error.
 Windows/Linux bundling targets are not yet provided; the fields on this page
 all follow macOS behavior.
 
-## What's Next
-
-P2 plans to auto-generate a full configuration reference from the
-`ProjectConfigFile` type; the field table on this page will then be
-maintained by that generator.
+For the full field reference, see the [Config Reference](/reference/config).
 
 适用版本：`ztron 0.3.0`
