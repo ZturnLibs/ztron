@@ -17,7 +17,8 @@
     "docs:dev": "pnpm --dir docs run dev",
     "docs:build": "pnpm --dir docs run build",
     "docs:preview": "pnpm --dir docs run preview",
-    "docs:check": "pnpm --dir docs run check:locales"
+    "docs:check": "pnpm --dir docs run check:locales",
+    "docs:api": "pnpm --dir docs run gen:api"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

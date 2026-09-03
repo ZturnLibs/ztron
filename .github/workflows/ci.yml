@@ -203,5 +203,11 @@ jobs:
         run: pnpm test
       - name: locale parity
         run: pnpm run check:locales
+      # Regenerates both locales, then fails on any documented symbol
+      # missing an api-zh.json key (or any orphaned key). Soft until the
+      # translation batches land (P2 T9); remove continue-on-error then.
+      - name: api translation coverage (strict, soft until T9)
+        run: pnpm run gen:api:check
+        continue-on-error: true
       - name: build
         run: pnpm run build

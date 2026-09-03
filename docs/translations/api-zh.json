@@ -1,0 +1,39 @@
+{
+  "core.invoke": {
+    "summary": "向 Ztron 后端发送一条消息。",
+    "params": {
+      "cmd": "命令名称。",
+      "args": "传给命令的可选参数。",
+      "options": "请求选项。"
+    },
+    "returns": "一个 Promise，成功时 resolve 为后端响应，失败时 reject。"
+  },
+  "event.listen": {
+    "summary": "监听一个事件。",
+    "returns": "一个 Promise，resolve 为取消监听函数（当监听器离开作用域时调用它）。"
+  },
+  "event.emit": {
+    "summary": "向后端发出一个事件（由后端分发给所有监听者）。"
+  },
+  "fs.readFile": {
+    "summary": "读取一个二进制文件；以原始字节（Uint8Array）resolve（原始 IPC 响应——注入的 invoke 已解开后端信封）。"
+  },
+  "fs.writeFile": {
+    "summary": "从原始字节（或直接传 base64 字符串）写入一个二进制文件。"
+  },
+  "fs.readText": {
+    "summary": "读取一个文本文件（按 UTF-8 解码）。"
+  },
+  "fs.writeText": {
+    "summary": "写入一个文本文件。"
+  },
+  "fs.readDir": {
+    "summary": "列出一个目录的内容。"
+  },
+  "window.Window.getCurrent": {
+    "summary": "当前窗口（label 来自引导元数据）。"
+  },
+  "http.fetch": {
+    "summary": "执行一个受作用域约束的 HTTP 请求；URL 超出作用域时抛出异常。"
+  }
+}

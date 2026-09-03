@@ -8,6 +8,7 @@
     "build": "rspress build",
     "preview": "rspress preview",
     "gen:api": "node --experimental-strip-types scripts/gen-api-docs.ts",
+    "gen:api:check": "node --experimental-strip-types scripts/gen-api-docs.ts --check",
     "check:locales": "node --experimental-strip-types scripts/check-locales.ts",
     "check:locales:deploy": "node --experimental-strip-types scripts/check-locales.ts --deploy",
     "test": "node --experimental-strip-types --test scripts/*.test.ts"
