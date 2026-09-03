@@ -9,8 +9,8 @@ title: 持久化键值存储（store）
 `tauri-plugin-store` v2），API 分两层：
 
 - **v1 路径键面**：`get`/`set`/`remove`/`keys`/`values`/`entries`/
-  `clear` 七个函数 + `store` 命名空间，直接以文件路径寻址（字节兼容
-  保留）；
+  `clear` 七个函数（以 `store` 命名空间导出），直接以文件路径寻址
+  （字节兼容保留）；
 - **v2 `Store` 类**（上游风格）：`Store.load` 显式装载实例，带
   autoSave、变更监听（Channel 推送）、`reset`/`save`/`saveTo`/
   `setAutoSave`/`close` 生命周期，与 v1 函数面操作同一批文件。
@@ -32,8 +32,10 @@ import type { StoreChangeEvent } from "@zturnlibs/ztron-api/store";
 路径越界时后端拒绝并报 `store scope denied: <abs>`。权限串三层：
 `store:read`（get/keys/values/entries）、`store:write`（read +
 set/delete/clear/save_store）、`store:default`（再加
-load/save/save_to/reset/close/set_auto_save/on_change 生命周期面）。
-hello 示例声明的是 `store:write`。
+load/save/save_to/reset/close/set_auto_save 生命周期面，共 11 条
+许可）。hello 示例声明的是 `store:write`。注意：`on_change` 不在
+`store:default` 内——需要单独声明 `store:allow-on-change`，否则
+`plugin:store|on_change` 会被 ACL 拒绝。
 
 # 示例
 

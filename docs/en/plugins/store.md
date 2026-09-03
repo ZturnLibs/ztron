@@ -10,8 +10,8 @@ lives in JSON files on disk and survives restarts. It mirrors the
 `tauri-plugin-store` v2). The API has two layers:
 
 - **v1 path-keyed surface**: the seven functions `get`/`set`/
-  `remove`/`keys`/`values`/`entries`/`clear` plus the `store`
-  namespace, addressing stores directly by file path (kept
+  `remove`/`keys`/`values`/`entries`/`clear` (exported as the
+  `store` namespace), addressing stores directly by file path (kept
   byte-compatible);
 - **v2 `Store` class** (upstream style): `Store.load` attaches an
   instance explicitly, with autoSave, change listeners (pushed over a
@@ -36,8 +36,11 @@ Out-of-scope paths are rejected with `store scope denied: <abs>`.
 Permissions come in three tiers: `store:read`
 (get/keys/values/entries), `store:write` (read +
 set/delete/clear/save_store), and `store:default` (plus the
-load/save/save_to/reset/close/set_auto_save/on_change lifecycle
-surface). The hello example declares `store:write`.
+load/save/save_to/reset/close/set_auto_save lifecycle surface — 11
+permissions in total). The hello example declares `store:write`.
+Note: `on_change` is NOT part of `store:default` — declare
+`store:allow-on-change` separately or `plugin:store|on_change` is
+denied by the ACL.
 
 # Example
 
