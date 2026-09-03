@@ -320,16 +320,16 @@ test("window finishing batch (monitors/getAllWindows/traffic light) routes", asy
   assert.deepEqual(w.trafficLightLog, [{ x: 12, y: 12 }]);
 });
 
-test("scale/theme window events carry payloads to tauri:// names", async () => {
+test("scale/theme window events carry payloads to ztron:// names", async () => {
   const { app, mock } = buildApp();
   void app;
   await mock.main.invoke("plugin:event|listen", {
-    event: "tauri://scale-change",
+    event: "ztron://scale-change",
     target: { kind: "Any" },
     handler: 1,
   });
   await mock.main.invoke("plugin:event|listen", {
-    event: "tauri://theme-changed",
+    event: "ztron://theme-changed",
     target: { kind: "Any" },
     handler: 2,
   });
@@ -339,21 +339,21 @@ test("scale/theme window events carry payloads to tauri:// names", async () => {
   });
   mock.main.emitWindowEvent("theme-change", "dark");
   const evals = mock.main.evalLog.join("\n");
-  assert.ok(evals.includes("tauri://scale-change"), evals);
+  assert.ok(evals.includes("ztron://scale-change"), evals);
   assert.ok(evals.includes('"scaleFactor":2'), evals);
-  assert.ok(evals.includes("tauri://theme-changed"), evals);
+  assert.ok(evals.includes("ztron://theme-changed"), evals);
   assert.ok(evals.includes('"payload":"dark"'), evals);
 });
 
 test("drag-drop window events carry paths + physical position payloads", async () => {
   const { mock } = buildApp();
   await mock.main.invoke("plugin:event|listen", {
-    event: "tauri://drag-drop",
+    event: "ztron://drag-drop",
     target: { kind: "Any" },
     handler: 7,
   });
   await mock.main.invoke("plugin:event|listen", {
-    event: "tauri://drag-over",
+    event: "ztron://drag-over",
     target: { kind: "Any" },
     handler: 8,
   });
@@ -363,11 +363,11 @@ test("drag-drop window events carry paths + physical position payloads", async (
   });
   mock.main.emitWindowEvent("drag-over", { position: { x: 130, y: 70 } });
   const evals = mock.main.evalLog.join("\n");
-  assert.ok(evals.includes("tauri://drag-drop"), evals);
+  assert.ok(evals.includes("ztron://drag-drop"), evals);
   assert.ok(evals.includes('"/tmp/a.txt"'), evals);
   assert.ok(evals.includes('"/tmp/b.txt"'), evals);
   assert.ok(evals.includes('"x":120'), evals);
-  assert.ok(evals.includes("tauri://drag-over"), evals);
+  assert.ok(evals.includes("ztron://drag-over"), evals);
   assert.ok(!evals.includes('"paths":[{'), "over carries no paths");
 });
 
@@ -740,6 +740,20 @@ test("fs.watch recursive is an explicit unsupported error", async () => {
   );
 });
 
+test("G16 audit closures: resources close + inner position routing", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:resources|close", { rid: 7 });
+  assert.ok(
+    mock.imageLog.some((l) => l.kind === "destroy" && l.id === 7),
+    "resources|close routes to the image registry",
+  );
+  const ip = await mock.main.invoke("plugin:window|inner_position", {
+    label: "main",
+  });
+  void ip; /* mock returns the windowState passthrough; wire shape covered
+              by the real-host probe below */
+});
+
 test("webview capabilities report the honest per-window model", async () => {
   const { mock } = buildApp();
   const caps = (await mock.main.invoke("plugin:webview|capabilities", {})) as {
@@ -887,6 +901,42 @@ test("tray v2 multi-instance ops route through the adapter", async () => {
   ]) {
     assert.ok(ops.includes(op), `tray op ${op} not routed`);
   }
+});
+
+test("bundle_type does not misdetect bare .exe (windows runner)", async () => {
+  const { mock } = buildApp();
+  const prev = process.execPath;
+  Object.defineProperty(process, "execPath", {
+    value: "C:\\host\\node.exe",
+    configurable: true,
+  });
+  try {
+    assert.equal(await mock.main.invoke("plugin:app|bundle_type", {}), "App");
+  } finally {
+    Object.defineProperty(process, "execPath", {
+      value: prev,
+      configurable: true,
+    });
+  }
+});
+
+test("menu add_submenu routes; runtime Submenu mounting", async () => {
+  const { mock } = buildApp();
+  await mock.main.invoke("plugin:menu|create", {
+    menu: { id: "m0", items: [] },
+  });
+  await mock.main.invoke("plugin:menu|add_submenu", {
+    menuId: "m0",
+    childId: "m0.sub",
+    text: "Sub",
+  });
+  assert.ok(
+    mock.menuLog.some(
+      (l) =>
+        l.op === "add_submenu" &&
+        (l.payload as { childId: string }).childId === "m0.sub",
+    ),
+  );
 });
 
 test("menu v2 ops route through the controller", async () => {

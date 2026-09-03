@@ -38,24 +38,20 @@
 - **验证方法**：设 `ZTRON_SIGN_IDENTITY` 为真身份跑 `ztron build`
 - **判定**：`spctl -a -vv` 通过 + Gatekeeper 首启免拦
 
-### B2. 真·minisign 工具互测（G3 尾注）
-- **就绪内容**：线格式按 jedisct1 源码逐字段对齐 + node:crypto 双向互操作全绿
-- **所需**：`brew install minisign`
-- **验证方法**：`minisign -G` 生成 key → Ztron verify；Ztron signer 签名 → `minisign -V`
-- **判定**：双向 verify 通过
-
-### B3. GitHub Packages 重发布
+### ~~B2. 真·minisign 工具互测~~ —— 已完成（DESIGN §124；2026-09-02 复证四向全绿）
+- **四向互测全绿**：①真 minisign 签名 → 我们验证 ✓；②我们解析真 -W 密钥+签名 → 真 minisign 验证 ✓；③真 minisign 加密密钥 → 我们 scrypt 解密（pickparams 语义对齐，9.2s）→ 签名 → 真 minisign 验证 ✓；④我们写入的加密密钥 → 真 minisign 解密签名 ✓
+- **修复两个真 bug**：-W 密钥 chk 全零（上游只在密码路径算校验和）；opslimit/memlimit 槽的 libsodium pickparams 语义 + 循环退出值 off-by-one### B3. GitHub Packages 重发布
 - **就绪内容**：publish.yml 五包拓扑序流水线（0.1.0 已发成功过）；本会话新增 driver 包待入 publish 清单
 - **所需**：GitHub Actions 额度恢复
 - **验证方法**：打 tag `v*` 触发
-- **判定**：`@zturnlibs/driver@0.1.0` 出现在 Packages
+- **判定**：`@zturnlibs/ztron-driver@0.1.0` 出现在 Packages
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
 
 ### ~~C1. hello 全链 maximize 卡死~~ —— 已修复（DESIGN §117）
 - **真相**：两处自身回归被误判为环境漂移——①G1 窗口事件全局广播 + onCloseRequested 自动销毁兜底，别窗 close-requested 泄漏致 main 被毁；②G3 的 `Buffer.from` 在 tjs 无此全局直接抛错（单测跑在 Node 下有 Buffer，而唯一执行 tjs 的 hello spike 恒红，掩盖了 15 个批次）
 - **修复**：窗口事件 emitTo 按 label 定向（上游语义）+ plugins/b64.ts 双运行时安全助手
-- **验证**：hello 86 检查 FULL_OK 连续 3 轮；**ci.sh 全链 exit 0 首次达成**
+- **验证**：hello 86 检查 FULL_OK（多轮复证）；**ci.sh 全链 exit 0 多次达成（最近 2026-09-02）**
 ### ~~C2. multiwin destroy-flood 段 SIGSEGV~~ —— 已修复（DESIGN §116）
 - **根因**：vendored webview cocoa 后端的 script-message lambda 经 associated object 持有裸 `this`；窗口销毁（主队列延后的 webview_destroy）free 引擎后，WebKit IPC 管道中仍在途的 didPostMessage 稍后投递 → 虚调用读已释放内存 → SIGSEGV
 - **修复**（webview-local.patch 内三重防护）：引擎存活注册表（构造注册/析构入口摘除）+ lambda 投递前 is_alive 校验（死指针→丢弃消息）+ 析构置空 associated 指针（兼防地址复用）
@@ -71,6 +67,6 @@
 
 - 单测 **110 tests / 109 pass / 1 skip**（Node 下需真 tjs 的 PathScope 用例）
 - typecheck 全仓 0 错误；原生 `-Wall -Werror` 干净
-- **ci.sh 全链 exit 0（首次）**：hello 86 FULL_OK ×3 + multiwin 5/5 ×2 + menuprobe 3/3
+- **ci.sh 全链 exit 0（复证通过）**：hello 85/86 FULL_OK + multiwin 5/5 + menuprobe 3~5/5（含 INNER_POS/IMG_READBACK）
 - 提交序列：`69d6e8c..27c2a76` 共 16 个（G1–G15 + 台账）
 - GAP.md 消号 55 项；余项三类化：待环境（本清单）/ 远期深水（stronghold、同窗 webview、自研容器层）/ 平台边界（已文档化探针）

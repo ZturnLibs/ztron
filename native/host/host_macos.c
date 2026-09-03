@@ -6,6 +6,7 @@
  * and native dialogs (NSOpenPanel/NSSavePanel/NSAlert).
  */
 #include <string.h>
+#include <CoreGraphics/CoreGraphics.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -248,18 +249,57 @@ static void zt_reply_frame(int req_id, ZtRect r) {
 #define MAX_IMAGES 32
 static void *g_images[MAX_IMAGES];
 static int g_image_count = 0;
+/* Decoded pixels parallel to the NSImage registry (freed on destroy). */
+static unsigned char *g_image_rgba[MAX_IMAGES];
+static int g_image_rw[MAX_IMAGES];
+static int g_image_rh[MAX_IMAGES];
+
+static unsigned char *image_capture_rgba(id nsImage, int *w, int *h);
 
 static int image_add(id nsImage) {
   if (g_image_count >= MAX_IMAGES) return -1;
   int id = g_image_count;
   g_images[id] = nsImage;
   g_image_count++;
+  /* G17/B11: decode RGBA eagerly so rgba()/size() read back for PNG and
+     path-loaded images too (fromRGBA envelopes stay core-side). */
+  g_image_rgba[id] = image_capture_rgba(nsImage, &g_image_rw[id], &g_image_rh[id]);
   return id;
+}
+
+/* TIFF -> NSBitmapImageRep -> CGImage -> 8-bit RGBA bitmap context. */
+static unsigned char *image_capture_rgba(id nsImage, int *w, int *h) {
+  *w = 0; *h = 0;
+  if (!nsImage) return NULL;
+  id tiff = OBJC_MSG(id(*)(id, SEL), nsImage, sel_registerName("TIFFRepresentation"));
+  if (!tiff) return NULL;
+  id rep = OBJC_MSG(id(*)(id, SEL, id), (id)objc_getClass("NSBitmapImageRep"),
+                    sel_registerName("imageRepWithData:"), tiff);
+  if (!rep) return NULL;
+  CGImageRef cg = (CGImageRef)OBJC_MSG(id(*)(id, SEL), rep, sel_registerName("CGImage"));
+  if (!cg) return NULL;
+  size_t cw = CGImageGetWidth(cg), ch = CGImageGetHeight(cg);
+  if (cw == 0 || ch == 0 || cw * ch > (64u * 1024u * 1024u)) return NULL;
+  unsigned char *buf = (unsigned char *)calloc(cw * ch, 4);
+  if (!buf) return NULL;
+  CGContextRef ctx = CGBitmapContextCreate(
+      buf, cw, ch, 8, cw * 4,
+      CGColorSpaceCreateDeviceRGB(),
+      kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+  if (!ctx) { free(buf); return NULL; }
+  CGContextDrawImage(ctx, CGRectMake(0, 0, cw, ch), cg);
+  CGContextRelease(ctx);
+  *w = (int)cw; *h = (int)ch;
+  return buf;
 }
 static void image_destroy(int img_id) {
   if (img_id >= 0 && img_id < g_image_count) {
     OBJC_MSG(void(*)(id, SEL), g_images[img_id], sel_registerName("release"));
     g_images[img_id] = NULL;
+    free(g_image_rgba[img_id]);
+    g_image_rgba[img_id] = NULL;
+    g_image_rw[img_id] = 0;
+    g_image_rh[img_id] = 0;
   }
 }
 static id image_by_id(int img_id) {
@@ -1198,7 +1238,7 @@ static BOOL zt_should_close(id s, SEL c, id n) {
   }
   const char *label = zt_label_for_window(wnd);
   if (prevent_close_of(label)) {
-    emit_window_event_labeled(label, "close"); /* -> tauri://close-requested */
+    emit_window_event_labeled(label, "close"); /* -> ztron://close-requested */
     return NO;
   }
   /* The engine delegate does not implement windowShouldClose:, but forward
@@ -1670,6 +1710,30 @@ static void tray_create_ext(const char *title, const char *tid) {
   id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
   OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
   OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
+  /* G19/B9: hover tracking (enter/leave/move) with a per-tray owner. */
+  {
+    Class hoverCls = objc_lookUpClass("ZtronTrayHoverTarget");
+    if (hoverCls) {
+      id owner = OBJC_MSG(id(*)(id, SEL), hoverCls, sel_registerName("new"));
+      objc_setAssociatedObject(owner, "ztron-tray-id",
+                               zt_nsstring(tid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(
+          button, sel_registerName("bounds"));
+      /* NSTrackingArea: id initWithRect:options:owner:userInfo:
+         (struct rect arg passes as 4 doubles; options: MouseEntered|Exited|
+         MouseMoved|ActiveAlways = 1|2|16|0x200(NSTrackingActiveAlways? = 128))
+         Actual: Entered=1, Exited=2, MouseMoved=0x10, ActiveAlways=0x80. */
+      id area = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSTrackingArea"),
+                         sel_registerName("alloc"));
+      area = ((id(*)(id, SEL, ZtRect, unsigned long, id, id))objc_msgSend)(
+          area, sel_registerName("initWithRect:options:owner:userInfo:"),
+          b, 1UL | 2UL | 0x10UL | 0x80UL, owner, (id)NULL);
+      if (area)
+        OBJC_MSG(void(*)(id, SEL, id), button,
+                 sel_registerName("addTrackingArea:"), area);
+      OBJC_MSG(void(*)(id, SEL), owner, sel_registerName("release"));
+    }
+  }
   /* statusItemWithLength: returns an autoreleased item; retain it so the
      stored record survives the next autorelease-pool drain. */
   TrayRec *r = &g_trays[g_tray_count++];
@@ -1768,12 +1832,47 @@ static void tray_set_show_menu_on_left_click(const char *tid, int on) {
   tray_relink_menu(tid ? tid : "");
 }
 
+/* ---- G19/B9: per-tray hover target (enter/leave/move via NSTrackingArea;
+   a dedicated owner instance per tray identifies the emitting tray without
+   any button isa-swizzling - the P26 lesson applied). ---- */
+
+static void zt_tray_hover(id self, SEL c, id ev, const char *kind) {
+  (void)c;
+  const char *tid = "";
+  id assoc = objc_getAssociatedObject(self, "ztron-tray-id");
+  if (assoc) {
+    tid = OBJC_MSG(const char *(*)(id, SEL), assoc, sel_registerName("UTF8String"));
+  }
+  ZtPoint p = zt_mouse_screen();
+  char buf[192];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
+           "\"x\":%.0f,\"y\":%.0f}",
+           kind, tid ? tid : "", p.x, p.y);
+  zt_send_line(buf);
+}
+static void zt_tray_enter(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "enter"); }
+static void zt_tray_leave(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "leave"); }
+static void zt_tray_move(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "move"); }
+
 static void install_tray_target(void) {
   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
   class_addMethod(cls, sel_registerName("ztThemeChanged:"), (IMP)zt_theme_changed_cb, "v@:@");
   objc_registerClassPair(cls);
   g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
+
+  Class hover = objc_allocateClassPair((Class)objc_getClass("NSObject"),
+                                       "ZtronTrayHoverTarget", 0);
+  if (hover) {
+    class_addMethod(hover, sel_registerName("mouseEntered:"),
+                    (IMP)zt_tray_enter, "v@:@");
+    class_addMethod(hover, sel_registerName("mouseExited:"),
+                    (IMP)zt_tray_leave, "v@:@");
+    class_addMethod(hover, sel_registerName("mouseMoved:"),
+                    (IMP)zt_tray_move, "v@:@");
+    objc_registerClassPair(hover);
+  }
 }
 
 /* ---- application menu (NSMenu) ---- */
@@ -2482,14 +2581,56 @@ static void dialog_open(Msg *m) {
            m->bool_val ? NO : YES);
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanChooseDirectories:"),
            m->bool_val ? YES : NO);
+  /* G16/D7: wire slots — width=maxFiles, height=canCreateDirectories,
+     aux=comma-joined extension filter (shared Msg fields). */
+  int max_files = m->width > 1 ? m->width : 1;
   OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setAllowsMultipleSelection:"),
-           NO);
+           max_files > 1 ? YES : NO);
+  if (m->height)
+    OBJC_MSG(void(*)(id, SEL, BOOL), panel, sel_registerName("setCanCreateDirectories:"),
+             YES);
+  if (m->aux[0]) {
+    /* Build an NSArray of extension strings from the CSV in m->aux. */
+    id arr = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSMutableArray"),
+                      sel_registerName("array"));
+    char csv[256];
+    strncpy(csv, m->aux, sizeof(csv) - 1);
+    csv[sizeof(csv) - 1] = '\0';
+    char *save = NULL;
+    for (char *tok = strtok_r(csv, ",", &save); tok;
+         tok = strtok_r(NULL, ",", &save)) {
+      OBJC_MSG(void(*)(id, SEL, id), arr, sel_registerName("addObject:"),
+               zt_nsstring(tok));
+    }
+    if (OBJC_MSG(unsigned long(*)(id, SEL), arr, sel_registerName("count")) > 0)
+      OBJC_MSG(void(*)(id, SEL, id), panel, sel_registerName("setAllowedFileTypes:"), arr);
+  }
   long resp = (long)OBJC_MSG(long(*)(id, SEL), panel, sel_registerName("runModal"));
   if (resp == NS_MODAL_OK) {
     id urls = OBJC_MSG(id(*)(id, SEL), panel, sel_registerName("URLs"));
-    id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls, sel_registerName("objectAtIndex:"), 0);
-    const char *path = OBJC_MSG(const char *(*)(id, SEL), url, sel_registerName("fileSystemRepresentation"));
-    zt_reply_string(m->req_id, path ? path : "");
+    unsigned long n = OBJC_MSG(unsigned long(*)(id, SEL), urls, sel_registerName("count"));
+    if (n > 1) {
+      /* Multi-select: reply a JSON array of escaped paths. */
+      char buf[4096];
+      size_t off = 0;
+      buf[off++] = '[';
+      for (unsigned long i = 0; i < n && i < 64; i++) {
+        id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls,
+                          sel_registerName("objectAtIndex:"), i);
+        const char *path = OBJC_MSG(const char *(*)(id, SEL), url,
+                                    sel_registerName("fileSystemRepresentation"));
+        char esc[512];
+        zt_json_escape(path ? path : "", esc, sizeof(esc));
+        off += (size_t)snprintf(buf + off, sizeof(buf) - off, "%s\"%s\"",
+                                i ? "," : "", esc);
+      }
+      snprintf(buf + off, sizeof(buf) - off, "]");
+      zt_reply_query(m->req_id, buf);
+    } else {
+      id url = OBJC_MSG(id(*)(id, SEL, unsigned long), urls, sel_registerName("objectAtIndex:"), 0);
+      const char *path = OBJC_MSG(const char *(*)(id, SEL), url, sel_registerName("fileSystemRepresentation"));
+      zt_reply_string(m->req_id, path ? path : "");
+    }
   } else {
     zt_reply_null(m->req_id);
   }
@@ -2708,6 +2849,33 @@ static int dispatch(Msg *m, webview_t w) {
     }
     return 1;
   }
+  if (strcmp(m->type, "get_inner_position") == 0) {
+    void *wnd = zt_window_of(w);
+    if (m->req_id >= 0 && wnd) {
+      /* contentLayoutRect is an NSRect struct return -> arch-specific
+         indirect return (same ABI treatment as zt_wnd_frame). */
+      ZtRect clr;
+#if defined(__aarch64__)
+      clr = ((ZtRect(*)(id, SEL))objc_msgSend)(
+          (id)wnd, sel_registerName("contentLayoutRect"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          (id)wnd, sel_registerName("contentLayoutRect"), &clr);
+#endif
+      /* Base-coords origin (bottom-left of the content area) -> screen. */
+      ZtPoint base = {clr.x, clr.y};
+      ZtPoint scr = zt_base_to_screen(wnd, base);
+      char buf[96];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"x\":%g,\"y\":%g}}",
+               m->req_id, scr.x, scr.y);
+      zt_send_line(buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
   if (strcmp(m->type, "cursor_position") == 0) {
     void *wnd = zt_window_of(w);
     if (m->req_id >= 0) {
@@ -2888,6 +3056,44 @@ static int dispatch(Msg *m, webview_t w) {
       char buf[32];
       snprintf(buf, sizeof(buf), "%d", idn);
       zt_reply_string(m->req_id, buf);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_rgba_query") == 0) {
+    int img = m->id[0] ? atoi(m->id) : -1;
+    if (m->req_id >= 0 && img >= 0 && img < g_image_count &&
+        g_image_rgba[img]) {
+      size_t n = (size_t)g_image_rw[img] * g_image_rh[img] * 4;
+      size_t b64n = ((n + 2) / 3) * 4 + 1;
+      char *b64 = (char *)malloc(b64n);
+      zt_base64(g_image_rgba[img], n, b64);
+      char pre[64];
+      snprintf(pre, sizeof(pre),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":\"",
+               m->req_id);
+      size_t total = strlen(pre) + strlen(b64) + 3;
+      char *out = (char *)malloc(total);
+      snprintf(out, total, "%s%s\"}", pre, b64);
+      zt_send_line(out);
+      free(b64);
+      free(out);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_dims_query") == 0) {
+    int img = m->id[0] ? atoi(m->id) : -1;
+    if (m->req_id >= 0 && img >= 0 && img < g_image_count &&
+        g_image_rgba[img]) {
+      char buf[128];
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"query_result\",\"req_id\":%d,\"result\":"
+               "{\"width\":%d,\"height\":%d}}",
+               m->req_id, g_image_rw[img], g_image_rh[img]);
+      zt_send_line(buf);
+    } else if (m->req_id >= 0) {
+      zt_reply_null(m->req_id);
     }
     return 1;
   }

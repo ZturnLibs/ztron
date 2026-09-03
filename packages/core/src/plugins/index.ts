@@ -22,7 +22,13 @@ export type {
   ExecResult,
 } from "./shell.js";
 export { cliPlugin, parseArgv } from "./cli.js";
-export type { CliPluginOptions, CliMatches } from "./cli.js";
+export type {
+  CliPluginOptions,
+  CliMatches,
+  CliSchema,
+  CliArgDef,
+  CliSubcommandDef,
+} from "./cli.js";
 export { openerPlugin } from "./opener.js";
 export type { OpenerPluginOptions } from "./opener.js";
 export { updaterPlugin, compareVersions } from "./updater.js";
@@ -42,6 +48,7 @@ export {
   signMinisig,
   dumpSignatureFile,
   dumpPublicKeyFile,
+  dumpEncryptedSecretKeyFile,
 } from "./minisign.js";
 export type {
   VerifyResult as MinisignVerifyResult,
@@ -76,3 +83,6 @@ export type { HapticsPluginOptions } from "./haptics.js";
 export type { NfcPluginOptions } from "./nfc.js";
 export type { LocalhostPluginOptions } from "./localhost.js";
 export type { PersistedScopePluginOptions } from "./persisted-scope.js";
+
+export { strongholdPlugin } from "./stronghold.js";
+export type { StrongholdPluginOptions } from "./stronghold.js";

@@ -1,8 +1,8 @@
 /**
  * Runtime adapter backed by `webview/webview` via `tjs:ffi`.
- * Implements the `RuntimeAdapter` / `WebviewHandle` contract from `@zturnlibs/core`.
+ * Implements the `RuntimeAdapter` / `WebviewHandle` contract from `@zturnlibs/ztron-core`.
  */
-import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "@zturnlibs/core";
+import type { RuntimeAdapter, WebviewHandle, WindowConfig } from "@zturnlibs/ztron-core";
 import { JSCallback, types, type Pointer } from "tjs:ffi";
 import { loadWebviewLibrary, type WebviewLibrary } from "./webview.js";
 
@@ -60,7 +60,7 @@ export class FfiWebviewHandle implements WebviewHandle {
 
   // Reference FFI path: native window frame/position is handled by the host
   // adapter (Plan A); the FFI adapter only exercises the webview C surface.
-  getFrame(): Promise<import("@zturnlibs/core").WindowFrame | null> {
+  getFrame(): Promise<import("@zturnlibs/ztron-core").WindowFrame | null> {
     return Promise.resolve(null);
   }
 
@@ -108,7 +108,7 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides theme override) */
   }
 
-  getInnerSize(): Promise<import("@zturnlibs/core").WindowFrame | null> {
+  getInnerSize(): Promise<import("@zturnlibs/ztron-core").WindowFrame | null> {
     return Promise.resolve(null);
   }
 
@@ -128,11 +128,11 @@ export class FfiWebviewHandle implements WebviewHandle {
     /* no-op (host adapter provides traffic-light positioning) */
   }
 
-  queryMonitors(): Promise<import("@zturnlibs/core").MonitorInfo[] | null> {
+  queryMonitors(): Promise<import("@zturnlibs/ztron-core").MonitorInfo[] | null> {
     return Promise.resolve(null);
   }
 
-  getWindowState(): Promise<import("@zturnlibs/core").WindowStateSnapshot | null> {
+  getWindowState(): Promise<import("@zturnlibs/ztron-core").WindowStateSnapshot | null> {
     return Promise.resolve(null);
   }
 
@@ -197,7 +197,7 @@ export class FfiWebviewHandle implements WebviewHandle {
 
   // Reference FFI path: native window state is handled by the host adapter.
   windowState(
-    op: import("@zturnlibs/core").WindowStateOp,
+    op: import("@zturnlibs/ztron-core").WindowStateOp,
   ): boolean | Promise<boolean> {
     return op.startsWith("is_") ? false : true;
   }
@@ -222,7 +222,7 @@ export class FfiWebviewHandle implements WebviewHandle {
         return 0;
       },
     );
-    this.#lib.webview_bind(this.#w, "__TAURI_IPC__", this.#ipcCallback, null);
+    this.#lib.webview_bind(this.#w, "__ZTRON_IPC__", this.#ipcCallback, null);
   }
 
   run(): void {

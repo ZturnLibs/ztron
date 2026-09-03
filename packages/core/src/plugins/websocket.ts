@@ -2,8 +2,8 @@
  * `plugin:websocket|*` — WebSocket client bridging messages to frontend events.
  * Translated from Tauri's `tauri-plugin-websocket` (simplified: text messages,
  * one connection per client id). Incoming messages are pushed as
- * `tauri://websocket-message` events; connect/disconnect emit
- * `tauri://websocket-status`.
+ * `ztron://websocket-message` events; connect/disconnect emit
+ * `ztron://websocket-status`.
  */
 import type { Plugin } from "../plugin.js";
 
@@ -43,11 +43,11 @@ export function websocketPlugin(): Plugin {
         });
         ws.onmessage = (e) => {
           const message = typeof e.data === "string" ? e.data : String(e.data);
-          ctx.app.emit("tauri://websocket-message", { id, message });
+          ctx.app.emit("ztron://websocket-message", { id, message });
         };
         ws.onclose = () => {
           sockets.delete(id);
-          ctx.app.emit("tauri://websocket-status", { id, state: "closed" });
+          ctx.app.emit("ztron://websocket-status", { id, state: "closed" });
         };
         return { id };
       },

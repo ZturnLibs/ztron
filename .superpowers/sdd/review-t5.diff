@@ -1,0 +1,968 @@
+7146b43 docs(en): full english mirror of start/guide/reference
+
+ docs/en/guide/_meta.json         |   9 +++
+ docs/en/guide/architecture.md    |  51 ++++++++++++++++
+ docs/en/guide/config.md          |  84 ++++++++++++++++++++++++++
+ docs/en/guide/events.md          |  89 ++++++++++++++++++++++++++++
+ docs/en/guide/ipc.md             |  72 ++++++++++++++++++++++
+ docs/en/guide/security.md        |  86 +++++++++++++++++++++++++++
+ docs/en/guide/tauri-migration.md |  54 +++++++++++++++++
+ docs/en/guide/window.md          |  78 ++++++++++++++++++++++++
+ docs/en/index.md                 |   9 ++-
+ docs/en/reference/_meta.json     |   3 +
+ docs/en/reference/cli.md         | 125 +++++++++++++++++++++++++++++++++++++++
+ docs/en/start/_meta.json         |   6 ++
+ docs/en/start/examples.md        |  27 +++++++++
+ docs/en/start/install.md         |  44 ++++++++++++++
+ docs/en/start/intro.md           |  36 +++++++++++
+ docs/en/start/quick-start.md     |  43 ++++++++++++++
+ docs/zh/guide/tauri-migration.md |   2 -
+ 17 files changed, 814 insertions(+), 4 deletions(-)
+
+diff --git a/docs/en/guide/_meta.json b/docs/en/guide/_meta.json
+new file mode 100644
+index 0000000..3647ca3
+--- /dev/null
++++ b/docs/en/guide/_meta.json
+@@ -0,0 +1,9 @@
++[
++  { "text": "Architecture Overview", "link": "/guide/architecture" },
++  { "text": "Calling Backend Commands", "link": "/guide/ipc" },
++  { "text": "Events & Channel", "link": "/guide/events" },
++  { "text": "Windows", "link": "/guide/window" },
++  { "text": "Configuring ztron.conf.json", "link": "/guide/config" },
++  { "text": "Security Model", "link": "/guide/security" },
++  { "text": "Migrating from Tauri", "link": "/guide/tauri-migration" }
++]
+diff --git a/docs/en/guide/architecture.md b/docs/en/guide/architecture.md
+new file mode 100644
+index 0000000..24e8bc6
+--- /dev/null
++++ b/docs/en/guide/architecture.md
+@@ -0,0 +1,51 @@
++---
++title: Architecture Overview
++---
++
++Ztron is a Tauri-style cross-platform desktop framework rewritten in TypeScript, built on
++[txiki.js](https://txikijs.org) (an ~2MB embedded JS runtime) and the system
++WebView (binding the C API of `webview/webview` via `tjs:ffi`).
++
++## Two-Process Data Flow
++
++The framework consists of two processes communicating over TCP/JSON (the Plan A
++native host approach):
++
++- **ztron-host (native C process)**: holds the system WebView and GUI
++  capabilities, owning native-side resources such as windows, tray, menus, and
++  dialogs.
++- **tjs backend (txiki.js process)**: an async JS backend hosting
++  `@zturnlibs/core`'s IPC, events, commands, ACL capability layer, plugins, and
++  the updater.
++
++The frontend is a plain Vite page that calls capabilities like
++`invoke/listen/Channel/fs/http/os/store/log/shell` via `@zturnlibs/api`; at
++packaging time the backend is compiled into a standalone executable with
++`tjs compile`, and `ztron build` then produces a macOS `.app` (signed).
++
++## The Five Packages
++
++| Package | Responsibility |
++| --- | --- |
++| `@zturnlibs/api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
++| `@zturnlibs/core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
++| `@zturnlibs/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
++| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
++| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
++
++## How the Processes Cooperate
++
++After startup, the backend connects to the host via the `runtime-ffi` socket;
++every frontend `invoke` enters the IPC channel through the injected script
++`window.__TAURI_INTERNALS__` (embedded by the `inject` package), and the
++backend's command/plugin system replies following Tauri's protocol semantics.
++Window creation, event broadcasting, and Channel streaming data all travel over
++the same TCP/JSON path.
++
++## Further Reading
++
++- Architecture decisions, milestones, and risk records are in the repo root's `DESIGN.md`
++- Capability gaps versus Tauri and the phased plan are in `ROADMAP.md`
++- For a fast start see "Quick Start"; for command-call details see [Calling Backend Commands](/guide/ipc)
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/config.md b/docs/en/guide/config.md
+new file mode 100644
+index 0000000..ea5da9e
+--- /dev/null
++++ b/docs/en/guide/config.md
+@@ -0,0 +1,84 @@
++---
++title: Configuring ztron.conf.json
++---
++
++`ztron.conf.json` is the project configuration file, validated by the CLI at
++dev/build time in two layers (CLI fail-fast + core), and consumed via
++`AppBuilder.fromConfig`. The hello example's full config:
++
++```json
++{
++  "entry": "src/main.ts",
++  "frontend": "frontend",
++  "identifier": "com.ztron.hello",
++  "version": "0.1.0",
++  "windows": [
++    {
++      "label": "main",
++      "title": "Ztron M3",
++      "width": 900,
++      "height": 640,
++      "minWidth": 400,
++      "minHeight": 300,
++      "url": "frontend",
++      "titleBarStyle": "visible",
++      "resizable": true
++    },
++    {
++      "label": "conf-second",
++      "title": "From Config",
++      "width": 360,
++      "height": 240,
++      "html": "<p style=\"font-family:system-ui\">declared in ztron.conf.json</p>",
++      "resizable": false,
++      "alwaysOnTop": true,
++      "x": 120,
++      "y": 120
++    }
++  ]
++}
++```
++
++## Core Fields (P1 Subset)
++
++Source: the `ProjectConfigFile` interface in `packages/core/src/app.ts`.
++
++| Field | Description |
++| --- | --- |
++| `entry` | backend entry file |
++| `frontend` | frontend directory |
++| `identifier` | app identifier |
++| `productName` | alias of `appName` (upstream naming) |
++| `appName` | app name |
++| `mainBinaryName` | main binary name |
++| `version` | version number |
++| `csp` | legacy top-level CSP; prefer `app.security.csp` (both work) |
++| `capabilities` | legacy top-level capability list; prefer `app.security.capabilities` |
++| `build.{devUrl,frontendDist,beforeDevCommand,beforeBuildCommand,beforeBundleCommand}` | build hooks and frontend dist directory |
++| `app.{withGlobalTauri,macOSPrivateApi}` | global API injection switch, macOS private APIs |
++| `app.security.csp` / `devCsp` | production/dev CSP (see [Security Model](/guide/security)) |
++| `app.security.capabilities` | capability list (`string[] \| string`) |
++| `app.security.assetProtocol.{scope,requireLiteralLeadingDot}` | asset protocol scope |
++| `app.security.freezePrototype` | freeze prototypes, anti-tampering |
++| `bundle.{active,targets,icon,resources,category,publisher,homepage,shortDescription,longDescription,copyright,license}` | bundling metadata |
++| `plugins` | plugin configuration (`Record<string, unknown>`) |
++| `windows[]` | declarative window startup state (see [Windows](/guide/window)) |
++
++## Validation Behavior
++
++`validateProjectConfig` (`packages/core/src/app.ts`): **warns on unknown
++top-level keys** (keeps the value and prints `unknown top-level key "..."
++(kept as-is)`); **throws on type/structure violations** — e.g. `build` not an
++object, `build.devUrl` not a string, `app.withGlobalTauri` not a boolean all
++abort directly with a `ztron.conf.json: ...` error.
++
++Windows/Linux bundling targets are not yet provided; the fields on this page
++all follow macOS behavior.
++
++## What's Next
++
++P2 plans to auto-generate a full configuration reference from the
++`ProjectConfigFile` type; the field table on this page will then be
++maintained by that generator.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/events.md b/docs/en/guide/events.md
+new file mode 100644
+index 0000000..e4eaed1
+--- /dev/null
++++ b/docs/en/guide/events.md
+@@ -0,0 +1,89 @@
++---
++title: Events & Channel
++---
++
++The event system lets backend and frontend communicate in both directions: the
++frontend can listen to any named event emitted by the backend, and can also
++send targeted to the frontend/other windows. The listener registry lives in
++the backend's `EventManager`; the API is provided by the `event` module of
++`@zturnlibs/api`.
++
++## listen / once / emit / emitTo
++
++Actual signatures (from `packages/api/src/event.ts`):
++
++```ts
++export async function listen<T>(
++  event: string,
++  handler: EventCallback<T>,
++  options?: Options,
++): Promise<UnlistenFn>;
++
++export type UnlistenFn = () => Promise<void>;
++```
++
++Typical usage:
++
++```ts
++import { listen, once, emit, emitTo } from "@zturnlibs/api";
++
++// Listen (options.target can specify a window label, default { kind: "Any" })
++const unlisten = await listen<{ n: number }>("m3:tick", (e) => {
++  console.log(e.payload.n); // e: { event, id, payload }
++});
++await unlisten(); // stop listening when no longer needed
++
++// Fires once only, auto-unlistens after firing
++await once("app:ready", () => console.log("ready"));
++
++// Send an event to the backend (the backend fans out to all listeners)
++await emit("frontend:poke", { at: Date.now() });
++
++// Send targeted to a specific window
++await emitTo("main", "broadcast:x", { v: 1 });
++```
++
++## Window Event Names
++
++The full `WindowEventName` list from `packages/api/src/window.ts` (verbatim):
++
++```ts
++export type WindowEventName =
++  | "resize"
++  | "move"
++  | "focus"
++  | "blur"
++  | "close-requested"
++  | "suspended"
++  | "resumed"
++  | "scale-change"
++  | "theme-changed"
++  | "drag-enter"
++  | "drag-over"
++  | "drag-drop"
++  | "drag-leave";
++```
++
++Of these, `suspended`/`resumed` are names reserved for mobile lifecycles; the
++desktop host never fires them; the four `drag-*` entries correspond to file
++drag & drop (`tauri://drag-enter/over/drop/leave`). `event.ts` also exports
++the Tauri-aligned `TauriEvent` constant enum (e.g.
++`TauriEvent.WINDOW_RESIZED = "tauri://resize"`), and window instances offer
++convenience methods like `onResized`/`onMoved`/`onScaleChanged`/`onThemeChanged`/`onDragDropEvent`.
++
++## Channel: Streaming Data
++
++A one-shot `invoke` can only return a single value; when the backend needs to
++push continuously, pass `{ kind: "channel", id }` in the command arguments —
++the backend obtains a handle via `ctx.getChannel(id)` and pushes repeatedly
++with `handle.send(...)` and finishes with `handle.end()`. The hello example's
++`m3:stream` command is exactly this pattern (`M1_EVENTS_CHANNEL_WINDOW_OK`
++verified).
++
++## Plugin Listeners
++
++On the plugin side there is also a `plugin:*|__listener` contract (e.g. the
++log plugin pushing logs to a webview target); the P2 plugins page will expand
++on it.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/ipc.md b/docs/en/guide/ipc.md
+new file mode 100644
+index 0000000..88a7184
+--- /dev/null
++++ b/docs/en/guide/ipc.md
+@@ -0,0 +1,72 @@
++---
++title: Calling Backend Commands
++---
++
++Commands are the core calling convention between frontend and backend: the
++frontend `invoke`s a command name, the handler registered in the backend
++executes and returns the result. Ztron's protocol aligns with Tauri v2 desktop
++(JSON + callback/error id + Channel).
++
++## Declaring Typed Commands
++
++Declare with `defineCommand` in `src/commands.ts` (recognized by
++`ztron codegen`, which auto-generates typed frontend bindings):
++
++```ts
++// src/commands.ts —— typed commands (recognized by ztron codegen)
++import { defineCommand } from "@zturnlibs/core";
++
++export const greet = defineCommand("my:greet", {
++  args: {} as { name: string },
++  result: "" as string,
++  handler: (args) => `hello, ${args.name}`,
++});
++```
++
++## Registering Commands
++
++Register inside the `AppBuilder` setup callback in `src/main.ts`. Use
++`commandDef` for typed commands, or register inline when no types are needed:
++
++```ts
++// src/main.ts —— registration (inside the setup callback)
++app.commandDef(greet);            // typed
++app.command("m3:echo-port", () => echoPort);  // inline
++```
++
++## Calling from the Frontend
++
++The frontend simply `invoke`s; the generic parameter is the return type:
++
++```ts
++// frontend/src/main.ts —— frontend call
++import { invoke } from "@zturnlibs/api";
++const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
++```
++
++## codegen: Type-Safe invoke
++
++`ztron codegen` scans `defineCommand` declarations in the source and generates
++the `ztron-commands.ts` typed bindings under `src/`. The frontend can then
++call in a fully typed way:
++
++```ts
++// frontend/src/main.ts —— after codegen (from hello example lines 103–110)
++const g = await import("../../src/ztron-commands.js");
++const greetRes = await g.invoke("my:greet", { name: "codegen" });
++// greetRes's type is inferred as string from the command declaration
++```
++
++The source of truth for types lives on the TS side (the opposite of Tauri's
++Rust source of truth); codegen keeps frontend and backend types from drifting
++(`CODEGEN_OK` verified in the hello example).
++
++## Commands & Security
++
++Commands are not "register and anyone may call": every command belongs to a
++plugin or core, and whether the frontend may call it is decided jointly by the
++permission string in a capability (e.g. `fs:allow-read-file`) and the scope —
++unauthorized calls are rejected in the backend (verification anchor
++`ACL_DENY_OK`). See the [Security Model](/guide/security).
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/security.md b/docs/en/guide/security.md
+new file mode 100644
+index 0000000..ba66008
+--- /dev/null
++++ b/docs/en/guide/security.md
+@@ -0,0 +1,86 @@
++---
++title: Security Model
++---
++
++Ztron follows Tauri v2's ACL (access control list) model: **deny by
++default** — every command the frontend may call and every path/URL it may
++access must be explicitly granted in a capability.
++
++## Capability Files
++
++`capabilities/*.json` are auto-loaded at app startup (default directory
++`./capabilities`). Head of `examples/hello/capabilities/main.json`:
++
++```json
++{
++  "identifier": "main",
++  "description": "Main window: core + path + fs + http + os + store + log + shell.",
++  "windows": [
++    "main"
++  ],
++  "permissions": [
++    "core:default",
++    "path:default",
++    "fs:write-default",
++    "fs:allow-copy",
++    "fs:allow-rename",
++    "fs:allow-stat",
++    "fs:allow-make-dir",
++    "http:default",
++    "os:default",
++    "store:write",
++    "log:default",
++    "shell:default",
++    "updater:default",
++    "sql:default",
++    "autostart:default",
++    "window-state:write",
++    "single-instance:default",
++    "websocket:default",
++    "local-ip:default",
++    "network:default",
++    "upload:default",
++    "persisted-scope:default",
++    "fs:allow-watch",
++    "fs:allow-read-file",
++    "fs:allow-write-file"
++  ]
++}
++```
++
++`identifier` is the capability's name, `windows` declares which window labels
++it grants, and `permissions` is the list of permission strings.
++
++## Permission String Format
++
++Permission strings uniformly take the two-segment `plugin:permission` form —
++the plugin (or `core`) name plus a specific permission. For example,
++`fs:allow-read-file` grants only the fs plugin's readFile command;
++`core:default` is the default set of core commands. Calls to commands not
++listed are rejected by the backend even if that plugin's handler is
++registered (verification anchor `ACL_DENY_OK`).
++
++## Scope: Three Constraint Models
++
++Beyond permissions, plugins involving files/network also have scope
++constraints, all from hello's `src/main.ts`:
++
++- **PathScope** (fs/store/sql, etc.): path glob patterns.
++  `fsPlugin({ scope: psScope })`, with the persisted baseline `scope: { allow: ["$TMP/**"] }`
++  — only the temp directory and its subtree are allowed.
++- **HttpScope** (http/updater): URL patterns.
++  `httpPlugin({ scope: { allow: [{ url: "https://api.github.com/*" }, { url: "http://localhost:*/*" }] } })`.
++  Out-of-scope URLs are rejected outright (verification anchor
++  `HTTP_SCOPE_DENY_OK`).
++- **store scope**: the store plugin also has its own path allowlist.
++  `storePlugin({ scope: { allow: ["$TMP/**"] } })`.
++
++## CSP
++
++The production CSP is configured via `app.security.csp` and injected into
++pages by the framework; the dev environment can be configured separately with
++`devCsp`, so that the dev server's loose policy never reaches production. The
++legacy top-level `csp` key still works, but migrating to `app.security.csp`
++is recommended.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/tauri-migration.md b/docs/en/guide/tauri-migration.md
+new file mode 100644
+index 0000000..8482f3c
+--- /dev/null
++++ b/docs/en/guide/tauri-migration.md
+@@ -0,0 +1,54 @@
++---
++title: Migrating from Tauri
++---
++
++Ztron's API surface is deliberately aligned with Tauri v2 (`@zturnlibs/api`
++is translated from `@tauri-apps/api`), so the migration cost is mostly the
++backend language: Rust replaced by TypeScript. The repo's `DESIGN.md` §9
++gives the Rust → TS module mapping (copied verbatim):
++
++| Rust module | Ztron TS equivalent |
++| --- | --- |
++| `tauri-runtime-wry` | `runtime-ffi` (tjs:ffi binding the webview C API) |
++| `tauri` core | `core` (commands/events/state/plugins) |
++| `tauri-codegen` injection | `inject` (embedded into page HTML) |
++| `ipc/mod.rs` protocol | `core/ipc` (JSON + callback/error id + Channel) |
++| `tauri-plugin` | TS plugins (register commands + permissions) |
++| `tauri-bundler` | `tjs compile` + platform bundling scripts |
++| `tauri-utils` (config/CSP) | zod schema + injected CSP |
++| `@tauri-apps/api` | `api` (transport adaptation, protocol unchanged) |
++
++## Command Migration
++
++Rust's `#[tauri::command]` macro + `invoke_handler` registration becomes a
++`defineCommand` typed declaration (paired with `ztron codegen`) or inline
++`app.command(...)` registration, executed as `app.commandDef(greet)` inside
++the `AppBuilder` setup callback. See [Calling Backend Commands](/guide/ipc).
++
++## Configuration Migration
++
++`tauri.conf.json` → `ztron.conf.json`; most fields share names
++(`identifier`, `version`, `build.*`, `app.security.*`, `bundle.*`,
++`windows[]`, etc.), and the type source of truth moves from Rust structs to
++the TS `ProjectConfigFile` interface. Field details are in
++[Configuring ztron.conf.json](/guide/config).
++
++## Frontend Migration
++
++Usually just change the import: `@tauri-apps/api` → `@zturnlibs/api`. The
++signatures of `invoke`, `listen`, `emit`, etc. are unchanged, and the event
++constants `TauriEvent` keep their names.
++
++## Difference Notes
++
++- The IPC payload is JSON, not MessagePack — but this matches Tauri v2
++  desktop: research corrected the record that desktop never had MessagePack,
++  and the real target is `InvokeResponseBody::Raw`; Ztron's base64-in-JSON
++  matches Tauri's own recommended practice on Android (P24).
++- `app.withGlobalTauri` is supported (injecting the
++  `window.__TAURI_INTERNALS__` bootstrap, see the `inject` package).
++- Capability coverage and gaps are in `ROADMAP.md`; Windows/Linux hosts are
++  not yet compilable or bundleable, so no post-migration cross-platform
++  timeline can be promised.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/guide/window.md b/docs/en/guide/window.md
+new file mode 100644
+index 0000000..bba1cbc
+--- /dev/null
++++ b/docs/en/guide/window.md
+@@ -0,0 +1,78 @@
++---
++title: Windows
++---
++
++Ztron supports two ways to create windows: declarative (configuration-driven,
++applied as startup state by `AppBuilder.fromConfig` at app launch) and runtime
++(created/destroyed programmatically via `WebviewWindow`).
++
++## Declarative: windows[] in ztron.conf.json
++
++A dual-window config from `examples/hello/ztron.conf.json` — the main window
++loads the Vite frontend via the `url: "frontend"` placeholder, while the
++conf-second window inlines HTML directly:
++
++```json
++{
++  "windows": [
++    {
++      "label": "main",
++      "title": "Ztron M3",
++      "width": 900,
++      "height": 640,
++      "minWidth": 400,
++      "minHeight": 300,
++      "url": "frontend",
++      "titleBarStyle": "visible",
++      "resizable": true
++    },
++    {
++      "label": "conf-second",
++      "title": "From Config",
++      "width": 360,
++      "height": 240,
++      "html": "<p style=\"font-family:system-ui\">declared in ztron.conf.json</p>",
++      "resizable": false,
++      "alwaysOnTop": true,
++      "x": 120,
++      "y": 120
++    }
++  ]
++}
++```
++
++The fields align with Tauri's `WindowConfig` startup state; `url: "frontend"`
++resolves to the dev server / build output in the dev flow, any other string
++loads as an absolute URL, and omitting it falls back to inline HTML.
++Verification anchor: `CONF_WINDOW_OK:From Config` (P14).
++
++## Runtime: WebviewWindow
++
++`@zturnlibs/api` provides the `WebviewWindow` class for creating and
++destroying windows while the app runs (the multiwin example uses it for a
++10x create/destroy stress test). Runtime-created windows likewise enter the
++host's webview registry, with label routing, per-window events, and registry
++cleanup on close. Verification anchors:
++
++- `SECOND_WINDOW_OK label=second` — the hello example really created and
++  destroyed a runtime window during the run (P9)
++- `MULTI_WINDOW_OK` (P6) — multi-window architecture: host webview registry
++  + label routing + `WebviewWindow`
++
++## Window Capability Overview
++
++Window state (size/position/min-size constraints/minimizable, etc.),
++opacity, transparency, decoration, `titleBarStyle`, dock progress/badge,
++`setTheme`, monitor queries (`availableMonitors` etc.), and all 13 window
++events are available (see [Events & Channel](/guide/events)); key
++verification anchors: `WIN_STATE_OK`, `WIN_EVENT_OK`, `WIN_V2_EXTRAS_OK`,
++`MONITORS_OK`.
++
++## Platform Boundary Note
++
++Runtime multi-window creation is unlocked on macOS, but the webview library
++has a history of blocking second-webview creation in the run loop; the fix
++(including a lib patch for an engine-destruction UAF) is recorded in
++`DESIGN.md` §75.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/index.md b/docs/en/index.md
+index aceff7e..fff85a0 100644
+--- a/docs/en/index.md
++++ b/docs/en/index.md
+@@ -1,11 +1,16 @@
+ ---
+ title: Ztron Docs
+ ---
+ 
+ # Ztron Docs
+ 
+-A Tauri-style cross-platform desktop framework rewritten in TypeScript, on txiki.js + the system WebView.
++A Tauri-style cross-platform desktop framework, rewritten in TypeScript, running on txiki.js + the system WebView.
+ 
+-(Placeholder while P1 content lands — replaced by the real landing page after Task 3.)
++- [Quick Start](/start/quick-start) — get your first app running in 10 minutes
++- [Guide](/guide/architecture) — architecture, IPC, events, windows, configuration, security
++- [CLI Reference](/reference/cli) — init / dev / build / codegen / check / signer
++- [Examples](/start/examples) — hello / multiwin / menuprobe
++
++Current status: macOS end-to-end working (`ztron 0.1.0`); Windows/Linux bundling pipeline under construction.
+ 
+ 适用版本：`ztron 0.1.0`
+diff --git a/docs/en/reference/_meta.json b/docs/en/reference/_meta.json
+new file mode 100644
+index 0000000..e8e12d0
+--- /dev/null
++++ b/docs/en/reference/_meta.json
+@@ -0,0 +1,3 @@
++[
++  { "text": "CLI Reference", "link": "/reference/cli" }
++]
+diff --git a/docs/en/reference/cli.md b/docs/en/reference/cli.md
+new file mode 100644
+index 0000000..a0efebb
+--- /dev/null
++++ b/docs/en/reference/cli.md
+@@ -0,0 +1,125 @@
++---
++title: CLI Reference
++---
++
++The `ztron` CLI provides seven main commands — `init`/`dev`/`build`/`codegen`/
++`check`/`signer`/`version` (plus the `icon`/`info`/`add`/`migrate` utility
++commands, see the end). The command set is defined by the dispatch switch in
++`packages/cli/src/index.ts` (the USAGE strings do not yet cover
++codegen/signer).
++
++```text
++ztron init [dir]                  scaffold a new project in [dir] (default: current directory)
++ztron dev [--entry <file>]        build + run under the native host + tjs backend
++ztron build [--entry <file>]      produce a standalone executable and .app
++ztron codegen                     scan defineCommand, generate src/ztron-commands.ts typed bindings
++ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
++                                  regression run: parse app-reported checks, exit 0 only on FULL_OK with 0 FAIL;
++                                  --expect is a comma-separated list of required tags
++ztron signer <sub> [--pk-file f] [--sk-file f]
++                                  minisign-compatible key generation/signing/verification (generate and other subcommands;
++                                  cross-verified with jedisct1/minisign)
++ztron version                     print the version
++```
++
++## ztron init
++
++```text
++ztron init [dir]
++```
++
++Scaffolds a new project in the target directory (default: current
++directory): generates the `src/main.ts` entry, the `frontend/` skeleton, and
++`ztron.conf.json`.
++
++```bash
++node packages/cli/dist/index.js init my-app
++```
++
++## ztron dev
++
++```text
++ztron dev [--entry <file>]
++```
++
++Builds the frontend (vite) and runs the app under the native host + tjs
++backend; `--entry` defaults to `./src/main.ts`.
++
++```bash
++node ../packages/cli/dist/index.js dev --entry src/main.ts
++```
++
++## ztron build
++
++```text
++ztron build [--entry <file>]
++```
++
++Bundles the backend into a standalone executable with `tjs compile` and
++produces a macOS `.app` (ad-hoc signed; `.dmg` also supported).
++
++```bash
++pnpm --filter @ztron/example-hello build
++```
++
++## ztron codegen
++
++Scans `defineCommand` declarations in all `.ts` files under `src/`, dedupes
++by command name (last one wins), and generates the `src/ztron-commands.ts`
++typed bindings for typed frontend calls like
++`g.invoke("my:greet", {...})`.
++
++```bash
++node ../packages/cli/dist/index.js codegen
++# [ztron] codegen: 3 command(s) -> src/ztron-commands.ts
++```
++
++## ztron check
++
++```text
++ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
++```
++
++Regression run: starts the app through the full dev flow and parses the
++checks it reports (hello-style `frontend reported` lines and bare `TAG_OK`
++lines). It exits 0 only on reaching `FULL_OK` with 0 FAILs; the harness's
++verdict covers the subprocess exit code. `--expect` takes a comma-separated
++list of required tags; `--timeout` (milliseconds) bounds the total duration.
++
++```bash
++node packages/cli/dist/index.js check --expect SECOND_WINDOW_OK,STRESS_OK
++```
++
++## ztron signer
++
++```text
++ztron signer <sub> [--pk-file f] [--sk-file f]
++```
++
++minisign-compatible key generation/signing/verification, wire-level
++cross-verified with jedisct1/minisign (signatures produced by this tool
++verify with real `minisign`, and vice versa). The `generate` subcommand
++additionally supports `--password` (or the `ZTRON_SIGNER_PASSWORD`
++environment variable) to encrypt the private key with scrypt on write.
++
++```bash
++ztron signer generate
++# signer: generated key pair
++#   public key: minisign.pub
++#   secret key: minisign.key
++```
++
++## ztron version
++
++```bash
++ztron version   # ztron 0.1.0
++```
++
++## Utility Commands
++
++The switch also has: `ztron icon [input] [-o outDir]` (generate
++icns/iconset/multi-size pngs), `ztron info` (print environment info),
++`ztron add <plugin>` (add a plugin to the project), and `ztron migrate`
++(migrate legacy configuration).
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/start/_meta.json b/docs/en/start/_meta.json
+new file mode 100644
+index 0000000..c01d8c2
+--- /dev/null
++++ b/docs/en/start/_meta.json
+@@ -0,0 +1,6 @@
++[
++  { "text": "Introduction", "link": "/start/intro" },
++  { "text": "Prerequisites & Installation", "link": "/start/install" },
++  { "text": "Quick Start", "link": "/start/quick-start" },
++  { "text": "Examples", "link": "/start/examples" }
++]
+diff --git a/docs/en/start/examples.md b/docs/en/start/examples.md
+new file mode 100644
+index 0000000..8de5496
+--- /dev/null
++++ b/docs/en/start/examples.md
+@@ -0,0 +1,27 @@
++---
++title: Examples
++---
++
++The repo's `examples/` directory contains three runnable examples, all directly runnable via pnpm filters:
++
++| Name | Package | Demonstrates | Run command |
++| --- | --- | --- | --- |
++| hello | `@ztron/example-hello` | a full drill of invoke/events/Channel/fs/path and other APIs (86 checks) | `pnpm --filter @ztron/example-hello dev` |
++| multiwin | `@ztron/example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @ztron/example-multiwin dev` |
++| menuprobe | `@ztron/example-menuprobe` | menu capability probing | `pnpm --filter @ztron/example-menuprobe dev` |
++
++## hello
++
++A full drill of `@zturnlibs/api` — invoke, events, Channel streams, fs/path/http/os, and other APIs — with 86 built-in deterministic checks; combined with `ztron check` it serves as the regression baseline for the whole framework (`FULL_OK`, exit 0). Its `ztron.conf.json` also demonstrates declarative multi-window (`windows[]`, with both window sources: the `url: "frontend"` placeholder and inline `html`). Source: `examples/hello/` (config `ztron.conf.json`, main process `src/main.ts`, commands `src/commands.ts`, frontend `frontend/src/main.ts`).
++
++## multiwin
++
++Demonstrates the two ways of doing multi-window: statically declaring in `ztron.conf.json`'s `windows[]`, and creating/destroying windows at runtime via `WebviewWindow` (verification anchor `MULTI_WINDOW_OK`; the second runtime-created window is really created and destroyed, `SECOND_WINDOW_OK label=second`). Source: `examples/multiwin/`.
++
++## menuprobe
++
++A menu capability probing example, covering menu construction and dynamic manipulation capabilities. Source: `examples/menuprobe/`.
++
++Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/start/install.md b/docs/en/start/install.md
+new file mode 100644
+index 0000000..fa89f56
+--- /dev/null
++++ b/docs/en/start/install.md
+@@ -0,0 +1,44 @@
++---
++title: Prerequisites & Installation
++---
++
++# Prerequisites
++
++| Dependency | Requirement | Notes |
++| --- | --- | --- |
++| macOS | Apple Silicon (verified) | Intel machines unverified; you can try, but please file an issue if you hit problems |
++| Node.js | ≥ 20 | The docs workspace and some scripts target this version |
++| pnpm | 9 | workspace resolution depends on pnpm |
++| Xcode Command Line Tools | required | `scripts/build-native.sh` builds the native chain (tjs + ztron-host + webview lib) with the system compiler |
++
++Windows/Linux currently only have a host skeleton (it compiles); they are not yet usable for development or bundling, and no release timeline is committed.
++
++# Getting the Source & Installing Dependencies
++
++```bash
++git clone https://github.com/ZturnLibs/ztron.git
++cd ztron
++pnpm install
++```
++
++# Building the Native Chain
++
++```bash
++scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
++```
++
++The first build takes a while (it compiles txiki.js and the native host); afterwards you only need to re-run it when the relevant sources change.
++
++# Building the Workspace Packages
++
++```bash
++pnpm build
++```
++
++This generates `packages/*/dist`; the CLI is usable afterwards (invoked as `node packages/cli/dist/index.js …`).
++
++# Important Limitation: Monorepo-Only for Now
++
++The `@ztron/*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/start/intro.md b/docs/en/start/intro.md
+new file mode 100644
+index 0000000..d083024
+--- /dev/null
++++ b/docs/en/start/intro.md
+@@ -0,0 +1,36 @@
++---
++title: Introduction
++---
++
++# What is Ztron
++
++Ztron is a Tauri-style cross-platform desktop application framework whose core is rewritten in TypeScript instead of Rust. It runs on [txiki.js](https://txikijs.org) (a lightweight ~2MB JS runtime), with the UI rendered by the system WebView ([webview/webview](https://github.com/webview/webview), integrated via `tjs:ffi`). The frontend keeps a real web stack (built with Vite), the main-process logic is entirely TypeScript, and the host process (`ztron-host`) is native C. The API protocol is isomorphic to `@tauri-apps/api`, so frontend code migrates at low cost.
++
++# Architecture at a Glance
++
++```
++┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
++│ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
++│ system WebView + GUI    │             │ @zturnlibs/core: IPC/events/commands │
++│ window/tray/menu/dialog │             │  ACL + plugins + updater         │
++└────────────────────────┘             └──────────────────────────────────┘
++        frontend: Vite page → @zturnlibs/api → invoke/listen/Channel/fs/http/os/store/log/shell
++        packaging: tjs compile backend → ztron build → macOS .app (signed)
++```
++
++The two processes communicate over TCP/JSON: `ztron-host` owns the native GUI such as windows, tray, menus, and dialogs; the tjs backend hosts the application's main-process logic plus the IPC/events/commands layer. See the [Architecture guide](/guide/architecture) for details (guide chapters under construction).
++
++# Use Cases & Current Status
++
++| Platform | Status |
++| --- | --- |
++| macOS | End-to-end verified: M0–P30 milestones, all 86 deterministic checks passing (`FULL_OK`, exit 0), drivable as a regression run via `ztron check` |
++| Windows / Linux | host skeleton compiles, not yet in the bundling pipeline, no release timeline committed |
++
++The capability surface includes multi-window (`MULTI_WINDOW_OK`), tray and menus (`TRAY_OK`, `MENU_OK`), drag & drop (`DRAG_DROP_ARMED`), streaming HTTP requests (`HTTP_STREAM_OK`), updater (`UPDATER_OK`), dmg bundling, and more; verification anchors for each are listed in the Status table of the repo [README.md](https://github.com/ZturnLibs/ztron). Capability gaps and phased plans are tracked in [ROADMAP.md](https://github.com/ZturnLibs/ztron).
++
++# Relationship to Tauri
++
++Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration) (guide chapters under construction).
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/en/start/quick-start.md b/docs/en/start/quick-start.md
+new file mode 100644
+index 0000000..9aabffd
+--- /dev/null
++++ b/docs/en/start/quick-start.md
+@@ -0,0 +1,43 @@
++---
++title: Quick Start
++---
++
++# Running hello (10 minutes)
++
++Prerequisite: complete [Prerequisites & Installation](/start/install) (both the native chain and workspace packages built).
++
++```bash
++cd examples/hello
++node ../../packages/cli/dist/index.js dev
++```
++
++What `dev` does: it first builds the frontend with Vite, then launches `ztron-host` (the native window) and starts the tjs backend connection; success is the native window appearing.
++
++Regression run (parses the checks reported by the app; exits 0 only on `FULL_OK` + 0 FAIL):
++
++```bash
++node ../../packages/cli/dist/index.js check
++```
++
++`check` prints statistics over all checks — the hello example reports `86 checks passed (FULL_OK)`. It also supports `--expect TAGS` to pin required tags and `--timeout ms` to bound the duration.
++
++# Bundling the App
++
++```bash
++node ../../packages/cli/dist/index.js build
++```
++
++Produces a standalone executable and a `.app` (ad-hoc signed).
++
++# Creating Your Own Project (inside the monorepo)
++
++```bash
++node packages/cli/dist/index.js init my-app   # scaffolds src/main.ts + frontend/
++cd my-app
++node ../packages/cli/dist/index.js dev --entry src/main.ts
++node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
++```
++
++`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@ztron/*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli) (reference chapters under construction).
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/guide/tauri-migration.md b/docs/zh/guide/tauri-migration.md
+index 1032d26..24172da 100644
+--- a/docs/zh/guide/tauri-migration.md
++++ b/docs/zh/guide/tauri-migration.md
+@@ -2,22 +2,20 @@
+ title: 从 Tauri 迁移
+ ---
+ 
+ Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/api` 即从
+ `@tauri-apps/api` 翻译而来），迁移成本主要在后端语言：Rust 换成
+ TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（原样
+ 照抄）：
+ 
+ | Rust 模块 | Ztron TS 等价物 |
+ | --- | --- |
+-| Rust 模块               | Ztron TS 等价物                                |
+-| ----------------------- | ---------------------------------------------- |
+ | `tauri-runtime-wry`     | `runtime-ffi`(tjs:ffi 绑 webview C API)        |
+ | `tauri` core            | `core`(命令/事件/state/插件)                   |
+ | `tauri-codegen` 注入    | `inject`(嵌入页面 HTML)                        |
+ | `ipc/mod.rs` 协议       | `core/ipc`(JSON + callback/error id + Channel) |
+ | `tauri-plugin`          | TS 插件(注册命令 + 权限)                       |
+ | `tauri-bundler`         | `tjs compile` + 平台打包脚本                   |
+ | `tauri-utils`(配置/CSP) | zod schema + 注入 CSP                          |
+ | `@tauri-apps/api`       | `api`(传输层适配,协议不变)                     |
+ 
+ ## 命令迁移

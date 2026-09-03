@@ -46,13 +46,13 @@ function primitiveLiteral(value: unknown): string | undefined {
 }
 
 /**
- * Produces the JS expression `window.__TAURI_INTERNALS__.runCallback(id, value)`
+ * Produces the JS expression `window.__ZTRON_INTERNALS__.runCallback(id, value)`
  * with `value` serialized safely. Used for events and Channel messages.
  */
 export function formatCallback(callbackId: number, value: unknown): string {
   const prim = primitiveLiteral(value);
   const expr = prim ?? complexExpr(value);
-  return `window.__TAURI_INTERNALS__.runCallback(${callbackId}, ${expr})`;
+  return `window.__ZTRON_INTERNALS__.runCallback(${callbackId}, ${expr})`;
 }
 
 function complexExpr(value: unknown): string {

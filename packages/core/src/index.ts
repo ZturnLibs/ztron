@@ -32,6 +32,8 @@ export type { Plugin } from "./plugin.js";
 export { PathScope } from "./scope.js";
 export type { PathScopeConfig } from "./scope.js";
 export {
+  cliPlugin,
+  parseArgv,
   fsPlugin,
   pathPlugin,
   httpPlugin,
@@ -39,8 +41,7 @@ export {
   storePlugin,
   logPlugin,
   shellPlugin,
-  cliPlugin,
-  openerPlugin,
+    openerPlugin,
   updaterPlugin,
   compareVersions,
   compareSemver,
@@ -52,6 +53,7 @@ export {
   signMinisig,
   dumpSignatureFile,
   dumpPublicKeyFile,
+  dumpEncryptedSecretKeyFile,
   sqlPlugin,
   autostartPlugin,
   windowStatePlugin,
@@ -62,6 +64,7 @@ export {
   uploadPlugin,
   persistedScopePlugin,
   localhostPlugin,
+  strongholdPlugin,
   barcodeScannerPlugin,
   biometricPlugin,
   geolocationPlugin,
@@ -82,8 +85,6 @@ export type {
   ShellPluginOptions,
   ShellScopeEntry,
   ExecResult,
-  CliPluginOptions,
-  CliMatches,
   OpenerPluginOptions,
   UpdaterManifest,
   UpdateCheck,
@@ -154,5 +155,15 @@ export type {
   AclDecision,
 } from "./acl/index.js";
 
-export { validateProjectConfig } from "./app.js";
+export { validateProjectConfig, bundleTypeFromExecutable } from "./app.js";
 export type { ProjectConfigFile } from "./app.js";
+
+export type {
+  CliPluginOptions,
+  CliMatches,
+  CliSchema,
+  CliArgDef,
+  CliSubcommandDef,
+} from "./plugins/index.js";
+
+export type { StrongholdPluginOptions } from "./plugins/index.js";

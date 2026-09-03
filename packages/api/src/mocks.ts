@@ -3,8 +3,8 @@
  *
  * `mockIPC` swaps the page's invoke transport for an in-memory handler so
  * frontend logic can be unit-tested without a backend; `mockWindows` seeds
- * `window.__TAURI_INTERNALS__.metadata` (and legacy `label`) plus the
- * `__TAURI_METADATA__` shape some libraries probe; `mockConvertFileSrc`
+ * `window.__ZTRON_INTERNALS__.metadata` (and legacy `label`) plus the
+ * `__ZTRON_METADATA__` shape some libraries probe; `mockConvertFileSrc`
  * overrides the asset-URL mapping; `clearMocks` restores everything.
  */
 
@@ -28,15 +28,15 @@ interface InternalsShape {
 
 function internals(): InternalsShape {
   const w = globalThis.window as unknown as
-    | { __TAURI_INTERNALS__?: InternalsShape }
+    | { __ZTRON_INTERNALS__?: InternalsShape }
     | undefined;
   if (!w) {
     throw new Error(
       "mocks: no `window` in this environment (mocks target a DOM runtime)",
     );
   }
-  if (!w.__TAURI_INTERNALS__) w.__TAURI_INTERNALS__ = {};
-  return w.__TAURI_INTERNALS__;
+  if (!w.__ZTRON_INTERNALS__) w.__ZTRON_INTERNALS__ = {};
+  return w.__ZTRON_INTERNALS__;
 }
 
 /** Replaces the invoke transport with an in-memory handler. */
@@ -70,8 +70,8 @@ export function mockWindows(...labels: string[]): void {
     webviews: labels.map((l) => ({ label: l })),
   };
   (
-    globalThis.window as unknown as { __TAURI_METADATA__?: unknown }
-  ).__TAURI_METADATA__ = (i.metadata ?? {}) as Record<string, unknown>;
+    globalThis.window as unknown as { __ZTRON_METADATA__?: unknown }
+  ).__ZTRON_METADATA__ = (i.metadata ?? {}) as Record<string, unknown>;
   (globalThis.window as { label?: string }).label = label;
 }
 
@@ -102,7 +102,7 @@ export function clearMocks(): void {
     | Record<string, unknown>
     | undefined;
   if (w) {
-    delete w.__TAURI_METADATA__;
+    delete w.__ZTRON_METADATA__;
     delete w.label;
   }
 }

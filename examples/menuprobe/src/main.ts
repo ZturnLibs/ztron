@@ -8,8 +8,8 @@
  * the destroy-flood (known upstream UAF terrain on darwin 25.2 — DESIGN §98)
  * cannot mask this check.
  */
-import { AppBuilder } from "@zturnlibs/core";
-import { HostRuntime } from "@zturnlibs/runtime-ffi";
+import { AppBuilder } from "@zturnlibs/ztron-core";
+import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 declare const tjs: {
   env: Record<string, string | undefined>;
@@ -88,9 +88,53 @@ void (async () => {
     console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
   }
 
+  // G17/B11: real decode readback for a PATH-loaded image.
+  try {
+    const path = `${tjs.cwd}/../../assets/app-icon.png`;
+    const st = await tjs.stat(path).catch(() => null);
+    if (!st) {
+      console.log("IMG_READBACK_SKIP:no-icon");
+    } else {
+      const rid = await runtime.image.fromPath(path);
+      const dims = await runtime.image.dims?.(rid);
+      const b64 = await runtime.image.rgba?.(rid);
+      if (
+        dims &&
+        dims.width > 0 &&
+        typeof b64 === "string" &&
+        b64.length > 100
+      ) {
+        console.log(`IMG_READBACK_OK:${dims.width}x${dims.height}:${b64.length}`);
+        runtime.image.destroy(rid);
+      } else {
+        console.log("IMG_READBACK_FAIL:" + JSON.stringify(dims) + ":" + (b64?.length ?? 0));
+      }
+    }
+  } catch (e) {
+    console.log("IMG_READBACK_FAIL:" + String(e).slice(0, 60));
+  }
+
+  // G16/B14: inner position query (contentLayoutRect -> screen coords).
+  try {
+    const main = app.getWebview("main") as
+      | { windowState(op: string): Promise<unknown> }
+      | undefined;
+    const ip = (await main?.windowState("get_inner_position")) as
+      | { x: number; y: number }
+      | null
+      | undefined;
+    if (ip && typeof ip.x === "number" && typeof ip.y === "number") {
+      console.log(`INNER_POS_OK:${Math.round(ip.x)},${Math.round(ip.y)}`);
+    } else {
+      console.log("INNER_POS_FAIL:" + JSON.stringify(ip));
+    }
+  } catch (e) {
+    console.log("INNER_POS_FAIL:" + String(e).slice(0, 60));
+  }
+
   // Localhost origin (G11 / E1): real tjs.serve, fetch-handler round trip.
   try {
-    const { localhostPlugin } = await import("@zturnlibs/core");
+    const { localhostPlugin } = await import("@zturnlibs/ztron-core");
     const lp = localhostPlugin({ dir: tjs.cwd });
     const started = (await lp.commands.start({})) as { port: number };
     const resp = await fetch(`http://localhost:${started.port}/__miss__`);

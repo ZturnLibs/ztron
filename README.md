@@ -12,10 +12,10 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 ```
 ┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
 │ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
-│ system WebView + GUI    │             │ @zturnlibs/core: IPC/events/commands │
+│ system WebView + GUI    │             │ @zturnlibs/ztron-core: IPC/events/commands │
 │ window/tray/menu/dialog │             │  ACL + plugins + updater         │
 └────────────────────────┘             └──────────────────────────────────┘
-        frontend: Vite page → @zturnlibs/api → invoke/listen/Channel/fs/http/os/store/log/shell
+        frontend: Vite page → @zturnlibs/ztron-api → invoke/listen/Channel/fs/http/os/store/log/shell
         packaging: tjs compile backend → ztron build → macOS .app (signed)
 ```
 
@@ -23,11 +23,11 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 
 | Package              | Role                                                                                                                            |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `@zturnlibs/api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers     |
-| `@zturnlibs/core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test infra |
-| `@zturnlibs/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                  |
-| `@zturnlibs/inject`      | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML)                                                                |
-| `@zturnlibs/cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                         |
+| `@zturnlibs/ztron-api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers     |
+| `@zturnlibs/ztron-core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test infra |
+| `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                  |
+| `@zturnlibs/ztron-inject`      | `window.__ZTRON_INTERNALS__` bootstrap (embedded into page HTML)                                                                |
+| `@zturnlibs/ztron-cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                         |
 
 ## Status (M0–P5 complete)
 
@@ -36,7 +36,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | M0    | FFI + Plan A two-process host (async unlocked)                                                                                                                                                                             | sync + async round trip                                                                                                                                                                                                                                                                                         |
 | M1    | events + Channel streaming + window commands                                                                                                                                                                               | `M1_EVENTS_CHANNEL_WINDOW_OK`                                                                                                                                                                                                                                                                                   |
 | M2    | plugin base + `PathScope` + `ztron init`                                                                                                                                                                                   | `M2_FS_SCOPE_PATH_OK`                                                                                                                                                                                                                                                                                           |
-| M3    | `@zturnlibs/api` in a real Vite frontend                                                                                                                                                                                       | `M3_API_FRONTEND_OK`                                                                                                                                                                                                                                                                                            |
+| M3    | `@zturnlibs/ztron-api` in a real Vite frontend                                                                                                                                                                                       | `M3_API_FRONTEND_OK`                                                                                                                                                                                                                                                                                            |
 | M4    | `tjs compile` packaging + macOS `.app`                                                                                                                                                                                     | packaged app passes                                                                                                                                                                                                                                                                                             |
 | P0    | window states/events/opacity/transparent/decorations, tray, menu, dialogs                                                                                                                                                  | `WIN_STATE_OK` `WIN_EVENT_OK` `OPACITY_OK` `TRANSPARENT_OK` `DECORATIONS_OK` `TRAY_OK` `MENU_OK` `DIALOG_REG_OK`                                                                                                                                                                                                |
 | P1    | ACL permissions, capabilities auto-load, scoped http, CSP                                                                                                                                                                  | `ACL_DENY_OK` `HTTP_SCOPE_DENY_OK`                                                                                                                                                                                                                                                                              |
@@ -57,12 +57,12 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P17   | dmg packaging (hdiutil UDZO, drag-to-Applications layout) + signing-chain fix: Mach-O launcher (sh main executable was unsignable) + backend relocated to Resources (outside the main signature chain) | `.dmg` mounts clean; `codesign --verify` passes; installed app runs launcher->host->backend + exits clean   |
 | P18   | shell interactive commands: Command.spawnInteractive + write (stdin) + kill + on("terminated") — cid-based process registry, listeners armed before spawn | `SHELL_INTERACTIVE_OK:echo-me-back` — 72/72, exit 0                                                                       |
 | P19   | fs binary IO (readFile/writeFile, base64 wire, chunked codec) + http fetch timeoutMs (AbortSignal.timeout) | `FS_BINARY_OK:15b` — 73/73, exit 0                                                                                                                                                                                                  |                                                                                                                                                |
-| P20   | Webview module (`@zturnlibs/api/webview`: getCurrent/getAllWebviews/clearAllBrowsingData/setZoom) + hand-rolled clang Block ABI in plain C (WKWebsiteDataStore 3-arg removal) + core `window\|show`/`hide` backfill | `WEBVIEW_MODULE_OK:1` — 74/74, exit 0                                                                 |                                                                                                                                                |
+| P20   | Webview module (`@zturnlibs/ztron-api/webview`: getCurrent/getAllWebviews/clearAllBrowsingData/setZoom) + hand-rolled clang Block ABI in plain C (WKWebsiteDataStore 3-arg removal) + core `window\|show`/`hide` backfill | `WEBVIEW_MODULE_OK:1` — 74/74, exit 0                                                                 |                                                                                                                                                |
 | P21   | log plugin v2: stdout/stderr/file/webview targets, keepAll/keepOne rotation (maxFileSize), appLogDir file layout + `addPluginListener` (`plugin:*\|__listener` contract, Tauri-true; named events reject `\|`) + api `attachConsole` | `LOG_WEBVIEW_OK` + `LOG_ROTATE_OK:420->242` — 76/76, exit 0 (files on disk verified)                |                                                                                                                                                |
 | P22   | plugin parity batch: clipboard readImage/writeImage (PNG bytes + rid re-encode, RFC4648 encoder in C) + clear, UNUserNotificationCenter rewrite (NSUserNotificationCenter was removed in macOS 11 — old sends were silent no-ops) + isPermissionGranted/requestPermission (result-carrying C blocks) + shortcut isRegistered | `CLIPBOARD_IMG_OK:70` `CLIPBOARD_CLEAR_OK` `SHORTCUT_ISREG_OK` `NOTIF_PERM_OK:false` (dev bare binary degrades; .app gets real UN) — 80/80, exit 0 |                                                                                                                                                |
 | P23   | http streaming fetch: `fetchStream()` resolves with status+headers immediately, body chunks pushed over a Channel (`{b64}`/`{done}`/`{error}`) and bridged into a `ReadableStream<Uint8Array>` — no full-response buffering, scope + timeoutMs still enforced | `HTTP_STREAM_OK:6c/head1ms/total277ms` — 81/81, exit 0 (progressive delivery proven: head ≪ body tail) |                                                                                                                                                |
 | P24   | Raw IPC responses (research-corrected: Tauri v2 desktop has NO MessagePack — the real target is `InvokeResponseBody::Raw`; Ztron's base64-in-JSON mirrors Tauri's own Android recommendation): any command may return `RawResponse`, the injected invoke unwraps it to `Uint8Array` — binary decoding now lives in one place; fs.readFile/clipboard.readImage simplified | existing checks re-verified on the new path: `FS_BINARY_OK:15b` + `CLIPBOARD_IMG_OK:70` — 81 checks, FULL_OK, exit 0 |                                                                                                                                                |
-| P26   | File drag & drop: `tauri://drag-enter/over/drop/leave` events (paths + physical position) + `Window.onDragDropEvent` + `setFileDropEnabled`. Native: WKWebView subclass-from-birth with NSDraggingDestination IMPs (dyld-constructor registered, vendored `WKWebView_alloc` hook) — isa-swizzling after init crashes in KVO (`_os_unfair_lock_corruption_abort`) | `DRAG_DROP_ARMED` — 82/82, exit 0; real drops report `DRAG_EVENT_LIVE:<n>:<paths>` opportunistically; multiwin 10x create/destroy stress still green |                                                                                                                                                |
+| P26   | File drag & drop: `ztron://drag-enter/over/drop/leave` events (paths + physical position) + `Window.onDragDropEvent` + `setFileDropEnabled`. Native: WKWebView subclass-from-birth with NSDraggingDestination IMPs (dyld-constructor registered, vendored `WKWebView_alloc` hook) — isa-swizzling after init crashes in KVO (`_os_unfair_lock_corruption_abort`) | `DRAG_DROP_ARMED` — 82/82, exit 0; real drops report `DRAG_EVENT_LIVE:<n>:<paths>` opportunistically; multiwin 10x create/destroy stress still green |                                                                                                                                                |
 | P27   | dialog v2 (`ask`/`confirm` OK/Cancel alerts resolving booleans + `message` kind=info/warning/error via NSAlertStyle; Tauri-shaped signatures) + clipboard HTML flavor (public.html read + write with plain-text fallback) | `CLIPBOARD_HTML_OK:17` (real pasteboard round trip) + `DIALOG_REG_OK` extended to ask/confirm (modal APIs: registration-level, like open/save) — 84/84, exit 0 |                                                                                                                                                |
 | P28   | Window finishing batch: `setIcon` (dock icon from a registered Image) + `setOverlayIcon` (NSTitlebarAccessoryViewController, macOS take on Windows' overlay badge — plain NSView wrapper, index-based removal) + `setCursorGrab` (CGAssociateMouseAndMouseCursorPosition) + path v2 (`resolveResource`/`sep`/`delimiter`/`localDataDir` alias) + updater `install` (check→download→verify→relaunch one-shot, sha256 gate before relaunch) | `WIN_ICONS_GRAB_OK` — 85/85, exit 0 |  |  |
 | P29   | Window vibrancy effects (Tauri setEffects/clearEffects): behind-webview NSVisualEffectView with SDK-verified NSVisualEffectMaterial mapping (10.10-10.14 values), material reuse, state/radius; Windows-only effects filtered + first-wins rule | `WIN_EFFECTS_OK` — 86/86, exit 0 |  |  |
@@ -81,7 +81,7 @@ pnpm test:unit  # unit suite only
 Three layers target 100% coverage of features + API:
 
 - **surface** — the framework registers exactly the manifest commands and
-  `@zturnlibs/api` exports exactly the manifest values (no missing, no extra)
+  `@zturnlibs/ztron-api` exports exactly the manifest values (no missing, no extra)
 - **unit** — every command routed through `MockRuntime` + an in-memory `tjs`
   stub; PathScope/HttpScope and the ACL are exhaustively tested; a coverage
   ledger asserts every command is unit- or spike-covered
@@ -94,12 +94,12 @@ See `tests/README.md` for the design.
 ```bash
 pnpm install
 scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
-pnpm --filter @ztron/example-hello dev  # dev: vite build + host + backend
-pnpm --filter @ztron/example-hello build  # package + ad-hoc sign ZtronApp.app
+pnpm --filter @zturnlibs/ztron-example-hello dev  # dev: vite build + host + backend
+pnpm --filter @zturnlibs/ztron-example-hello build  # package + ad-hoc sign ZtronApp.app
 node --experimental-strip-types --test tests/core.test.ts  # unit tests
 ```
 
-New project (inside the monorepo so `@ztron/*` resolves):
+New project (inside the monorepo so `@zturnlibs/ztron-*` resolves):
 
 ```bash
 node packages/cli/dist/index.js init my-app   # scaffolds src/main.ts + frontend/

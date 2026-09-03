@@ -3,7 +3,7 @@
  * the WebView backend. Mirrors the role of Tauri's `Runtime` trait
  * (`crates/tauri-runtime`).
  *
- * `@zturnlibs/runtime-ffi` implements this on top of the `webview/webview` C API
+ * `@zturnlibs/ztron-runtime-ffi` implements this on top of the `webview/webview` C API
  * via `tjs:ffi`; a future Electron/Neutralino backend can implement the same
  * interface without touching the core.
  */
@@ -102,6 +102,7 @@ export type WindowStateOp =
   | "center"
   | "set_focus"
   | "is_focused"
+  | "get_inner_position"
   | "set_file_drop_enabled"
   | "set_visible"
   | "set_resizable"
@@ -133,13 +134,15 @@ export type WindowStateOp =
   | "set_effects"
   | "clear_effects";
 
-/** Native window events pushed from the host (mapped to `tauri://*`). */
+/** Native window events pushed from the host (mapped to `ztron://*`). */
 export type WindowEvent =
   | "resize"
   | "move"
   | "focus"
   | "blur"
   | "close"
+  | "suspended"
+  | "resumed"
   | "scale-change"
   | "theme-change"
   | "drag-enter"
@@ -253,7 +256,7 @@ export interface WebviewHandle {
     op: WindowStateOp,
     value?: boolean,
     effect?: { material?: string; state?: number; radius?: number },
-  ): boolean | Promise<boolean>;
+  ): boolean | Promise<boolean> | { x: number; y: number } | null;
   /** Registers a handler for native window events. */
   onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
   /**
@@ -396,6 +399,8 @@ export interface MenuController {
   removeItem(menuId: string, itemId: string): void;
   /** Removes a runtime item by structural index (upstream removeAt). */
   removeItemAt?(menuId: string, index: number): void;
+  /** Attaches a child menu as a submenu item (runtime Submenu creation). */
+  addSubmenu?(menuId: string, childId: string, text: string): void;
   /** Structured snapshot of every child of this menu (upstream items()). */
   items?(menuId: string): Promise<MenuItemsSnapshot>;
   /** Builds the standard platform application menu under one root id. */
@@ -421,6 +426,12 @@ export interface OpenDialogOptions {
   title?: string;
   directory?: boolean;
   multiple?: boolean;
+  /** Upstream parity: allowed extensions, e.g. ["png","jpg"]. */
+  filters?: string[];
+  /** Max selectable files (>1 enables multi-select). */
+  maxFiles?: number;
+  /** Save/create-directories permission (NSSavePanel semantics). */
+  canCreateDirectories?: boolean;
 }
 
 /** Native save-dialog options. */
@@ -439,7 +450,8 @@ export interface MessageDialogOptions {
 
 /** Native dialog controller provided by the runtime backend. */
 export interface DialogController {
-  open(options: OpenDialogOptions): Promise<string | null>;
+  /** maxFiles>1 may resolve an array of paths (upstream shape). */
+  open(options: OpenDialogOptions): Promise<string | string[] | null>;
   save(options: SaveDialogOptions): Promise<string | null>;
   message(options: MessageDialogOptions): Promise<number>;
   /** OK/Cancel alert — resolves true when confirmed (Tauri `ask`). */
@@ -514,6 +526,10 @@ export interface ImageController {
   fromPath(path: string): Promise<number>;
   /** Releases a registered image. */
   destroy(id: number): void;
+  /** Host-decoded RGBA pixels (b64) for PNG/path-loaded images. */
+  rgba?(id: number): Promise<string | null>;
+  /** Host-decoded pixel dims for PNG/path-loaded images. */
+  dims?(id: number): Promise<{ width: number; height: number } | null>;
 }
 
 /** Application-level (whole-app) visibility control — Tauri `AppHandle::show/hide`

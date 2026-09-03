@@ -1,6 +1,6 @@
 /**
  * System tray API — a port of `@tauri-apps/api/tray`, backed by the built-in
- * `plugin:tray|*` commands and the `tauri://tray-click` event.
+ * `plugin:tray|*` commands and the `ztron://tray-click` event.
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
@@ -55,7 +55,7 @@ export async function setTrayMenu(menuId: string): Promise<void> {
 export async function onTrayClick(
   handler: () => void,
 ): Promise<() => Promise<void>> {
-  return listen("tauri://tray-click", () => handler());
+  return listen("ztron://tray-click", () => handler());
 }
 
 /** Whether a tray instance with this id exists. */
@@ -154,7 +154,7 @@ export class TrayIcon {
       y?: number;
     }) => void,
   ): Promise<() => Promise<void>> {
-    return listen<{ event: string }>("tauri://tray-click", (e) =>
+    return listen<{ event: string }>("ztron://tray-click", (e) =>
       handler(e.payload as never),
     );
   }

@@ -99,7 +99,7 @@ export class EventManager {
           continue;
         }
         webview.eval(
-          `window.__TAURI_INTERNALS__.runCallback(${listener.callbackId}, ${serializeEvent(event, eventId, payload)})`,
+          `window.__ZTRON_INTERNALS__.runCallback(${listener.callbackId}, ${serializeEvent(event, eventId, payload)})`,
         );
       }
     }
@@ -116,6 +116,16 @@ function splitKey(key: string): [string, string] {
   return [key.slice(0, i), key.slice(i + 1)];
 }
 
+/**
+ * Target semantics in the two-process model (C6, DESIGN §119):
+ *  - Window/Webview/WebviewWindow/AnyLabel → delivered only to listeners
+ *    registered from that label's webview (upstream per-window routing;
+ *    the C1 fix rides this).
+ *  - App → broadcast to every webview. Upstream's "app" target denotes the
+ *    app process; Ztron's app process has no in-process listeners, and
+ *    upstream `app.emit` likewise reaches every window — broadcast IS the
+ *    faithful mapping here.
+ */
 function targetMatches(listenerLabel: string, target: EventTarget): boolean {
   switch (target.kind) {
     case "Any":

@@ -1,8 +1,8 @@
 /**
  * IPC protocol — translated from Tauri's `crates/tauri/src/ipc/mod.rs`.
  *
- * Transport: the injected `__TAURI_INTERNALS__.invoke` calls the bound
- * `window.__TAURI_IPC__` global (via `webview_bind`). The runtime adapter
+ * Transport: the injected `__ZTRON_INTERNALS__.invoke` calls the bound
+ * `window.__ZTRON_IPC__` global (via `webview_bind`). The runtime adapter
  * receives `(id, req)` where `req` is a JSON array of the JS arguments.
  * The command result is returned through `webview_return(id, status, result)`,
  * giving native Promise semantics on the frontend.
@@ -19,7 +19,7 @@ export interface InvokeMessage {
   /** Forwarded request headers (plain record — core has no DOM dependency). */
   options?: { headers?: Record<string, string> };
   /** Anti-injection key; must match what the `inject` package embeds. */
-  __TAURI_INVOKE_KEY__?: string;
+  __ZTRON_INVOKE_KEY__?: string;
 }
 
 /** A Channel reference embedded in a payload as `__CHANNEL__:<id>`. */
@@ -157,7 +157,7 @@ export class IpcHub {
     }
   }
 
-  /** The string the injected `__TAURI_INTERNALS__.invoke` posts as arg #1. */
+  /** The string the injected `__ZTRON_INTERNALS__.invoke` posts as arg #1. */
   static buildRequest(cmd: string, args: unknown): string {
     return JSON.stringify({ cmd, payload: args });
   }
@@ -169,8 +169,8 @@ function parseMessage(raw: unknown, invokeKey: string): InvokeMessage {
   }
   const message = raw as Record<string, unknown>;
   if (
-    message.__TAURI_INVOKE_KEY__ !== undefined &&
-    message.__TAURI_INVOKE_KEY__ !== invokeKey
+    message.__ZTRON_INVOKE_KEY__ !== undefined &&
+    message.__ZTRON_INVOKE_KEY__ !== invokeKey
   ) {
     throw new Error("IPC message rejected: invalid invoke key");
   }

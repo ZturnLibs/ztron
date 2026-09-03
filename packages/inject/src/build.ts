@@ -1,5 +1,5 @@
 /**
- * The canonical `window.__TAURI_INTERNALS__` implementation for every Ztron
+ * The canonical `window.__ZTRON_INTERNALS__` implementation for every Ztron
  * WebView page.
  *
  * This script is embedded directly into the page HTML (as a `<script>` tag,
@@ -7,9 +7,9 @@
  * injected through `webview_init`, which in webview/webview is a post-handler
  * setter rather than a page-init hook (see DESIGN.md §M0 findings).
  *
- * Transport contract (must stay in sync with `@zturnlibs/api/src/internals.ts`):
+ * Transport contract (must stay in sync with `@zturnlibs/ztron-api/src/internals.ts`):
  *   - `invoke(cmd, args, options)` → Promise, resolved/rejected through the
- *     bound `window.__TAURI_IPC__` (webview_bind + webview_return).
+ *     bound `window.__ZTRON_IPC__` (webview_bind + webview_return).
  *   - `transformCallback` / `unregisterCallback` / `runCallback` → callback
  *     registry used by Channel and events (pushed via `webview_eval`).
  *   - `convertFileSrc` / `postMessage` / `metadata`.
@@ -18,7 +18,7 @@
 export interface InitScriptOptions {
   /** Anti-injection key; the backend rejects mismatched IPC messages. */
   invokeKey: string;
-  /** Window metadata exposed as `__TAURI_INTERNALS__.metadata`. */
+  /** Window metadata exposed as `__ZTRON_INTERNALS__.metadata`. */
   metadata?: Record<string, unknown>;
   /**
    * This window's label. When provided it is baked into the script
@@ -36,7 +36,7 @@ export interface InitScriptOptions {
 
 /**
  * Builds the init script for a window. The invoke key lives inside a closure
- * so that `window.__TAURI_INTERNALS__.invoke.toString()` does not leak it.
+ * so that `window.__ZTRON_INTERNALS__.invoke.toString()` does not leak it.
  */
 export function buildInitScript(options: InitScriptOptions): string {
   const metadata = JSON.stringify(options.metadata ?? {});
@@ -77,7 +77,7 @@ export function buildInitScript(options: InitScriptOptions): string {
     return out
   }
 
-  window.__TAURI_INTERNALS__ = {
+  window.__ZTRON_INTERNALS__ = {
     transformCallback: transformCallback,
     unregisterCallback: unregisterCallback,
     runCallback: function (id, value) {
@@ -91,7 +91,7 @@ export function buildInitScript(options: InitScriptOptions): string {
       // Raw IPC envelope (InvokeResponseBody::Raw semantics): the backend
       // serializes binary command results as {__ZTRON_RAW__: <base64>};
       // unwrap here so callers receive Uint8Array directly.
-      return window.__TAURI_IPC__({ cmd: cmd, payload: args, options: options, __TAURI_INVOKE_KEY__: __KEY__ }).then(function (res) {
+      return window.__ZTRON_IPC__({ cmd: cmd, payload: args, options: options, __ZTRON_INVOKE_KEY__: __KEY__ }).then(function (res) {
         if (res && typeof res === 'object' && typeof res.__ZTRON_RAW__ === 'string') {
           return b64Bytes(res.__ZTRON_RAW__)
         }
@@ -107,12 +107,12 @@ export function buildInitScript(options: InitScriptOptions): string {
       return (protocol || 'asset') + '://' + encodeURI(filePath)
     },
     postMessage: function (message) {
-      window.__TAURI_IPC__(message)
+      window.__ZTRON_IPC__(message)
     },
     metadata: __META__
   }
-  window.isTauri = true
-  ${options.withGlobalTauri ? "window.__ZTRON__ = window.__TAURI_INTERNALS__;" : ""}
+  window.isZtron = true
+  ${options.withGlobalTauri ? "window.__ZTRON__ = window.__ZTRON_INTERNALS__;" : ""}
 })();
 `;
 }

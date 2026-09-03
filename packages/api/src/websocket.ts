@@ -1,6 +1,6 @@
 /**
  * WebSocket API — a port of Tauri's `tauri-plugin-websocket`, backed by the
- * `plugin:websocket|*` commands and the `tauri://websocket-*` events.
+ * `plugin:websocket|*` commands and the `ztron://websocket-*` events.
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
@@ -25,7 +25,7 @@ export async function onMessage(
   handler: (event: { id: number; message: string }) => void,
 ): Promise<() => Promise<void>> {
   return listen<{ id: number; message: string }>(
-    "tauri://websocket-message",
+    "ztron://websocket-message",
     (e) => handler(e.payload),
   );
 }
@@ -35,7 +35,7 @@ export async function onStatus(
   handler: (event: { id: number; state: string }) => void,
 ): Promise<() => Promise<void>> {
   return listen<{ id: number; state: string }>(
-    "tauri://websocket-status",
+    "ztron://websocket-status",
     (e) => handler(e.payload),
   );
 }

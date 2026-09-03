@@ -1,5 +1,5 @@
 /**
- * M3 frontend — uses the real `@zturnlibs/api` package in a Vite-bundled page.
+ * M3 frontend — uses the real `@zturnlibs/ztron-api` package in a Vite-bundled page.
  * Exercises invoke, events, Channel, fs and path through the public API.
  */
 import {
@@ -75,7 +75,7 @@ import {
   isPermissionGranted,
   requestPermission,
   isRegistered,
-} from "@zturnlibs/api";
+} from "@zturnlibs/ztron-api";
 
 function el(id: string): HTMLElement {
   return document.getElementById(id)!;
@@ -653,7 +653,7 @@ async function main(): Promise<void> {
       width: 320,
       height: 200,
       html: '<p style="font-family:system-ui">second window</p>' +
-        '<script>window.__TAURI_INTERNALS__.invoke("m3:report",' +
+        '<script>window.__ZTRON_INTERNALS__.invoke("m3:report",' +
         '{received:"SECOND_PAGE_OK"}).catch(function(){})</script>',
     });
     await second.create();
@@ -819,8 +819,8 @@ async function main(): Promise<void> {
         report("WIN_EVENT_OK");
       }
     };
-    await listen("tauri://blur", fireWinEvent);
-    await listen("tauri://focus", fireWinEvent);
+    await listen("ztron://blur", fireWinEvent);
+    await listen("ztron://focus", fireWinEvent);
     // force a real focus transition: hiding the window loses key, then
     // makeKeyAndOrderFront deterministically fires windowDidBecomeKey
     await win.setVisible(false);

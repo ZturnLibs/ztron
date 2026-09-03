@@ -25,7 +25,7 @@ import type {
   WindowConfig,
 } from "./runtime.js";
 import { StateManager } from "./state.js";
-import { buildInitScript } from "@zturnlibs/inject";
+import { buildInitScript } from "@zturnlibs/ztron-inject";
 import {
   PermissionRegistry,
   ResolvedAcl,
@@ -38,7 +38,7 @@ export interface AppConfig {
   /** Reverse-domain identifier, e.g. `com.example.app`. */
   identifier: string;
   appName?: string;
-  version?: string;  /** The `__TAURI_INVOKE_KEY__` used to authenticate IPC messages. */
+  version?: string;  /** The `__ZTRON_INVOKE_KEY__` used to authenticate IPC messages. */
   invokeKey: string;
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
@@ -67,7 +67,7 @@ export interface AppConfig {
   plugins?: Record<string, unknown>;
   mainBinaryName?: string;
   productName?: string;
-  /** Override the default `__TAURI_INTERNALS__` init script. */
+  /** Override the default `__ZTRON_INTERNALS__` init script. */
   initScript?: string;
   /**
    * Capability files restricting which commands each window may invoke.
@@ -93,7 +93,9 @@ export interface AppOptions {
 export function bundleTypeFromExecutable(exe?: string | null): string {
   const p = (exe ?? "").replace(/\\/g, "/");
   if (/\.app\/contents\/macos\//i.test(p)) return "App";
-  if (/(_setup|_installer)?\.exe$/i.test(p)) return "Nsis";
+  /* Only installer-shaped names imply a format; a bare .exe (e.g. node.exe
+     on a Windows CI runner) is NOT evidence of an NSIS install. */
+  if (/(_setup|_installer)\.exe$/i.test(p)) return "Nsis";
   if (/\.msi$/i.test(p)) return "Msi";
   if (/\.appimage$/i.test(p)) return "AppImage";
   return "App";
@@ -129,16 +131,16 @@ export class App {
     this.#invokeKey = config.invokeKey;
     this.#eventManager = new EventManager((label) => this.getWebview(label));
     this.#adapter.tray?.onEvent(() => {
-      this.emit("tauri://tray-click");
+      this.emit("ztron://tray-click");
     });
     this.#adapter.menu?.onEvent((event) => {
-      this.emit("tauri://menu", event);
+      this.emit("ztron://menu", event);
     });
     this.#adapter.globalShortcut?.onEvent((event) => {
-      this.emit("tauri://global-shortcut", event);
+      this.emit("ztron://global-shortcut", event);
     });
     this.#adapter.deepLink?.onEvent((url) => {
-      this.emit("tauri://deep-link", { url });
+      this.emit("ztron://deep-link", { url });
     });
 
     this.registerBuiltinCommands();
@@ -217,6 +219,7 @@ export class App {
       "plugin:window|set_decorations",
       "plugin:window|get_frame",
       "plugin:window|get_position",
+      "plugin:window|inner_position",
       "plugin:window|get_state",
       "plugin:window|get_title",
       "plugin:window|get_theme",
@@ -319,6 +322,7 @@ export class App {
       "plugin:tray|remove_by_id",
       "plugin:tray|set_show_menu_on_left_click",
       "plugin:tray|destroy",
+      "plugin:resources|close",
       "plugin:menu|create",
       "plugin:menu|set_as_app_menu",
       "plugin:menu|set_item_enabled",
@@ -330,6 +334,7 @@ export class App {
       "plugin:menu|remove_item",
       "plugin:menu|item_info",
       "plugin:menu|destroy",
+      "plugin:menu|add_submenu",
       "plugin:menu|remove_at",
       "plugin:menu|items",
       "plugin:menu|create_default",
@@ -582,6 +587,11 @@ export class App {
         );
       },
       "plugin:window|get_frame": async (_args, ctx) => ctx.webview.getFrame(),
+      "plugin:window|inner_position": (args, ctx) =>
+        ctx.webview.windowState("get_inner_position") as unknown as
+          | { x: number; y: number }
+          | Promise<{ x: number; y: number } | null>
+          | null,
       "plugin:window|get_position": async (_args, ctx) => {
         const f = await ctx.webview.getFrame();
         return f ? { x: f.x, y: f.y } : null;
@@ -833,6 +843,13 @@ export class App {
       "plugin:app|bundle_type": () =>
         bundleTypeFromExecutable(this.executableHint()),
       "plugin:app|supports_multiple_windows": () => true,
+      "plugin:resources|close": (args) => {
+        /* Generic rid closer (upstream core:resources). Ztron's rid space
+           is the image registry; menus/trays expose explicit destroy
+           commands and do not ride the generic closer. */
+        const rid = Number((args as { rid?: number }).rid ?? -1);
+        this.#adapter.image?.destroy(rid);
+      },
       "plugin:app|default_window_icon": () => {
         /* No app-icon registration exists yet; null == "none set" (upstream
            returns Option<Image>). The dock icon rides conf/Info.plist. */
@@ -883,13 +900,19 @@ export class App {
         this.#adapter.image?.fromPath(
           String((args as { path?: string }).path ?? ""),
         ) ?? -1,
-      "plugin:image|rgba": (args) => {
-        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
-        return meta ? new RawResponse(meta.rgbaB64) : null;
+      "plugin:image|rgba": async (args) => {
+        const id = Number((args as { id?: number }).id);
+        const meta = this.#imageMeta.get(id);
+        if (meta) return new RawResponse(meta.rgbaB64);
+        /* B11: PNG/path images were decoded host-side at registration. */
+        const b64 = await this.#adapter.image?.rgba?.(id);
+        return b64 ? new RawResponse(b64) : null;
       },
-      "plugin:image|size": (args) => {
-        const meta = this.#imageMeta.get(Number((args as { id?: number }).id));
-        return meta ? { width: meta.width, height: meta.height } : null;
+      "plugin:image|size": async (args) => {
+        const id = Number((args as { id?: number }).id);
+        const meta = this.#imageMeta.get(id);
+        if (meta) return { width: meta.width, height: meta.height };
+        return (await this.#adapter.image?.dims?.(id)) ?? null;
       },
       "plugin:image|destroy": (args) => {
         const id = Number((args as { id?: number }).id ?? -1);
@@ -1050,6 +1073,14 @@ export class App {
         };
         return this.#adapter.menu?.getItemInfo(menuId, itemId) ?? null;
       },
+      "plugin:menu|add_submenu": (args) => {
+        const { menuId, childId, text } = args as {
+          menuId: string;
+          childId: string;
+          text: string;
+        };
+        this.#adapter.menu?.addSubmenu?.(menuId, childId, text);
+      },
       "plugin:menu|remove_at": (args) => {
         const { menuId, index } = args as { menuId: string; index: number };
         this.#adapter.menu?.removeItemAt?.(menuId, index);
@@ -1141,7 +1172,8 @@ export class App {
         this.#adapter.menu?.destroyMenu((args as { menuId: string }).menuId);
       },
       "plugin:dialog|open": async (args) =>
-        this.#adapter.dialog?.open((args as OpenDialogOptions) ?? {}) ?? null,
+        (await this.#adapter.dialog?.open((args as OpenDialogOptions) ?? {})) ??
+        null,
       "plugin:dialog|save": async (args) =>
         this.#adapter.dialog?.save((args as SaveDialogOptions) ?? {}) ?? null,
       "plugin:dialog|message": async (args) =>
@@ -1258,8 +1290,8 @@ export class App {
     this.#windows.set(cfg.label, { handle, events: new EventTarget() });
     this.#applyStartupWindowState(cfg, handle);
 
-    // Bind the IPC entry FIRST so `window.__TAURI_IPC__` exists in the page.
-    // The `__TAURI_INTERNALS__` bootstrap is embedded into the page itself
+    // Bind the IPC entry FIRST so `window.__ZTRON_IPC__` exists in the page.
+    // The `__ZTRON_INTERNALS__` bootstrap is embedded into the page itself
     // (webview/webview's `webview_init` is a post-handler setter, not a place
     // to inject arbitrary init code — see DESIGN.md §M0 findings).
     handle.onMessage((id, req) => {
@@ -1286,6 +1318,11 @@ export class App {
         this.#windows.delete(cfg.label);
       }
     });
+
+    /* B1 (upstream parity): creation notifications are app-wide broadcasts
+       (upstream emits WINDOW_CREATED/WEBVIEW_CREATED from the event loop). */
+    this.emit("ztron://window-created", { label: cfg.label });
+    this.emit("ztron://webview-created", { label: cfg.label });
 
     const bootstrap =
       this.config.initScript ??
@@ -1367,33 +1404,37 @@ export class App {
   }
 }
 
-/** Maps native window events to Tauri's `tauri://*` event names. */
+/** Maps native window events to Tauri's `ztron://*` event names. */
 function windowEventToTauri(
   event: import("./runtime.js").WindowEvent,
 ): string | null {
   switch (event) {
     case "resize":
-      return "tauri://resize";
+      return "ztron://resize";
     case "move":
-      return "tauri://move";
+      return "ztron://move";
     case "focus":
-      return "tauri://focus";
+      return "ztron://focus";
     case "blur":
-      return "tauri://blur";
+      return "ztron://blur";
     case "close":
-      return "tauri://close-requested";
+      return "ztron://close-requested";
+    case "suspended":
+      return "ztron://suspended";
+    case "resumed":
+      return "ztron://resumed";
     case "scale-change":
-      return "tauri://scale-change";
+      return "ztron://scale-change";
     case "theme-change":
-      return "tauri://theme-changed";
+      return "ztron://theme-changed";
     case "drag-enter":
-      return "tauri://drag-enter";
+      return "ztron://drag-enter";
     case "drag-over":
-      return "tauri://drag-over";
+      return "ztron://drag-over";
     case "drag-drop":
-      return "tauri://drag-drop";
+      return "ztron://drag-drop";
     case "drag-leave":
-      return "tauri://drag-leave";
+      return "ztron://drag-leave";
   }
   return null;
 }

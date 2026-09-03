@@ -463,6 +463,9 @@ export class MockRuntime implements RuntimeAdapter {
     removeItemAt: (menuId, index) => {
       this.menuLog.push({ op: "remove_at", payload: { menuId, index } });
     },
+    addSubmenu: (menuId, childId, text) => {
+      this.menuLog.push({ op: "add_submenu", payload: { menuId, childId, text } });
+    },
     items: async () => [],
     createDefaultMenu: (menuId) => {
       this.menuLog.push({ op: "create_default", payload: { menuId } });

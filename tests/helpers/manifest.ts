@@ -1,7 +1,7 @@
 /**
  * Test manifests — the source of truth for "100% coverage".
  * `COMMANDS` lists every command the framework must register (built-in +
- * plugins). `API_EXPORTS` lists every value export the `@zturnlibs/api` surface
+ * plugins). `API_EXPORTS` lists every value export the `@zturnlibs/ztron-api` surface
  * must provide. Tests assert the running framework matches these exactly
  * (no missing, no extra).
  */
@@ -58,6 +58,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:window|set_decorations",
   "plugin:window|get_frame",
   "plugin:window|get_position",
+  "plugin:window|inner_position",
   "plugin:window|get_state",
   "plugin:window|get_title",
   "plugin:window|get_theme",
@@ -123,6 +124,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:tray|set_icon",
   "plugin:tray|destroy",
   // ---- menu ----
+  "plugin:resources|close",
   "plugin:menu|create",
   "plugin:menu|set_as_app_menu",
   "plugin:menu|set_item_enabled",
@@ -140,6 +142,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:tray|remove_by_id",
   "plugin:tray|set_show_menu_on_left_click",
   "plugin:menu|destroy",
+  "plugin:menu|add_submenu",
   "plugin:menu|remove_at",
   "plugin:menu|items",
   "plugin:menu|create_default",
@@ -258,6 +261,17 @@ export const COMMANDS: readonly string[] = [
   "plugin:localhost|start",
   "plugin:localhost|stop",
   "plugin:localhost|status",
+  "plugin:stronghold|load",
+  "plugin:stronghold|get",
+  "plugin:stronghold|set",
+  "plugin:stronghold|has",
+  "plugin:stronghold|remove",
+  "plugin:stronghold|keys",
+  "plugin:stronghold|clear",
+  "plugin:stronghold|save",
+  "plugin:stronghold|save_to",
+  "plugin:stronghold|close",
+  "plugin:stronghold|reload",
   // ---- mobile parity stubs (fail closed off-platform) ----
   "plugin:barcode-scanner|scan",
   "plugin:biometric|authenticate",
@@ -355,7 +369,7 @@ export const COMMANDS: readonly string[] = [
 
 export const COMMAND_SET: ReadonlySet<string> = new Set(COMMANDS);
 
-/** Value exports the `@zturnlibs/api` package must provide. */
+/** Value exports the `@zturnlibs/ztron-api` package must provide. */
 export const API_EXPORTS: readonly string[] = [
   "invoke",
   "internals",
@@ -365,6 +379,7 @@ export const API_EXPORTS: readonly string[] = [
   "Channel",
   "Resource",
   "listen",
+  "ZtronEvent",
   "once",
   "emit",
   "emitTo",
@@ -427,6 +442,9 @@ export const API_EXPORTS: readonly string[] = [
   "mockWindows",
   "mockConvertFileSrc",
   "clearMocks",
+  "Stronghold",
+  "stronghold",
+  "loadStronghold",
   "readText",
   "writeText",
   "readDir",
@@ -531,6 +549,12 @@ export const API_EXPORTS: readonly string[] = [
   "onTrayClick",
   "Menu",
   "NativeIcon",
+  "MenuItem",
+  "CheckMenuItem",
+  "RadioMenuItem",
+  "IconMenuItem",
+  "PredefinedMenuItem",
+  "Submenu",
   "setAppMenu",
   "onMenuEvent",
   "dialog",

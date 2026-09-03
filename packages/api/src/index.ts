@@ -26,6 +26,7 @@ export {
   getCurrentWebview,
   getAllWebviews,
 } from "./webview.js";
+export { ZtronEvent } from "./event.js";
 export {
   setupDragRegion,
   UserAttentionType,
@@ -130,14 +131,25 @@ export {
 export type { TrayOptions } from "./tray.js";
 export { Image, transformImage, type ImageLike } from "./image.js";
 export { TrayIcon } from "./tray.js";
-export { Menu, NativeIcon, setAppMenu, onMenuEvent } from "./menu.js";
+export {
+  Menu,
+  NativeIcon,
+  setAppMenu,
+  onMenuEvent,
+  MenuItem,
+  CheckMenuItem,
+  RadioMenuItem,
+  IconMenuItem,
+  PredefinedMenuItem,
+  Submenu,
+} from "./menu.js";
 export type {
   NativeIcon as NativeIconKind,
   AboutMetadata,
   IconMenuItemOptions,
   MenuItemLive,
 } from "./menu.js";
-export type { MenuItem, MenuEvent } from "./menu.js";
+export type { MenuItemOptions, MenuEvent } from "./menu.js";
 export { dialog, open, save, message, ask, confirm } from "./dialog.js";
 export type {
   OpenDialogOptions,
@@ -291,3 +303,6 @@ export {
   mockConvertFileSrc,
   clearMocks,
 } from "./mocks.js";
+
+export { Stronghold, stronghold, load as loadStronghold } from "./stronghold.js";
+export type { StrongholdStatus } from "./stronghold.js";

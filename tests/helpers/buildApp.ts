@@ -26,6 +26,7 @@ import {
   websocketPlugin,
   windowStatePlugin,
   localhostPlugin,
+  strongholdPlugin,
   barcodeScannerPlugin,
   biometricPlugin,
   geolocationPlugin,
@@ -60,6 +61,12 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
     .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
     .plugin(logPlugin())
     .plugin(localhostPlugin({ dir: "/tmp/ztron-test" }))
+    .plugin(
+      strongholdPlugin({
+        path: `${tjs.tmpDir}/ztron_stronghold_test.bin`,
+        params: { n: 16, r: 1, p: 1 },
+      }),
+    )
     .plugin(barcodeScannerPlugin())
     .plugin(biometricPlugin())
     .plugin(geolocationPlugin())

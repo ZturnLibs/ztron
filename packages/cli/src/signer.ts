@@ -11,9 +11,10 @@ import { dirname } from "node:path";
 import {
   generateKeypair,
   parseSecretKeyFile,
+  dumpEncryptedSecretKeyFile,
   signMinisig,
   verifyMinisig,
-} from "@zturnlibs/core";
+} from "@zturnlibs/ztron-core";
 
 interface SignerArgs {
   action: string;
@@ -53,13 +54,17 @@ export async function signer(argv: string[]): Promise<void> {
       const pkPath = flags["pk-file"] ?? "minisign.pub";
       const skPath = flags["sk-file"] ?? "minisign.key";
       const comment = flags.comment ?? "ztron signer public key";
-      if (flags.encrypted) {
-        console.error("signer: --encrypted not supported yet (F4 note)");
-        process.exit(1);
-      }
-      const { publicKeyText, secretKeyText } = generateKeypair(comment);
+      const password =
+        flags.password ?? process.env.ZTRON_SIGNER_PASSWORD ?? "";
+      const { publicKeyText, secret } = generateKeypair(comment);
       writeFile(pkPath, publicKeyText);
-      writeFile(skPath, secretKeyText);
+      if (flags.password || process.env.ZTRON_SIGNER_PASSWORD) {
+        writeFile(skPath, dumpEncryptedSecretKeyFile(secret, password));
+        console.log("signer: secret key written ENCRYPTED (scrypt, minisign format)");
+      } else {
+        const { secretKeyText } = generateKeypair(comment);
+        writeFile(skPath, secretKeyText);
+      }
       console.log(`signer: generated key pair\n  public key: ${pkPath}\n  secret key: ${skPath}`);
       break;
     }
@@ -70,7 +75,10 @@ export async function signer(argv: string[]): Promise<void> {
         console.error("usage: ztron signer sign <file> --secret-key <path> [--trusted-comment <text>]");
         process.exit(1);
       }
-      const sk = parseSecretKeyFile(readFileSync(skFile, "utf8"));
+      const sk = parseSecretKeyFile(
+        readFileSync(skFile, "utf8"),
+        flags.password ?? process.env.ZTRON_SIGNER_PASSWORD,
+      );
       const data = new Uint8Array(readFileSync(file));
       const sigText = signMinisig(data, sk, {
         trustedComment: flags["trusted-comment"],
@@ -104,8 +112,8 @@ export async function signer(argv: string[]): Promise<void> {
     default:
       console.error(
         "usage:\n" +
-          "  ztron signer generate [--pk-file p] [--sk-file s]\n" +
-          "  ztron signer sign <file> --secret-key <path>\n" +
+          "  ztron signer generate [--pk-file p] [--sk-file s] [--password pw]\n" +
+          "  ztron signer sign <file> --secret-key <path> [--password pw]\n" +
           "  ztron signer verify <file> --public-key <path>",
       );
       process.exit(1);

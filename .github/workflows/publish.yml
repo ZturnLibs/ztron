@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   publish:
-    name: publish @zturnlibs/* to GitHub Packages
+    name: publish @zturnlibs/ztron-* to GitHub Packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,5 +45,3 @@ jobs:
             echo "--- publishing $d"
             (cd "$d" && pnpm publish --no-git-checks --access restricted) || exit 1
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

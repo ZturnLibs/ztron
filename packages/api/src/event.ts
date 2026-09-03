@@ -14,6 +14,31 @@ export type EventTarget =
   | { kind: "Webview"; label: string }
   | { kind: "WebviewWindow"; label: string };
 
+/**
+ * Upstream event-name constants (ZtronEvent parity). WINDOW_CREATED /
+ * WEBVIEW_CREATED fire as app-wide broadcasts on window creation;
+ * SUSPENDED/RESUMED are mobile-lifecycle events (desktop hosts do not
+ * fire them - names carried for platform parity).
+ */
+export enum ZtronEvent {
+  WINDOW_RESIZED = "ztron://resize",
+  WINDOW_MOVED = "ztron://move",
+  WINDOW_CLOSE_REQUESTED = "ztron://close-requested",
+  WINDOW_DESTROYED = "ztron://destroyed",
+  WINDOW_FOCUS = "ztron://focus",
+  WINDOW_BLUR = "ztron://blur",
+  WINDOW_SCALE_FACTOR_CHANGED = "ztron://scale-change",
+  WINDOW_THEME_CHANGED = "ztron://theme-changed",
+  WINDOW_CREATED = "ztron://window-created",
+  WINDOW_SUSPENDED = "ztron://suspended",
+  WINDOW_RESUMED = "ztron://resumed",
+  WEBVIEW_CREATED = "ztron://webview-created",
+  DRAG_ENTER = "ztron://drag-enter",
+  DRAG_OVER = "ztron://drag-over",
+  DRAG_DROP = "ztron://drag-drop",
+  DRAG_LEAVE = "ztron://drag-leave",
+}
+
 export interface Event<T> {
   /** Event name. */
   event: string;

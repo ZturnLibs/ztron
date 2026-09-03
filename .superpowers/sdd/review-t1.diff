@@ -1,0 +1,2072 @@
+fc944f5 docs(site): rspress skeleton - bilingual locales, base path, brand icon
+38d63b3 feat(e2): stronghold - pure-TS crypto family + encrypted KV vault (GAP E2)
+fc06186 feat(g19): tray hover events + cli icon/info/add/migrate; env-wedge record (GAP B9 partial, F4 6/8)
+7841e6c chore: ignore .worktrees/ scratch directory
+
+ .gitignore                                         |    1 +
+ DESIGN.md                                          |   16 +
+ GAP.md                                             |    6 +-
+ docs/.gitignore                                    |    2 +
+ docs/en/_nav.json                                  |    5 +
+ docs/en/index.md                                   |   11 +
+ docs/i18n.json                                     |    6 +
+ docs/package.json                                  |   20 +
+ docs/pnpm-lock.yaml                                | 3955 ++++++++++++++++++++
+ docs/public/zturnlabs-icon.png                     |  Bin 0 -> 769915 bytes
+ docs/rspress.config.ts                             |   38 +
+ docs/zh/_nav.json                                  |    5 +
+ docs/zh/index.md                                   |   11 +
+ native/host/host_macos.c                           |   59 +
+ packages/api/src/index.ts                          |    3 +
+ packages/api/src/stronghold.ts                     |  107 +
+ packages/cli/src/index.ts                          |   32 +
+ packages/cli/src/tools.ts                          |  233 ++
+ packages/core/src/index.ts                         |    3 +
+ .../core/src/plugins/crypto/chacha20poly1305.ts    |  189 +
+ packages/core/src/plugins/crypto/scrypt.ts         |  135 +
+ packages/core/src/plugins/crypto/sha256.ts         |  115 +
+ packages/core/src/plugins/index.ts                 |    3 +
+ packages/core/src/plugins/stronghold.ts            |  318 ++
+ tests/helpers/buildApp.ts                          |    7 +
+ tests/helpers/manifest.ts                          |   14 +
+ tests/unit/cli-tools.test.ts                       |   73 +
+ tests/unit/coverage.test.ts                        |   11 +
+ tests/unit/stronghold.test.ts                      |  152 +
+ 29 files changed, 5527 insertions(+), 3 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index c6a950e..6ff8377 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -24,10 +24,11 @@ native/txiki.js/
+ native/webview/
+ native/libs/
+ examples/**/native/
+ .ztron/
+ 
+ # frontend build output
+ examples/**/frontend/dist/
+ 
+ # packaged app output (ztron build)
+ dist/
++.worktrees/
+diff --git a/DESIGN.md b/DESIGN.md
+index a4498a4..223dc1d 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -1290,20 +1290,36 @@ ZtronApp.app/Contents/
+ 
+ ## 103. G3 updater 安全链(minisign 验签 + SemVer + downloadAndInstall 流式)
+ 
+ - **纯 TS 加密组件**(`core/src/plugins/crypto/`):sha512(FIPS 180-4,BigInt)、blake2b(RFC 7693,32/64 双出长)、ed25519(RFC 8032,extended coordinates 统一加法)。动机:tjs WebCrypto 无 Ed25519 而更新验签必须离线。**与 node:crypto 双向互操作为回归门禁**(sha/blake 全长度对拍,ed25519 两侧互验)
+ - **调错实录(价值密度极高)**:①SHA-512 K 常量表被我截成 64 条(SHA-256 的数)——块扫测试抓出;②BLAKE2b G 函数首版漏 c/d 两通道且第二轮旋转写成 32/24(应为 16/63)——全长度对拍抓出;③我记忆中的"blake2b 空串向量"是错的,以 hashlib/createHash 实测为准更正;④标量乘 `s=r+k·a` 首写用域模 P,须用群阶 L;⑤hash→标量必须按 **64 字节** LE 取模——sign 侧改了、verify 侧因形参名不同(pk/publicKey)漏改,靠"node 认我签/我不认自签"的**方向性不对称**定位;⑥noUncheckedIndexedAccess 下索引断言遍布三个文件。教训:**密码学实现必须有平台原语对拍测试**,方向性互斥失败是最锐利的定位信号
+ - **minisign 模块**:线格式与 jedisct1/minisign 逐字节对齐(pk 文件 b64("Ed"‖keynum₈‖pk₃₂);sig 文件双 b64+trusted comment;内容签名 BLAKE2b-512 prehash("ED")+全局签名覆盖 sig₆₄‖trustedComment)。verifyMinisig 四类失败语义(format/keyid-mismatch/message-signature/global-signature)+ fail-closed。secret key 仅支持无加密(KDFNONE),scrypt 盒待 F4 后续
+ - **updater 插件 v2**:`UpdaterPluginOptions.pubkey` 配置即强制门禁(manifest.platforms.*.signature 缺失/不匹配→中止 relaunch 并清理临时件);semver 换 compareSemver(修 NaN 陷阱:`1.0.0-beta<1.0.0` 等 §11 全表单测);新命令 verify_signature(inline base64,单测可离线跑)+install_stream(Channel 推 Started{contentLength}/Progress{chunkLength}/Finished)。manifest COMMANDS+2(API_EXPORTS+2)、coverage:verify_signature 入 UNIT_COVERED、install_stream 入 INTEGRATION_ONLY
+ - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
+ - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
+ 
++## 122. E2 stronghold 落地(纯 TS 密码学族 + 加密 KV 快照)
++
++- **原语族**(packages/core/src/plugins/crypto/):sha256(手写 K 表=sha512 常量高 32 位同源)/hmac/pbkdf2(多块)、scrypt(salsa20/8+ROMix)、chacha20-poly1305(poly1305 BigInt 累加器)。**对拍铁律**:全部过 node:crypto 交叉验证(随机向量 ct+tag 逐字节)+RFC 官方向量(poly1305 §2.5.2/salsa §8/scrypt §12 空输入/AEAD §2.8.2)
++- **排障实录(四错连抓,全程 node 对拍驱动)**:①poly1305 的 s 切片读 key[0..16] 应 key[16..32];②clamp 掩码末组抄成 0ffffffc 应 0fffffff——node tag 对拍当场暴露;③scrypt Integerify 误取末 32 位字/再误 512 位 Horner——正确为**末块首字 & (N-1)**(2 的幂 N 下高位为 2^32 倍数自动归零);④romix 用 XY.subarray 共享 scratch 自覆盖(结构逐行对照 ricmoo/scrypt-js 仍看不出,改**独立 scratch 数组**后矩阵全绿)——教训:内存共享缓冲区在"看起来只是别名"时最隐蔽,密码学实现**必须**以对拍+向量为门禁而非目测
++- **插件**:ZTSH1 快照头(magic|salt16|N,r,p|nonce12|ct|tag16);12 命令生命周期(与 store v2 同形);密码进程内存持有(与上游 keyring 语义对齐注记);scrypt 默认 N=2^14,r=8(libsodium moderate);tjs-stub 内存 FS 下磁盘往返由 close→load 真实走通
++- **测试**:5 组原语对拍 + 生命周期(不透明快照断言:密文不含明文/ZTSH1 魔数/错密码拒/重开数据完整/密文位翻转 fail-closed);**125 tests / 124 pass / 1 skip**(环境楔死未恢复,直连 node --test 路径)
++- **api**:Stronghold 类(绑路径+会话密码)+stronghold 函数面+loadStronghold 导出
++
++## 121. G19 托盘 hover 事件 + CLI 工具四件;本机签名校验栈楔死事件
++
++- **B9 尾(代码完,验证挂起)**:ZtronTrayHoverTarget 每托盘独立 owner(associated trayId)+NSTrackingArea(Entered|Exited|MouseMoved|ActiveAlways)挂 status button——enter/leave/move 事件带 trayId+全局坐标;**无 isa-swizzle**(P26 教训贯彻);MouseDown/Up 分相并入 click payload(NSStatusBarButton 未子类化,诚实记边界)
++- **F4 尾**:`ztron icon`（sips 十尺寸 iconset+iconutil icns,单测真跑断言产物）、`info`（tjs/host/libwebview/conf/capabilities/sips 体检）、`add`（capability JSON 脚手架+接线提示）、`migrate`（tauri.conf.json→ztron.conf.json 纯映射:productName/identifier/version/frontendDist→frontend/csp/windows 字段白名单/index.html→frontend/未知字段丢弃/devUrl 转注记,单测全覆盖）
++- **环境事件(重要)**:19:15 起**本机所有新建可执行文件 exec 挂起**——hello-world 级 cc 产物也卡 dyld_start(sample 实证);既存二进制(node/git/sips)正常;trustdFileHelper 一度三实例;sudo 需密码无法自救。**影响**:原生/spike 验证全部受阻(B9 hover/menuprobe/hello 均无法跑);**绕行**:构建直连 node node_modules/typescript/bin/tsc(避 pnpm .bin 新包装脚本)、测试直连 node --test——120/119 全绿
++- **待用户**:sudo pkill -9 trustd trustdFileHelper syspolicyd(或重启)后,重跑 `bash scripts/ci.sh` 即可恢复全链验证并补 B9 真机确认
++- 验证:cli-tools.test.ts 两项(migrate 映射/icon 真生成)+全量 120/119、typecheck 直连过
++
+ ## 120. G18 cli 声明式 schema(D5)+ 菜单上游式类面(A2 收尾)
+ 
+ - **D5**:cli 插件重写——CliSchema/CliArgDef/CliSubcommandDef（clap 形态）;编译期建 byName/byLong/byShort/positional 四表;解析器升级:short/long/inline =/takesValue/multiple 累积/index 位置槽/default 回填/required+conflicts 校验(抛错)/嵌套子命令递归;旧扁平形态自动合成 schema 保零破坏;**教训:未声明 flag 的宽容回退(吃下一 token 作值)是旧行为契约,strict 化会破 back-compat 测试**;6 组新单测
+ - **A2 尾**:api 上游式项类——MenuItemBase(menuId+itemId 包装:text/setText/isEnabled/setEnabled/remove 经 item_info 与既有命令);MenuItem(+setAccelerator)/CheckMenuItem(isChecked/setChecked)/RadioMenuItem/IconMenuItem(setIcon+icon 创建)/PredefinedMenuItem(separator/copy/cut/paste/selectAll/undo/redo/quit/about/minimize/fullscreen 12 工厂)/Submenu 运行时挂载(新 plugin:menu\|add_submenu→宿主 menu_add_submenu_item,复用 wire 三元组);**配置接口 MenuItem→MenuItemOptions 更名(上游命名,消与类的撞名)**——index.ts 的 export 手术三连坑:重复 type 块/误删 cliPlugin/新旧混出,全部编译器按序抓净
+ - **验证**:118 tests / 117 pass / 1 skip,typecheck 0;hello 85 FULL_OK、menuprobe 5/5 双回归过
+ 
+ ## 119. G17 小件三连(B1 事件族/B11 图像真读回/C6 收口)
+ 
+ - **B1**:createWindow 广播 tauri://window-created / webview-created（upstream 为 app 级广播,非 per-window——与 C1 的定向规则不冲突:created 语义就是"告知所有人"）;suspended/resumed 进 WindowEvent 联合+映射+api TauriEvent 枚举 16 常量（桌面不触发,移动生命周期命名面）
+ - **B11**:宿主 image_add 注册期真解码——TIFF→NSBitmapImageRep→CGImage→CGBitmapContext(8bit RGBA, premultipliedLast)提像素,注册表并行存 rgba/w/h,destroy 释放;image_rgba_query/dims_query 两查询 op;ImageController 增可选 rgba/dims,core 命令回退链（fromRGBA 信封优先,宿主解码兜底）——**fromRGBA/PNG/path 三源 rgba()/size() 全量可读**;menuprobe `IMG_READBACK_OK:1024x1024:5592408` 真机验证（5.6MB b64 走 socket 直发不占 Msg 1MiB 槽）
+diff --git a/GAP.md b/GAP.md
+index 8a9b1be..9c34305 100644
+--- a/GAP.md
++++ b/GAP.md
+@@ -37,21 +37,21 @@
+ | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
+ |----|------|----------|----|------|------|
+ | B1 ✓ | 事件族补齐：WINDOW/WEBVIEW_CREATED 建窗广播（core createWindow，upstream app-wide 语义）；SUSPENDED/RESUMED 命名面+路由映射（macOS 桌面不触发，移动生命周期对齐）；api 增 TauriEvent 16 常量枚举——G17 实现|
+ | B2 ✓ | cursor_position 无窗全局回退本就内建（无 wnd 直接 mouse_screen）；api 新增零参 standalone cursorPosition() 导出
+ | B3 ✓ | app 级 show/hide（NSApp hide:/unhideWithoutActivation+activate；G2 批次，DESIGN §102） | core:app app_show/app_hide | host C + core + api | macOS 可验（multiwin APP_LIFECYCLE_OK ✓） | ✓ |
+ | B4 ✓ | setDockVisibility（activationPolicy Regular/Accessory，与 skip_taskbar 同机制独立 API；G2 批次） | core:app set_dock_visibility | host C + core + api | macOS 可验（multiwin ✓） | ✓ |
+ | B5 ✓ | default_window_icon 命令+api（null=未设，Option 语义；dock 图标走 conf/Info.plist）——G15|
+ | B6 ✓ | bundle_type 查询 + BundleType 枚举（exe 路径判定 .app/Nsis/Msi/AppImage；安装器标记待 F3 接入；G2 批次） | core:app bundle_type | core + api | 本机可验 | ✓ |
+ | B7 ✓ | supports_multiple_windows 查询（桌面恒 true；G2 批次） | core:app supports_multiple_windows | core + api | 本机可验 | ✓ |
+ | B8 ✓ | getIdentifier 独立函数 + plugin:app\|identifier 命令（G2 批次） | core:app identifier | core + api | 本机可验 | ✓ |
+-| B9 | Tray 多实例 id 体系：getById/removeById；setTempDirPath；setIconWithAsTemplate；setShowMenuOnLeftClick；TrayIconEvent 富化（坐标/左右键 MouseDown/MouseUp/click/doubleClick/move/enter/leave + MouseButton/ButtonState 类型；现仅裸 click） | core:tray 12 条；api/src/tray.ts TrayIconOptions/event 类型 | host C + runtime + core + api | macOS 可验（除 tempDir 部分） | ◐ |
++| B9 ◐ | Tray 多实例+事件：主体 G5 已落（多实例/富化 click）；G19 增 enter/leave/move（NSTrackingArea+每托盘独立 hover owner，无 swizzle）；**hover 执行验证待环境恢复**（syspolicyd/trustd 楔死，DESIGN §121）；剩 MouseDown/Up 分相（并入 click payload，NSStatusBarButton 未子类化）|
+ | B10 ✓ | menu 22 条核对：命令面等价映射已显式登记于 F9 NAME_MAP（类方法↔命令面/查询经 item_info 三合一/set_accelerator=set_item_accel）；无语义缺口——G16 审计|
+ | B11 ✓ | Image 读回全量：宿主注册期真解码（TIFF→NSBitmapImageRep→CGImage→CGBitmapContext RGBA），image_rgba_query/dims_query 回链 + core 回退（fromRGBA 信封优先）；menuprobe IMG_READBACK_OK:1024x1024 真机验证——G17 实现|
+ | B12 ✓ | path resolve_directory：api resolveBaseDirectory（23 目录 getter）+baseline_dir 承担其角色，NAME_MAP 记录命名分歧；BaseDirectory 枚举已导出——G16 审计|
+ | B13 ✓ | core:resources\|close 命令落地（rid→image 注册表路由；menu/tray 走各自 destroy），Resource.close 基类不再指向空命令——G16 实现|
+ | B14 ✓ | inner_position 独立精确值：host contentLayoutRect→convertBaseToScreen 新查询 op + core 命令 + api 切换；menuprobe INNER_POS_OK:1070,934 真机验证——G16 实现|
+ | B15 ✓ | ActivityName(Android)/sceneIdentifier(iOS)：get→null + set 文档化 no-op 四命令 + api Window 四方法——G12 | window/plugin.rs | core+api | 桌面已验 | ✓ |
+ 
+ # C. @tauri-apps/api 包层（v2.11.1 逐导出对齐）
+ 
+ | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
+@@ -82,37 +82,37 @@
+ | D6 ◐ | log：attachLogger/detachLogger 客户端多路 sink（上游 webview-target 语义对齐）——G9 批次；format 函数注入/timeStrategy 待续 |
+ | D7 ✓ | dialog 选项：filters（allowedFileTypes CSV）/maxFiles（多选+JSON 数组回执，api 返回 string\|string[]\|null）/canCreateDirectories 全链接入；modal 交互本机不自动测（注册级已测）——G16 实现|
+ | D8 ✓ | shell：Command cwd/env 选项已在（G 早期）；program/args scope 匹配（matchScope+正则 args）已在；审计通过——G16|
+ | D9 ◐ | websocket/upload/persisted-scope/deep-link/window-state/sql/os/autostart/single-instance/opener/notification/clipboard/global-shortcut 批量选项级核对——**GS registerAll/unregisterAll 已落地**（core 侧登记表驱动，DESIGN §101）；其余插件的选项级核对仍待办 | 各官方插件 v2 README/command 表 | core 核对 | 本机可验 | ◐ |
+ 
+ # E. 官方插件缺失（29 官方 − 23 已实现）
+ 
+ | ID | 插件 | 说明 | 层 | 平台 | 状态 |
+ |----|------|------|-----|------|------|
+ | E1 ✓ | **localhost**：`tjs.serve` fetch-handler 服文件（PathScope 根锚定+扩展名 MIME 表+403/404 语义），start/stop/status 命令 + api localhost/start·stopLocalhost；menuprobe LOCALHOST_OK（真 tjs.serve 临时端口往返）——G11 批次 | plugins-workspace/localhost | core+api | macOS 本机可验 | ✓ |
+-| E2 | **stronghold** | 加密存储（Rust stronghold；TS 重写方案：libsodium 存档引擎——先做 argon2/xchacha20 兼容面） | core + native 绑定 | macOS 可验（重） | ☐ |
++| E2 ✓ | **stronghold（TS 重写方案落地）**：纯 TS 密码学族（sha256/hmac/pbkdf2/scrypt/chacha20-poly1305，全部对 node:crypto/RFC 向量对拍）+ ZTSH1 快照格式（salt+参数+nonce+AEAD 密文+tag）+ 12 命令插件（load/get/set/has/remove/keys/clear/save/save_to/close/reload）+ api Stronghold 类；错密码/密文篡改 fail-closed 实测——G20/DESIGN §122|
+ | E3 ✓ | barcode-scanner：scan 命令面移植，off-platform 抛 PluginUnavailable（序列化形态测试断言）——G12 | barcode-scanner v2 | core 桩+api | 桌面拒错已验；真机待环境 | ✓ |
+ | E4 ✓ | biometric：authenticate/status 命令面移植（同上）；macOS Touch ID 真实现留作可选升级（LAContext）——G12 | biometric v2 | core 桩+api | 桌面拒错已验 | ✓ |
+ | E5 ✓ | geolocation：getCurrentPosition/watchPosition/clearWatch 命令面移植——G12 | geolocation v2 | core 桩+api | 桌面拒错已验 | ✓ |
+ | E6 ✓ | haptics：impactOccurred/notificationOccurred/selectionChanged 命令面移植——G12 | haptics v2 | core 桩+api | 桌面拒错已验 | ✓ |
+ | E7 ✓ | nfc：scan/write/stop 命令面移植——G12 | nfc v2 | core 桩+api | 桌面拒错已验 | ✓ |
+ 
+ > 已实现 23：fs/http/shell/dialog/clipboard-manager/sql/store/updater/deep-link/cli/os/log/notification/opener/global-shortcut/autostart/single-instance/persisted-scope/positioner/process/upload/websocket/window-state
+ 
+ # F. 配置 / CLI / 打包 / 测试基建 / 安全
+ 
+ | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
+ |----|------|----------|----|------|------|
+ | F1 ◐ | **tauri.conf.json 顶层 schema 全量**：ProjectConfigFile 扩展 $schema/productName/mainBinaryName/build{五命令}/app{withGlobalTauri,macOSPrivateApi,security{csp,devCsp,capabilities,assetProtocol,freezePrototype}}/bundle(11 键)/plugins{}；旧顶层 csp/capabilities 兼容直通；校验器类型检查+未知键 onWarn；fromConfig 结构化入 AppConfig——G10。剩余：build/bundle 值真正驱动 CLI 管线（G13 接线）|
+ | F2 ◐ | **WindowConfig 创建期扩展**：新增 shadow/focus/dragDropEnabled 三字段进 #applyStartupWindowState（applier 移入 createWindow 单路径）；DECLARED_UNSUPPORTED_WINDOW_FIELDS 13 键（userAgent/incognito/proxyUrl/parent 等）schema 接受+onWarn 文档化保留；UPSTREAM_WINDOW_FIELDS 全集导出——G10。剩余：新键对应宿主实现随平台批（F2 尾项=13 键的 host 实现）|
+ | F3 ◐ | **bundler 产物器全集**：cli/src/bundler.ts 六 packer（nsis 完整 .nsi 安装脚本/msi WiX .wxs/appimage AppDir 布局/deb DEBIAN+control+rpm spec）——确定性控制文件全量生成+工具缺失时 built:false 带明示 reason（脚本就绪可跑）；app/dmg 沿用既有 macOS 实现。真机产物验证待目标平台——G13 |
+-| F4 ◐ | **CLI 子命令**：**signer 已落地**（generate/sign/verify，无密码 secret key；scrypt 加密 key 待续）——G3 批次；icon/info/add/migrate 仍待办 | tauri-cli crates + js cli | cli | icon/info 本机可验；add/migrate 适配 Ztron 语境 | ◐ |
++| F4 ◐ | CLI 子命令：signer(G3)+**icon（十尺寸 iconset+icns 真生成）/info/add/migrate（tauri.conf→ztron.conf 纯映射）G19 落地，单测实跑**；剩 scrypt 加密 secret key——6/8|
+ | F5 ◐ | **macSignAndNotarize**：codesign(entitlements+runtime options)→ditto 压缩→notarytool submit --wait→stapler 全链；凭证缺失时输出完整命令计划(plan)；ZTRON_SIGN_IDENTITY/NOTARY_* 环境变量驱动。真凭证链验证待用户提供——G13 |
+ | F6 ✓ | **updater 工件**：packUpdaterArtifacts 产 latest.json(version/notes/pub_date/platforms.url+sha256+signature)+独立 .minisig，G3 minisign 验签闭环测试（含篡改拒绝）；ZTRON_UPDATER_KEYS 环境变量接 cli build——G13 |
+ | F7 ◐ | @zturnlibs/driver 包骨架：W3C /status 与 new-session 握手、平台 remote 表（linux WebKitWebDriver/win32 msedgedriver/darwin 显式无 remote 同上游）、spawn 派发与 CLI 入口；请求级转发留待目标平台验证（端口 4444/4445 同上游默认）——G14 |
+ | F8 ◐ | isolation pattern 评估结论（DESIGN §112）：上游该能力已废弃（pattern 模块移除、文档下线），按"移植上游现行面"原则 Ztron 不实现，仅冻结原型留作开关件——G14 |
+ | F9 ✓ | ACL 对拍测试（tests/unit/acl-parity.test.ts）：上游 9 插件命令表→Ztron 权限面映射完整性断言；NAME_MAP 显式登记 30+ 命名分歧（window 前缀/menu 类方法/webview 驼峰等）、KNOWN_GAPS 8 项审计白名单（default_window_icon/dataStore/autoResize/reparent 等）；deny `!cmd` 语法纳入校验；App.permissionSnapshot() 只读暴露——G14 |
+ | F10 ◐ | capability remote 字段已入 schema（解析+携带，注释注明 IPC 无 origin 信息故暂不 enforcement——ztron:// 单源模型）；真正 enforcement 待远程前端出现时随 origin 追踪落地——G16|
+ 
+ 
+ 
+ > **A2 进度注（G4，DESIGN §104）**：功能面已落地——NativeIcon×56 表、IconMenuItem 创建期 icon 字段、setItemIcon 运行时换图、Menu.default()（create_default 五组建制 App/Edit/View/Window）、items() 结构化快照、removeAt(tombstone)、setAsWindowMenu/setAsWindowsMenuForNSApp/setAsHelpMenuForNSApp；api 补 NativeIcon/AboutMetadata/IconMenuItemOptions 类型与 Menu.default/new/snapshot/removeAt/窗口挂载方法。**剩余尾项**：真·上游式 rid 资源类（Submenu/CheckMenuItem/RadioMenuItem/PredefinedMenuItem/IconMenuItem 独立实例类）、AboutMetadata 点击面板 options、Legacy "Ed"(non-prehashed) 摘要模式默认关闭仅显式开启。
+diff --git a/docs/.gitignore b/docs/.gitignore
+new file mode 100644
+index 0000000..10068e9
+--- /dev/null
++++ b/docs/.gitignore
+@@ -0,0 +1,2 @@
++node_modules/
++doc_build/
+diff --git a/docs/en/_nav.json b/docs/en/_nav.json
+new file mode 100644
+index 0000000..9b833e9
+--- /dev/null
++++ b/docs/en/_nav.json
+@@ -0,0 +1,5 @@
++[
++  { "text": "start", "link": "/start/intro" },
++  { "text": "guide", "link": "/guide/architecture" },
++  { "text": "reference", "link": "/reference/cli" }
++]
+diff --git a/docs/en/index.md b/docs/en/index.md
+new file mode 100644
+index 0000000..aceff7e
+--- /dev/null
++++ b/docs/en/index.md
+@@ -0,0 +1,11 @@
++---
++title: Ztron Docs
++---
++
++# Ztron Docs
++
++A Tauri-style cross-platform desktop framework rewritten in TypeScript, on txiki.js + the system WebView.
++
++(Placeholder while P1 content lands — replaced by the real landing page after Task 3.)
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/i18n.json b/docs/i18n.json
+new file mode 100644
+index 0000000..bd7c942
+--- /dev/null
++++ b/docs/i18n.json
+@@ -0,0 +1,6 @@
++{
++  "start": { "zh": "开始", "en": "Start" },
++  "guide": { "zh": "指南", "en": "Guide" },
++  "reference": { "zh": "参考", "en": "Reference" },
++  "plugins": { "zh": "插件", "en": "Plugins" }
++}
+diff --git a/docs/package.json b/docs/package.json
+new file mode 100644
+index 0000000..78356f0
+--- /dev/null
++++ b/docs/package.json
+@@ -0,0 +1,20 @@
++{
++  "name": "@ztron/docs",
++  "version": "0.1.0",
++  "private": true,
++  "type": "module",
++  "scripts": {
++    "dev": "rspress dev",
++    "build": "rspress build",
++    "preview": "rspress preview",
++    "check:locales": "node --experimental-strip-types scripts/check-locales.ts",
++    "check:locales:deploy": "node --experimental-strip-types scripts/check-locales.ts --deploy",
++    "test": "node --experimental-strip-types --test scripts/*.test.ts"
++  },
++  "dependencies": {
++    "rspress": "^1.40.2"
++  },
++  "engines": {
++    "node": ">=20"
++  }
++}
+diff --git a/docs/public/zturnlabs-icon.png b/docs/public/zturnlabs-icon.png
+new file mode 100644
+index 0000000..202e1e4
+Binary files /dev/null and b/docs/public/zturnlabs-icon.png differ
+diff --git a/docs/rspress.config.ts b/docs/rspress.config.ts
+new file mode 100644
+index 0000000..f5c41c5
+--- /dev/null
++++ b/docs/rspress.config.ts
+@@ -0,0 +1,38 @@
++import { defineConfig } from "rspress/config";
++import { fileURLToPath } from "node:url";
++
++// 站点根即本目录：zh/ 为默认语言（无路由前缀），en/ 挂 /en/。
++const root = fileURLToPath(new URL(".", import.meta.url));
++
++export default defineConfig({
++  root,
++  // GitHub Pages 项目页子路径；绑定自定义域名后改为 "/"
++  base: "/ztron/",
++  lang: "zh",
++  title: "Ztron",
++  icon: "/zturnlabs-icon.png",
++  locales: [
++    { lang: "zh", label: "中文" },
++    { lang: "en", label: "English" },
++  ],
++  route: {
++    exclude: ["**/superpowers/**", "**/scripts/**", "**/translations/**"],
++  },
++  themeConfig: {
++    socialLinks: [
++      {
++        icon: "github",
++        mode: "link",
++        content: "https://github.com/ZturnLibs/ztron",
++      },
++    ],
++    footer: {
++      message: `
++        <div>
++          <div><a href="https://github.com/ZturnLibs/ztron">GitHub</a> · Ztron</div>
++          <div><a href="https://beian.miit.gov.cn/">鄂ICP备2025110122号</a></div>
++        </div>
++      `,
++    },
++  },
++});
+diff --git a/docs/zh/_nav.json b/docs/zh/_nav.json
+new file mode 100644
+index 0000000..9b833e9
+--- /dev/null
++++ b/docs/zh/_nav.json
+@@ -0,0 +1,5 @@
++[
++  { "text": "start", "link": "/start/intro" },
++  { "text": "guide", "link": "/guide/architecture" },
++  { "text": "reference", "link": "/reference/cli" }
++]
+diff --git a/docs/zh/index.md b/docs/zh/index.md
+new file mode 100644
+index 0000000..63c2d15
+--- /dev/null
++++ b/docs/zh/index.md
+@@ -0,0 +1,11 @@
++---
++title: Ztron 文档
++---
++
++# Ztron 文档
++
++Tauri 风格的跨平台桌面框架，以 TypeScript 重写，运行于 txiki.js + 系统 WebView。
++
++（P1 内容建设中——本页在 Task 3 之后由正式首页替换。）
++
++适用版本：`ztron 0.1.0`
+diff --git a/native/host/host_macos.c b/native/host/host_macos.c
+index 26b73d9..56cbe68 100644
+--- a/native/host/host_macos.c
++++ b/native/host/host_macos.c
+@@ -1703,20 +1703,44 @@ static void zt_tray_click(id s, SEL c, id sender) {
+ static void tray_create_ext(const char *title, const char *tid) {
+   if (g_tray_count >= MAX_TRAYS) return;
+   if (!tid || !tid[0]) tid = "main";
+   void *bar = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSStatusBar"), sel_registerName("systemStatusBar"));
+   id item = OBJC_MSG(id(*)(id, SEL, double), bar, sel_registerName("statusItemWithLength:"), -1.0);
+   if (!item) return;
+   OBJC_MSG(void(*)(id, SEL, id), item, sel_registerName("setTitle:"), zt_nsstring(title));
+   id button = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("button"));
+   OBJC_MSG(void(*)(id, SEL, id), button, sel_registerName("setTarget:"), g_tray_target);
+   OBJC_MSG(void(*)(id, SEL, SEL), button, sel_registerName("setAction:"), sel_registerName("trayClick:"));
++  /* G19/B9: hover tracking (enter/leave/move) with a per-tray owner. */
++  {
++    Class hoverCls = objc_lookUpClass("ZtronTrayHoverTarget");
++    if (hoverCls) {
++      id owner = OBJC_MSG(id(*)(id, SEL), hoverCls, sel_registerName("new"));
++      objc_setAssociatedObject(owner, "ztron-tray-id",
++                               zt_nsstring(tid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
++      ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(
++          button, sel_registerName("bounds"));
++      /* NSTrackingArea: id initWithRect:options:owner:userInfo:
++         (struct rect arg passes as 4 doubles; options: MouseEntered|Exited|
++         MouseMoved|ActiveAlways = 1|2|16|0x200(NSTrackingActiveAlways? = 128))
++         Actual: Entered=1, Exited=2, MouseMoved=0x10, ActiveAlways=0x80. */
++      id area = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSTrackingArea"),
++                         sel_registerName("alloc"));
++      area = ((id(*)(id, SEL, ZtRect, unsigned long, id, id))objc_msgSend)(
++          area, sel_registerName("initWithRect:options:owner:userInfo:"),
++          b, 1UL | 2UL | 0x10UL | 0x80UL, owner, (id)NULL);
++      if (area)
++        OBJC_MSG(void(*)(id, SEL, id), button,
++                 sel_registerName("addTrackingArea:"), area);
++      OBJC_MSG(void(*)(id, SEL), owner, sel_registerName("release"));
++    }
++  }
+   /* statusItemWithLength: returns an autoreleased item; retain it so the
+      stored record survives the next autorelease-pool drain. */
+   TrayRec *r = &g_trays[g_tray_count++];
+   memset(r, 0, sizeof(*r));
+   strncpy(r->id, tid, sizeof(r->id) - 1);
+   r->item = OBJC_MSG(id(*)(id, SEL), item, sel_registerName("retain"));
+   r->button = *(void **)&button;
+   r->menu_on_left = 1;
+ }
+ 
+@@ -1801,26 +1825,61 @@ static void tray_remove_by_id(const char *tid) { tray_destroy(tid); }
+    itself lives after the menu registry (tray_relink_menu). */
+ static void tray_relink_menu(const char *tid);
+ 
+ static void tray_set_show_menu_on_left_click(const char *tid, int on) {
+   int ti = tray_pick(tid);
+   if (ti < 0) return;
+   g_trays[ti].menu_on_left = on;
+   tray_relink_menu(tid ? tid : "");
+ }
+ 
++/* ---- G19/B9: per-tray hover target (enter/leave/move via NSTrackingArea;
++   a dedicated owner instance per tray identifies the emitting tray without
++   any button isa-swizzling - the P26 lesson applied). ---- */
++
++static void zt_tray_hover(id self, SEL c, id ev, const char *kind) {
++  (void)c;
++  const char *tid = "";
++  id assoc = objc_getAssociatedObject(self, "ztron-tray-id");
++  if (assoc) {
++    tid = OBJC_MSG(const char *(*)(id, SEL), assoc, sel_registerName("UTF8String"));
++  }
++  ZtPoint p = zt_mouse_screen();
++  char buf[192];
++  snprintf(buf, sizeof(buf),
++           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
++           "\"x\":%.0f,\"y\":%.0f}",
++           kind, tid ? tid : "", p.x, p.y);
++  zt_send_line(buf);
++}
++static void zt_tray_enter(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "enter"); }
++static void zt_tray_leave(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "leave"); }
++static void zt_tray_move(id s, SEL c, id ev) { zt_tray_hover(s, c, ev, "move"); }
++
+ static void install_tray_target(void) {
+   Class cls = objc_allocateClassPair((Class)objc_getClass("NSObject"), "ZtronTrayTarget", 0);
+   class_addMethod(cls, sel_registerName("trayClick:"), (IMP)zt_tray_click, "v@:@");
+   class_addMethod(cls, sel_registerName("ztThemeChanged:"), (IMP)zt_theme_changed_cb, "v@:@");
+   objc_registerClassPair(cls);
+   g_tray_target = OBJC_MSG(id(*)(id, SEL), cls, sel_registerName("new"));
++
++  Class hover = objc_allocateClassPair((Class)objc_getClass("NSObject"),
++                                       "ZtronTrayHoverTarget", 0);
++  if (hover) {
++    class_addMethod(hover, sel_registerName("mouseEntered:"),
++                    (IMP)zt_tray_enter, "v@:@");
++    class_addMethod(hover, sel_registerName("mouseExited:"),
++                    (IMP)zt_tray_leave, "v@:@");
++    class_addMethod(hover, sel_registerName("mouseMoved:"),
++                    (IMP)zt_tray_move, "v@:@");
++    objc_registerClassPair(hover);
++  }
+ }
+ 
+ /* ---- application menu (NSMenu) ---- */
+ 
+ #define MAX_MENUS 8
+ #define MAX_MENU_REFS 256
+ 
+ typedef struct { char menu_id[64]; char item_id[128]; } MenuItemRef;
+ 
+ static void *g_menus[MAX_MENUS];
+diff --git a/packages/api/src/index.ts b/packages/api/src/index.ts
+index ad4efd8..b8df03c 100644
+--- a/packages/api/src/index.ts
++++ b/packages/api/src/index.ts
+@@ -296,10 +296,13 @@ export {
+   exit as exitApp,
+   relaunch as relaunchApp,
+ } from "./process.js";
+ 
+ export {
+   mockIPC,
+   mockWindows,
+   mockConvertFileSrc,
+   clearMocks,
+ } from "./mocks.js";
++
++export { Stronghold, stronghold, load as loadStronghold } from "./stronghold.js";
++export type { StrongholdStatus } from "./stronghold.js";
+diff --git a/packages/api/src/stronghold.ts b/packages/api/src/stronghold.ts
+new file mode 100644
+index 0000000..d4ad79c
+--- /dev/null
++++ b/packages/api/src/stronghold.ts
+@@ -0,0 +1,107 @@
++/** Stronghold API — encrypted vault, mirrors `plugin:stronghold|*` (E2). */
++import { invoke } from "./core.js";
++
++export interface StrongholdStatus {
++  entries?: number;
++  path?: string;
++  saved?: boolean;
++  closed?: boolean;
++  reloaded?: boolean;
++}
++
++export function load(path: string, password: string): Promise<StrongholdStatus> {
++  return invoke("plugin:stronghold|load", { path, password });
++}
++function get<T = unknown>(path: string, key: string): Promise<T | null> {
++  return invoke("plugin:stronghold|get", { path, key });
++}
++function set(path: string, key: string, value: unknown): Promise<void> {
++  return invoke("plugin:stronghold|set", { path, key, value });
++}
++function has(path: string, key: string): Promise<boolean> {
++  return invoke("plugin:stronghold|has", { path, key });
++}
++function remove(path: string, key: string): Promise<void> {
++  return invoke("plugin:stronghold|remove", { path, key });
++}
++function keys(path: string): Promise<string[]> {
++  return invoke("plugin:stronghold|keys", { path });
++}
++function clear(path: string): Promise<void> {
++  return invoke("plugin:stronghold|clear", { path });
++}
++function save(path: string): Promise<StrongholdStatus> {
++  return invoke("plugin:stronghold|save", { path });
++}
++function saveTo(path: string, newPath: string): Promise<StrongholdStatus> {
++  return invoke("plugin:stronghold|save_to", { path, newPath });
++}
++function close(path: string): Promise<StrongholdStatus> {
++  return invoke("plugin:stronghold|close", { path });
++}
++function reload(path: string, password: string): Promise<StrongholdStatus> {
++  return invoke("plugin:stronghold|reload", { path, password });
++}
++
++/**
++ * Per-vault handle (upstream Stronghold object spirit): bound path,
++ * password held for the session.
++ */
++export class Stronghold {
++  private constructor(
++    readonly path: string,
++    private password: string,
++  ) {}
++
++  static async load(path: string, password: string): Promise<Stronghold> {
++    await load(path, password);
++    return new Stronghold(path, password);
++  }
++
++  get<T = unknown>(key: string): Promise<T | null> {
++    return get<T>(this.path, key);
++  }
++  set(key: string, value: unknown): Promise<void> {
++    return set(this.path, key, value);
++  }
++  has(key: string): Promise<boolean> {
++    return has(this.path, key);
++  }
++  remove(key: string): Promise<void> {
++    return remove(this.path, key);
++  }
++  keys(): Promise<string[]> {
++    return keys(this.path);
++  }
++  clear(): Promise<void> {
++    return clear(this.path);
++  }
++  save(): Promise<StrongholdStatus> {
++    return save(this.path);
++  }
++  saveTo(newPath: string): Promise<StrongholdStatus> {
++    return saveTo(this.path, newPath);
++  }
++  /** Flushes if dirty, forgets the password. */
++  close(): Promise<StrongholdStatus> {
++    return close(this.path);
++  }
++  /** Drops unsaved state and reopens from disk. */
++  reload(): Promise<StrongholdStatus> {
++    return reload(this.path, this.password);
++  }
++}
++
++export const stronghold = {
++  load,
++  get,
++  set,
++  has,
++  remove,
++  keys,
++  clear,
++  save,
++  saveTo,
++  close,
++  reload,
++};
+diff --git a/packages/cli/src/index.ts b/packages/cli/src/index.ts
+index 3eb87dd..957bbb2 100644
+--- a/packages/cli/src/index.ts
++++ b/packages/cli/src/index.ts
+@@ -1311,20 +1311,52 @@ async function main(): Promise<void> {
+       break;
+     }
+     case "codegen": {
+       await codegen(cwd);
+       break;
+     }
+     case "check": {
+       await check(cwd, resolveEntry(cwd, entryArg), process.argv.slice(3));
+       break;
+     }
++    case "icon": {
++      const input = resolve(cwd, positional ?? "app-icon.png");
++      const outIdx = process.argv.indexOf("-o");
++      const out = resolve(
++        cwd,
++        outIdx >= 0 ? (process.argv[outIdx + 1] ?? "icons") : "icons",
++      );
++      const r = (await import("./tools.js")).generateIcons(input, out);
++      console.log(`[ztron] icns: ${r.icns}`);
++      console.log(`[ztron] iconset: ${r.iconset}`);
++      console.log(`[ztron] png sizes: ${r.pngs.length} files`);
++      break;
++    }
++    case "info": {
++      (await import("./tools.js")).printInfo(
++        cwd,
++        process.env.ZTRON_TJS ?? "",
++      );
++      break;
++    }
++    case "add": {
++      if (!positional) {
++        console.error("usage: ztron add <plugin>");
++        process.exit(1);
++      }
++      (await import("./tools.js")).addPlugin(cwd, positional);
++      break;
++    }
++    case "migrate": {
++      (await import("./tools.js")).migrateConf(cwd, process.argv.slice(3));
++      break;
++    }
+     case "signer": {
+       const { signer } = await import("./signer.js");
+       await signer(process.argv.slice(3));
+       break;
+     }
+     default: {
+       console.error(USAGE);
+       process.exit(1);
+     }
+   }
+diff --git a/packages/cli/src/tools.ts b/packages/cli/src/tools.ts
+new file mode 100644
+index 0000000..29a5d23
+--- /dev/null
++++ b/packages/cli/src/tools.ts
+@@ -0,0 +1,233 @@
++/**
++ * `ztron icon|info|add|migrate` — developer-tool subcommands (GAP F4 tail).
++ * icon/migrate are covered by unit tests; info/add are conveniences.
++ */
++import {
++  spawnSync,
++} from "node:child_process";
++import {
++  existsSync,
++  mkdirSync,
++  mkdtempSync,
++  readFileSync,
++  writeFileSync,
++  rmSync,
++  renameSync,
++} from "node:fs";
++import { tmpdir } from "node:os";
++import { basename, join, resolve } from "node:path";
++
++/** macOS iconset sizes: [logical, scale] pairs (upstream tauri icon set). */
++const ICON_SIZES: Array<[number, number]> = [
++  [16, 1],
++  [16, 2],
++  [32, 1],
++  [32, 2],
++  [128, 1],
++  [128, 2],
++  [256, 1],
++  [256, 2],
++  [512, 1],
++  [512, 2],
++];
++
++function sipsResize(src: string, size: number, out: string): boolean {
++  const r = spawnSync(
++    "sips",
++    ["-z", String(size), String(size), src, "--out", out],
++    { encoding: "utf8" },
++  );
++  return r.status === 0;
++}
++
++/** Generates `<name>.iconset`, packs `AppIcon.icns`, and copies plain-size
++ *  PNGs (`32x32.png`, `128x128.png`, `128x128@2x.png`, …) like tauri icon. */
++export function generateIcons(
++  inputPng: string,
++  outDir: string,
++): { icns: string; iconset: string; pngs: string[] } {
++  if (!existsSync(inputPng)) {
++    throw new Error(`icon: input not found: ${inputPng}`);
++  }
++  mkdirSync(outDir, { recursive: true });
++  const base = basename(inputPng).replace(/\.png$/i, "");
++  const iconsetDir = join(outDir, `${base}.iconset`);
++  mkdirSync(iconsetDir, { recursive: true });
++  const pngs: string[] = [];
++
++  for (const [logical, scale] of ICON_SIZES) {
++    const px = logical * scale;
++    const name = `icon_${logical}x${logical}${scale > 1 ? "@2x" : ""}.png`;
++    const dst = join(iconsetDir, name);
++    if (!sipsResize(inputPng, px, dst)) {
++      throw new Error(`icon: sips failed for ${logical}@${scale}x`);
++    }
++    const plain = join(outDir, `${logical}x${logical}${scale > 1 ? "@2x" : ""}.png`);
++    renameSync(dst, plain);
++    renameSync(plain, dst); /* keep both: iconset member + plain-size copy */
++    writeFileSync(plain, readFileSync(dst));
++    pngs.push(plain);
++  }
++
++  const icns = join(outDir, "AppIcon.icns");
++  const pack = spawnSync("iconutil", ["-c", "icns", iconsetDir, "-o", icns], {
++    encoding: "utf8",
++  });
++  if (pack.status !== 0) {
++    throw new Error(`icon: iconutil failed: ${(pack.stderr ?? "").slice(0, 160)}`);
++  }
++  return { icns, iconset: iconsetDir, pngs };
++}
++
++/** `ztron info` — environment report (tauri info spirit). */
++export function printInfo(cwd: string, tjsPath: string): void {
++  const lines: Array<[string, string]> = [
++    ["node", process.version],
++    ["platform", `${process.platform} ${process.arch}`],
++    ["cwd", cwd],
++  ];
++  const tjs = tjsPath || "native/txiki.js/build/tjs";
++  lines.push(["tjs", `${tjs} (${existsSync(tjs) ? "found" : "MISSING"})`]);
++  const host = "native/libs/ztron-host";
++  lines.push(["ztron-host", `${host} (${existsSync(host) ? "built" : "missing"})`]);
++  const lib = "native/libs/libwebview.dylib";
++  lines.push(["libwebview", `${lib} (${existsSync(lib) ? "built" : "missing"})`]);
++  const conf = join(cwd, "ztron.conf.json");
++  lines.push(["ztron.conf.json", existsSync(conf) ? "present" : "absent"]);
++  const caps = join(cwd, "capabilities");
++  lines.push(["capabilities/", existsSync(caps) ? "present" : "absent"]);
++  const sips = spawnSync("which", ["sips"], { encoding: "utf8" });
++  lines.push(["sips (icon tooling)", sips.status === 0 ? "available" : "absent"]);
++  for (const [k, v] of lines) console.log(`  ${k.padEnd(20)} ${v}`);
++}
++
++/** `ztron add <plugin>` — scaffolds a capability file + prints the wiring. */
++export function addPlugin(cwd: string, plugin: string): void {
++  const capsDir = join(cwd, "capabilities");
++  if (!existsSync(capsDir)) {
++    console.log(
++      `[ztron] no capabilities/ dir in ${cwd} — run inside a ztron project.\n` +
++        `        create it, or wire the plugin programmatically instead.`,
++    );
++    return;
++  }
++  const file = join(capsDir, `${plugin}.json`);
++  if (existsSync(file)) {
++    console.log(`[ztron] ${file} already exists — nothing to do.`);
++    return;
++  }
++  writeFileSync(
++    file,
++    JSON.stringify(
++      { identifier: `${plugin}-cap`, windows: ["main"], permissions: [`${plugin}:default`] },
++      null,
++      2,
++    ) + "\n",
++  );
++  console.log(`[ztron] wrote ${file}`);
++  console.log(
++    `[ztron] register the plugin in your backend entry:\n` +
++      `          .plugin(${plugin}Plugin())\n` +
++      `        (import from "@zturnlibs/core")`,
++  );
++}
++
++interface TauriConf {
++  productName?: string;
++  version?: string;
++  identifier?: string;
++  build?: { devUrl?: string; frontendDist?: string };
++  app?: {
++    windows?: Array<Record<string, unknown>>;
++    security?: { csp?: string };
++  };
++  bundle?: { icon?: string[] };
++}
++
++const WINDOW_FIELD_MAP: Record<string, string> = {
++  label: "label",
++  title: "title",
++  width: "width",
++  height: "height",
++  minWidth: "minWidth",
++  minHeight: "minHeight",
++  maxWidth: "maxWidth",
++  maxHeight: "maxHeight",
++  resizable: "resizable",
++  maximizable: "maximizable",
++  minimizable: "minimizable",
++  closable: "closable",
++  fullscreen: "fullscreen",
++  visible: "visible",
++  center: "center",
++  x: "x",
++  y: "y",
++  alwaysOnTop: "alwaysOnTop",
++  decorations: "decorations",
++  skipTaskbar: "skipTaskbar",
++  theme: "theme",
++  titleBarStyle: "titleBarStyle",
++  url: "url",
++  userAgent: "userAgent",
++  parent: "parent",
++};
++
++/** Pure mapping: tauri.conf.json shape -> ztron.conf.json shape. */
++export function convertTauriConf(conf: TauriConf): Record<string, unknown> {
++  const out: Record<string, unknown> = {};
++  if (conf.identifier) out.identifier = conf.identifier;
++  if (conf.productName) {
++    out.appName = conf.productName;
++    out.productName = conf.productName;
++  }
++  if (conf.version) out.version = conf.version;
++  if (conf.build?.frontendDist) {
++    out.frontend = String(conf.build.frontendDist);
++  }
++  if (conf.app?.security?.csp) out.csp = conf.app.security.csp;
++  const windows = (conf.app?.windows ?? [])
++    .map((w) => {
++      const m: Record<string, unknown> = {};
++      for (const [from, to] of Object.entries(WINDOW_FIELD_MAP)) {
++        if (w[from] !== undefined) m[to] = w[from];
++      }
++      if (m.url === "index.html" || m.url === "/" || m.url === "./") {
++        m.url = "frontend";
++      }
++      return m;
++    })
++    .filter((w) => Object.keys(w).length > 0);
++  if (windows.length) out.windows = windows;
++  if (conf.bundle?.icon?.length) {
++    out.bundle = { icon: conf.bundle.icon };
++  }
++  if (conf.build?.devUrl) {
++    out.__note_devUrl = `set ZTRON_DEV_URL=${conf.build.devUrl} (or dev server config)`;
++  }
++  return out;
++}
++
++/** `ztron migrate [tauri.conf.json] [-o ztron.conf.json]`. */
++export function migrateConf(
++  cwd: string,
++  args: string[],
++): void {
++  const input =
++    resolve(cwd, args.find((a) => !a.startsWith("-")) ?? "tauri.conf.json");
++  const outIdx = args.indexOf("-o");
++  const output = resolve(
++    cwd,
++    outIdx >= 0 ? (args[outIdx + 1] ?? "ztron.conf.json") : "ztron.conf.json",
++  );
++  if (!existsSync(input)) {
++    throw new Error(`migrate: input not found: ${input}`);
++  }
++  const converted = convertTauriConf(
++    JSON.parse(readFileSync(input, "utf8")) as TauriConf,
++  );
++  writeFileSync(output, JSON.stringify(converted, null, 2) + "\n");
++  console.log(`[ztron] migrated ${input} -> ${output}`);
++  for (const key of Object.keys(converted)) {
++    if (key.startsWith("__note_")) console.log(`[ztron] note: ${converted[key]}`);
++  }
++}
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+index 3ac5130..0f957a7 100644
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -56,20 +56,21 @@ export {
+   sqlPlugin,
+   autostartPlugin,
+   windowStatePlugin,
+   singleInstancePlugin,
+   websocketPlugin,
+   localIpPlugin,
+   networkPlugin,
+   uploadPlugin,
+   persistedScopePlugin,
+   localhostPlugin,
++  strongholdPlugin,
+   barcodeScannerPlugin,
+   biometricPlugin,
+   geolocationPlugin,
+   hapticsPlugin,
+   nfcPlugin,
+   PluginUnavailable,
+ } from "./plugins/index.js";
+ export type {
+   FsPluginOptions,
+   DirEntry,
+@@ -156,10 +157,12 @@ export type {
+ export { validateProjectConfig } from "./app.js";
+ export type { ProjectConfigFile } from "./app.js";
+ 
+ export type {
+   CliPluginOptions,
+   CliMatches,
+   CliSchema,
+   CliArgDef,
+   CliSubcommandDef,
+ } from "./plugins/index.js";
++
++export type { StrongholdPluginOptions } from "./plugins/index.js";
+diff --git a/packages/core/src/plugins/crypto/chacha20poly1305.ts b/packages/core/src/plugins/crypto/chacha20poly1305.ts
+new file mode 100644
+index 0000000..390bf15
+--- /dev/null
++++ b/packages/core/src/plugins/crypto/chacha20poly1305.ts
+@@ -0,0 +1,189 @@
++/**
++ * ChaCha20-Poly1305 AEAD (RFC 8439) — pure TypeScript. Cross-checked
++ * against node:crypto's 'chacha20-poly1305' in tests.
++ */
++
++const ROTL = (v: number, n: number) => ((v << n) | (v >>> (32 - n))) >>> 0;
++
++function quarterRound(
++  s: Uint32Array,
++  a: number, b: number, c: number, d: number,
++): void {
++  s[a] = (s[a]! + s[b]!) >>> 0; s[d] = ROTL(s[d]! ^ s[a]!, 16);
++  s[c] = (s[c]! + s[d]!) >>> 0; s[b] = ROTL(s[b]! ^ s[c]!, 12);
++  s[a] = (s[a]! + s[b]!) >>> 0; s[d] = ROTL(s[d]! ^ s[a]!, 8);
++  s[c] = (s[c]! + s[d]!) >>> 0; s[b] = ROTL(s[b]! ^ s[c]!, 7);
++}
++
++/** One 64-byte ChaCha20 keystream block (counter = word 12). */
++function chachaBlock(
++  key: Uint32Array,
++  counter: number,
++  nonce: Uint32Array,
++  out: Uint32Array,
++): void {
++  const s = new Uint32Array(16);
++  s.set(key, 4);
++  s[0] = 0x61707865; s[1] = 0x3320646e; s[2] = 0x79622d32; s[3] = 0x6b206574;
++  s[12] = counter;
++  s.set(nonce, 13);
++  const w = s.slice();
++  for (let i = 0; i < 10; i++) {
++    quarterRound(w, 0, 4, 8, 12); quarterRound(w, 1, 5, 9, 13);
++    quarterRound(w, 2, 6, 10, 14); quarterRound(w, 3, 7, 11, 15);
++    quarterRound(w, 0, 5, 10, 15); quarterRound(w, 1, 6, 11, 12);
++    quarterRound(w, 2, 7, 8, 13); quarterRound(w, 3, 4, 9, 14);
++  }
++  for (let i = 0; i < 16; i++) out[i] = (w[i]! + s[i]!) >>> 0;
++}
++
++function words32(bytes: Uint8Array): Uint32Array {
++  const out = new Uint32Array(bytes.length / 4);
++  for (let i = 0; i < out.length; i++) {
++    out[i] =
++      (bytes[i * 4]! | (bytes[i * 4 + 1]! << 8) | (bytes[i * 4 + 2]! << 16) |
++        (bytes[i * 4 + 3]! << 24)) >>>
++      0;
++  }
++  return out;
++}
++
++function xorInto(dst: Uint8Array, src: Uint8Array, ks: Uint32Array): void {
++  const kb = new Uint8Array(64);
++  new DataView(kb.buffer).setUint32(0, ks[0]!, true);
++  for (let i = 0; i < 16; i++) {
++    kb[i * 4] = ks[i]! & 0xff;
++    kb[i * 4 + 1] = (ks[i]! >>> 8) & 0xff;
++    kb[i * 4 + 2] = (ks[i]! >>> 16) & 0xff;
++    kb[i * 4 + 3] = (ks[i]! >>> 24) & 0xff;
++  }
++  for (let i = 0; i < src.length; i++) dst[i] = src[i]! ^ kb[i % 64]!;
++}
++
++/** Poly1305 MAC (BigInt accumulator; 32-byte key). Exported for tests. */
++export function poly1305(key: Uint8Array, msg: Uint8Array): Uint8Array {
++  const P = (1n << 130n) - 5n;
++  /* r = little-endian u128 of key[0..16], then the RFC 8439 clamp. */
++  let r = 0n;
++  for (let i = 15; i >= 0; i--) r = (r << 8n) | BigInt(key[i]!);
++  r &= 0x0ffffffc0ffffffc0ffffffc0fffffffn;
++  let s = 0n;
++  for (let i = 31; i >= 16; i--) s = (s << 8n) | BigInt(key[i]!);
++  let acc = 0n;
++  for (let off = 0; off < msg.length; off += 16) {
++    let n = 0n;
++    const len = Math.min(16, msg.length - off);
++    for (let i = len - 1; i >= 0; i--) n = (n << 8n) | BigInt(msg[off + i]!);
++    n = (n | (1n << BigInt(8 * len))) & ((1n << 130n) - 1n);
++    acc = ((acc + n) * r) % P;
++  }
++  let tag = (acc + s) & ((1n << 128n) - 1n);
++  const out = new Uint8Array(16);
++  for (let i = 0; i < 16; i++) {
++    out[i] = Number(tag & 0xffn);
++    tag >>= 8n;
++  }
++  return out;
++}
++
++export interface AeadResult {
++  ciphertext: Uint8Array;
++  tag: Uint8Array;
++}
++
++/** Encrypts with ChaCha20-Poly1305 (12-byte nonce, empty AAD via aad arg). */
++export function chacha20poly1305Encrypt(
++  key: Uint8Array,
++  nonce: Uint8Array,
++  plaintext: Uint8Array,
++  aad: Uint8Array = new Uint8Array(0),
++): AeadResult {
++  const kw = words32(key);
++  const nw = words32(nonce);
++  const polyKeyBlock = new Uint32Array(16);
++  chachaBlock(kw, 0, nw, polyKeyBlock);
++  const polyKey = new Uint8Array(32);
++  for (let i = 0; i < 8; i++) {
++    polyKey[i * 4] = polyKeyBlock[i]! & 0xff;
++    polyKey[i * 4 + 1] = (polyKeyBlock[i]! >>> 8) & 0xff;
++    polyKey[i * 4 + 2] = (polyKeyBlock[i]! >>> 16) & 0xff;
++    polyKey[i * 4 + 3] = (polyKeyBlock[i]! >>> 24) & 0xff;
++  }
++
++  const ciphertext = new Uint8Array(plaintext.length);
++  const ks = new Uint32Array(16);
++  for (let off = 0; off < plaintext.length; off += 64) {
++    chachaBlock(kw, 1 + off / 64, nw, ks);
++    const end = Math.min(64, plaintext.length - off);
++    xorInto(
++      ciphertext.subarray(off),
++      plaintext.subarray(off, off + end) as Uint8Array,
++      ks,
++    );
++  }
++
++  /* MAC data: aad || pad16 || ct || pad16 || len(aad)le64 || len(ct)le64 */
++  const pad = (n: number) => (16 - (n % 16)) % 16;
++  const mac = new Uint8Array(
++    aad.length + pad(aad.length) + ciphertext.length + pad(ciphertext.length) + 16,
++  );
++  mac.set(aad);
++  mac.set(ciphertext, aad.length + pad(aad.length));
++  const dv = new DataView(mac.buffer);
++  const lenOff = mac.length - 16;
++  dv.setUint32(lenOff, aad.length, true);
++  dv.setUint32(lenOff + 4, 0, true);
++  dv.setUint32(lenOff + 8, ciphertext.length, true);
++  dv.setUint32(lenOff + 12, 0, true);
++  return { ciphertext, tag: poly1305(polyKey, mac) };
++}
++
++/** Decrypts; returns null on tag mismatch (tamper/wrong key). */
++export function chacha20poly1305Decrypt(
++  key: Uint8Array,
++  nonce: Uint8Array,
++  ciphertext: Uint8Array,
++  tag: Uint8Array,
++  aad: Uint8Array = new Uint8Array(0),
++): Uint8Array | null {
++  /* Recompute the tag over the received ciphertext. */
++  const kw = words32(key);
++  const nw = words32(nonce);
++  const pk = new Uint32Array(16);
++  chachaBlock(kw, 0, nw, pk);
++  const polyKey = new Uint8Array(32);
++  for (let i = 0; i < 8; i++) {
++    polyKey[i * 4] = pk[i]! & 0xff;
++    polyKey[i * 4 + 1] = (pk[i]! >>> 8) & 0xff;
++    polyKey[i * 4 + 2] = (pk[i]! >>> 16) & 0xff;
++    polyKey[i * 4 + 3] = (pk[i]! >>> 24) & 0xff;
++  }
++  const pad = (n: number) => (16 - (n % 16)) % 16;
++  const mac = new Uint8Array(
++    aad.length + pad(aad.length) + ciphertext.length + pad(ciphertext.length) + 16,
++  );
++  mac.set(aad);
++  mac.set(ciphertext, aad.length + pad(aad.length));
++  const dv = new DataView(mac.buffer);
++  const lenOff = mac.length - 16;
++  dv.setUint32(lenOff, aad.length, true);
++  dv.setUint32(lenOff + 4, 0, true);
++  dv.setUint32(lenOff + 8, ciphertext.length, true);
++  dv.setUint32(lenOff + 12, 0, true);
++  const actual = poly1305(polyKey, mac);
++  for (let i = 0; i < 16; i++) {
++    if (actual[i] !== tag[i]) return null;
++  }
++
++  const plaintext = new Uint8Array(ciphertext.length);
++  const ks = new Uint32Array(16);
++  for (let off = 0; off < ciphertext.length; off += 64) {
++    chachaBlock(kw, 1 + off / 64, nw, ks);
++    xorInto(
++      plaintext.subarray(off),
++      ciphertext.subarray(off, off + Math.min(64, ciphertext.length - off)) as Uint8Array,
++      ks,
++    );
++  }
++  return plaintext;
++}
+diff --git a/packages/core/src/plugins/crypto/scrypt.ts b/packages/core/src/plugins/crypto/scrypt.ts
+new file mode 100644
+index 0000000..ef94448
+--- /dev/null
++++ b/packages/core/src/plugins/crypto/scrypt.ts
+@@ -0,0 +1,135 @@
++/**
++ * scrypt (RFC 7914) — pure TypeScript on Uint32Array.
++ * Structure ported from the widely-deployed ricmoo/scrypt-js (scratch-buffer
++ * blockmix), cross-checked against node:crypto's scryptSync across a
++ * parameter matrix in tests (DESIGN 122).
++ */
++import { pbkdf2Sha256 } from "./sha256.js";
++
++/** Salsa20/8 core in place on 16 words (exported for vector tests). */
++export function salsa20_8(B: Uint32Array): void {
++  const x = new Uint32Array(16);
++  x.set(B);
++  const R = (v: number, n: number) => ((v << n) | (v >>> (32 - n))) >>> 0;
++  const qr = (
++    a: number, b: number, c: number, d: number,
++  ) => {
++    x[b] = ((x[b]! ^ R((x[a]! + x[d]!) >>> 0, 7)) >>> 0);
++    x[c] = ((x[c]! ^ R((x[b]! + x[a]!) >>> 0, 9)) >>> 0);
++    x[d] = ((x[d]! ^ R((x[c]! + x[b]!) >>> 0, 13)) >>> 0);
++    x[a] = ((x[a]! ^ R((x[d]! + x[c]!) >>> 0, 18)) >>> 0);
++  };
++  for (let i = 0; i < 4; i++) {
++    qr(0, 4, 8, 12); qr(5, 9, 13, 1); qr(10, 14, 2, 6); qr(15, 3, 7, 11);
++    qr(0, 1, 2, 3); qr(5, 6, 7, 4); qr(10, 11, 8, 9); qr(15, 12, 13, 14);
++  }
++  for (let i = 0; i < 16; ++i) B[i] = (B[i]! + x[i]!) >>> 0;
++}
++
++function copy(
++  src: Uint32Array,
++  srcPos: number,
++  dest: Uint32Array,
++  destPos: number,
++  length: number,
++): void {
++  for (let i = 0; i < length; i++) dest[destPos + i] = src[srcPos + i]!;
++}
++
++function xorIn(
++  src: Uint32Array,
++  srcPos: number,
++  dest: Uint32Array,
++  length: number,
++): void {
++  for (let i = 0; i < length; i++) {
++    dest[i] = (dest[i]! ^ src[srcPos + i]!) >>> 0;
++  }
++}
++
++/** blockmix: results land back in B[0..32r); Y uses a separate scratch. */
++function blockMix(
++  B: Uint32Array,
++  r: number,
++  X: Uint32Array,
++  Y: Uint32Array,
++): void {
++  copy(B, (2 * r - 1) * 16, X, 0, 16);
++  for (let i = 0; i < 2 * r; i++) {
++    xorIn(B, i * 16, X, 16);
++    salsa20_8(X);
++    copy(X, 0, Y, i * 16, 16);
++  }
++  for (let i = 0; i < r; i++) {
++    copy(Y, i * 2 * 16, B, i * 16, 16);
++  }
++  for (let i = 0; i < r; i++) {
++    copy(Y, (i * 2 + 1) * 16, B, (i + r) * 16, 16);
++  }
++}
++
++function roMix(
++  B: Uint32Array,
++  Bi: number,
++  r: number,
++  N: number,
++  V: Uint32Array,
++): void {
++  const Yi = 32 * r;
++  const X = new Uint32Array(Yi);
++  const Xs = new Uint32Array(16);
++  const Y = new Uint32Array(Yi);
++
++  copy(B, Bi, X, 0, Yi);
++  for (let i = 0; i < N; i++) {
++    copy(X, 0, V, i * Yi, Yi);
++    blockMix(X, r, Xs, Y);
++  }
++  for (let i = 0; i < N; i++) {
++    /* Integerify: first word of the LAST block, & (N-1) — exact for
++       power-of-two N <= 2^32. */
++    const j = X[(2 * r - 1) * 16]! & (N - 1);
++    xorIn(V, j * Yi, X, Yi);
++    blockMix(X, r, Xs, Y);
++  }
++  copy(X, 0, B, Bi, Yi);
++}
++
++function bytesToWords(bytes: Uint8Array): Uint32Array {
++  const out = new Uint32Array(bytes.length / 4);
++  for (let i = 0; i < out.length; i++) {
++    out[i] =
++      (bytes[i * 4]! | (bytes[i * 4 + 1]! << 8) | (bytes[i * 4 + 2]! << 16) |
++        (bytes[i * 4 + 3]! << 24)) >>>
++      0;
++  }
++  return out;
++}
++
++function wordsToBytes(words: Uint32Array): Uint8Array {
++  const out = new Uint8Array(words.length * 4);
++  for (let i = 0; i < words.length; i++) {
++    out[i * 4] = words[i]! & 0xff;
++    out[i * 4 + 1] = (words[i]! >>> 8) & 0xff;
++    out[i * 4 + 2] = (words[i]! >>> 16) & 0xff;
++    out[i * 4 + 3] = (words[i]! >>> 24) & 0xff;
++  }
++  return out;
++}
++
++/** scrypt KDF; dkLen bytes derived from passphrase + salt (N power of two). */
++export function scrypt(
++  password: Uint8Array,
++  salt: Uint8Array,
++  N: number,
++  r: number,
++  p: number,
++  dkLen: number,
++): Uint8Array {
++  const B = bytesToWords(pbkdf2Sha256(password, salt, 1, p * 128 * r));
++  const V = new Uint32Array(32 * r * N);
++  for (let i = 0; i < p; i++) {
++    roMix(B, i * 32 * r, r, N, V);
++  }
++  return pbkdf2Sha256(password, wordsToBytes(B), 1, dkLen);
++}
+diff --git a/packages/core/src/plugins/crypto/sha256.ts b/packages/core/src/plugins/crypto/sha256.ts
+new file mode 100644
+index 0000000..6763a7d
+--- /dev/null
++++ b/packages/core/src/plugins/crypto/sha256.ts
+@@ -0,0 +1,115 @@
++/**
++ * SHA-256 + HMAC-SHA256 + PBKDF2 — pure TypeScript, BigInt-free inner loop
++ * (Uint32). Companion to sha512.ts (G3). Cross-checked against node:crypto
++ * in tests/stronghold.test.ts.
++ */
++
++/* K table = first 32 bits of the cube-root constants (shared lineage with
++   SHA-512's 64-bit table; values are the well-known RFC 6234 list). */
++const K = [
++  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
++  0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
++  0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
++  0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
++  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
++  0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
++  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
++  0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
++  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
++  0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
++  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
++];
++
++const rotr = (x: number, n: number): number =>
++  ((x >>> n) | (x << (32 - n))) >>> 0;
++
++export function sha256(data: Uint8Array): Uint8Array {
++  let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a,
++      h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
++
++  const bitLen = data.length * 8;
++  const paddedLen = ((data.length + 9 + 63) >> 6) << 6;
++  const block = new Uint8Array(paddedLen);
++  block.set(data);
++  block[data.length] = 0x80;
++  const dv = new DataView(block.buffer);
++  dv.setUint32(paddedLen - 4, bitLen >>> 0, false);
++  dv.setUint32(paddedLen - 8, Math.floor(bitLen / 2 ** 32), false);
++
++  const w = new Uint32Array(64);
++  for (let off = 0; off < paddedLen; off += 64) {
++    for (let t = 0; t < 16; t++) w[t] = dv.getUint32(off + t * 4, false);
++    for (let t = 16; t < 64; t++) {
++      const s0 = rotr(w[t - 15]!, 7) ^ rotr(w[t - 15]!, 18) ^ (w[t - 15]! >>> 3);
++      const s1 = rotr(w[t - 2]!, 17) ^ rotr(w[t - 2]!, 19) ^ (w[t - 2]! >>> 10);
++      w[t] = (w[t - 16]! + s0 + w[t - 7]! + s1) >>> 0;
++    }
++    let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, hh = h7;
++    for (let t = 0; t < 64; t++) {
++      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
++      const ch = (e & f) ^ (~e & g);
++      const t1 = (hh + S1 + ch + K[t]! + w[t]!) >>> 0;
++      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
++      const maj = (a & b) ^ (a & c) ^ (b & c);
++      const t2 = (S0 + maj) >>> 0;
++      hh = g; g = f; f = e;
++      e = (d + t1) >>> 0;
++      d = c; c = b; b = a;
++      a = (t1 + t2) >>> 0;
++    }
++    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0;
++    h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0;
++    h6 = (h6 + g) >>> 0; h7 = (h7 + hh) >>> 0;
++  }
++
++  const out = new Uint8Array(32);
++  const odv = new DataView(out.buffer);
++  odv.setUint32(0, h0, false); odv.setUint32(4, h1, false);
++  odv.setUint32(8, h2, false); odv.setUint32(12, h3, false);
++  odv.setUint32(16, h4, false); odv.setUint32(20, h5, false);
++  odv.setUint32(24, h6, false); odv.setUint32(28, h7, false);
++  return out;
++}
++
++export function hmacSha256(
++  key: Uint8Array,
++  data: Uint8Array,
++): Uint8Array {
++  let k = key;
++  if (k.length > 64) k = sha256(k);
++  const ipad = new Uint8Array(64 + data.length);
++  const opad = new Uint8Array(64 + 32);
++  for (let i = 0; i < 64; i++) {
++    const kb = i < k.length ? k[i]! : 0;
++    ipad[i] = kb ^ 0x36;
++    opad[i] = kb ^ 0x5c;
++  }
++  ipad.set(data, 64);
++  const inner = sha256(ipad);
++  opad.set(inner, 64);
++  return sha256(opad);
++}
++
++/** PBKDF2-HMAC-SHA256 (RFC 8018). */
++export function pbkdf2Sha256(
++  password: Uint8Array,
++  salt: Uint8Array,
++  iterations: number,
++  dkLen: number,
++): Uint8Array {
++  const out = new Uint8Array(dkLen);
++  const blocks = Math.ceil(dkLen / 32);
++  for (let b = 1; b <= blocks; b++) {
++    const saltBlock = new Uint8Array(salt.length + 4);
++    saltBlock.set(salt);
++    new DataView(saltBlock.buffer).setUint32(salt.length, b, false);
++    let u = hmacSha256(password, saltBlock);
++    const t = new Uint8Array(u);
++    for (let i = 1; i < iterations; i++) {
++      u = hmacSha256(password, u);
++      for (let j = 0; j < 32; j++) t[j] = (t[j]! ^ u[j]!) >>> 0;
++    }
++    out.set(t.subarray(0, Math.min(32, dkLen - (b - 1) * 32)), (b - 1) * 32);
++  }
++  return out;
++}
+diff --git a/packages/core/src/plugins/index.ts b/packages/core/src/plugins/index.ts
+index b90c4e4..493e2bb 100644
+--- a/packages/core/src/plugins/index.ts
++++ b/packages/core/src/plugins/index.ts
+@@ -75,10 +75,13 @@ export { biometricPlugin } from "./biometric.js";
+ export { geolocationPlugin } from "./geolocation.js";
+ export { hapticsPlugin } from "./haptics.js";
+ export { nfcPlugin } from "./nfc.js";
+ export type { BarcodeScannerPluginOptions } from "./barcode-scanner.js";
+ export type { BiometricPluginOptions } from "./biometric.js";
+ export type { GeolocationPluginOptions } from "./geolocation.js";
+ export type { HapticsPluginOptions } from "./haptics.js";
+ export type { NfcPluginOptions } from "./nfc.js";
+ export type { LocalhostPluginOptions } from "./localhost.js";
+ export type { PersistedScopePluginOptions } from "./persisted-scope.js";
++
++export { strongholdPlugin } from "./stronghold.js";
++export type { StrongholdPluginOptions } from "./stronghold.js";
+diff --git a/packages/core/src/plugins/stronghold.ts b/packages/core/src/plugins/stronghold.ts
+new file mode 100644
+index 0000000..c342dfc
+--- /dev/null
++++ b/packages/core/src/plugins/stronghold.ts
+@@ -0,0 +1,318 @@
++/**
++ * `plugin:stronghold|*` — encrypted persistent KV store (GAP E2).
++ *
++ * Upstream rides Rust IOTA-stronghold; this is the documented TS rewrite:
++ * scrypt(password, salt) -> ChaCha20-Poly1305 AEAD snapshot. File layout:
++ *   "ZTSH1" | salt(16) | N,r,p u32le | nonce(12) | ciphertext | tag(16)
++ * Tampering or wrong passwords fail closed at the Poly1305 tag. Crypto
++ * primitives are cross-checked against node:crypto in stronghold.test.ts.
++ */
++import type { Plugin } from "../plugin.js";
++import { scrypt } from "./crypto/scrypt.js";
++import {
++  chacha20poly1305Encrypt,
++  chacha20poly1305Decrypt,
++} from "./crypto/chacha20poly1305.js";
++
++const MAGIC = "ZTSH1";
++/** libsodium-ish "moderate" defaults (16 MiB, ~0.5s). */
++const DEFAULT_N = 1 << 14;
++const DEFAULT_R = 8;
++const DEFAULT_P = 1;
++
++const enc = new TextEncoder();
++const dec = new TextDecoder();
++
++interface Snapshot {
++  [key: string]: unknown;
++}
++
++interface StrongholdRec {
++  path: string;
++  salt: Uint8Array;
++  params: { n: number; r: number; p: number };
++  data: Snapshot;
++  dirty: boolean;
++}
++
++function randomBytes(n: number): Uint8Array {
++  const out = new Uint8Array(n);
++  const g = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
++  if (g?.getRandomValues) {
++    g.getRandomValues(out);
++  } else {
++    for (let i = 0; i < n; i++) out[i] = Math.floor(Math.random() * 256);
++  }
++  return out;
++}
++
++function deriveKey(
++  password: string,
++  salt: Uint8Array,
++  params: { n: number; r: number; p: number },
++): Uint8Array {
++  return scrypt(
++    enc.encode(password),
++    salt,
++    params.n,
++    params.r,
++    params.p,
++    32,
++  );
++}
++
++function bytesToB64(bytes: Uint8Array): string {
++  let bin = "";
++  for (let i = 0; i < bytes.length; i += 0x8000) {
++    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
++  }
++  return btoa(bin);
++}
++function b64ToBytes(b64: string): Uint8Array {
++  const bin = atob(b64);
++  const out = new Uint8Array(bin.length);
++  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
++  return out;
++}
++
++function seal(
++  password: string,
++  salt: Uint8Array,
++  params: { n: number; r: number; p: number },
++  data: Snapshot,
++): Uint8Array {
++  const key = deriveKey(password, salt, params);
++  const nonce = randomBytes(12);
++  const plain = enc.encode(JSON.stringify(data));
++  const { ciphertext, tag } = chacha20poly1305Encrypt(key, nonce, plain);
++  const head = new Uint8Array(5 + 16 + 12 + 12);
++  head.set(enc.encode(MAGIC), 0);
++  head.set(salt, 5);
++  const dv = new DataView(head.buffer);
++  dv.setUint32(21, params.n, true);
++  dv.setUint32(25, params.r, true);
++  dv.setUint32(29, params.p, true);
++  head.set(nonce, 33);
++  const out = new Uint8Array(head.length + ciphertext.length + 16);
++  out.set(head);
++  out.set(ciphertext, head.length);
++  out.set(tag, head.length + ciphertext.length);
++  return out;
++}
++
++function unseal(
++  bytes: Uint8Array,
++  password: string,
++): {
++  salt: Uint8Array;
++  params: { n: number; r: number; p: number };
++  data: Snapshot;
++} {
++  if (bytes.length < 5 + 16 + 12 + 12 + 16) {
++    throw new Error("stronghold: snapshot too short / not a ZTSH file");
++  }
++  const magic = dec.decode(bytes.subarray(0, 5));
++  if (magic !== MAGIC) {
++    throw new Error("stronghold: bad magic (not a ZTSH snapshot)");
++  }
++  const salt = bytes.subarray(5, 21);
++  const dv = new DataView(bytes.buffer, bytes.byteOffset);
++  const params = {
++    n: dv.getUint32(21, true),
++    r: dv.getUint32(25, true),
++    p: dv.getUint32(29, true),
++  };
++  const nonce = bytes.subarray(33, 45);
++  const bodyEnd = bytes.length - 16;
++  const ciphertext = bytes.subarray(45, bodyEnd);
++  const tag = bytes.subarray(bodyEnd);
++  const key = deriveKey(password, salt, params);
++  const plain = chacha20poly1305Decrypt(key, nonce, ciphertext, tag);
++  if (!plain) {
++    throw new Error("stronghold: wrong password or corrupted snapshot");
++  }
++  return { salt, params, data: JSON.parse(dec.decode(plain)) as Snapshot };
++}
++
++export interface StrongholdPluginOptions {
++  /** Default file when load() omits path. */
++  path?: string;
++  /** scrypt cost; tests use small values. */
++  params?: { n: number; r: number; p: number };
++}
++
++export function strongholdPlugin(
++  options: StrongholdPluginOptions = {},
++): Plugin {
++  const defaults = { path: options.path ?? `${tjs.tmpDir}/stronghold.bin`, ...options.params };
++  const vaults = new Map<string, StrongholdRec>();
++  /* password kept per loaded vault (upstream keeps a keyring; a TS runtime
++     holds process memory equally). */
++  const passwords = new Map<string, string>();
++
++  async function loadVault(
++    path: string,
++    password: string,
++  ): Promise<StrongholdRec> {
++    let rec = vaults.get(path);
++    if (rec) return rec;
++    const params = {
++      n: options.params?.n ?? DEFAULT_N,
++      r: options.params?.r ?? DEFAULT_R,
++      p: options.params?.p ?? DEFAULT_P,
++    };
++    try {
++      const bytes = new Uint8Array(await tjs.readFile(path));
++      const opened = unseal(bytes, password);
++      rec = { path, salt: opened.salt, params: opened.params, data: opened.data, dirty: false };
++    } catch (e) {
++      if (String((e as Error).message).includes("stronghold:")) throw e;
++      /* missing file -> fresh vault */
++      rec = { path, salt: randomBytes(16), params, data: {}, dirty: false };
++    }
++    vaults.set(path, rec);
++    passwords.set(path, password);
++    return rec;
++  }
++
++  async function persist(rec: StrongholdRec): Promise<void> {
++    const password = passwords.get(rec.path);
++    if (password === undefined) throw new Error("stronghold: not loaded");
++    const sealed = seal(password, rec.salt, rec.params, rec.data);
++    await tjs.writeFile(rec.path, sealed);
++    rec.dirty = false;
++  }
++
++  return {
++    name: "stronghold",
++    commands: {
++      async load(args) {
++        const { path = defaults.path, password } = args as {
++          path?: string;
++          password: string;
++        };
++        const rec = await loadVault(path, password);
++        return { path, entries: Object.keys(rec.data).length };
++      },
++      async get(args) {
++        const { path = defaults.path, key } = args as {
++          path?: string;
++          key: string;
++        };
++        const rec = vaults.get(path);
++        if (!rec) throw new Error("stronghold: not loaded");
++        return rec.data[key] ?? null;
++      },
++      async set(args) {
++        const { path = defaults.path, key, value } = args as {
++          path?: string;
++          key: string;
++          value: unknown;
++        };
++        const rec = vaults.get(path);
++        if (!rec) throw new Error("stronghold: not loaded");
++        rec.data[key] = value;
++        rec.dirty = true;
++      },
++      async has(args) {
++        const { path = defaults.path, key } = args as { path?: string; key: string };
++        const rec = vaults.get(path ?? "");
++        return rec ? key in rec.data : false;
++      },
++      async remove(args) {
++        const { path = defaults.path, key } = args as { path?: string; key: string };
++        const rec = vaults.get(path);
++        if (!rec) throw new Error("stronghold: not loaded");
++        delete rec.data[key];
++        rec.dirty = true;
++      },
++      async keys(args) {
++        const { path = defaults.path } = args as { path?: string };
++        const rec = vaults.get(path);
++        return rec ? Object.keys(rec.data) : [];
++      },
++      async clear(args) {
++        const { path = defaults.path } = args as { path?: string };
++        const rec = vaults.get(path);
++        if (rec) {
++          rec.data = {};
++          rec.dirty = true;
++        }
++      },
++      /** Persists the sealed snapshot to disk. */
++      async save(args) {
++        const { path = defaults.path } = args as { path?: string };
++        const rec = vaults.get(path);
++        if (!rec) throw new Error("stronghold: not loaded");
++        await persist(rec);
++        return { saved: true, path };
++      },
++      /** Seals to a different path (keeps the original untouched). */
++      async save_to(args) {
++        const { path = defaults.path, newPath } = args as {
++          path?: string;
++          newPath: string;
++        };
++        const rec = vaults.get(path);
++        if (!rec) throw new Error("stronghold: not loaded");
++        const password = passwords.get(path);
++        if (password === undefined) throw new Error("stronghold: not loaded");
++        await tjs.writeFile(newPath, seal(password, rec.salt, rec.params, rec.data));
++        return { saved: true, path: newPath };
++      },
++      /** Flushes if dirty and unloads the instance (password forgotten). */
++      async close(args) {
++        const { path = defaults.path } = args as { path?: string };
++        const rec = vaults.get(path);
++        if (!rec) return { closed: false };
++        if (rec.dirty) await persist(rec);
++        vaults.delete(path);
++        passwords.delete(path);
++        return { closed: true };
++      },
++      /** Reloads the snapshot from disk (drops unsaved changes). */
++      async reload(args) {
++        const { path = defaults.path, password } = args as {
++          path?: string;
++          password: string;
++        };
++        vaults.delete(path);
++        passwords.delete(path);
++        const rec = await loadVault(path, password);
++        return { reloaded: true, entries: Object.keys(rec.data).length };
++      },
++    },
++    permissions: [
++      { identifier: "stronghold:allow-load", commands: ["plugin:stronghold|load"] },
++      { identifier: "stronghold:allow-get", commands: ["plugin:stronghold|get"] },
++      { identifier: "stronghold:allow-set", commands: ["plugin:stronghold|set"] },
++      { identifier: "stronghold:allow-has", commands: ["plugin:stronghold|has"] },
++      { identifier: "stronghold:allow-remove", commands: ["plugin:stronghold|remove"] },
++      { identifier: "stronghold:allow-keys", commands: ["plugin:stronghold|keys"] },
++      { identifier: "stronghold:allow-clear", commands: ["plugin:stronghold|clear"] },
++      { identifier: "stronghold:allow-save", commands: ["plugin:stronghold|save"] },
++      { identifier: "stronghold:allow-save-to", commands: ["plugin:stronghold|save_to"] },
++      { identifier: "stronghold:allow-close", commands: ["plugin:stronghold|close"] },
++      { identifier: "stronghold:allow-reload", commands: ["plugin:stronghold|reload"] },
++    ],
++    permissionSets: [
++      {
++        name: "stronghold:default",
++        description: "Encrypted vault lifecycle (load/save/close + kv).",
++        permissions: [
++          "stronghold:allow-load",
++          "stronghold:allow-get",
++          "stronghold:allow-set",
++          "stronghold:allow-has",
++          "stronghold:allow-remove",
++          "stronghold:allow-keys",
++          "stronghold:allow-clear",
++          "stronghold:allow-save",
++          "stronghold:allow-save-to",
++          "stronghold:allow-close",
++          "stronghold:allow-reload",
++        ],
++      },
++    ],
++  };
++}
+diff --git a/tests/helpers/buildApp.ts b/tests/helpers/buildApp.ts
+index 67799e1..201b628 100644
+--- a/tests/helpers/buildApp.ts
++++ b/tests/helpers/buildApp.ts
+@@ -19,20 +19,21 @@ import {
+   cliPlugin,
+   openerPlugin,
+   singleInstancePlugin,
+   sqlPlugin,
+   storePlugin,
+   updaterPlugin,
+   uploadPlugin,
+   websocketPlugin,
+   windowStatePlugin,
+   localhostPlugin,
++  strongholdPlugin,
+   barcodeScannerPlugin,
+   biometricPlugin,
+   geolocationPlugin,
+   hapticsPlugin,
+   nfcPlugin,
+ } from "../../packages/core/dist/index.js";
+ import { installTjs } from "./tjs-stub.ts";
+ 
+ export interface TestApp {
+   mock: MockRuntime;
+@@ -53,20 +54,26 @@ export function buildApp(seed: Record<string, string> = {}): TestApp {
+     .plugin(persisted)
+     .plugin(fsPlugin({ scope: persisted.scope }))
+     .plugin(pathPlugin({ appId: "com.ztron.test" }))
+     .plugin(
+       httpPlugin({ scope: { allow: [{ url: "https://example.com/*" }] } }),
+     )
+     .plugin(osPlugin())
+     .plugin(storePlugin({ scope: { allow: ["$TMP/**"] } }))
+     .plugin(logPlugin())
+     .plugin(localhostPlugin({ dir: "/tmp/ztron-test" }))
++    .plugin(
++      strongholdPlugin({
++        path: `${tjs.tmpDir}/ztron_stronghold_test.bin`,
++        params: { n: 16, r: 1, p: 1 },
++      }),
++    )
+     .plugin(barcodeScannerPlugin())
+     .plugin(biometricPlugin())
+     .plugin(geolocationPlugin())
+     .plugin(hapticsPlugin())
+     .plugin(nfcPlugin())
+     .plugin(
+       shellPlugin({
+         scope: [
+           { program: "echo", args: ["*"] },
+           { program: "sh", args: ["**"] },
+diff --git a/tests/helpers/manifest.ts b/tests/helpers/manifest.ts
+index 5f4871d..46f7d2a 100644
+--- a/tests/helpers/manifest.ts
++++ b/tests/helpers/manifest.ts
+@@ -254,20 +254,31 @@ export const COMMANDS: readonly string[] = [
+   "plugin:store|load",
+   "plugin:store|save",
+   "plugin:store|save_to",
+   "plugin:store|reset",
+   "plugin:store|close",
+   "plugin:store|set_auto_save",
+   "plugin:store|on_change",
+   "plugin:localhost|start",
+   "plugin:localhost|stop",
+   "plugin:localhost|status",
++  "plugin:stronghold|load",
++  "plugin:stronghold|get",
++  "plugin:stronghold|set",
++  "plugin:stronghold|has",
++  "plugin:stronghold|remove",
++  "plugin:stronghold|keys",
++  "plugin:stronghold|clear",
++  "plugin:stronghold|save",
++  "plugin:stronghold|save_to",
++  "plugin:stronghold|close",
++  "plugin:stronghold|reload",
+   // ---- mobile parity stubs (fail closed off-platform) ----
+   "plugin:barcode-scanner|scan",
+   "plugin:biometric|authenticate",
+   "plugin:biometric|status",
+   "plugin:geolocation|get_current_position",
+   "plugin:geolocation|watch_position",
+   "plugin:geolocation|clear_watch",
+   "plugin:haptics|impact_occurred",
+   "plugin:haptics|notification_occurred",
+   "plugin:haptics|selection_changed",
+@@ -424,20 +435,23 @@ export const API_EXPORTS: readonly string[] = [
+   "impactOccurred",
+   "notificationOccurred",
+   "selectionChanged",
+   "nfcScan",
+   "nfcWrite",
+   "nfcStop",
+   "mockIPC",
+   "mockWindows",
+   "mockConvertFileSrc",
+   "clearMocks",
++  "Stronghold",
++  "stronghold",
++  "loadStronghold",
+   "readText",
+   "writeText",
+   "readDir",
+   "exists",
+   "remove",
+   "makeDir",
+   "copyFile",
+   "renameFile",
+   "stat",
+   "path",
+diff --git a/tests/unit/cli-tools.test.ts b/tests/unit/cli-tools.test.ts
+new file mode 100644
+index 0000000..33a3252
+--- /dev/null
++++ b/tests/unit/cli-tools.test.ts
+@@ -0,0 +1,73 @@
++/**
++ * G19/F4 — `ztron icon` (real sips+iconutil generation) and
++ * `ztron migrate` (tauri.conf.json -> ztron.conf.json mapping).
++ */
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtempSync, existsSync, statSync, writeFileSync, rmSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import {
++  generateIcons,
++  convertTauriConf,
++} from "../../packages/cli/dist/tools.js";
++
++const ROOT = new URL("../..", import.meta.url).pathname;
++
++test("icon: sips+iconutil produce a real icns + 10 size PNGs", () => {
++  const out = mkdtempSync(join(tmpdir(), "ztron-icon-"));
++  try {
++    const r = generateIcons(join(ROOT, "assets/app-icon.png"), out);
++    assert.ok(existsSync(r.icns));
++    assert.ok(statSync(r.icns).size > 10_000, "icns suspiciously small");
++    assert.equal(r.pngs.length, 10);
++    for (const p of r.pngs) assert.ok(existsSync(p));
++    assert.ok(existsSync(join(r.iconset, "icon_16x16.png")));
++    assert.ok(existsSync(join(r.iconset, "icon_512x512@2x.png")));
++  } finally {
++    rmSync(out, { recursive: true, force: true });
++  }
++});
++
++test("migrate: tauri.conf.json maps onto the ztron.conf.json shape", () => {
++  const converted = convertTauriConf({
++    productName: "My App",
++    version: "1.4.2",
++    identifier: "com.example.myapp",
++    build: { devUrl: "http://localhost:1420", frontendDist: "../dist" },
++    app: {
++      security: { csp: "default-src 'self'" },
++      windows: [
++        {
++          label: "main",
++          title: "My App",
++          width: 1024,
++          height: 768,
++          minWidth: 400,
++          resizable: true,
++          url: "index.html",
++          userAgent: "custom/1.0",
++          ignoreMe: true,
++        },
++      ],
++    },
++    bundle: { icon: ["icons/icon.icns"] },
++  });
++  assert.equal(converted.appName, "My App");
++  assert.equal(converted.identifier, "com.example.myapp");
++  assert.equal(converted.version, "1.4.2");
++  assert.equal(converted.frontend, "../dist");
++  assert.equal(converted.csp, "default-src 'self'");
++  const w = (converted.windows as Array<Record<string, unknown>>)[0]!;
++  assert.equal(w.label, "main");
++  assert.equal(w.width, 1024);
++  assert.equal(w.url, "frontend"); /* index.html → frontend root */
++  assert.equal(w.userAgent, "custom/1.0"); /* carried (G10 unsupported-keys) */
++  assert.equal("ignoreMe" in w, false); /* unknown fields dropped */
++  assert.deepEqual((converted.bundle as { icon: string[] }).icon, [
++    "icons/icon.icns",
++  ]);
++  assert.ok(
++    String(converted.__note_devUrl).includes("http://localhost:1420"),
++  );
++});
+diff --git a/tests/unit/coverage.test.ts b/tests/unit/coverage.test.ts
+index 7a61877..4ac38ba 100644
+--- a/tests/unit/coverage.test.ts
++++ b/tests/unit/coverage.test.ts
+@@ -15,20 +15,31 @@ import { COMMAND_SET, API_EXPORT_SET } from "../helpers/manifest.ts";
+  *  - a real network stack (http fetch / websocket / public IP / updater)
+  *  - OS side effects that would kill the host or open a browser (process
+  *    exit/relaunch, shell.open)
+  */
+ const INTEGRATION_ONLY = new Set([
+   "plugin:fs|watch",
+   "plugin:store|on_change",
+   "plugin:localhost|start",
+   "plugin:localhost|stop",
+   "plugin:localhost|status",
++  "plugin:stronghold|load",
++  "plugin:stronghold|get",
++  "plugin:stronghold|set",
++  "plugin:stronghold|has",
++  "plugin:stronghold|remove",
++  "plugin:stronghold|keys",
++  "plugin:stronghold|clear",
++  "plugin:stronghold|save",
++  "plugin:stronghold|save_to",
++  "plugin:stronghold|close",
++  "plugin:stronghold|reload",
+   "plugin:barcode-scanner|scan",
+   "plugin:biometric|authenticate",
+   "plugin:biometric|status",
+   "plugin:geolocation|get_current_position",
+   "plugin:geolocation|watch_position",
+   "plugin:geolocation|clear_watch",
+   "plugin:haptics|impact_occurred",
+   "plugin:haptics|notification_occurred",
+   "plugin:haptics|selection_changed",
+   "plugin:nfc|scan",
+diff --git a/tests/unit/stronghold.test.ts b/tests/unit/stronghold.test.ts
+new file mode 100644
+index 0000000..59b85af
+--- /dev/null
++++ b/tests/unit/stronghold.test.ts
+@@ -0,0 +1,152 @@
++/**
++ * E2 — stronghold: primitive cross-checks vs node:crypto, vault lifecycle
++ * round trips, wrong-password/tamper fail-closed behavior.
++ */
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { createHash, createHmac, pbkdf2Sync, scryptSync, createCipheriv } from "node:crypto";
++import {
++  sha256,
++  hmacSha256,
++  pbkdf2Sha256,
++} from "../../packages/core/dist/plugins/crypto/sha256.js";
++import { scrypt, salsa20_8 } from "../../packages/core/dist/plugins/crypto/scrypt.js";
++import {
++  chacha20poly1305Encrypt,
++  chacha20poly1305Decrypt,
++  poly1305,
++} from "../../packages/core/dist/plugins/crypto/chacha20poly1305.js";
++import { buildApp } from "../helpers/buildApp.ts";
++
++const eq = (a: Uint8Array, b: Uint8Array) => Buffer.from(a).equals(Buffer.from(b));
++const te = (s: string) => new TextEncoder().encode(s);
++
++test("stronghold primitives: sha256/hmac/pbkdf2 vs node:crypto", () => {
++  assert.ok(eq(sha256(te("abc")), createHash("sha256").update("abc").digest()));
++  assert.ok(
++    eq(hmacSha256(te("k"), te("data")), createHmac("sha256", "k").update("data").digest()),
++  );
++  assert.ok(eq(pbkdf2Sha256(te("p"), te("s"), 3, 96), pbkdf2Sync("p", "s", 3, 96, "sha256")));
++});
++
++test("stronghold primitives: poly1305 RFC 8439 vector", () => {
++  const key = Uint8Array.from(Buffer.from(
++    "85d6be7857556d337f4452fe42d506a80103808afb0db2fd4abff6af4149f51b", "hex"));
++  const tag = poly1305(key, te("Cryptographic Forum Research Group"));
++  assert.equal(Buffer.from(tag).toString("hex"), "a8061dc1305136c6c22b8baf0c0127a9");
++});
++
++test("stronghold primitives: scrypt matrix vs node + RFC empty vector", () => {
++  for (const [N, r, p] of [[2, 1, 1], [16, 1, 1], [16, 2, 1], [2, 1, 2], [64, 2, 1]] as const) {
++    assert.ok(
++      eq(scrypt(te("pw"), te("salt"), N, r, p, 32), scryptSync("pw", "salt", 32, { N, r, p })),
++      `scrypt N=${N} r=${r} p=${p} mismatch`,
++    );
++  }
++  /* Salsa20/8 core RFC 7914 §8. */
++  const inp = Buffer.from(
++    "7e879a214f3ec9867ca940e641718f26baee555b8c61c1b50df846116dcd3b1d" +
++    "ee24f319df9b3d8514121e4b5ac5aa3276021d2909c74829edebc68db8b8c25e", "hex");
++  const w = new Uint32Array(16);
++  for (let i = 0; i < 16; i++) {
++    w[i] = (inp[i * 4]! | (inp[i * 4 + 1]! << 8) | (inp[i * 4 + 2]! << 16) |
++      (inp[i * 4 + 3]! << 24)) >>> 0;
++  }
++  salsa20_8(w);
++  const out = Buffer.alloc(64);
++  for (let i = 0; i < 16; i++) {
++    out[i * 4] = w[i]! & 0xff;
++    out[i * 4 + 1] = (w[i]! >>> 8) & 0xff;
++    out[i * 4 + 2] = (w[i]! >>> 16) & 0xff;
++    out[i * 4 + 3] = (w[i]! >>> 24) & 0xff;
++  }
++  assert.equal(out.toString("hex"),
++    "a41f859c6608cc993b81cacb020cef05044b2181a2fd337dfd7b1c6396682f29" +
++    "b4393168e3c9e6bcfe6bc5b7a06d96bae424cc102c91745c24ad673dc7618f81");
++
++  /* RFC 7914 §12 empty-input vector. */
++  const expect =
++    "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442" +
++    "fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906";
++  assert.equal(
++    Buffer.from(scrypt(new Uint8Array(0), new Uint8Array(0), 16, 1, 1, 64)).toString("hex"),
++    expect,
++  );
++});
++
++test("stronghold primitives: chacha20-poly1305 vs node:crypto (ct+tag)", () => {
++  const key = Buffer.from("808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f", "hex");
++  const nonce = Buffer.from("070000004041424344454647", "hex");
++  const pt = te(
++    "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.",
++  );
++  const ours = chacha20poly1305Encrypt(key, nonce, pt);
++  const c = createCipheriv("chacha20-poly1305", key, nonce);
++  const ct = c.update(pt);
++  c.final();
++  assert.ok(eq(ours.ciphertext, ct));
++  assert.ok(eq(ours.tag, c.getAuthTag()));
++  /* decrypt of node's framing round-trips */
++  assert.ok(eq(chacha20poly1305Decrypt(key, nonce, ct, c.getAuthTag())!, pt));
++  /* tag tamper -> null */
++  const badTag = new Uint8Array(c.getAuthTag());
++  badTag[0]! ^= 1;
++  assert.equal(chacha20poly1305Decrypt(key, nonce, ct, badTag), null);
++});
++
++test("stronghold vault: lifecycle round trip + wrong password + tamper", async () => {
++  const { mock, tjs } = buildApp();
++  const path = "/tmp/ztron-test/stronghold-e2e.bin";
++  await tjs.remove(path).catch(() => {});
++
++  const loaded = (await mock.main.invoke("plugin:stronghold|load", {
++    path,
++    password: "hunter2",
++  })) as { entries: number };
++  assert.equal(loaded.entries, 0);
++
++  await mock.main.invoke("plugin:stronghold|set", { path, key: "secret", value: { v: 42 } });
++  await mock.main.invoke("plugin:stronghold|set", { path, key: "tok", value: "abc" });
++  assert.equal(
++    await mock.main.invoke("plugin:stronghold|has", { path, key: "secret" }),
++    true,
++  );
++  assert.deepEqual(await mock.main.invoke("plugin:stronghold|keys", { path }), [
++    "secret",
++    "tok",
++  ]);
++
++  /* persisted snapshot is opaque (no plaintext) */
++  await mock.main.invoke("plugin:stronghold|save", { path });
++  const raw = Buffer.from(await tjs.readFile(path));
++  assert.ok(!raw.includes("secret") && !raw.includes("abc"));
++  assert.equal(raw.subarray(0, 5).toString("utf8"), "ZTSH1");
++
++  /* close forgets; wrong password on the sealed file fails closed */
++  await mock.main.invoke("plugin:stronghold|close", { path });
++  await assert.rejects(
++    () => mock.main.invoke("plugin:stronghold|load", { path, password: "nope" }),
++    (e: unknown) =>
++      String((e as { error?: string }).error ?? e).includes("wrong password"),
++  );
++
++  /* correct password reopens from disk with data intact */
++  const reopened = (await mock.main.invoke("plugin:stronghold|load", {
++    path,
++    password: "hunter2",
++  })) as { entries: number };
++  assert.equal(reopened.entries, 2);
++  assert.deepEqual(await mock.main.invoke("plugin:stronghold|get", { path, key: "secret" }), {
++    v: 42,
++  });
++
++  /* ciphertext tamper fails closed at the Poly1305 tag */
++  await mock.main.invoke("plugin:stronghold|close", { path });
++  raw[raw.length - 20] ^= 0xff;
++  await tjs.writeFile(path, raw);
++  await assert.rejects(
++    () => mock.main.invoke("plugin:stronghold|load", { path, password: "hunter2" }),
++    (e: unknown) =>
++      String((e as { error?: string }).error ?? e).includes("wrong password"),
++  );
++});
