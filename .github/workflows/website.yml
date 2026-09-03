@@ -3,7 +3,7 @@ name: website
 on:
   push:
     branches: [main]
-    paths: ['website/**', '.github/workflows/website.yml']
+    paths: ['website/**', '.github/workflows/website.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
   workflow_dispatch:
 
 permissions:

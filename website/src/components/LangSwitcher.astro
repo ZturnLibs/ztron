@@ -13,8 +13,3 @@ const target = locale === 'en' ? 'zh' : 'en';
   }
   .lang:hover { color: var(--text-1); border-color: var(--accent-from); }
 </style>
-<script>
-  document.querySelectorAll<HTMLAnchorElement>('[data-lang-switch]').forEach((a) =>
-    a.addEventListener('click', () => localStorage.setItem('ztron-lang', a.dataset.langSwitch ?? ''))
-  );
-</script>
