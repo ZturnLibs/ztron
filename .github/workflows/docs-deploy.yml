@@ -42,6 +42,7 @@ jobs:
         with:
           path: docs/doc_build
       - name: sync china mirror
+        continue-on-error: true
         env:
           CHINA_MIRROR_TARGET: ${{ secrets.CHINA_MIRROR_TARGET }}
           CHINA_MIRROR_SSH_KEY: ${{ secrets.CHINA_MIRROR_SSH_KEY }}

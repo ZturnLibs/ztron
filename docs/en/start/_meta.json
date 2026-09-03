@@ -1,6 +1,1 @@
-[
-  { "text": "Introduction", "link": "/start/intro" },
-  { "text": "Prerequisites & Installation", "link": "/start/install" },
-  { "text": "Quick Start", "link": "/start/quick-start" },
-  { "text": "Examples", "link": "/start/examples" }
-]
+["intro", "install", "quick-start", "examples"]

@@ -10,9 +10,9 @@ if [[ -z "${CHINA_MIRROR_TARGET:-}" ]]; then
 fi
 
 KEY_FILE="$(mktemp)"
+trap 'rm -f "$KEY_FILE"' EXIT
 printf '%s\n' "${CHINA_MIRROR_SSH_KEY:?CHINA_MIRROR_SSH_KEY required when target is set}" > "$KEY_FILE"
 chmod 600 "$KEY_FILE"
-trap 'rm -f "$KEY_FILE"' EXIT
 
 rsync -av --delete -e "ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new" \
   docs/doc_build/ "$CHINA_MIRROR_TARGET"
