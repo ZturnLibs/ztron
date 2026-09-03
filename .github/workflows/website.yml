@@ -34,6 +34,8 @@ jobs:
         run: pnpm --dir docs install --frozen-lockfile --ignore-workspace
       - name: docs release gate (parity + no placeholders)
         run: pnpm --dir docs run check:locales:deploy
+      - name: generate api reference (gitignored output; must precede docs build)
+        run: pnpm --dir docs run gen:api
       - name: build website
         run: pnpm --filter @zturnlibs/ztron-website build
       - name: build docs
