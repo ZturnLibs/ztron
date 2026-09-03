@@ -31,6 +31,10 @@ const ICON_SIZES: Array<[number, number]> = [
   [512, 2],
 ];
 
+function have(bin: string): boolean {
+  return spawnSync("which", [bin], { encoding: "utf8" }).status === 0;
+}
+
 function sipsResize(src: string, size: number, out: string): boolean {
   const r = spawnSync(
     "sips",
@@ -46,6 +50,11 @@ export function generateIcons(
   inputPng: string,
   outDir: string,
 ): { icns: string; iconset: string; pngs: string[] } {
+  if (process.platform !== "darwin" || !have("sips") || !have("iconutil")) {
+    throw new Error(
+      "icon: requires macOS tooling (sips + iconutil) — run on a macOS host",
+    );
+  }
   if (!existsSync(inputPng)) {
     throw new Error(`icon: input not found: ${inputPng}`);
   }
@@ -132,7 +141,7 @@ export function addPlugin(cwd: string, plugin: string): void {
   );
 }
 
-interface TauriConf {
+interface ZtronConfInput {
   productName?: string;
   version?: string;
   identifier?: string;
@@ -173,7 +182,7 @@ const WINDOW_FIELD_MAP: Record<string, string> = {
 };
 
 /** Pure mapping: tauri.conf.json shape -> ztron.conf.json shape. */
-export function convertTauriConf(conf: TauriConf): Record<string, unknown> {
+export function convertTauriConf(conf: ZtronConfInput): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (conf.identifier) out.identifier = conf.identifier;
   if (conf.productName) {
@@ -223,7 +232,7 @@ export function migrateConf(
     throw new Error(`migrate: input not found: ${input}`);
   }
   const converted = convertTauriConf(
-    JSON.parse(readFileSync(input, "utf8")) as TauriConf,
+    JSON.parse(readFileSync(input, "utf8")) as ZtronConfInput,
   );
   writeFileSync(output, JSON.stringify(converted, null, 2) + "\n");
   console.log(`[ztron] migrated ${input} -> ${output}`);

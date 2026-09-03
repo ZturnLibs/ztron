@@ -1,0 +1,26 @@
+---
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+---
+<section class="section" id="packages">
+  <div class="container">
+    <h2 class="section-title">{s.packages.heading}</h2>
+    <p class="section-sub">{s.packages.sub}</p>
+    <div class="grid">
+      {s.packages.items.map((p) => (
+        <article class="card">
+          <code>{p.name}</code>
+          <p>{p.role}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+<style>
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .card code { color: var(--accent-to); font-size: 14.5px; }
+  .card p { color: var(--text-2); font-size: 14px; margin: 10px 0 0; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>

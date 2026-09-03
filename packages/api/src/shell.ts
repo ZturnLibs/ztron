@@ -33,10 +33,10 @@ export async function executeStream(
   } = {},
 ): Promise<{ code: number }> {
   const unsubOut = await listen<{ chunk: string }>(
-    "tauri://shell-output",
+    "ztron://shell-output",
     (e) => options.onChunk?.(e.payload.chunk),
   );
-  const unsubErr = await listen<{ chunk: string }>("tauri://shell-error", (e) =>
+  const unsubErr = await listen<{ chunk: string }>("ztron://shell-error", (e) =>
     options.onError?.(e.payload.chunk),
   );
   try {
@@ -65,7 +65,7 @@ type CommandEvent = "stdout" | "stderr" | "status" | "terminated";
 
 /**
  * A command builder mirroring Tauri's `Command` class. Streams stdout/stderr
- * via the `tauri://shell-output` / `tauri://shell-error` events.
+ * via the `ztron://shell-output` / `ztron://shell-error` events.
  */
 export class Command {
   readonly program: string;
@@ -98,11 +98,11 @@ export class Command {
   /** Spawns the command, streaming output events; resolves on exit. */
   async spawn(): Promise<void> {
     const unsubOut = await listen<{ chunk: string }>(
-      "tauri://shell-output",
+      "ztron://shell-output",
       (e) => this.#emit("stdout", e.payload.chunk),
     );
     const unsubErr = await listen<{ chunk: string }>(
-      "tauri://shell-error",
+      "ztron://shell-error",
       (e) => this.#emit("stderr", e.payload.chunk),
     );
     try {
@@ -126,15 +126,15 @@ export class Command {
   async spawnInteractive(): Promise<string> {
     /* wire the output streams BEFORE spawning so no early chunk is missed */
     const unsubOut = await listen<{ chunk: string }>(
-      "tauri://shell-output",
+      "ztron://shell-output",
       (e) => this.#emit("stdout", e.payload.chunk),
     );
     const unsubErr = await listen<{ chunk: string }>(
-      "tauri://shell-error",
+      "ztron://shell-error",
       (e) => this.#emit("stderr", e.payload.chunk),
     );
     const unsubTerm = await listen<{ cid: string; code: number }>(
-      "tauri://shell-terminated",
+      "ztron://shell-terminated",
       (e) => {
         this.#emit("terminated", e.payload);
         unsubOut();
@@ -165,14 +165,14 @@ export class Command {
     let stderr = "";
     let code = 0;
     const unsubOut = await listen<{ chunk: string }>(
-      "tauri://shell-output",
+      "ztron://shell-output",
       (e) => {
         stdout += e.payload.chunk;
         this.#emit("stdout", e.payload.chunk);
       },
     );
     const unsubErr = await listen<{ chunk: string }>(
-      "tauri://shell-error",
+      "ztron://shell-error",
       (e) => {
         stderr += e.payload.chunk;
         this.#emit("stderr", e.payload.chunk);

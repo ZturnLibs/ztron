@@ -1,0 +1,18 @@
+---
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+---
+<footer class="section footer">
+  <div class="container row">
+    <span>{s.footer.license}</span>
+    <nav class="links">
+      {s.footer.links.map((l) => <a href={l.href} target="_blank" rel="noopener">{l.label}</a>)}
+    </nav>
+  </div>
+</footer>
+<style>
+  .footer { padding: 36px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; color: var(--text-3); font-size: 14px; }
+  .links { display: flex; gap: 20px; }
+  .links a:hover { color: var(--text-1); }
+</style>

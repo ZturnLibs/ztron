@@ -1,0 +1,36 @@
+---
+import { repoDoc } from '../i18n/shared';
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+---
+<section class="section" id="status">
+  <div class="container">
+    <h2 class="section-title">{s.statusm.heading}</h2>
+    <p class="section-sub">{s.statusm.sub}</p>
+    <div class="rows">
+      {s.statusm.rows.map((r) => (
+        <div class="row">
+          <b>{r.platform}</b>
+          <span class:list={['pill', r.status]}>{r.status === 'ready' ? '✓' : '…'}</span>
+          <span class="note">{r.note}</span>
+        </div>
+      ))}
+    </div>
+    <p class="checks">{s.statusm.checks}</p>
+    <a class="btn" href={repoDoc('ROADMAP.md')} target="_blank" rel="noopener" title={s.statusm.more}>{s.statusm.moreLabel}</a>
+  </div>
+</section>
+<style>
+  .rows { display: flex; flex-direction: column; gap: 12px; max-width: 720px; }
+  .row {
+    display: grid; grid-template-columns: 110px 92px 1fr; gap: 16px; align-items: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px;
+  }
+  .row b { font-size: 15px; }
+  .pill { font-size: 12px; font-family: var(--font-mono); border-radius: 999px; padding: 3px 10px; text-align: center; }
+  .pill.ready { color: var(--ok); border: 1px solid var(--ok); }
+  .pill.wip { color: var(--wip); border: 1px solid var(--wip); }
+  .note { color: var(--text-2); font-size: 14px; }
+  .checks { font-family: var(--font-mono); color: var(--text-2); font-size: 13.5px; margin: 28px 0; }
+  @media (max-width: 600px) { .row { grid-template-columns: 1fr 92px; } .note { grid-column: 1 / -1; } }
+</style>

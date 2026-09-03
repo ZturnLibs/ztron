@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import Hero from '../components/Hero.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import Architecture from '../components/Architecture.astro';
+import PluginWall from '../components/PluginWall.astro';
+import StatusMatrix from '../components/StatusMatrix.astro';
+import QuickStart from '../components/QuickStart.astro';
+import Packages from '../components/Packages.astro';
+import { getStrings } from '../i18n';
+const s = getStrings('en');
+---
+<BaseLayout locale="en" title={s.meta.title} description={s.meta.description} >
+  <Nav s={s} locale="en" />
+  <main>
+    {/* Task 4-9 的分区组件依序插入此处的对应锚点位置 */}
+    <Hero s={s} />
+    <FeatureGrid s={s} />
+    <Architecture s={s} />
+    <PluginWall s={s} />
+    <StatusMatrix s={s} />
+    <QuickStart s={s} />
+    <Packages s={s} />
+  </main>
+  <Footer s={s} />
+</BaseLayout>

@@ -1,0 +1,218 @@
+f38a442 docs(zh): start section - intro/install/quick-start/examples + landing page
+
+ docs/zh/index.md             |  7 ++++++-
+ docs/zh/start/_meta.json     |  6 ++++++
+ docs/zh/start/examples.md    | 27 +++++++++++++++++++++++++++
+ docs/zh/start/install.md     | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ docs/zh/start/intro.md       | 36 ++++++++++++++++++++++++++++++++++++
+ docs/zh/start/quick-start.md | 43 +++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 162 insertions(+), 1 deletion(-)
+
+diff --git a/docs/zh/index.md b/docs/zh/index.md
+index 63c2d15..2a130fd 100644
+--- a/docs/zh/index.md
++++ b/docs/zh/index.md
+@@ -1,11 +1,16 @@
+ ---
+ title: Ztron 文档
+ ---
+ 
+ # Ztron 文档
+ 
+ Tauri 风格的跨平台桌面框架，以 TypeScript 重写，运行于 txiki.js + 系统 WebView。
+ 
+-（P1 内容建设中——本页在 Task 3 之后由正式首页替换。）
++- [快速开始](/start/quick-start) —— 10 分钟跑通第一个应用
++- [指南](/guide/architecture) —— 架构、IPC、事件、窗口、配置、安全
++- [CLI 参考](/reference/cli) —— init / dev / build / codegen / check / signer
++- [示例](/start/examples) —— hello / multiwin / menuprobe
++
++当前状态：macOS 全链路可用（`ztron 0.1.0`）；Windows/Linux 打包链建设中。
+ 
+ 适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/start/_meta.json b/docs/zh/start/_meta.json
+new file mode 100644
+index 0000000..e8377b1
+--- /dev/null
++++ b/docs/zh/start/_meta.json
+@@ -0,0 +1,6 @@
++[
++  { "text": "简介", "link": "/start/intro" },
++  { "text": "前置条件与安装", "link": "/start/install" },
++  { "text": "快速开始", "link": "/start/quick-start" },
++  { "text": "示例", "link": "/start/examples" }
++]
+diff --git a/docs/zh/start/examples.md b/docs/zh/start/examples.md
+new file mode 100644
+index 0000000..0e24c2f
+--- /dev/null
++++ b/docs/zh/start/examples.md
+@@ -0,0 +1,27 @@
++---
++title: 示例
++---
++
++仓库 `examples/` 目录下有三个可运行示例，均可用 pnpm filter 直接运行：
++
++| 名称 | 包名 | 演示内容 | 运行命令 |
++| --- | --- | --- | --- |
++| hello | `@zturnlibs/ztron-example-hello` | invoke/事件/Channel/fs/path 等 API 全面演练（86 检查） | `pnpm --filter @zturnlibs/ztron-example-hello dev` |
++| multiwin | `@zturnlibs/ztron-example-multiwin` | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
++| menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单能力探测 | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
++
++## hello
++
++对 `@zturnlibs/ztron-api` 的 invoke、事件、Channel 流、fs/path/http/os 等 API 做全面演练，内置 86 项确定性检查；配合 `ztron check` 可作为整框架的回归基线（`FULL_OK`，exit 0）。其 `ztron.conf.json` 同时演示了声明式多窗口（`windows[]`，含 `url: "frontend"` 占位与内联 `html` 两种窗口来源）。源码：`examples/hello/`（配置 `ztron.conf.json`、主进程 `src/main.ts`、命令 `src/commands.ts`、前端 `frontend/src/main.ts`）。
++
++## multiwin
++
++演示多窗口两种方式：在 `ztron.conf.json` 的 `windows[]` 中静态声明，以及运行时通过 `WebviewWindow` 创建/销毁窗口（验证锚点 `MULTI_WINDOW_OK`，运行时创建的第二个窗口真实创建并销毁，`SECOND_WINDOW_OK label=second`）。源码：`examples/multiwin/`。
++
++## menuprobe
++
++菜单能力探测示例，覆盖菜单构建与动态操作等能力。源码：`examples/menuprobe/`。
++
++各示例均依赖 monorepo 内的 workspace 包，需先完成[安装](/start/install)与原生链构建。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/start/install.md b/docs/zh/start/install.md
+new file mode 100644
+index 0000000..b98b5ef
+--- /dev/null
++++ b/docs/zh/start/install.md
+@@ -0,0 +1,44 @@
++---
++title: 前置条件与安装
++---
++
++# 前置条件
++
++| 依赖 | 要求 | 说明 |
++| --- | --- | --- |
++| macOS | Apple Silicon（已验证） | Intel 机型未验证，可尝试但如遇问题请提 issue |
++| Node.js | ≥ 20 | docs 工程与部分脚本以此为准 |
++| pnpm | 9 | workspace 解析依赖 pnpm |
++| Xcode Command Line Tools | 需要 | `scripts/build-native.sh` 编译原生链（tjs + ztron-host + webview 库）使用系统编译器 |
++
++Windows/Linux 目前仅有 host 骨架（编译通过），尚不可用于开发或打包，也不承诺发布时间。
++
++# 获取源码与安装依赖
++
++```bash
++git clone https://github.com/ZturnLibs/ztron.git
++cd ztron
++pnpm install
++```
++
++# 构建原生链
++
++```bash
++scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
++```
++
++首次构建耗时较长（需编译 txiki.js 与原生宿主）；之后仅在相关源码变更时才需重跑。
++
++# 构建 workspace 包
++
++```bash
++pnpm build
++```
++
++该命令生成 `packages/*/dist`，之后 CLI 才可用（以 `node packages/cli/dist/index.js …` 形式调用）。
++
++# 重要限制：目前需在 monorepo 内使用
++
++`@zturnlibs/ztron-*` 系列包当前以 `workspace:` 协议解析，因此 `ztron init` 脚手架创建的新项目必须位于本 monorepo 内，才能正确解析依赖。发布管线已就绪（打 tag 触发 `publish.yml`，发布到 GitHub Packages）；解除此限制后本节将随之更新。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/start/intro.md b/docs/zh/start/intro.md
+new file mode 100644
+index 0000000..448cc96
+--- /dev/null
++++ b/docs/zh/start/intro.md
+@@ -0,0 +1,36 @@
++---
++title: 简介
++---
++
++# Ztron 是什么
++
++Ztron 是一个 Tauri 风格的跨平台桌面应用框架，核心以 TypeScript 重写而非 Rust。它运行于 [txiki.js](https://txikijs.org)（约 2MB 的轻量 JS 运行时）之上，界面使用系统 WebView（[webview/webview](https://github.com/webview/webview)，经 `tjs:ffi` 集成）。前端保持真实 Web 技术栈（Vite 构建），主进程逻辑全部用 TypeScript 编写，宿主进程（`ztron-host`）则是原生 C 实现。API 协议与 `@tauri-apps/api` 同构，前端代码迁移成本低。
++
++# 架构一览
++
++```
++┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
++│ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
++│ system WebView + GUI    │             │ @zturnlibs/ztron-core: IPC/events/commands │
++│ window/tray/menu/dialog │             │  ACL + plugins + updater         │
++└────────────────────────┘             └──────────────────────────────────┘
++        frontend: Vite page → @zturnlibs/ztron-api → invoke/listen/Channel/fs/http/os/store/log/shell
++        packaging: tjs compile backend → ztron build → macOS .app (signed)
++```
++
++两个进程通过 TCP/JSON 通信：`ztron-host` 负责窗口、托盘、菜单、对话框等原生 GUI；tjs backend 承载应用主进程逻辑与 IPC/事件/命令层。架构详情见[架构指南](/guide/architecture)（指南章节建设中）。
++
++# 适用场景与现状
++
++| 平台 | 状态 |
++| --- | --- |
++| macOS | 全链路已验证：M0–P30 里程碑，86 项确定性检查全部通过（`FULL_OK`，exit 0），可由 `ztron check` 驱动回归 |
++| Windows / Linux | host 骨架已编译通过，尚未进入打包链，无发布时间承诺 |
++
++能力范围包括多窗口（`MULTI_WINDOW_OK`）、托盘与菜单（`TRAY_OK`、`MENU_OK`）、拖放（`DRAG_DROP_ARMED`）、HTTP 流式请求（`HTTP_STREAM_OK`）、updater（`UPDATER_OK`）、dmg 打包等；各项验证锚点见仓库 [README.md](https://github.com/ZturnLibs/ztron) 的 Status 表，能力缺口与阶段计划见 [ROADMAP.md](https://github.com/ZturnLibs/ztron)。
++
++# 与 Tauri 的关系
++
++Ztron 的 API 协议与 `@tauri-apps/api` 同构，`@zturnlibs/ztron-api` 即其移植，前端代码多数情况下只需替换导入来源。IPC、能力（ACL/capabilities）与配置模型均对齐 Tauri v2。两者的差异与迁移注意事项见[迁移指南](/guide/tauri-migration)（指南章节建设中）。
++
++适用版本：`ztron 0.1.0`
+diff --git a/docs/zh/start/quick-start.md b/docs/zh/start/quick-start.md
+new file mode 100644
+index 0000000..67dc511
+--- /dev/null
++++ b/docs/zh/start/quick-start.md
+@@ -0,0 +1,43 @@
++---
++title: 快速开始
++---
++
++# 跑通 hello（10 分钟）
++
++前置：完成[前置条件与安装](/start/install)（原生链与 workspace 包均已构建）。
++
++```bash
++cd examples/hello
++node ../../packages/cli/dist/index.js dev
++```
++
++`dev` 的行为：先用 Vite 构建前端，再拉起 `ztron-host`（原生窗口）并启动 tjs backend 连接；原生窗口出现即成功。
++
++回归检查（解析应用上报的检查项，`FULL_OK` + 0 FAIL 才 exit 0）：
++
++```bash
++node ../../packages/cli/dist/index.js check
++```
++
++`check` 会输出全部检查项统计，hello 示例为 `86 checks passed (FULL_OK)`。也支持 `--expect TAGS` 钉住必需标签、`--timeout ms` 限定时长。
++
++# 打包应用
++
++```bash
++node ../../packages/cli/dist/index.js build
++```
++
++产出独立可执行文件与 `.app`（ad-hoc 签名）。
++
++# 创建自己的项目（monorepo 内）
++
++```bash
++node packages/cli/dist/index.js init my-app   # scaffolds src/main.ts + frontend/
++cd my-app
++node ../packages/cli/dist/index.js dev --entry src/main.ts
++node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
++```
++
++`init` 脚手架生成 `src/main.ts` 与 `frontend/`；`codegen` 为你的命令生成类型化 invoke 绑定。注：目前新项目需位于 monorepo 内（`@zturnlibs/ztron-*` 以 `workspace:` 解析），详见[前置条件与安装](/start/install)。命令详解见 [CLI 参考](/reference/cli)（参考章节建设中）。
++
++适用版本：`ztron 0.1.0`

@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-api",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Ztron frontend transport layer, translated from @tauri-apps/api/core",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,18 +10,54 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./app": { "types": "./dist/app.d.ts", "import": "./dist/app.js" },
-    "./core": { "types": "./dist/core.d.ts", "import": "./dist/core.js" },
-    "./dpi": { "types": "./dist/dpi.d.ts", "import": "./dist/dpi.js" },
-    "./event": { "types": "./dist/event.d.ts", "import": "./dist/event.js" },
-    "./image": { "types": "./dist/image.d.ts", "import": "./dist/image.js" },
-    "./menu": { "types": "./dist/menu.d.ts", "import": "./dist/menu.js" },
-    "./mocks": { "types": "./dist/mocks.d.ts", "import": "./dist/mocks.js" },
-    "./path": { "types": "./dist/path.d.ts", "import": "./dist/path.js" },
-    "./tray": { "types": "./dist/tray.d.ts", "import": "./dist/tray.js" },
-    "./webview": { "types": "./dist/webview.d.ts", "import": "./dist/webview.js" },
-    "./webviewWindow": { "types": "./dist/webview-window.d.ts", "import": "./dist/webview-window.js" },
-    "./window": { "types": "./dist/window.d.ts", "import": "./dist/window.js" }
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./dpi": {
+      "types": "./dist/dpi.d.ts",
+      "import": "./dist/dpi.js"
+    },
+    "./event": {
+      "types": "./dist/event.d.ts",
+      "import": "./dist/event.js"
+    },
+    "./image": {
+      "types": "./dist/image.d.ts",
+      "import": "./dist/image.js"
+    },
+    "./menu": {
+      "types": "./dist/menu.d.ts",
+      "import": "./dist/menu.js"
+    },
+    "./mocks": {
+      "types": "./dist/mocks.d.ts",
+      "import": "./dist/mocks.js"
+    },
+    "./path": {
+      "types": "./dist/path.d.ts",
+      "import": "./dist/path.js"
+    },
+    "./tray": {
+      "types": "./dist/tray.d.ts",
+      "import": "./dist/tray.js"
+    },
+    "./webview": {
+      "types": "./dist/webview.d.ts",
+      "import": "./dist/webview.js"
+    },
+    "./webviewWindow": {
+      "types": "./dist/webview-window.d.ts",
+      "import": "./dist/webview-window.js"
+    },
+    "./window": {
+      "types": "./dist/window.d.ts",
+      "import": "./dist/window.js"
+    }
   },
   "files": [
     "dist"

@@ -10,6 +10,16 @@
 import { PathScope, type PathScopeConfig } from "../scope.js";
 import type { Plugin } from "../plugin.js";
 
+/* Minimal structural types for the fetch-style handler — CI (lib ES2022,
+   no DOM) has no Request/Response globals; txiki provides compatible
+   runtime objects. */
+interface FetchRequestLike {
+  url: string;
+}
+interface FetchResponseLike {
+  status: number;
+}
+
 interface ServeServer {
   readonly port: number;
   close(): Promise<void> | void;
@@ -17,7 +27,7 @@ interface ServeServer {
 
 interface ServeLike {
   serve(options: {
-    fetch: (request: Request) => Response | Promise<Response>;
+    fetch: (request: FetchRequestLike) => FetchResponseLike | Promise<FetchResponseLike>;
     port?: number;
   }): ServeServer;
 }
@@ -41,6 +51,16 @@ const MIME: Record<string, string> = {
   wasm: "application/wasm",
   txt: "text/plain; charset=utf-8",
 };
+
+/** Response constructor via the runtime global (typed loosely for CI). */
+function globalResponse(): {
+  new (body?: unknown, init?: { status?: number; headers?: Record<string, string> }): FetchResponseLike;
+} {
+  const g = globalThis as unknown as {
+    Response: new (body?: unknown, init?: { status?: number; headers?: Record<string, string> }) => FetchResponseLike;
+  };
+  return g.Response;
+}
 
 function contentTypeFor(path: string): string {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -74,23 +94,23 @@ export function localhostPlugin(options: LocalhostPluginOptions = {}): Plugin {
     return abs;
   }
 
-  async function handler(request: Request): Promise<Response> {
+  async function handler(request: FetchRequestLike): Promise<FetchResponseLike> {
     const file = resolveFile(request.url);
     const headers = { "access-control-allow-origin": "*" };
     if (!file) {
-      return new Response("not found", {
-        status: file === null && !scope.check(file ?? "") ? 403 : 404,
+      return new (globalResponse())("not found", {
+        status: 404,
         headers,
       });
     }
     try {
       const bytes = await tjs.readFile(file);
-      return new Response(bytes, {
+      return new (globalResponse())(bytes, {
         status: 200,
         headers: { ...headers, "content-type": contentTypeFor(file) },
       });
     } catch {
-      return new Response("not found", { status: 404, headers });
+      return new (globalResponse())("not found", { status: 404, headers });
     }
   }
 

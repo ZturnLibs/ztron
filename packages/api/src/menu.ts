@@ -1,6 +1,6 @@
 /**
  * Application menu API — a port of `@tauri-apps/api/menu`, backed by the
- * built-in `plugin:menu|*` commands and the `tauri://menu` event.
+ * built-in `plugin:menu|*` commands and the `ztron://menu` event.
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
@@ -495,5 +495,5 @@ export async function setAppMenu(items: MenuItemOptions[]): Promise<Menu> {
 export async function onMenuEvent(
   handler: (event: MenuEvent) => void,
 ): Promise<UnlistenFn> {
-  return listen<MenuEvent>("tauri://menu", (e) => handler(e.payload));
+  return listen<MenuEvent>("ztron://menu", (e) => handler(e.payload));
 }

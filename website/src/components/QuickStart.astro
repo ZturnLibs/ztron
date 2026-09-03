@@ -1,0 +1,46 @@
+---
+import { highlight } from '../lib/highlight';
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+const rendered = await Promise.all(
+  s.quickstart.tabs.map(async (t) => ({ id: t.id, label: t.label, html: await highlight(t.code) }))
+);
+---
+<section class="section" id="quickstart">
+  <div class="container">
+    <h2 class="section-title">{s.quickstart.heading}<em>{s.quickstart.headingAccent}</em></h2>
+    <p class="section-sub">{s.quickstart.sub}</p>
+    <div class="tabs" role="tablist">
+      {rendered.map((t, i) => (
+        <button role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-tab={t.id} class={i === 0 ? 'on' : ''}>{t.label}</button>
+      ))}
+    </div>
+    {rendered.map((t, i) => (
+      <div class="pane" data-pane={t.id} hidden={i !== 0}>
+        <Fragment set:html={t.html} />
+      </div>
+    ))}
+  </div>
+</section>
+<style>
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tabs button {
+    background: none; border: 1px solid var(--border); color: var(--text-2);
+    border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; font-family: var(--font-ui);
+  }
+  .tabs button.on { color: var(--text-1); border-color: var(--accent-from); }
+  .pane :global(pre.shiki) { background: var(--code-bg) !important; border: 1px solid var(--border); border-radius: var(--radius); margin: 0; padding: 22px 24px; font-size: 13.5px; line-height: 1.85; overflow-x: auto; }
+</style>
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>('[data-tab]');
+  const panes = document.querySelectorAll<HTMLElement>('[data-pane]');
+  buttons.forEach((b) =>
+    b.addEventListener('click', () => {
+      buttons.forEach((x) => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-selected', String(x === b));
+      });
+      panes.forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.tab));
+    })
+  );
+</script>

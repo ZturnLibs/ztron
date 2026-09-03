@@ -9,7 +9,7 @@ import { internals, type InvokeArgs, type InvokeOptions } from "./internals.js";
  * A key used by special types to define how they serialize across the IPC.
  * If this value changes, keep it in sync with the `inject` package.
  */
-export const SERIALIZE_TO_IPC_FN = "__TAURI_TO_IPC_KEY__";
+export const SERIALIZE_TO_IPC_FN = "__ZTRON_TO_IPC_KEY__";
 
 /**
  * Stores a callback in a known location and returns an identifier the backend
@@ -152,8 +152,8 @@ export class Resource {
 
 /** Whether the current context is a Ztron WebView. */
 export function isZtron(): boolean {
-  const w = globalThis as { isTauri?: boolean };
-  return Boolean(w.isTauri);
+  const w = globalThis as { isZtron?: boolean };
+  return Boolean(w.isZtron);
 }
 
 export type { InvokeArgs, InvokeOptions };

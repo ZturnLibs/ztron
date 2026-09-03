@@ -12,7 +12,7 @@
 | 窗口事件          | resize/move/focus/blur/close/destroyed/scale-change                        | resize/move/focus/blur/close        | ~无  | event/mod.rs       | C+core       |
 | 多窗口/多 webview | WebviewWindow × N                                                          | ✅ 运行时多窗口落地(per-window 事件/close) | ~无  | wry                | C            |
 | 系统集成          | tray/menu/dialog/clipboard/notification/global-shortcut                    | 全部实现                            | ~无  | 各插件 + tao       | C            |
-| 自定义协议        | `tauri://` 资产服务 + 隔离                                                 | `ztron://` + convertFileSrc + HMR   | ~无  | wry scheme handler | C            |
+| 自定义协议        | `ztron://` 资产服务 + 隔离                                                 | `ztron://` + convertFileSrc + HMR   | ~无  | wry scheme handler | C            |
 | ACL/权限          | capabilities/permissions/scope                                             | ACL + PathScope + HttpScope + CSP   | 小   | tauri ACL crates   | core TS      |
 | IPC               | invoke+channel+MessagePack+ipc-scope                                       | invoke+channel(JSON)                | 小   | ipc/mod.rs         | core TS      |
 | 命令              | 宏+Result+State注入+类型生成                                               | 手动注册 + codegen                  | 小   | macros/codegen     | CLI(codegen) |
@@ -33,7 +33,7 @@
 
 ### P0 让它像桌面应用(C 层攻坚)
 
-- [x] **P0.1 窗口状态 + 事件**:min/max/fullscreen/alwaysOnTop/center/focus/visible/opacity/transparent/decorations;resize/move/focus/blur/close → `tauri://*`(`WIN_STATE_OK` + `WIN_EVENT_OK` + `OPACITY_OK`/`TRANSPARENT_OK`/`DECORATIONS_OK`)
+- [x] **P0.1 窗口状态 + 事件**:min/max/fullscreen/alwaysOnTop/center/focus/visible/opacity/transparent/decorations;resize/move/focus/blur/close → `ztron://*`(`WIN_STATE_OK` + `WIN_EVENT_OK` + `OPACITY_OK`/`TRANSPARENT_OK`/`DECORATIONS_OK`)
 - [x] **P0.2 Tray**:host NSStatusItem/Shell_NotifyIcon → `plugin:tray|*`(`TRAY_OK`)
 - [x] **P0.3 Menu**:host 菜单栏 → api `menu.ts`(`MENU_OK`)
 - [x] **P0.4 Dialog**:NSOpenPanel/NSSavePanel/NSAlert → `plugin:dialog|open/save/message`(`DIALOG_REG_OK`)

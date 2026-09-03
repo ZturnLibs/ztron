@@ -1238,7 +1238,7 @@ static BOOL zt_should_close(id s, SEL c, id n) {
   }
   const char *label = zt_label_for_window(wnd);
   if (prevent_close_of(label)) {
-    emit_window_event_labeled(label, "close"); /* -> tauri://close-requested */
+    emit_window_event_labeled(label, "close"); /* -> ztron://close-requested */
     return NO;
   }
   /* The engine delegate does not implement windowShouldClose:, but forward

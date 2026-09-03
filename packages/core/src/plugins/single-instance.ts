@@ -4,7 +4,7 @@
  * The primary instance binds a loopback TCP port derived from the identifier
  * (a deterministic FNV-1a hash into 20000–60000). A second instance fails to
  * bind, signals the primary, and reports `is_primary === false`; the primary
- * emits `tauri://single-instance` and focuses its window.
+ * emits `ztron://single-instance` and focuses its window.
  */
 import type { Plugin } from "../plugin.js";
 
@@ -61,7 +61,7 @@ export function singleInstancePlugin(
             if (wv) {
               wv.eval("window.focus()");
             }
-            app.emit("tauri://single-instance", { argv: [], cwd: "" });
+            app.emit("ztron://single-instance", { argv: [], cwd: "" });
             return new Response("ok");
           },
         })) as { port: number; close(): void };

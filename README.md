@@ -26,7 +26,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | `@zturnlibs/ztron-api`         | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers     |
 | `@zturnlibs/ztron-core`        | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test infra |
 | `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings                                                                  |
-| `@zturnlibs/ztron-inject`      | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML)                                                                |
+| `@zturnlibs/ztron-inject`      | `window.__ZTRON_INTERNALS__` bootstrap (embedded into page HTML)                                                                |
 | `@zturnlibs/ztron-cli`         | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend                                                         |
 
 ## Status (M0–P5 complete)
@@ -62,7 +62,7 @@ See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and
 | P22   | plugin parity batch: clipboard readImage/writeImage (PNG bytes + rid re-encode, RFC4648 encoder in C) + clear, UNUserNotificationCenter rewrite (NSUserNotificationCenter was removed in macOS 11 — old sends were silent no-ops) + isPermissionGranted/requestPermission (result-carrying C blocks) + shortcut isRegistered | `CLIPBOARD_IMG_OK:70` `CLIPBOARD_CLEAR_OK` `SHORTCUT_ISREG_OK` `NOTIF_PERM_OK:false` (dev bare binary degrades; .app gets real UN) — 80/80, exit 0 |                                                                                                                                                |
 | P23   | http streaming fetch: `fetchStream()` resolves with status+headers immediately, body chunks pushed over a Channel (`{b64}`/`{done}`/`{error}`) and bridged into a `ReadableStream<Uint8Array>` — no full-response buffering, scope + timeoutMs still enforced | `HTTP_STREAM_OK:6c/head1ms/total277ms` — 81/81, exit 0 (progressive delivery proven: head ≪ body tail) |                                                                                                                                                |
 | P24   | Raw IPC responses (research-corrected: Tauri v2 desktop has NO MessagePack — the real target is `InvokeResponseBody::Raw`; Ztron's base64-in-JSON mirrors Tauri's own Android recommendation): any command may return `RawResponse`, the injected invoke unwraps it to `Uint8Array` — binary decoding now lives in one place; fs.readFile/clipboard.readImage simplified | existing checks re-verified on the new path: `FS_BINARY_OK:15b` + `CLIPBOARD_IMG_OK:70` — 81 checks, FULL_OK, exit 0 |                                                                                                                                                |
-| P26   | File drag & drop: `tauri://drag-enter/over/drop/leave` events (paths + physical position) + `Window.onDragDropEvent` + `setFileDropEnabled`. Native: WKWebView subclass-from-birth with NSDraggingDestination IMPs (dyld-constructor registered, vendored `WKWebView_alloc` hook) — isa-swizzling after init crashes in KVO (`_os_unfair_lock_corruption_abort`) | `DRAG_DROP_ARMED` — 82/82, exit 0; real drops report `DRAG_EVENT_LIVE:<n>:<paths>` opportunistically; multiwin 10x create/destroy stress still green |                                                                                                                                                |
+| P26   | File drag & drop: `ztron://drag-enter/over/drop/leave` events (paths + physical position) + `Window.onDragDropEvent` + `setFileDropEnabled`. Native: WKWebView subclass-from-birth with NSDraggingDestination IMPs (dyld-constructor registered, vendored `WKWebView_alloc` hook) — isa-swizzling after init crashes in KVO (`_os_unfair_lock_corruption_abort`) | `DRAG_DROP_ARMED` — 82/82, exit 0; real drops report `DRAG_EVENT_LIVE:<n>:<paths>` opportunistically; multiwin 10x create/destroy stress still green |                                                                                                                                                |
 | P27   | dialog v2 (`ask`/`confirm` OK/Cancel alerts resolving booleans + `message` kind=info/warning/error via NSAlertStyle; Tauri-shaped signatures) + clipboard HTML flavor (public.html read + write with plain-text fallback) | `CLIPBOARD_HTML_OK:17` (real pasteboard round trip) + `DIALOG_REG_OK` extended to ask/confirm (modal APIs: registration-level, like open/save) — 84/84, exit 0 |                                                                                                                                                |
 | P28   | Window finishing batch: `setIcon` (dock icon from a registered Image) + `setOverlayIcon` (NSTitlebarAccessoryViewController, macOS take on Windows' overlay badge — plain NSView wrapper, index-based removal) + `setCursorGrab` (CGAssociateMouseAndMouseCursorPosition) + path v2 (`resolveResource`/`sep`/`delimiter`/`localDataDir` alias) + updater `install` (check→download→verify→relaunch one-shot, sha256 gate before relaunch) | `WIN_ICONS_GRAB_OK` — 85/85, exit 0 |  |  |
 | P29   | Window vibrancy effects (Tauri setEffects/clearEffects): behind-webview NSVisualEffectView with SDK-verified NSVisualEffectMaterial mapping (10.10-10.14 values), material reuse, state/radius; Windows-only effects filtered + first-wins rule | `WIN_EFFECTS_OK` — 86/86, exit 0 |  |  |
@@ -88,16 +88,6 @@ Three layers target 100% coverage of features + API:
 - **integration** — the 58-check spike drives the real host + webview
 
 See `tests/README.md` for the design.
-
-## Documentation
-
-Bilingual docs (zh default / en mirror) live in [`docs/`](./docs) — an Rspress site, installed independently of the workspace:
-
-```bash
-pnpm docs:dev     # dev server
-pnpm docs:build   # static build -> docs/doc_build/
-pnpm docs:check   # zh/en structure parity gate
-```
 
 ## Quick start
 

@@ -30,7 +30,7 @@
 | ID | 缺口 | 上游参照 | 层 | 平台 | 状态 |
 |----|------|----------|----|------|------|
 | A1 ◐ | **裸 Webview/单窗多 webview——已裁决为平台边界**(DESIGN §115):vendored C API 1:1 创建期绑定,同窗多 webview/reparent/autoResize 需改库本体;能力探针 plugin:webview\|capabilities 诚实上报;Ztron 等价物=多窗口 per-window webview(跨窗控制/事件/destroy 已真实)|
-| A2 | **Menu 类体系**：IconMenuItem 类 + NativeIcon 枚举（56 系统图标）、Menu.default()/default app menu 自动生成、AboutMetadata（about 元数据）、setAsWindowMenu + setAsWindowsMenuForNSApp/setAsHelpMenuForNSApp、prepend/removeAt/items 实时结构化遍历、Submenu/CheckMenuItem/RadioMenuItem 独立类形态（现 children 数组近似）、menu set_icon 命令 | `api/src/menu.ts + menu/*.ts`；`crates/tauri/src/menu/plugin.rs` 22 条 | host C + runtime + core + api | macOS 本机可验 | ◐ |
+| A2 ✓ | Menu 类体系全量（G4+G18 两批）：NativeIcon×56、IconMenuItem/MenuItem/CheckMenuItem/RadioMenuItem/PredefinedMenuItem（12 工厂）/Submenu 运行时挂载、Menu.default、items/removeAt、窗口与 NSApp 角色挂载、AboutMetadata 类型面；config 接口更名 MenuItemOptions|
 
 # B. core 命令面（逐条对齐 build.rs PLUGINS）
 
@@ -65,7 +65,7 @@
 | C7 ✓ | BaseDirectory 枚举（23 值 as-const）+ resolveBaseDirectory + v1 fs 函数可选 options.baseDir（相对路径拼接，绝对路径直通）——G9 批次 |
 | C8 ✓ | mocks.ts 四件套：mockIPC（内存 invoke）/mockWindows（currentWindow·currentWebview·label 三形 metadata）/mockConvertFileSrc/clearMocks（全量还原）——G14 |
 | C9 ✓ | inject `metadata.currentWindow.label/currentWebview.label`：loadHtml 路径烘焙真实 label；URL 路径经 `#ztron-window=` hash 标记由注入脚本解析（G1 批次落地，DESIGN §101） | global.d.ts internals 契约 | core app.ts + inject build.ts | 本机可验 | ✓ |
-| C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __TAURI_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
+| C10 ✓ | withGlobalTauri 等价：inject buildInitScript 新增开关，开启时附 `window.__ZTRON__ = __ZTRON_INTERNALS__`；conf app.withGlobalTauri → createWindow bootstrap 贯通——G10 |
 | C11 ✓ | api 子路径 exports 全量（./app…./window 12 条，upstream 同构）；tsc 逐文件产物天然满足——G16 实现|
 | C12 ✓ | EffectState 协议核对：Follows=-1 跳过显式 setState/Active=0/Inactive=1 与 NSVisualEffectState 映射正确，无需改动——G16 审计|
 | C13 ✓ | dpi toJSON 判别键契约 G8 已验（补翻状态行）|

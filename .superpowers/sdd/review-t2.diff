@@ -1,0 +1,123 @@
+0673e0e docs(site): zh/en parity checker - tree diff + deploy placeholder gate (TDD)
+
+ docs/scripts/check-locales.test.ts | 42 +++++++++++++++++++++++++
+ docs/scripts/check-locales.ts      | 63 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 105 insertions(+)
+
+diff --git a/docs/scripts/check-locales.test.ts b/docs/scripts/check-locales.test.ts
+new file mode 100644
+index 0000000..14d3bba
+--- /dev/null
++++ b/docs/scripts/check-locales.test.ts
+@@ -0,0 +1,42 @@
++/** Unit tests for the zh/en parity checker. */
++import test from "node:test";
++import assert from "node:assert/strict";
++import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { join } from "node:path";
++import { diffTrees, findPlaceholders } from "./check-locales.ts";
++
++test("identical trees produce no diffs", () => {
++  const d = diffTrees(["index.md", "start/_meta.json"], ["index.md", "start/_meta.json"]);
++  assert.deepEqual(d.missingInEn, []);
++  assert.deepEqual(d.missingInZh, []);
++});
++
++test("file in zh missing from en is reported", () => {
++  const d = diffTrees(["index.md", "guide/ipc.md"], ["index.md"]);
++  assert.deepEqual(d.missingInEn, ["guide/ipc.md"]);
++  assert.deepEqual(d.missingInZh, []);
++});
++
++test("file in en missing from zh is reported", () => {
++  const d = diffTrees(["index.md"], ["index.md", "orphan.md"]);
++  assert.deepEqual(d.missingInZh, ["orphan.md"]);
++});
++
++test("generated reference/api subtree is exempt", () => {
++  const d = diffTrees(["index.md", "reference/api/fs.md"], ["index.md"]);
++  assert.deepEqual(d.missingInEn, []);
++  assert.deepEqual(d.missingInZh, []);
++});
++
++test("findPlaceholders flags en pages carrying the marker", () => {
++  const dir = mkdtempSync(join(tmpdir(), "cl-test-"));
++  try {
++    mkdirSync(join(dir, "guide"), { recursive: true });
++    writeFileSync(join(dir, "index.md"), "# Home\n");
++    writeFileSync(join(dir, "guide", "ipc.md"), "<!-- i18n:untranslated -->\n# IPC\n");
++    assert.deepEqual(findPlaceholders(dir, ["index.md", "guide/ipc.md"]), ["guide/ipc.md"]);
++  } finally {
++    rmSync(dir, { recursive: true, force: true });
++  }
++});
+diff --git a/docs/scripts/check-locales.ts b/docs/scripts/check-locales.ts
+new file mode 100644
+index 0000000..03f6cc7
+--- /dev/null
++++ b/docs/scripts/check-locales.ts
+@@ -0,0 +1,63 @@
++/**
++ * check-locales — enforce zh/en structural parity for the docs site.
++ * zh/ is the canonical tree; en/ must mirror it file-for-file.
++ * Exit 1 on any mismatch. --deploy additionally fails on untranslated
++ * placeholder markers in en/ pages (release gate, spec §5.1/§8.2).
++ * reference/api/ is exempt: P2 gen-api-docs output, gitignored.
++ */
++import { readdirSync, readFileSync, statSync } from "node:fs";
++import { join, resolve } from "node:path";
++import { fileURLToPath } from "node:url";
++
++const ROOT = fileURLToPath(new URL("..", import.meta.url));
++const EXEMPT = [/^reference[/\\]api[/\\]/];
++const PLACEHOLDER = /<!--\s*i18n:untranslated\s*-->/;
++const TRACKED = /\.(md|mdx)$|^_meta\.json$|^_nav\.json$/;
++
++export function walk(dir: string, base = ""): string[] {
++  const out: string[] = [];
++  for (const name of readdirSync(join(dir, base))) {
++    const rel = base ? `${base}/${name}` : name;
++    if (statSync(join(dir, rel)).isDirectory()) out.push(...walk(dir, rel));
++    else if (TRACKED.test(name)) out.push(rel);
++  }
++  return out;
++}
++
++export interface TreeDiff {
++  missingInEn: string[];
++  missingInZh: string[];
++}
++
++export function diffTrees(zhFiles: string[], enFiles: string[]): TreeDiff {
++  const keep = (f: string) => !EXEMPT.some((re) => re.test(f));
++  const en = new Set(enFiles.filter(keep));
++  const zh = new Set(zhFiles.filter(keep));
++  return {
++    missingInEn: zhFiles.filter((f) => keep(f) && !en.has(f)),
++    missingInZh: enFiles.filter((f) => keep(f) && !zh.has(f)),
++  };
++}
++
++export function findPlaceholders(enDir: string, enFiles: string[]): string[] {
++  return enFiles.filter(
++    (f) => f.endsWith(".md") && PLACEHOLDER.test(readFileSync(join(enDir, f), "utf8")),
++  );
++}
++
++function main(): void {
++  const deploy = process.argv.includes("--deploy");
++  const zhDir = join(ROOT, "zh");
++  const enDir = join(ROOT, "en");
++  const { missingInEn, missingInZh } = diffTrees(walk(zhDir), walk(enDir));
++  const placeholders = deploy ? findPlaceholders(enDir, walk(enDir)) : [];
++  for (const f of missingInEn) console.error(`[check-locales] missing in en/: ${f}`);
++  for (const f of missingInZh) console.error(`[check-locales] missing in zh/: ${f}`);
++  for (const f of placeholders) console.error(`[check-locales] untranslated placeholder in en/: ${f}`);
++  if (missingInEn.length || missingInZh.length || placeholders.length) process.exit(1);
++  console.log(`[check-locales] OK — zh/en trees match${deploy ? ", no placeholders" : ""}`);
++}
++
++const invokedDirectly =
++  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
++if (invokedDirectly) main();

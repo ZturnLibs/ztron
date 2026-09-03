@@ -1,0 +1,20 @@
+:root {
+  --bg: #0a0c10;
+  --surface: #11141b;
+  --elevated: #161a23;
+  --border: rgba(255, 255, 255, 0.08);
+  --text-1: #e6eaf2;
+  --text-2: #9aa3b2;
+  --text-3: #8c94a3;
+  --accent-from: #8b5cf6;
+  --accent-to: #22d3ee;
+  --ok: #34d399;
+  --wip: #fbbf24;
+  --bad: #f87171;
+  --code-bg: #0d1017;
+  --grad: linear-gradient(120deg, var(--accent-from), var(--accent-to));
+  --font-ui: system-ui, -apple-system, 'PingFang SC', 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace;
+  --radius: 10px;
+  --max-w: 1120px;
+}

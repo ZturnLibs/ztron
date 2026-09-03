@@ -1,0 +1,43 @@
+bd0fb74 ci: docs job - locale parity, script tests, site build
+
+ .github/workflows/ci.yml | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index f58691a..a56aacb 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -175,10 +175,33 @@ jobs:
+         run: |
+           set +e
+           bash scripts/ci.sh --spike-timeout 90000 > /tmp/ci-chain.log 2>&1
+           code=$?
+           tail -6 /tmp/ci-chain.log
+           if grep -q "FAILED at: .*ztron check" /tmp/ci-chain.log; then
+             echo "::warning::GUI spike failed on headless runner (expected without WindowServer); see ci-chain.log"
+           elif [ $code -ne 0 ]; then
+             exit $code
+           fi
++
++  docs:
++    name: docs (parity + build)
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: docs
++    steps:
++      - uses: actions/checkout@v4
++      - uses: pnpm/action-setup@v4
++        with:
++          version: 9.15.4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 22
++      - name: install
++        run: pnpm install --frozen-lockfile
++      - name: unit tests (scripts)
++        run: pnpm test
++      - name: locale parity
++        run: pnpm run check:locales
++      - name: build
++        run: pnpm run build

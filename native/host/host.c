@@ -243,7 +243,7 @@ static void on_gui(webview_t w, void *arg) {
       if (nw) {
         add_webview(m->win_label, nw);
         /* strdup: the bind arg must outlive this Msg (freed below). */
-        webview_bind(nw, "__TAURI_IPC__", ipc_cb, strdup(m->win_label));
+        webview_bind(nw, "__ZTRON_IPC__", ipc_cb, strdup(m->win_label));
         if (zt_platform.attach_webview) zt_platform.attach_webview(nw);
       }
     }
@@ -372,7 +372,7 @@ int main(int argc, char **argv) {
   }
   webview_set_title(zt_w, "Ztron");
   webview_set_size(zt_w, 900, 640, 0);
-  webview_bind(zt_w, "__TAURI_IPC__", ipc_cb, (void *)"main");
+  webview_bind(zt_w, "__ZTRON_IPC__", ipc_cb, (void *)"main");
   if (zt_platform.init && !zt_platform.init()) {
     fprintf(stderr, "platform init failed\n");
     webview_destroy(zt_w);

@@ -19,7 +19,7 @@ export async function onSecondInstance(
   handler: (event: { argv: string[]; cwd: string }) => void,
 ): Promise<() => Promise<void>> {
   return listen<{ argv: string[]; cwd: string }>(
-    "tauri://single-instance",
+    "ztron://single-instance",
     (e) => handler(e.payload),
   );
 }

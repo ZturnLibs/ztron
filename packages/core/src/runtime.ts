@@ -134,7 +134,7 @@ export type WindowStateOp =
   | "set_effects"
   | "clear_effects";
 
-/** Native window events pushed from the host (mapped to `tauri://*`). */
+/** Native window events pushed from the host (mapped to `ztron://*`). */
 export type WindowEvent =
   | "resize"
   | "move"

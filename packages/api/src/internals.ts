@@ -1,7 +1,7 @@
 /**
  * The single seam between the frontend and the Ztron main process.
  *
- * Everything in `@zturnlibs/ztron-api` goes through `window.__TAURI_INTERNALS__`.
+ * Everything in `@zturnlibs/ztron-api` goes through `window.__ZTRON_INTERNALS__`.
  * The `@zturnlibs/ztron-inject` package is responsible for providing this object
  * inside the WebView (via `webview_init`), so the transport contract below
  * MUST stay in sync between `api` and `inject`.
@@ -52,19 +52,19 @@ export interface Internals {
   metadata: Record<string, unknown>;
 }
 
-/** Global exposure, matching Tauri's `window.__TAURI_INTERNALS__`. */
+/** Global exposure, matching Tauri's `window.__ZTRON_INTERNALS__`. */
 declare global {
   interface Window {
-    __TAURI_INTERNALS__: Internals;
+    __ZTRON_INTERNALS__: Internals;
   }
 }
 
 /** Accessor with a helpful error when running outside of a Ztron WebView. */
 export function internals(): Internals {
-  const i = globalThis.window?.__TAURI_INTERNALS__;
+  const i = globalThis.window?.__ZTRON_INTERNALS__;
   if (!i) {
     throw new Error(
-      "Ztron is not available: window.__TAURI_INTERNALS__ is missing. " +
+      "Ztron is not available: window.__ZTRON_INTERNALS__ is missing. " +
         "Are you running inside a Ztron WebView?",
     );
   }

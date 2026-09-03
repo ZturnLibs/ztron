@@ -155,7 +155,7 @@ test("signer encrypted secret key: round trip + wrong password (F4 tail)", async
   const core = await import("../../packages/core/dist/index.js");
   const { publicKeyText, secret } = core.generateKeypair();
 
-  const encText = core.dumpEncryptedSecretKeyFile(secret, "hunter2", { n: 16, r: 1 });
+  const encText = core.dumpEncryptedSecretKeyFile(secret, "hunter2", { n: 1024, r: 8 });
   assert.ok(encText.includes("untrusted comment:"));
   /* the b64 blob must not contain the raw key bytes */
   assert.ok(!encText.includes(Buffer.from(secret.sk64).toString("base64").slice(0, 24)));

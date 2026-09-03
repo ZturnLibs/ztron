@@ -1,5 +1,5 @@
 /**
- * Ztron Vite plugin — injects the `__TAURI_INTERNALS__` bootstrap into the
+ * Ztron Vite plugin — injects the `__ZTRON_INTERNALS__` bootstrap into the
  * served HTML so `@zturnlibs/ztron-api` works inside a Vite page.
  *
  * - dev server: keep ESM `type="module"` (strip `crossorigin`), add CORS
@@ -50,9 +50,9 @@ export function ztronVitePlugin(
           (_, src: string) => `<script src="${src}"></script>`,
         );
       }
-      // Inject the __TAURI_INTERNALS__ bootstrap immediately after <head> so
+      // Inject the __ZTRON_INTERNALS__ bootstrap immediately after <head> so
       // it runs before the app bundle.
-      if (!out.includes("__TAURI_INTERNALS__")) {
+      if (!out.includes("__ZTRON_INTERNALS__")) {
         out = out.replace(/<head>/, `<head><script>${bootstrap}</script>`);
       }
       return out;

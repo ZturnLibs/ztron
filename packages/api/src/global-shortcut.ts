@@ -48,7 +48,7 @@ export async function isRegistered(id: string): Promise<boolean> {
 export async function onShortcut(
   handler: (event: { shortcutId: string }) => void,
 ): Promise<() => Promise<void>> {
-  return listen<{ shortcutId: string }>("tauri://global-shortcut", (e) =>
+  return listen<{ shortcutId: string }>("ztron://global-shortcut", (e) =>
     handler(e.payload),
   );
 }

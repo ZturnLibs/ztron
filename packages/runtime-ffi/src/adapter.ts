@@ -222,7 +222,7 @@ export class FfiWebviewHandle implements WebviewHandle {
         return 0;
       },
     );
-    this.#lib.webview_bind(this.#w, "__TAURI_IPC__", this.#ipcCallback, null);
+    this.#lib.webview_bind(this.#w, "__ZTRON_IPC__", this.#ipcCallback, null);
   }
 
   run(): void {
