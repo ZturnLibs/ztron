@@ -42,7 +42,7 @@ title: 简介
      Windows/Linux 为 host 骨架（编译通过），未到打包链。链接 ../guide/architecture 与仓库 ROADMAP.md。 -->
 
 # 与 Tauri 的关系
-<!-- 3 句：API 协议与 @tauri-apps/api 同构（@ztron/api 为其移植）；IPC/能力/配置模型对齐 Tauri v2；
+<!-- 3 句：API 协议与 @tauri-apps/api 同构（@zturnlibs/ztron-api 为其移植）；IPC/能力/配置模型对齐 Tauri v2；
      差异与迁移见 ../guide/tauri-migration。 -->
 
 适用版本：`ztron 0.1.0`
@@ -71,7 +71,7 @@ scripts/build-native.sh
 pnpm build
 
 # 重要限制：目前需在 monorepo 内使用
-<!-- 如实说明：@ztron/* 以 workspace 协议解析，ztron init 的新项目需位于 monorepo 内；
+<!-- 如实说明：@zturnlibs/ztron-* 以 workspace 协议解析，ztron init 的新项目需位于 monorepo 内；
      发布管线已就绪（tag 触发 publish.yml → GitHub Packages），解除此限制后本节将更新。 -->
 
 适用版本：`ztron 0.1.0`
@@ -119,9 +119,9 @@ node ../packages/cli/dist/index.js codegen
 title: 示例
 ---
 <!-- 三行表格（名称/包名/演示内容/运行命令），事实如下：
-  hello | @ztron/example-hello | invoke/事件/Channel/fs/path 等 API 全面演练（86 检查） | pnpm --filter @ztron/example-hello dev
-  multiwin | @ztron/example-multiwin | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | pnpm --filter @ztron/example-multiwin dev
-  menuprobe | @ztron/example-menuprobe | 菜单能力探测 | pnpm --filter @ztron/example-menuprobe dev
+  hello | @zturnlibs/ztron-example-hello | invoke/事件/Channel/fs/path 等 API 全面演练（86 检查） | pnpm --filter @zturnlibs/ztron-example-hello dev
+  multiwin | @zturnlibs/ztron-example-multiwin | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | pnpm --filter @zturnlibs/ztron-example-multiwin dev
+  menuprobe | @zturnlibs/ztron-example-menuprobe | 菜单能力探测 | pnpm --filter @zturnlibs/ztron-example-menuprobe dev
 每行一段 2-3 句说明 + 指向 examples/ 目录源码路径。 -->
 
 适用版本：`ztron 0.1.0`

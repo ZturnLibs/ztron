@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "node --experimental-strip-types --test tests/unit/*.test.ts tests/core.test.ts",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
-    "dev": "pnpm --filter @ztron/cli dev --root ../../examples/hello"
+    "dev": "pnpm --filter @zturnlibs/ztron-cli dev --root ../../examples/hello"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

@@ -12,7 +12,7 @@
 
 ```json
 {
-  "name": "@ztron/docs",
+  "name": "@zturnlibs/ztron-docs",
   "version": "0.3.0",
   "private": true,
   "type": "module",

@@ -23,7 +23,7 @@ Commit: `2aaead3 docs(zh): guide section (7 pages) + CLI reference`（10 files, 
 
 ## 修正记录（自查发现并已修复）
 
-1. 包名笔误：初稿多处写成 `@ztronlibs/*`，实际包名为 `@zturnlibs/*`（packages/*/package.json 为证）——已 sed 全量修正并复查 0 残留。（后续 0.3.0 起源码包名回定 `@ztron/*`，发布名仍映射 `@zturnlibs/ztron-*`。）
+1. 包名笔误：初稿多处写成 `@ztronlibs/*`，实际包名为 `@zturnlibs/*`（packages/*/package.json 为证）——已 sed 全量修正并复查 0 残留。（后续历经多轮改名，终态：全库统一 `@zturnlibs/ztron-*`，源码名=发布名、零映射。）
 2. WindowEventName 按源码补全 13 项（含 suspended/resumed）。
 3. tauri-migration 表格由「语义等价转写」改为 DESIGN.md 原始行逐字符照抄。
 4. 路由链接去掉 `/zh` 前缀（rspress.config：zh 为默认语言无前缀）。

@@ -700,12 +700,12 @@ async function initProject(target: string): Promise<void> {
           build: "ztron build",
         },
         dependencies: {
-          "@ztron/api": "latest",
-          "@ztron/core": "latest",
-          "@ztron/runtime-ffi": "latest",
+          "@zturnlibs/ztron-api": "latest",
+          "@zturnlibs/ztron-core": "latest",
+          "@zturnlibs/ztron-runtime-ffi": "latest",
         },
         devDependencies: {
-          "@ztron/cli": "latest",
+          "@zturnlibs/ztron-cli": "latest",
         },
       },
       null,
@@ -741,8 +741,8 @@ function basenameOf(p: string): string {
   return parts[parts.length - 1] ?? "ztron-app";
 }
 
-const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@ztron/core";
-import { HostRuntime } from "@ztron/runtime-ffi";
+const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@zturnlibs/ztron-core";
+import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 declare const tjs: { env: Record<string, string | undefined> };
 
@@ -797,7 +797,7 @@ const FRONTEND_HTML = `<!doctype html>
 </html>
 `;
 
-const FRONTEND_MAIN = `import { invoke } from "@ztron/api";
+const FRONTEND_MAIN = `import { invoke } from "@zturnlibs/ztron-api";
 
 const status = document.getElementById("status")!;
 status.textContent = String(await invoke("hello", { name: "scaffold" }));

@@ -1,5 +1,5 @@
 /**
- * M3 frontend — uses the real `@ztron/api` package in a Vite-bundled page.
+ * M3 frontend — uses the real `@zturnlibs/ztron-api` package in a Vite-bundled page.
  * Exercises invoke, events, Channel, fs and path through the public API.
  */
 import {
@@ -75,7 +75,7 @@ import {
   isPermissionGranted,
   requestPermission,
   isRegistered,
-} from "@ztron/api";
+} from "@zturnlibs/ztron-api";
 
 function el(id: string): HTMLElement {
   return document.getElementById(id)!;

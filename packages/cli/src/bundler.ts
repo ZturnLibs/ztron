@@ -361,7 +361,7 @@ export async function packUpdaterArtifacts(
   const {
     parseSecretKeyFile,
     signMinisig,
-  } = await import("@ztron/core");
+  } = await import("@zturnlibs/ztron-core");
   const bytes = new Uint8Array(readFileSync(artifactPath));
   const secret = parseSecretKeyFile(meta.secretKeyText);
   const signature = signMinisig(bytes, secret, {

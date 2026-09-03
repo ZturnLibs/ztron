@@ -1,6 +1,6 @@
 /**
  * Ztron Vite plugin — injects the `__ZTRON_INTERNALS__` bootstrap into the
- * served HTML so `@ztron/api` works inside a Vite page.
+ * served HTML so `@zturnlibs/ztron-api` works inside a Vite page.
  *
  * - dev server: keep ESM `type="module"` (strip `crossorigin`), add CORS
  *   headers so WKWebView can load modules from http://localhost.
@@ -8,7 +8,7 @@
  *   `<script>` (file:// has a null origin; module scripts fail CORS).
  */
 import type { Plugin } from "vite";
-import { buildInitScript } from "@ztron/inject";
+import { buildInitScript } from "@zturnlibs/ztron-inject";
 
 export function ztronVitePlugin(
   invokeKey: string,
