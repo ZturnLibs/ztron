@@ -197,8 +197,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: install
-        run: pnpm install --frozen-lockfile
+      - name: install (docs is standalone, not a workspace member)
+        run: pnpm install --frozen-lockfile --ignore-workspace
       - name: unit tests (scripts)
         run: pnpm test
       - name: locale parity
