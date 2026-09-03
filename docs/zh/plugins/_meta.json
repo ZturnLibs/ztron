@@ -1,1 +1,12 @@
-[]
+[
+  { "type": "file", "name": "window", "label": "窗口（window）" },
+  { "type": "file", "name": "webview", "label": "WebView（webview）" },
+  { "type": "file", "name": "webview-window", "label": "运行时窗口（webview-window）" },
+  { "type": "file", "name": "app", "label": "应用（app）" },
+  { "type": "file", "name": "process", "label": "进程（process）" },
+  { "type": "file", "name": "event", "label": "事件（event）" },
+  { "type": "file", "name": "path", "label": "路径（path）" },
+  { "type": "file", "name": "image", "label": "图像（image）" },
+  { "type": "file", "name": "dpi", "label": "DPI 几何（dpi）" },
+  { "type": "file", "name": "core", "label": "核心 IPC（core）" }
+]

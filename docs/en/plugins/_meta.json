@@ -1,1 +1,12 @@
-[]
+[
+  { "type": "file", "name": "window", "label": "Window (window)" },
+  { "type": "file", "name": "webview", "label": "Webview (webview)" },
+  { "type": "file", "name": "webview-window", "label": "WebviewWindow (webview-window)" },
+  { "type": "file", "name": "app", "label": "App (app)" },
+  { "type": "file", "name": "process", "label": "Process (process)" },
+  { "type": "file", "name": "event", "label": "Event (event)" },
+  { "type": "file", "name": "path", "label": "Path (path)" },
+  { "type": "file", "name": "image", "label": "Image (image)" },
+  { "type": "file", "name": "dpi", "label": "DPI (dpi)" },
+  { "type": "file", "name": "core", "label": "Core (core)" }
+]
