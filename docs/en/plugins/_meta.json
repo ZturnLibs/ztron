@@ -17,5 +17,15 @@
   { "type": "file", "name": "local-ip", "label": "Local IP (local-ip)" },
   { "type": "file", "name": "upload", "label": "Upload (upload)" },
   { "type": "file", "name": "localhost", "label": "Localhost (localhost)" },
-  { "type": "file", "name": "cli", "label": "CLI (cli)" }
+  { "type": "file", "name": "cli", "label": "CLI (cli)" },
+  { "type": "file", "name": "dialog", "label": "Dialog (dialog)" },
+  { "type": "file", "name": "notification", "label": "Notification (notification)" },
+  { "type": "file", "name": "tray", "label": "Tray (tray)" },
+  { "type": "file", "name": "menu", "label": "Menu (menu)" },
+  { "type": "file", "name": "global-shortcut", "label": "Global Shortcut (global-shortcut)" },
+  { "type": "file", "name": "clipboard", "label": "Clipboard (clipboard)" },
+  { "type": "file", "name": "updater", "label": "Updater (updater)" },
+  { "type": "file", "name": "persisted-scope", "label": "Persisted Scope (persisted-scope)" },
+  { "type": "file", "name": "window-state", "label": "Window State (window-state)" },
+  { "type": "file", "name": "positioner", "label": "Positioner (positioner)" }
 ]

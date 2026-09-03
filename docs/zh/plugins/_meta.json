@@ -17,5 +17,15 @@
   { "type": "file", "name": "local-ip", "label": "本机 IP（local-ip）" },
   { "type": "file", "name": "upload", "label": "文件上传（upload）" },
   { "type": "file", "name": "localhost", "label": "本地源服务（localhost）" },
-  { "type": "file", "name": "cli", "label": "命令行参数（cli）" }
+  { "type": "file", "name": "cli", "label": "命令行参数（cli）" },
+  { "type": "file", "name": "dialog", "label": "原生对话框（dialog）" },
+  { "type": "file", "name": "notification", "label": "系统通知（notification）" },
+  { "type": "file", "name": "tray", "label": "系统托盘（tray）" },
+  { "type": "file", "name": "menu", "label": "应用菜单（menu）" },
+  { "type": "file", "name": "global-shortcut", "label": "全局快捷键（global-shortcut）" },
+  { "type": "file", "name": "clipboard", "label": "剪贴板（clipboard）" },
+  { "type": "file", "name": "updater", "label": "应用更新（updater）" },
+  { "type": "file", "name": "persisted-scope", "label": "持久化作用域（persisted-scope）" },
+  { "type": "file", "name": "window-state", "label": "窗口状态（window-state）" },
+  { "type": "file", "name": "positioner", "label": "窗口定位（positioner）" }
 ]

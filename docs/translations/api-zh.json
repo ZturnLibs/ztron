@@ -1191,5 +1191,416 @@
   },
   "websocket.websocket.__type.sendMessage.__type": {
     "summary": "在连接上发送文本消息。"
+  },
+  "clipboard.clear": {
+    "summary": "清空剪贴板的全部内容（文本、图像、文件）。"
+  },
+  "clipboard.clipboard.__type.clear.__type": {
+    "summary": "清空剪贴板的全部内容（文本、图像、文件）。"
+  },
+  "clipboard.clipboard.__type.readImage.__type": {
+    "summary": "从剪贴板读取图像，得到 PNG 字节（剪贴板没有图像时为 null）。"
+  },
+  "clipboard.clipboard.__type.writeImage.__type": {
+    "summary": "把图像写入剪贴板。接受原始 PNG 字节或已注册的 Image（宿主侧重编码）。"
+  },
+  "clipboard.readHtml": {
+    "summary": "读取剪贴板的 HTML flavor（不存在时为 null）。"
+  },
+  "clipboard.readImage": {
+    "summary": "从剪贴板读取图像，得到 PNG 字节（剪贴板没有图像时为 null）。Ztron 分歧：Tauri v2 返回 Image；这里直接返回原始 PNG 字节——需要注册图像时用 Image.fromBytes 包一层。"
+  },
+  "clipboard.writeHtml": {
+    "summary": "把 HTML 写入剪贴板（带纯文本回退）。"
+  },
+  "clipboard.writeImage": {
+    "summary": "把图像写入剪贴板。接受原始 PNG 字节（Uint8Array / number[] / ArrayBuffer）或已注册的 Image（宿主侧重编码）。"
+  },
+  "dialog.MessageDialogOptions.kind": {
+    "summary": "提示严重度：\"info\"（默认）| \"warning\" | \"error\"。"
+  },
+  "dialog.MessageDialogOptionsFull.kind": {
+    "summary": "提示严重度：\"info\"（默认）| \"warning\" | \"error\"。"
+  },
+  "dialog.OpenDialogOptions.filters": {
+    "summary": "允许的扩展名，如 [\"png\",\"jpg\"]。"
+  },
+  "dialog.OpenDialogOptions.maxFiles": {
+    "summary": "最大可选文件数（>1 启用多选；结果变为数组）。"
+  },
+  "dialog.ask": {
+    "summary": "弹出 OK/Cancel 询问对话框；确认时 resolve true。"
+  },
+  "dialog.confirm": {
+    "summary": "弹出 OK/Cancel 确认对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.ask.__type": {
+    "summary": "弹出 OK/Cancel 询问对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.confirm.__type": {
+    "summary": "弹出 OK/Cancel 确认对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.message.__type": {
+    "summary": "弹出原生消息/警告对话框；返回被点击按钮的索引。"
+  },
+  "dialog.dialog.__type.open.__type": {
+    "summary": "弹出原生打开文件（或目录）对话框；取消时为 null。"
+  },
+  "dialog.dialog.__type.save.__type": {
+    "summary": "弹出原生保存对话框；取消时为 null。"
+  },
+  "dialog.message": {
+    "summary": "弹出原生消息/警告对话框；返回被点击按钮的索引。"
+  },
+  "dialog.open": {
+    "summary": "弹出原生打开文件（或目录）对话框；取消时为 null。"
+  },
+  "dialog.save": {
+    "summary": "弹出原生保存对话框；取消时为 null。"
+  },
+  "global-shortcut.globalShortcut.__type.isRegistered.__type": {
+    "summary": "是否已有此 id 的快捷键处于注册状态。"
+  },
+  "global-shortcut.globalShortcut.__type.onShortcut.__type": {
+    "summary": "监听全局快捷键触发。"
+  },
+  "global-shortcut.globalShortcut.__type.register.__type": {
+    "summary": "注册一个全局热键。"
+  },
+  "global-shortcut.globalShortcut.__type.registerAll.__type": {
+    "summary": "一次调用批量注册热键（上游 registerAll）。按顺序返回每条的成功标志。"
+  },
+  "global-shortcut.globalShortcut.__type.unregister.__type": {
+    "summary": "按 id 注销之前注册的热键。"
+  },
+  "global-shortcut.globalShortcut.__type.unregisterAll.__type": {
+    "summary": "注销本进程注册的全部热键（上游同名）。"
+  },
+  "global-shortcut.isRegistered": {
+    "summary": "是否已有此 id 的快捷键处于注册状态。"
+  },
+  "global-shortcut.onShortcut": {
+    "summary": "监听全局快捷键触发。handler 收到 registerShortcut 注册时用的快捷键 id。"
+  },
+  "global-shortcut.registerAll": {
+    "summary": "一次调用批量注册热键（上游 registerAll）。按顺序返回每条的成功标志。"
+  },
+  "global-shortcut.registerShortcut": {
+    "summary": "注册一个全局热键。accelerator 形如 Cmd+Shift+K、Ctrl+Alt+1、F5 等。返回 OS 是否接受了这次注册。"
+  },
+  "global-shortcut.unregisterAll": {
+    "summary": "注销本进程注册的全部热键（上游同名）。"
+  },
+  "global-shortcut.unregisterShortcut": {
+    "summary": "按 id 注销之前注册的热键。"
+  },
+  "menu.AboutMetadata": {
+    "summary": "标准关于面板条目的元数据（上游 AboutMetadata）。"
+  },
+  "menu.CheckMenuItem": {
+    "summary": "勾选/切换条目（上游 CheckMenuItem）。"
+  },
+  "menu.IconMenuItem": {
+    "summary": "带系统内置图标的条目（上游 IconMenuItem）。"
+  },
+  "menu.IconMenuItemOptions": {
+    "summary": "携带内置图标的条目选项（上游 IconMenuItemOptions）。"
+  },
+  "menu.IconMenuItemOptions.icon": {
+    "summary": "一个 NativeIcon 种类（file/image-id 来源后续落地）。"
+  },
+  "menu.Menu.append": {
+    "summary": "运行期追加一个条目（或在 at 处插入）。"
+  },
+  "menu.Menu.default": {
+    "summary": "构建并注册标准的平台应用菜单，挂在自动生成的根 id 下（上游 Menu.default()）。"
+  },
+  "menu.Menu.getItemInfo": {
+    "summary": "读取条目的 live 状态（id 未知时为 null）。"
+  },
+  "menu.Menu.new": {
+    "summary": "上游风格构造：一步完成创建并注册。"
+  },
+  "menu.Menu.popup": {
+    "summary": "在窗口坐标处把该菜单弹出为上下文菜单——从 contextmenu DOM 事件里调用（先 e.preventDefault() 再 popup(e.x, e.y)）。省略坐标则用当前光标位置。"
+  },
+  "menu.Menu.remove": {
+    "summary": "按 id 移除运行期条目。"
+  },
+  "menu.Menu.removeAt": {
+    "summary": "按结构索引移除运行期条目（上游 removeAt）。"
+  },
+  "menu.Menu.setAsHelpMenuForNSApp": {
+    "summary": "把该子菜单标记为应用的帮助菜单。"
+  },
+  "menu.Menu.setAsWindowMenu": {
+    "summary": "把该菜单挂为某个窗口自己的菜单栏。"
+  },
+  "menu.Menu.setAsWindowsMenuForNSApp": {
+    "summary": "把 Window 角色子菜单路由给 NSApp（Windows 菜单行为）。"
+  },
+  "menu.Menu.setItemAccelerator": {
+    "summary": "设置条目上显示的快捷键（\"CmdOrCtrl+K\"）。"
+  },
+  "menu.Menu.setItemChecked": {
+    "summary": "设置 check/radio 条目的状态标记。"
+  },
+  "menu.Menu.setItemIcon": {
+    "summary": "给既有条目设置系统内置图标（IconMenuItem.setIcon）。"
+  },
+  "menu.Menu.snapshot": {
+    "summary": "每个直接子条目的结构化 live 快照（上游 items()；因本类已携带 v1 的配置树 items 字段而更名）。"
+  },
+  "menu.MenuItem": {
+    "summary": "普通可点击条目（上游 MenuItem）。"
+  },
+  "menu.MenuItemBase": {
+    "summary": "上游风格条目句柄（A2 tail）：每个包装一个 (menuId, itemId) 对，在既有命令协议之上提供 @tauri-apps/api/menu 的逐条目方法面。"
+  },
+  "menu.MenuItemLive": {
+    "summary": "Menu.items 提供的实时子条目快照（上游 items()）。"
+  },
+  "menu.MenuItemOptions.accelerator": {
+    "summary": "条目快捷键（\"CmdOrCtrl+Shift+K\"；显示在条目上，宿主侧解析）。"
+  },
+  "menu.MenuItemOptions.checked": {
+    "summary": "check/radio 条目的初始勾选状态。"
+  },
+  "menu.MenuItemOptions.children": {
+    "summary": "嵌套的子菜单条目。"
+  },
+  "menu.MenuItemOptions.icon": {
+    "summary": "系统内置图标种类（NativeIcon 值或显式图像名）。"
+  },
+  "menu.MenuItemOptions.predefined": {
+    "summary": "预定义系统行为（\"copy\"/\"paste\"/\"quit\"/\"about\"/…）。"
+  },
+  "menu.MenuItemOptions.type": {
+    "summary": "条目种类：normal / check / radio。"
+  },
+  "menu.NativeIcon": {
+    "summary": "系统内置图标（Tauri NativeIcon 对位）——宿主侧解析为 AppKit 模板图像；未映射的名字降级为无图标条目。"
+  },
+  "menu.PredefinedMenuItem": {
+    "summary": "预定义系统行为（上游 PredefinedMenuItem）。"
+  },
+  "menu.RadioMenuItem": {
+    "summary": "单选组条目（上游 RadioMenuItem；宿主维护状态标记）。"
+  },
+  "menu.Submenu": {
+    "summary": "运行期子菜单（上游 Submenu）：注册一个子菜单并挂为 parent 的子菜单条目。"
+  },
+  "menu.Submenu.append": {
+    "summary": "运行期追加一个条目（或在 at 处插入）。"
+  },
+  "menu.Submenu.default": {
+    "summary": "构建并注册标准的平台应用菜单，挂在自动生成的根 id 下（上游 Menu.default()）。"
+  },
+  "menu.Submenu.getItemInfo": {
+    "summary": "读取条目的 live 状态（id 未知时为 null）。"
+  },
+  "menu.Submenu.new": {
+    "summary": "上游风格构造：一步完成创建并注册。"
+  },
+  "menu.Submenu.popup": {
+    "summary": "在窗口坐标处把该菜单弹出为上下文菜单——从 contextmenu DOM 事件里调用（先 e.preventDefault() 再 popup(e.x, e.y)）。省略坐标则用当前光标位置。"
+  },
+  "menu.Submenu.remove": {
+    "summary": "按 id 移除运行期条目。"
+  },
+  "menu.Submenu.removeAt": {
+    "summary": "按结构索引移除运行期条目（上游 removeAt）。"
+  },
+  "menu.Submenu.setAsHelpMenuForNSApp": {
+    "summary": "把该子菜单标记为应用的帮助菜单。"
+  },
+  "menu.Submenu.setAsWindowMenu": {
+    "summary": "把该菜单挂为某个窗口自己的菜单栏。"
+  },
+  "menu.Submenu.setAsWindowsMenuForNSApp": {
+    "summary": "把 Window 角色子菜单路由给 NSApp（Windows 菜单行为）。"
+  },
+  "menu.Submenu.setItemAccelerator": {
+    "summary": "设置条目上显示的快捷键（\"CmdOrCtrl+K\"）。"
+  },
+  "menu.Submenu.setItemChecked": {
+    "summary": "设置 check/radio 条目的状态标记。"
+  },
+  "menu.Submenu.setItemIcon": {
+    "summary": "给既有条目设置系统内置图标（IconMenuItem.setIcon）。"
+  },
+  "menu.Submenu.snapshot": {
+    "summary": "每个直接子条目的结构化 live 快照（上游 items()；因本类已携带 v1 的配置树 items 字段而更名）。"
+  },
+  "menu.onMenuEvent": {
+    "summary": "监听菜单条目点击。"
+  },
+  "menu.setAppMenu": {
+    "summary": "创建一个菜单并安装为应用菜单栏。"
+  },
+  "notification.isPermissionGranted": {
+    "summary": "OS 是否已授权本应用发送通知。"
+  },
+  "notification.notification.__type.isPermissionGranted.__type": {
+    "summary": "OS 是否已授权本应用发送通知。"
+  },
+  "notification.notification.__type.requestPermission.__type": {
+    "summary": "向用户请求通知授权（resolve 授权结果）。"
+  },
+  "notification.notification.__type.send.__type": {
+    "summary": "发送原生通知（title + 可选 body）。"
+  },
+  "notification.requestPermission": {
+    "summary": "向用户请求通知授权（resolve 授权结果）。"
+  },
+  "notification.sendNotification": {
+    "summary": "发送原生通知（title + 可选 body）。"
+  },
+  "persisted-scope.getPersistedScope": {
+    "summary": "合并后的文件系统允许列表（基线 + 持久化条目）。"
+  },
+  "persisted-scope.persistedScope.__type.get.__type": {
+    "summary": "合并后的文件系统允许列表（基线 + 持久化条目）。"
+  },
+  "persisted-scope.persistedScope.__type.save.__type": {
+    "summary": "把合并后的允许列表写入持久化文件。"
+  },
+  "persisted-scope.savePersistedScope": {
+    "summary": "把合并后的允许列表写入持久化文件。"
+  },
+  "positioner.getFrame": {
+    "summary": "当前窗口的完整 frame（位置 + 大小）。"
+  },
+  "positioner.getPosition": {
+    "summary": "当前窗口的原点（frame 左上角）。"
+  },
+  "positioner.getSize": {
+    "summary": "当前窗口的内部大小（width × height）。"
+  },
+  "positioner.positioner.__type.getFrame.__type": {
+    "summary": "当前窗口的完整 frame（位置 + 大小）。"
+  },
+  "positioner.positioner.__type.getPosition.__type": {
+    "summary": "当前窗口的原点（frame 左上角）。"
+  },
+  "positioner.positioner.__type.getSize.__type": {
+    "summary": "当前窗口的内部大小（width × height）。"
+  },
+  "positioner.positioner.__type.setPosition.__type": {
+    "summary": "移动当前窗口，使其左上角位于 (x, y)。"
+  },
+  "positioner.setPosition": {
+    "summary": "移动当前窗口，使其左上角位于 (x, y)。"
+  },
+  "tray.TrayIcon": {
+    "summary": "类风格的托盘 API——@tauri-apps/api/tray TrayIcon 的移植。G5/B9：宿主保留至多 MAX_TRAYS 个 NSStatusItem；无 id 的方法作用于旧默认实例，带 id 的方法寻址其他实例。"
+  },
+  "tray.TrayIcon.create": {
+    "summary": "创建原生托盘项（title/tooltip 可选；id 用于额外实例）。"
+  },
+  "tray.TrayIcon.destroy": {
+    "summary": "移除托盘项。"
+  },
+  "tray.TrayIcon.getById": {
+    "summary": "此 id 的托盘实例是否存在（上游 TrayIcon.getById）。"
+  },
+  "tray.TrayIcon.onClick": {
+    "summary": "监听点击（仅在未挂菜单时）。"
+  },
+  "tray.TrayIcon.onDetailedClick": {
+    "summary": "富点击流（G5/B9）：宿主能提供时 handler 收到归属信息——button/clickCount/double/屏幕坐标；旧版 onClick 保持零参形状。"
+  },
+  "tray.TrayIcon.removeById": {
+    "summary": "按 id 移除实例（上游 TrayIcon.removeById）。"
+  },
+  "tray.TrayIcon.setIconAsTemplate": {
+    "summary": "把当前图标标记为模板图像——macOS 在亮/暗菜单栏中自适应渲染（单色 alpha 图）。"
+  },
+  "tray.TrayIcon.setMenu": {
+    "summary": "挂接已注册的菜单（macOS 上左键弹出）。"
+  },
+  "tray.TrayIcon.setShowMenuOnLeftClick": {
+    "summary": "切换实例的左键弹菜单行为（默认 = 旧实例）。"
+  },
+  "tray.TrayIcon.setVisible": {
+    "summary": "显示/隐藏托盘项。"
+  },
+  "tray.createTray": {
+    "summary": "创建带文本标题的系统托盘项。"
+  },
+  "tray.getTrayById": {
+    "summary": "此 id 的托盘实例是否存在。"
+  },
+  "tray.onTrayClick": {
+    "summary": "监听托盘点击。"
+  },
+  "tray.removeTrayById": {
+    "summary": "按 id 移除额外的托盘实例。"
+  },
+  "tray.setShowMenuOnLeftClick": {
+    "summary": "切换左键弹菜单行为（默认 = 旧实例）。"
+  },
+  "tray.setTrayIcon": {
+    "summary": "从文件路径、已注册 Image 或原始字节设置托盘图标（transformImage 归一化参数）。"
+  },
+  "tray.setTrayMenu": {
+    "summary": "把已注册的菜单挂到托盘（macOS 上左键弹出，遵循 NSStatusItem 惯例——Quit/Preferences 的标准位置）。"
+  },
+  "tray.tray.__type.create.__type": {
+    "summary": "创建带文本标题的系统托盘项。"
+  },
+  "tray.tray.__type.onClick.__type": {
+    "summary": "监听托盘点击。"
+  },
+  "tray.tray.__type.setIcon.__type": {
+    "summary": "从文件路径、已注册 Image 或原始字节设置托盘图标（transformImage 归一化参数）。"
+  },
+  "tray.tray.__type.setMenu.__type": {
+    "summary": "把已注册的菜单挂到托盘（macOS 上左键弹出，遵循 NSStatusItem 惯例——Quit/Preferences 的标准位置）。"
+  },
+  "updater.SignatureVerifyResult": {
+    "summary": "镜像后端 minisign 校验门的结果形状（保持 wire 对齐）。"
+  },
+  "updater.UpdateCheck.signature": {
+    "summary": "产物之上的 minisign 签名文本（已发布时存在）。"
+  },
+  "updater.downloadAndInstall": {
+    "summary": "流式下载+安装（Tauri downloadAndInstall 对位）：下载期间经 Channel 推送 Started → Progress×N → Finished，随后先执行 sha256 与（配置了 pubkey 时的）minisign 校验再重启。"
+  },
+  "updater.install": {
+    "summary": "一次性应用更新（保留向后兼容）：check → download → 双重完整性门 → 重启。ok: false = 清单没有更新版本。"
+  },
+  "updater.updater.__type.downloadAndInstall.__type": {
+    "summary": "流式下载+安装（Tauri downloadAndInstall 对位）：下载期间经 Channel 推送 Started → Progress×N → Finished，随后先执行 sha256 与（配置了 pubkey 时的）minisign 校验再重启。"
+  },
+  "updater.updater.__type.install.__type": {
+    "summary": "一次性应用更新（保留向后兼容）：check → download → 双重完整性门 → 重启。ok: false = 清单没有更新版本。"
+  },
+  "updater.updater.__type.verifySignature.__type": {
+    "summary": "在 inline 数据上校验 minisign 签名（不落盘）——把更新器的签名门暴露给工具链和测试。"
+  },
+  "updater.verifySignature": {
+    "summary": "在 inline 数据上校验 minisign 签名（不落盘）——把更新器的签名门暴露给工具链和测试。"
+  },
+  "window-state.WindowStateOptions.file": {
+    "summary": "状态 JSON 文件的绝对路径。"
+  },
+  "window-state.getWindowState": {
+    "summary": "读取持久化的窗口几何（没有保存时为 null）。"
+  },
+  "window-state.restoreWindowState": {
+    "summary": "恢复持久化的窗口几何（没有保存时不作为）。"
+  },
+  "window-state.saveWindowState": {
+    "summary": "持久化当前窗口几何并返回所保存的内容。"
+  },
+  "window-state.windowState.__type.get.__type": {
+    "summary": "读取持久化的窗口几何（没有保存时为 null）。"
+  },
+  "window-state.windowState.__type.restore.__type": {
+    "summary": "恢复持久化的窗口几何（没有保存时不作为）。"
+  },
+  "window-state.windowState.__type.save.__type": {
+    "summary": "持久化当前窗口几何并返回所保存的内容。"
   }
 }
