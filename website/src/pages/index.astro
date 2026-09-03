@@ -7,6 +7,8 @@ import FeatureGrid from '../components/FeatureGrid.astro';
 import Architecture from '../components/Architecture.astro';
 import PluginWall from '../components/PluginWall.astro';
 import StatusMatrix from '../components/StatusMatrix.astro';
+import QuickStart from '../components/QuickStart.astro';
+import Packages from '../components/Packages.astro';
 import { getStrings } from '../i18n';
 const s = getStrings('en');
 ---
@@ -19,7 +21,8 @@ const s = getStrings('en');
     <Architecture s={s} />
     <PluginWall s={s} />
     <StatusMatrix s={s} />
-    <p class="container" style="padding:80px 24px;color:var(--text-3)">sections incoming</p>
+    <QuickStart s={s} />
+    <Packages s={s} />
   </main>
   <Footer s={s} />
 </BaseLayout>
