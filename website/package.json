@@ -1,0 +1,17 @@
+{
+  "name": "@zturnlibs/website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview"
+  },
+  "devDependencies": {
+    "astro": "^5.0.0",
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.7.2",
+    "shiki": "^3.0.0"
+  }
+}

@@ -1,0 +1,40 @@
+---
+interface Props {
+  locale: 'en' | 'zh';
+  title: string;
+  description: string;
+  altPath: string; // 另一语言的路径，用于 hreflang 互指，如 '/zh/' 或 '/'
+}
+const { locale, title, description, altPath } = Astro.props;
+const htmlLang = locale === 'zh' ? 'zh-CN' : 'en';
+const site = Astro.site ?? new URL('https://zturnlibs.github.io');
+const base = import.meta.env.BASE_URL;
+const canonical = new URL(locale === 'en' ? '.' : './', new URL(base, site));
+const alt = new URL(altPath, new URL(base, site));
+---
+<!doctype html>
+<html lang={htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en" href={new URL('.', new URL(base, site))} />
+    <link rel="alternate" hreflang="zh" href={new URL('zh/', new URL(base, site))} />
+    <link rel="alternate" hreflang="x-default" href={new URL('.', new URL(base, site))} />
+    <link rel="icon" type="image/png" sizes="32x32" href={new URL('favicon-32.png', new URL(base, site))} />
+    <link rel="apple-touch-icon" href={new URL('apple-touch-icon.png', new URL(base, site))} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={new URL('og-image.png', new URL(base, site))} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+<style is:global>
+  @import '../styles/tokens.css';
+  @import '../styles/global.css';
+</style>
