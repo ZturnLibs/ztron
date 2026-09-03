@@ -42,7 +42,7 @@ title: 简介
      Windows/Linux 为 host 骨架（编译通过），未到打包链。链接 ../guide/architecture 与仓库 ROADMAP.md。 -->
 
 # 与 Tauri 的关系
-<!-- 3 句：API 协议与 @tauri-apps/api 同构（@ztronlibs/api 为其移植）；IPC/能力/配置模型对齐 Tauri v2；
+<!-- 3 句：API 协议与 @tauri-apps/api 同构（@ztron/api 为其移植）；IPC/能力/配置模型对齐 Tauri v2；
      差异与迁移见 ../guide/tauri-migration。 -->
 
 适用版本：`ztron 0.1.0`
