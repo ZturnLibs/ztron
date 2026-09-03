@@ -16,7 +16,7 @@
 | 3 | API 文档产生方式 | **TypeDoc 自动生成 + 手写指南**；中英文都要完整 |
 | 4 | MVP 范围 | **骨架 + 快速开始 + 核心指南**（API 参考、插件页进 P2） |
 | 5 | 双语主从 | **中文为 canonical 源，英文为同步镜像**（手写页） |
-| 6 | 部署 | **GitHub Pages 与国内镜像同流程一起发布**（不分先后） |
+| 6 | 部署 | **GitHub Pages 与国内镜像同流程一起发布**（不分先后）。〔2026-09-03 修订：放弃国内镜像，部署目标仅 GitHub Pages，`deploy-mirror.sh` 已删除〕 |
 | 7 | 安装形态 | **`docs/` 独立安装**（自带 package.json + lockfile，不进 pnpm workspace） |
 
 **按最佳判断落定、评审时可推翻的一项：**
@@ -39,7 +39,7 @@
 - 不迁移开发者内部文档（`DESIGN.md` / `GAP.md` / `ROADMAP.md` / `VERIFY-LATER.md` 留在仓库根，与文档站互链）
 - 不做 Rust/crate 文档（Ztron 无 Rust；原生层是 C，不暴露公共 API）
 - 0.x 阶段不做多版本站点（结构预留，见 §8）
-- 不为 `@ztronlibs/core` 内部 API 做参考（它是主进程内部模块，只通过 `@ztronlibs/api` 和 ztron.conf 暴露公共面）
+- 不为 `@zturnlibs/ztron-core` 内部 API 做参考（它是主进程内部模块，只通过 `@zturnlibs/ztron-api` 和 ztron.conf 暴露公共面）
 
 ## 2. 读者与场景
 
@@ -56,7 +56,7 @@
 ```
 Ztron/
 ├── docs/                          # 新增：Rspress 站点，独立安装
-│   ├── package.json               #   name: "@ztron/docs", private
+│   ├── package.json               #   name: "@zturnlibs/ztron-docs", private
 │   ├── pnpm-lock.yaml             #   独立 lockfile（决策 7）
 │   ├── rspress.config.ts          #   locales + 路由排除 + 品牌
 │   ├── i18n.json                  #   UI 文案双语
@@ -169,7 +169,7 @@ Ztron/
 
 - frontmatter 约定、双语同步流程、术语对照表、截图规范
 - **代码示例必须与 `examples/hello` / `multiwin` 可运行代码对齐**，优先摘取而非凭空编写
-- 现状如实标注：文档明确说明「新项目当前需在 monorepo 内使用（`@ztron/*` 解析依赖），npm 发布（`publish.yml` → GitHub Packages）后解除」
+- 现状如实标注：文档明确说明「新项目当前需在 monorepo 内使用（`@zturnlibs/ztron-*` 解析依赖），npm 发布（`publish.yml` → GitHub Packages）后解除」
 - 每页标注「适用版本」（当前 `ztron 0.1.0`）；重大 API 变更要求同 PR 更新对应页面与翻译文件
 
 ## 8. 构建、CI 与部署
