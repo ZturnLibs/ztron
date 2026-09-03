@@ -4,7 +4,7 @@ title: 事件与 Channel
 
 事件系统让后端与前端双向通信：前端可以监听后端发出的任意命名事件，
 也可以向前端/其他窗口定向发送。监听器注册表位于后端的 `EventManager`，
-API 由 `@zturnlibs/api` 的 `event` 模块提供。
+API 由 `@zturnlibs/ztron-api` 的 `event` 模块提供。
 
 ## listen / once / emit / emitTo
 
@@ -23,7 +23,7 @@ export type UnlistenFn = () => Promise<void>;
 典型用法：
 
 ```ts
-import { listen, once, emit, emitTo } from "@zturnlibs/api";
+import { listen, once, emit, emitTo } from "@zturnlibs/ztron-api";
 
 // 监听（options.target 可指定窗口 label，默认 { kind: "Any" }）
 const unlisten = await listen<{ n: number }>("m3:tick", (e) => {

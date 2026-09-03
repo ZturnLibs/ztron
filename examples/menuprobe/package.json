@@ -1,5 +1,5 @@
 {
-  "name": "@ztron/example-menuprobe",
+  "name": "@zturnlibs/ztron-example-menuprobe",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,10 +7,10 @@
     "dev": "ztron dev"
   },
   "dependencies": {
-    "@zturnlibs/core": "workspace:*",
-    "@zturnlibs/runtime-ffi": "workspace:*"
+    "@zturnlibs/ztron-core": "workspace:*",
+    "@zturnlibs/ztron-runtime-ffi": "workspace:*"
   },
   "devDependencies": {
-    "@zturnlibs/cli": "workspace:*"
+    "@zturnlibs/ztron-cli": "workspace:*"
   }
 }

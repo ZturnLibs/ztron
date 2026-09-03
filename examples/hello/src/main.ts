@@ -3,7 +3,7 @@
  *
  * Two modes:
  *  - With a Vite frontend (CLI sets ZTRON_DEV_URL): loads the dev server URL;
- *    the page uses `@zturnlibs/api` (invoke/events/Channel/fs/path/window).
+ *    the page uses `@zturnlibs/ztron-api` (invoke/events/Channel/fs/path/window).
  *  - Without: falls back to the inline-html M2 spike (scoped fs + path).
  */
 import {
@@ -27,9 +27,9 @@ import {
   uploadPlugin,
   persistedScopePlugin,
   loadCapabilities,
-} from "@zturnlibs/core";
+} from "@zturnlibs/ztron-core";
 import { greet, add, echo } from "./commands.js";
-import { HostRuntime } from "@zturnlibs/runtime-ffi";
+import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 const host = tjs.env.ZTRON_HOST ?? "127.0.0.1";
 const port = Number(tjs.env.ZTRON_HOST_PORT);

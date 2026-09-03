@@ -57,7 +57,7 @@ ztron build [--entry <file>]
 （ad-hoc 签名；亦支持 `.dmg`）。
 
 ```bash
-pnpm --filter @ztron/example-hello build
+pnpm --filter @zturnlibs/ztron-example-hello build
 ```
 
 ## ztron codegen

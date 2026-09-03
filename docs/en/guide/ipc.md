@@ -14,7 +14,7 @@ Declare with `defineCommand` in `src/commands.ts` (recognized by
 
 ```ts
 // src/commands.ts —— typed commands (recognized by ztron codegen)
-import { defineCommand } from "@zturnlibs/core";
+import { defineCommand } from "@zturnlibs/ztron-core";
 
 export const greet = defineCommand("my:greet", {
   args: {} as { name: string },
@@ -40,7 +40,7 @@ The frontend simply `invoke`s; the generic parameter is the return type:
 
 ```ts
 // frontend/src/main.ts —— frontend call
-import { invoke } from "@zturnlibs/api";
+import { invoke } from "@zturnlibs/ztron-api";
 const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
 ```
 

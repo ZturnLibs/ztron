@@ -59,7 +59,7 @@ Bundles the backend into a standalone executable with `tjs compile` and
 produces a macOS `.app` (ad-hoc signed; `.dmg` also supported).
 
 ```bash
-pnpm --filter @ztron/example-hello build
+pnpm --filter @zturnlibs/ztron-example-hello build
 ```
 
 ## ztron codegen

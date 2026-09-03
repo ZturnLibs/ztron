@@ -15,11 +15,11 @@ native host approach):
   capabilities, owning native-side resources such as windows, tray, menus, and
   dialogs.
 - **tjs backend (txiki.js process)**: an async JS backend hosting
-  `@zturnlibs/core`'s IPC, events, commands, ACL capability layer, plugins, and
+  `@zturnlibs/ztron-core`'s IPC, events, commands, ACL capability layer, plugins, and
   the updater.
 
 The frontend is a plain Vite page that calls capabilities like
-`invoke/listen/Channel/fs/http/os/store/log/shell` via `@zturnlibs/api`; at
+`invoke/listen/Channel/fs/http/os/store/log/shell` via `@zturnlibs/ztron-api`; at
 packaging time the backend is compiled into a standalone executable with
 `tjs compile`, and `ztron build` then produces a macOS `.app` (signed).
 
@@ -27,11 +27,11 @@ packaging time the backend is compiled into a standalone executable with
 
 | Package | Responsibility |
 | --- | --- |
-| `@zturnlibs/api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
-| `@zturnlibs/core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
-| `@zturnlibs/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
-| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
-| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
+| `@zturnlibs/ztron-api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
+| `@zturnlibs/ztron-core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
+| `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
+| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
+| `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
 
 ## How the Processes Cooperate
 

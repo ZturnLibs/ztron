@@ -1,5 +1,5 @@
 {
-  "name": "@ztron/example-multiwin",
+  "name": "@zturnlibs/ztron-example-multiwin",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,11 +7,11 @@
     "dev": "ztron dev"
   },
   "dependencies": {
-    "@zturnlibs/api": "workspace:*",
-    "@zturnlibs/core": "workspace:*",
-    "@zturnlibs/runtime-ffi": "workspace:*"
+    "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-core": "workspace:*",
+    "@zturnlibs/ztron-runtime-ffi": "workspace:*"
   },
   "devDependencies": {
-    "@zturnlibs/cli": "workspace:*"
+    "@zturnlibs/ztron-cli": "workspace:*"
   }
 }

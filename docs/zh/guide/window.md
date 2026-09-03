@@ -46,7 +46,7 @@ Ztron 支持两种创建窗口的方式：声明式（配置驱动，应用启�
 
 ## 运行时：WebviewWindow
 
-`@zturnlibs/api` 提供 `WebviewWindow` 类，可在应用运行中创建与销毁
+`@zturnlibs/ztron-api` 提供 `WebviewWindow` 类，可在应用运行中创建与销毁
 窗口（multiwin 示例以此做 10 次创建/销毁压力测试）。runtime 创建的
 窗口同样进入 host 的 webview 注册表，具备 label 路由、per-window 事件
 与关闭时的注册表清理。验证锚点：

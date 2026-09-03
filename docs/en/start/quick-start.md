@@ -38,6 +38,6 @@ node ../packages/cli/dist/index.js dev --entry src/main.ts
 node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
 ```
 
-`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@ztron/*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli).
+`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@zturnlibs/ztron-*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli).
 
 适用版本：`ztron 0.1.0`

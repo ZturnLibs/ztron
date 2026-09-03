@@ -11,10 +11,10 @@ Ztron is a Tauri-style cross-platform desktop application framework whose core i
 ```
 ┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
 │ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
-│ system WebView + GUI    │             │ @zturnlibs/core: IPC/events/commands │
+│ system WebView + GUI    │             │ @zturnlibs/ztron-core: IPC/events/commands │
 │ window/tray/menu/dialog │             │  ACL + plugins + updater         │
 └────────────────────────┘             └──────────────────────────────────┘
-        frontend: Vite page → @zturnlibs/api → invoke/listen/Channel/fs/http/os/store/log/shell
+        frontend: Vite page → @zturnlibs/ztron-api → invoke/listen/Channel/fs/http/os/store/log/shell
         packaging: tjs compile backend → ztron build → macOS .app (signed)
 ```
 
@@ -31,6 +31,6 @@ The capability surface includes multi-window (`MULTI_WINDOW_OK`), tray and menus
 
 # Relationship to Tauri
 
-Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration).
+Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/ztron-api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration).
 
 适用版本：`ztron 0.1.0`

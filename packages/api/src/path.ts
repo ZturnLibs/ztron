@@ -1,5 +1,5 @@
 /**
- * Path utilities — mirrors `plugin:path|*` commands from `@zturnlibs/core`.
+ * Path utilities — mirrors `plugin:path|*` commands from `@zturnlibs/ztron-core`.
  * Pure string operations, no scope needed.
  */
 import { invoke } from "./core.js";

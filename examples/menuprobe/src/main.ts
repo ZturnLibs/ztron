@@ -8,8 +8,8 @@
  * the destroy-flood (known upstream UAF terrain on darwin 25.2 — DESIGN §98)
  * cannot mask this check.
  */
-import { AppBuilder } from "@zturnlibs/core";
-import { HostRuntime } from "@zturnlibs/runtime-ffi";
+import { AppBuilder } from "@zturnlibs/ztron-core";
+import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 declare const tjs: {
   env: Record<string, string | undefined>;
@@ -134,7 +134,7 @@ void (async () => {
 
   // Localhost origin (G11 / E1): real tjs.serve, fetch-handler round trip.
   try {
-    const { localhostPlugin } = await import("@zturnlibs/core");
+    const { localhostPlugin } = await import("@zturnlibs/ztron-core");
     const lp = localhostPlugin({ dir: tjs.cwd });
     const started = (await lp.commands.start({})) as { port: number };
     const resp = await fetch(`http://localhost:${started.port}/__miss__`);

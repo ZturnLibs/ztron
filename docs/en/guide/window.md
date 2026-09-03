@@ -48,7 +48,7 @@ Verification anchor: `CONF_WINDOW_OK:From Config` (P14).
 
 ## Runtime: WebviewWindow
 
-`@zturnlibs/api` provides the `WebviewWindow` class for creating and
+`@zturnlibs/ztron-api` provides the `WebviewWindow` class for creating and
 destroying windows while the app runs (the multiwin example uses it for a
 10x create/destroy stress test). Runtime-created windows likewise enter the
 host's webview registry, with label routing, per-window events, and registry

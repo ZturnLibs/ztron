@@ -14,7 +14,7 @@ import {
   dumpEncryptedSecretKeyFile,
   signMinisig,
   verifyMinisig,
-} from "@zturnlibs/core";
+} from "@zturnlibs/ztron-core";
 
 interface SignerArgs {
   action: string;

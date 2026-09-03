@@ -39,6 +39,6 @@ This generates `packages/*/dist`; the CLI is usable afterwards (invoked as `node
 
 # Important Limitation: Monorepo-Only for Now
 
-The `@ztron/*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
+The `@zturnlibs/ztron-*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
 
 适用版本：`ztron 0.1.0`

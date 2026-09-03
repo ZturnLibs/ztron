@@ -1,6 +1,6 @@
 /**
  * Ambient declarations for the `tjs` global provided by txiki.js
- * (env, sockets, filesystem — the parts used by @zturnlibs/runtime-ffi).
+ * (env, sockets, filesystem — the parts used by @zturnlibs/ztron-runtime-ffi).
  *
  * No top-level imports/exports: this file is a global script so the
  * `declare global` registers the ambient `tjs` object.

@@ -2,7 +2,7 @@
 title: 从 Tauri 迁移
 ---
 
-Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/api` 即从
+Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/ztron-api` 即从
 `@tauri-apps/api` 翻译而来），迁移成本主要在后端语言：Rust 换成
 TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（原样
 照抄）：
@@ -34,7 +34,7 @@ Rust 的 `#[tauri::command]` 宏 + `invoke_handler` 注册，改为
 
 ## 前端迁移
 
-通常只需改 import：`@tauri-apps/api` → `@zturnlibs/api`。`invoke`、
+通常只需改 import：`@tauri-apps/api` → `@zturnlibs/ztron-api`。`invoke`、
 `listen`、`emit` 等签名不变，事件常量 `TauriEvent` 同名保留。
 
 ## 差异注记

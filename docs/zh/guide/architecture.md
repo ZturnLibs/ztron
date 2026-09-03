@@ -13,9 +13,9 @@ WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
 - **ztron-host（原生 C 进程）**：持有系统 WebView 与 GUI 能力，负责
   窗口、托盘、菜单、对话框等原生侧资源。
 - **tjs backend（txiki.js 进程）**：异步 JS 后端，承载
-  `@zturnlibs/core` 的 IPC、事件、命令、ACL 能力层、插件与更新器。
+  `@zturnlibs/ztron-core` 的 IPC、事件、命令、ACL 能力层、插件与更新器。
 
-前端是普通的 Vite 页面，通过 `@zturnlibs/api` 调用
+前端是普通的 Vite 页面，通过 `@zturnlibs/ztron-api` 调用
 `invoke/listen/Channel/fs/http/os/store/log/shell` 等能力；打包时后端经
 `tjs compile` 编译为独立可执行文件，再由 `ztron build` 产出 macOS
 `.app`（含签名）。
@@ -24,11 +24,11 @@ WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
 
 | Package | 职责 |
 | --- | --- |
-| `@zturnlibs/api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
-| `@zturnlibs/core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
-| `@zturnlibs/runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
-| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
-| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
+| `@zturnlibs/ztron-api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
+| `@zturnlibs/ztron-core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
+| `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
+| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
+| `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
 
 ## 进程间如何协作
 

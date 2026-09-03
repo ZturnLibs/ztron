@@ -3,7 +3,7 @@
  * the WebView backend. Mirrors the role of Tauri's `Runtime` trait
  * (`crates/tauri-runtime`).
  *
- * `@zturnlibs/runtime-ffi` implements this on top of the `webview/webview` C API
+ * `@zturnlibs/ztron-runtime-ffi` implements this on top of the `webview/webview` C API
  * via `tjs:ffi`; a future Electron/Neutralino backend can implement the same
  * interface without touching the core.
  */

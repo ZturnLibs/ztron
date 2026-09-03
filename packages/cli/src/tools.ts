@@ -128,7 +128,7 @@ export function addPlugin(cwd: string, plugin: string): void {
   console.log(
     `[ztron] register the plugin in your backend entry:\n` +
       `          .plugin(${plugin}Plugin())\n` +
-      `        (import from "@zturnlibs/core")`,
+      `        (import from "@zturnlibs/ztron-core")`,
   );
 }
 

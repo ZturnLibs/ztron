@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "node --experimental-strip-types --test tests/unit/*.test.ts tests/core.test.ts",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
-    "dev": "pnpm --filter @ztron/cli dev --root ../../examples/hello",
+    "dev": "pnpm --filter @zturnlibs/ztron-cli dev --root ../../examples/hello",
     "docs:dev": "pnpm --dir docs run dev",
     "docs:build": "pnpm --dir docs run build",
     "docs:preview": "pnpm --dir docs run preview",

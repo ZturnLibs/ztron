@@ -25,7 +25,7 @@ import type {
   WindowConfig,
 } from "./runtime.js";
 import { StateManager } from "./state.js";
-import { buildInitScript } from "@zturnlibs/inject";
+import { buildInitScript } from "@zturnlibs/ztron-inject";
 import {
   PermissionRegistry,
   ResolvedAcl,

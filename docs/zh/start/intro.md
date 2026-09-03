@@ -11,10 +11,10 @@ Ztron 是一个 Tauri 风格的跨平台桌面应用框架，核心以 TypeScrip
 ```
 ┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
 │ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
-│ system WebView + GUI    │             │ @zturnlibs/core: IPC/events/commands │
+│ system WebView + GUI    │             │ @zturnlibs/ztron-core: IPC/events/commands │
 │ window/tray/menu/dialog │             │  ACL + plugins + updater         │
 └────────────────────────┘             └──────────────────────────────────┘
-        frontend: Vite page → @zturnlibs/api → invoke/listen/Channel/fs/http/os/store/log/shell
+        frontend: Vite page → @zturnlibs/ztron-api → invoke/listen/Channel/fs/http/os/store/log/shell
         packaging: tjs compile backend → ztron build → macOS .app (signed)
 ```
 
@@ -31,6 +31,6 @@ Ztron 是一个 Tauri 风格的跨平台桌面应用框架，核心以 TypeScrip
 
 # 与 Tauri 的关系
 
-Ztron 的 API 协议与 `@tauri-apps/api` 同构，`@zturnlibs/api` 即其移植，前端代码多数情况下只需替换导入来源。IPC、能力（ACL/capabilities）与配置模型均对齐 Tauri v2。两者的差异与迁移注意事项见[迁移指南](/guide/tauri-migration)。
+Ztron 的 API 协议与 `@tauri-apps/api` 同构，`@zturnlibs/ztron-api` 即其移植，前端代码多数情况下只需替换导入来源。IPC、能力（ACL/capabilities）与配置模型均对齐 Tauri v2。两者的差异与迁移注意事项见[迁移指南](/guide/tauri-migration)。
 
 适用版本：`ztron 0.1.0`

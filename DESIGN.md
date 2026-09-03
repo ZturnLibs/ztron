@@ -50,8 +50,8 @@
       bind: JS→原生     │      return/eval: 原生→JS
 ┌──────────────────────▼───────────────────────┐
 │ 主进程 = txiki.js 单文件 (~2MB)               │
-│  @ztron/core          命令/事件/插件/state     │
-│  @ztron/runtime-ffi   tjs:ffi → webview 动态库  │
+│  @zturnlibs/ztron-core          命令/事件/插件/state     │
+│  @zturnlibs/ztron-runtime-ffi   tjs:ffi → webview 动态库  │
 │  (libwebkit/WebView2/WebKitGTK 系统已有)       │
 └──────────────────────────────────────────────┘
 ```
@@ -148,7 +148,7 @@ window.__TAURI_IPC__; // 由 runtime-ffi 的 webview_bind 提供
 | **M0** | ⚡Spike:FFI 跑通 `hello` + Plan A 宿主双进程 | 同步+异步往返,exit=0                |
 | **M1** | events + Channel 流式 + 窗口命令集 ✅        | `M1_EVENTS_CHANNEL_WINDOW_OK`       |
 | **M2** | 插件基座 + 受限能力层 + CLI dev ✅           | `M2_FS_SCOPE_PATH_OK`(scope 允/拒)  |
-| **M3** | `@ztron/api` 与打包器前端集成(Vite)✅        | `M3_API_FRONTEND_OK`                |
+| **M3** | `@zturnlibs/ztron-api` 与打包器前端集成(Vite)✅        | `M3_API_FRONTEND_OK`                |
 | **M4** | `tjs compile` 打包 + macOS .app 验证 ✅      | 打包产物端到端 `M3_API_FRONTEND_OK` |
 
 ## 8. 风险与限制
@@ -252,7 +252,7 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 - path 插件:join/resolve/normalize/is_absolute/basename/dirname/extname(纯字符串,无 scope)
 - 越权写 `/etc/passwd` 被正确拒绝(scope 外抛 access denied)
 - CLI:`ztron init <dir>` 脚手架(package.json + ztron.conf.json + src/main.ts)、`ztron.conf.json.entry` 决定入口
-- 前端 `@ztron/api`:fs.ts / path.ts 类型化包装
+- 前端 `@zturnlibs/ztron-api`:fs.ts / path.ts 类型化包装
 
 ### 踩坑(已修)
 
@@ -260,11 +260,11 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 2. **tjs fs 全异步**:`readFile/writeFile/stat/readDir` 返回 Promise,`readFile` 忽略 encoding 选项返回 Uint8Array → 用 `TextDecoder` 解码。
 3. **`tjs:path` 默认导出**才有 posix/win32;`declare module "tjs:path"` 需在全局脚本文件(无 import/export)中声明。
 
-## 13. M3 结论(@ztron/api 真实 Vite 前端,已验证)
+## 13. M3 结论(@zturnlibs/ztron-api 真实 Vite 前端,已验证)
 
 ### 验证通过 ✅(`SPIKE_RESULT: M3_API_FRONTEND_OK`,exit=0)
 
-- **真实 Vite 前端** `examples/hello/frontend/` 用 `import { invoke, listen, Channel, fs, path, Window } from "@ztron/api"` 驱动后端
+- **真实 Vite 前端** `examples/hello/frontend/` 用 `import { invoke, listen, Channel, fs, path, Window } from "@zturnlibs/ztron-api"` 驱动后端
 - invoke / 事件(后端异步 emit)/ Channel 流式(1,2,3)/ scoped fs / path 全部经 api 包工作
 - CLI 编排:`vite build`(base './',IIFE)→ 改写经典脚本 → `file://` 加载 → host + tjs 后端
 
@@ -273,7 +273,7 @@ B(tjs 补丁交替泵动)虽有单进程优势,但依赖 QuickJS 微任务在交
 1. **WKWebView 拦截 `http://`(ATS)**,且 host 二进制 `__info_plist` ATS 豁免**不生效**(WebKit 网络进程读自己的 plist)。→ dev 前端改用 **`file://` 加载**(不受 ATS 限制,WebKit 允许 file:// ES/经典脚本)。
 2. **`file://` + `<script type="module" crossorigin>` 有 CORS 问题**(文件 URL origin 为 null)。→ vite 产物为 **IIFE + 经典脚本**(CLI 构建后改写标签)。
 3. **bootstrap 必须 `head-prepend`**(第一个脚本),否则 app 脚本先跑时 `__TAURI_INTERNALS__` 未定义。
-4. `@ztron/api` 的 `Channel.onmessage` 收到的是**解码后的消息**(end 由 Channel 内部处理),不是 `{message,index}` 原始帧。
+4. `@zturnlibs/ztron-api` 的 `Channel.onmessage` 收到的是**解码后的消息**(end 由 Channel 内部处理),不是 `{message,index}` 原始帧。
 
 ### 取舍
 
@@ -322,7 +322,7 @@ ZtronApp.app/Contents/
 2. 查询操作(is_*)走 **request/response**:host 用 `req_id` 回 `query_result`;HostRuntime 维护 pending promise map。
 3. 窗口事件用 **NSWindow delegate**:动态建类 + `class_addMethod`(windowDidResize:/Move:/BecomeKey:/ResignKey:/WillClose:/ShouldClose:),事件经 socket 推给后端。
 4. host 编译需 `-framework Foundation -framework AppKit`。
-5. `@ztron/api` Window 类补齐状态方法与 onResized/onMoved/onFocused/onBlurred/onCloseRequested。
+5. `@zturnlibs/ztron-api` Window 类补齐状态方法与 onResized/onMoved/onFocused/onBlurred/onCloseRequested。
 
 ## 16. P0.2 结论(系统托盘,已验证)
 
@@ -336,7 +336,7 @@ ZtronApp.app/Contents/
 
 1. host.c:`NSStatusBar systemStatusBar` + `statusItemWithLength:`(变长)→ `setTitle:`/`setToolTip:`;按钮 target/action 用动态类 `ZtronTrayTarget` 的 `trayClick:`。
 2. `RuntimeAdapter.tray`(可选)TrayController;`App` 接线点击 → `tauri://tray-click`;`plugin:tray|create/set_title/set_tooltip/destroy` 命令。
-3. `@ztron/api` tray.ts:createTray/setTrayTitle/setTrayTooltip/destroyTray/onTrayClick。
+3. `@zturnlibs/ztron-api` tray.ts:createTray/setTrayTitle/setTrayTooltip/destroyTray/onTrayClick。
 4. 图标支持(NSImage)后续加;Windows Shell_NotifyIcon 待平台移植。
 
 ## 17. P0.3 结论(应用菜单,已验证)
@@ -352,7 +352,7 @@ ZtronApp.app/Contents/
 1. host.c:`NSMenu alloc/initWithTitle:` + `setAutoenablesItems:NO`;`NSMenuItem initWithTitle:action:keyEquivalent:` + tag;动态类 `ZtronMenuTarget.menuItemClicked:`;tag→refs 表回查 item_id 发 `menu_event`。
 2. 协议避免数组解析:create + N×add_item(flat JSON),backend 迭代 items。
 3. `RuntimeAdapter.menu`(可选 MenuController);`App` 接线 → `tauri://menu`(payload {menuId,itemId})。
-4. `@ztron/api` menu.ts:Menu/setAppMenu/onMenuEvent;item enabled/title 更新。
+4. `@zturnlibs/ztron-api` menu.ts:Menu/setAppMenu/onMenuEvent;item enabled/title 更新。
 5. 子菜单(Submenu)/快捷键/CheckMenuItem 为后续扩展;菜单栏点击事件需手动验证。
 
 ## 18. P0.4 结论(原生对话框,已验证注册链路)
@@ -367,7 +367,7 @@ ZtronApp.app/Contents/
 1. host.c:`NSOpenPanel openPanel`/`NSSavePanel savePanel`/`NSAlert`,`runModal` 模态(嵌套 run loop);结果 `reply_string`(JSON 转义路径)或 `reply_null`。
 2. `sendRequest` 泛化:query_result 结果任意 JSON(布尔/字符串/null);windowState 用 `r===true`,dialog 用字符串|null。
 3. `RuntimeAdapter.dialog`(可选 DialogController);`plugin:dialog|*` 异步命令。
-4. `@ztron/api` dialog.ts:open/save/message。
+4. `@zturnlibs/ztron-api` dialog.ts:open/save/message。
 5. **限制**:模态对话框无法自动化 spike;文件过滤器/多选/目录模式为后续扩展;Windows 用 CommonDialog 待平台移植。
 
 ## 19. P1.1 结论(ACL 权限模型,已验证)
@@ -400,7 +400,7 @@ ZtronApp.app/Contents/
 1. **`HttpScope`** 编译时解析 URL 模式为 `CompiledPattern`(protocol/hostLabels/port/pathPrefix/pathGlobstar),`*` 通配子域,`**` 通配路径深度;host 从右向左匹配。
 2. **`httpPlugin`** 包装标准 WHATWG `fetch`(tjs 原生支持),scope 不通过抛 `http scope denied`;ACL 权限:`http:allow-fetch`/`http:deny-fetch`/`http:default`。
 3. **两层防护**:HttpScope(URL 粒度,插件配置)+ ACL(命令粒度,capability 授予)。
-4. **`@ztron/api`** http.ts:`fetch(url, options)` → `HttpResponse {status, ok, headers, body}`。
+4. **`@zturnlibs/ztron-api`** http.ts:`fetch(url, options)` → `HttpResponse {status, ok, headers, body}`。
 
 ## 21. P3 结论(插件生态:os/store/log/shell,已验证)
 
@@ -741,7 +741,7 @@ ZtronApp.app/Contents/
 - **问题**:模板用内联 `html`、无 frontend 目录,`ztron build` 强制要求 frontend → scaffold 无法打包
 - **修复**:模板生成最小 `frontend/index.html` + `frontend/src/main.ts`(vite,CLI 程序化配置);后端用 `ZTRON_DEV_URL`(devUrl)指向构建产物,内联 html 仅作回退;注册 `hello` 命令示例
 - 验证:模板 typecheck 通过(backend 用 AppBuilder.setup 注册命令,`command()` 在 App 上非 AppBuilder)
-- 注:`@ztron/*` 未发布时 scaffold 需在 monorepo 上下文构建(独立 `pnpm install` 会因依赖未发布而失败)
+- 注:`@zturnlibs/ztron-*` 未发布时 scaffold 需在 monorepo 上下文构建(独立 `pnpm install` 会因依赖未发布而失败)
 
 ## 36. window_get_state 查询 + boolean op 生效验证
 
@@ -933,7 +933,7 @@ ZtronApp.app/Contents/
 
 ## 63. 测试框架(三层 100% 覆盖)
 
-- **Surface(完整性)**:`tests/helpers/manifest.ts` 是命令 + @ztron/api 导出的 source of truth;`surface.test.ts` 断言框架注册的命令与导出 == 清单(无缺失/无多余)
+- **Surface(完整性)**:`tests/helpers/manifest.ts` 是命令 + @zturnlibs/ztron-api 导出的 source of truth;`surface.test.ts` 断言框架注册的命令与导出 == 清单(无缺失/无多余)
 - **Unit(路由/行为)**:`MockRuntime` 增强(补 tray/menu/dialog/clipboard/notification adapter)+ `tjs-stub.ts`(内存 fs/spawn/serve)→ `routing.test.ts` 逐个命令断言路由;`scopes.test.ts` PathScope/HttpScope 穷举;`acl.test.ts` ACL 穷举;`coverage.test.ts` 覆盖账本(UNIT_COVERED ∪ INTEGRATION_ONLY = 全部命令,无空洞)
 - **Integration**:spike 51 项(tjs:` 模块/网络/会退出应用的命令)
 - 运行:`pnpm test`(50 测试:49 pass / 1 skip)
@@ -1158,7 +1158,7 @@ ZtronApp.app/Contents/
 
 ## 87. Webview 模块(api `webview.ts`)+ 纯 C 手擑 Block
 
-- **api 层**:新模块 `@ztron/api/webview` —— `Webview` 类(`getCurrent`/`getAllWebviews`/`clearAllBrowsingData`/`setZoom`/位置尺寸控制等)+ 对齐 Tauri `core.webview`;无 capability 门槛(操作的是自家 webview,与 window 一致)
+- **api 层**:新模块 `@zturnlibs/ztron-api/webview` —— `Webview` 类(`getCurrent`/`getAllWebviews`/`clearAllBrowsingData`/`setZoom`/位置尺寸控制等)+ 对齐 Tauri `core.webview`;无 capability 门槛(操作的是自家 webview,与 window 一致)
 - **core**:runtime 接口新增 `clearBrowsingData()`;命令 `plugin:webview|clear_all_browsing_data`(fire-and-forget,不等待 native 回执)
 - **native**:`webview_clear_data` → `WKWebsiteDataStore removeDataOfTypes:modifiedSince:completionHandler:`。**坑**:WebKit 头文件里不存在双参变体(实测 `doesNotRecognizeSelector` abort);三参必须传 completionHandler block
 - **纯 C 手擑 Block ABI**:host_macos.c 无 `-fblocks`,手工定义 `zt_block_layout`(isa 指向 `_NSConcreteGlobalBlock`,flags 带 `BLOCK_IS_GLOBAL` 1<<28 —— 使 `Block_copy` 返回自身、`Block_release` 空操作,WebKit 内部 copy/release 安全)+ no-op invoke。`_NSConcreteGlobalBlock` 由 Carbon 拿进的 `<Block.h>` 声明为 `void*[32]`,取首元素作 isa
@@ -1260,12 +1260,12 @@ ZtronApp.app/Contents/
 ## 99. CI(Win/Linux 编译验证)+ GitHub Packages 发包
 
 - **CI 矩阵**(.github/workflows/ci.yml,四 job):①unit × {ubuntu, windows, macos}(纯 TS:build+test,三平台 node --test 首验);②native-linux(apt 装 libgtk-3-dev/webkit2gtk-4.1,stock 上游库 `-fsyntax-only` + 全链接 + 2s 启动冒烟,退出码 124(超时杀)/0 均算过,139/134 崩溃判败)——**host_linux.c 骨架首次进入真实工具链**;③native-windows(MSVC `cl -Zs -W4 -WX` 语法检查 + WebView2 静态库 cmake);④macos-spike(全链:submodules→build txiki→clone webview+apply patch→`scripts/ci.sh`)。vendored webview 不在 git 内:Linux/Windows job 构 stock 上游(本地补丁只碰 cocoa 路径,链接面等价,job 注释已说明);macOS job 复刻 build-native.sh 的 clone+patch 流程
-- **npm 发包 @zturnlibs/***:GitHub Packages(私有仓库配套,GITHUB_TOKEN 免新账号),`publishConfig.registry=npm.pkg.github.com`,scope 全库改名 @ztron→@ztronlib(包名/依赖/workspace/源码 import/文档五层同步,example devDeps 的 @ztron/cli 漏网一处在 install 即暴露——workspace 协议找不到包,立即捕获);补 MIT LICENSE(上游 webview/txiki 均 MIT)。publish.yml:tag v* 触发,五包按依赖拓扑序(→core→runtime-ffi→api→cli)`pnpm publish --no-git-checks`(自动重写 workspace:* 协议);pack dry-run 验证 tarball 只含 dist
+- **npm 发包 @zturnlibs/ztron-***:GitHub Packages(私有仓库配套,GITHUB_TOKEN 免新账号),`publishConfig.registry=npm.pkg.github.com`,scope 全库改名 @ztron→@ztronlib(包名/依赖/workspace/源码 import/文档五层同步,example devDeps 的 @zturnlibs/ztron-cli 漏网一处在 install 即暴露——workspace 协议找不到包,立即捕获);补 MIT LICENSE(上游 webview/txiki 均 MIT)。publish.yml:tag v* 触发,五包按依赖拓扑序(→core→runtime-ffi→api→cli)`pnpm publish --no-git-checks`(自动重写 workspace:* 协议);pack dry-run 验证 tarball 只含 dist
 - 验证:改名后本地全链绿(build 0 err/单测 75/74/0/ci.sh --skip-native FULL GREEN);两 workflow YAML ruby-parser 校验过;推送后以 Actions 实跑为准
 
 ## 100. CI 矩阵 + GitHub Packages 发包(九轮迭代实录)
 
-- **成果**:①CI 三平台矩阵曾全绿——unit × {ubuntu, windows, macos}、native-linux(gtk+webkit 编译+链接+启动冒烟)、native-windows(MSVC -W4 -WX 语法)、macos 全链(曾推进至 spike 阶段:native/单测全过)②五包发布成功 `@zturnlibs/{inject,core,runtime-ffi,api,cli}@0.1.0`(GitHub Packages)
+- **成果**:①CI 三平台矩阵曾全绿——unit × {ubuntu, windows, macos}、native-linux(gtk+webkit 编译+链接+启动冒烟)、native-windows(MSVC -W4 -WX 语法)、macos 全链(曾推进至 spike 阶段:native/单测全过)②五包发布成功 `@zturnlibs/ztron-{inject,core,runtime-ffi,api,cli}@0.1.0`(GitHub Packages)
 - **CI 抓出的真问题(价值实证)**:①core/runtime-ffi 对 @types/node 的**隐性 ambient 依赖**——本地可见/CI 不可见,全部改为 tjs-global.d.ts 自声明(runtime-ffi 的 d.ts 是模块文件,全局声明必须拆独立纯 ambient globals.d.ts;`.d.ts` 内函数型参数须用箭头形式)②host_linux.c 六类真错误:gtk_file_chooser_native_get_file_chooser 不存在(接口转型)、GtkStatusIcon 弃用(无零依赖替代,pragma 局部豁免)、zt_window 返回类型不匹配 ×10、gtk_window_is_fullscreen 不存在(gdk_window_get_state)、gdk_screen_get_scale_factor 弃用、format-truncation(精度钳制)③host_windows.c:commctrl.h 缺失、函数前向声明、变量遮蔽 ×3、未用变量 ×2 ④ci.sh 相对路径 bug(自伤,本地复现修)
 - **教训**:①GitHub Packages scope 必须与仓库 owner 完全一致(@ztronlib→@zturnlibs,403 排查后重命名五层)②headless macos runner 无 WindowServer 会话,GUI spike 挂窗(native/单测不受影响)→ CI 降级为 spike best-effort + 本地为 GUI 事实源 ③**macOS runner 10×计费**,六轮全链调试烧穿免费额度——macos job 改 workflow_dispatch 手动触发;此教训应更早意识到(每轮全链 ~25 分钟)④CI 上 webview 构建需 Doxygen/clang-format/clang-tidy/py(amalgamation),按需 WEBVIEW_ENABLE_CHECKS=OFF / BUILD_DOCS=OFF
 - 状态:CI 工作流就绪(额度恢复即绿);发布流水线已验证成功;本地 scripts/ci.sh 为日常全链门禁
@@ -1294,7 +1294,7 @@ ZtronApp.app/Contents/
 - **调错实录(价值密度极高)**:①SHA-512 K 常量表被我截成 64 条(SHA-256 的数)——块扫测试抓出;②BLAKE2b G 函数首版漏 c/d 两通道且第二轮旋转写成 32/24(应为 16/63)——全长度对拍抓出;③我记忆中的"blake2b 空串向量"是错的,以 hashlib/createHash 实测为准更正;④标量乘 `s=r+k·a` 首写用域模 P,须用群阶 L;⑤hash→标量必须按 **64 字节** LE 取模——sign 侧改了、verify 侧因形参名不同(pk/publicKey)漏改,靠"node 认我签/我不认自签"的**方向性不对称**定位;⑥noUncheckedIndexedAccess 下索引断言遍布三个文件。教训:**密码学实现必须有平台原语对拍测试**,方向性互斥失败是最锐利的定位信号
 - **minisign 模块**:线格式与 jedisct1/minisign 逐字节对齐(pk 文件 b64("Ed"‖keynum₈‖pk₃₂);sig 文件双 b64+trusted comment;内容签名 BLAKE2b-512 prehash("ED")+全局签名覆盖 sig₆₄‖trustedComment)。verifyMinisig 四类失败语义(format/keyid-mismatch/message-signature/global-signature)+ fail-closed。secret key 仅支持无加密(KDFNONE),scrypt 盒待 F4 后续
 - **updater 插件 v2**:`UpdaterPluginOptions.pubkey` 配置即强制门禁(manifest.platforms.*.signature 缺失/不匹配→中止 relaunch 并清理临时件);semver 换 compareSemver(修 NaN 陷阱:`1.0.0-beta<1.0.0` 等 §11 全表单测);新命令 verify_signature(inline base64,单测可离线跑)+install_stream(Channel 推 Started{contentLength}/Progress{chunkLength}/Finished)。manifest COMMANDS+2(API_EXPORTS+2)、coverage:verify_signature 入 UNIT_COVERED、install_stream 入 INTEGRATION_ONLY
-- **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/core(workspace)
+- **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
 ## 123. G20 F4 收官:signer 加密 secret key(scrypt)

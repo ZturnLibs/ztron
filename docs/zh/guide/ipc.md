@@ -13,7 +13,7 @@ backend 中注册的 handler 执行并返回结果。Ztron 的协议与 Tauri v2
 
 ```ts
 // src/commands.ts —— 类型化命令（可被 ztron codegen 识别）
-import { defineCommand } from "@zturnlibs/core";
+import { defineCommand } from "@zturnlibs/ztron-core";
 
 export const greet = defineCommand("my:greet", {
   args: {} as { name: string },
@@ -39,7 +39,7 @@ app.command("m3:echo-port", () => echoPort);  // 内联
 
 ```ts
 // frontend/src/main.ts —— 前端调用
-import { invoke } from "@zturnlibs/api";
+import { invoke } from "@zturnlibs/ztron-api";
 const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
 ```
 

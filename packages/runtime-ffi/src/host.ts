@@ -21,7 +21,7 @@ import type {
   WindowEvent,
   WindowFrame,
   WindowStateOp,
-} from "@zturnlibs/core";
+} from "@zturnlibs/ztron-core";
 import type { TjsSocket } from "./tjs-global.js";
 
 const enc = new TextEncoder();
@@ -86,7 +86,7 @@ export class HostWebviewHandle implements WebviewHandle {
     });
   }
 
-  getWindowState(): Promise<import("@zturnlibs/core").WindowStateSnapshot | null> {
+  getWindowState(): Promise<import("@zturnlibs/ztron-core").WindowStateSnapshot | null> {
     return this.#rt.sendRequest("window_get_state", {}, this.label).then((r) => {
       if (r && typeof r === "object") {
         const s = r as Record<string, unknown>;
@@ -296,7 +296,7 @@ export class HostWebviewHandle implements WebviewHandle {
     kind: "all" | "primary" | "current" | "point",
     x?: number,
     y?: number,
-  ): Promise<import("@zturnlibs/core").MonitorInfo[] | null> {
+  ): Promise<import("@zturnlibs/ztron-core").MonitorInfo[] | null> {
     const op =
       kind === "all"
         ? "available_monitors"
@@ -309,7 +309,7 @@ export class HostWebviewHandle implements WebviewHandle {
       .sendRequest(op, { x: x ?? 0, y: y ?? 0 }, this.label)
       .then((r) =>
         Array.isArray(r)
-          ? (r as import("@zturnlibs/core").MonitorInfo[])
+          ? (r as import("@zturnlibs/ztron-core").MonitorInfo[])
           : null,
       );
   }
@@ -395,7 +395,7 @@ export class HostRuntime implements RuntimeAdapter {
   #handles = new Map<string, HostWebviewHandle>();
   #requests = new Map<number, (result: unknown) => void>();
   #nextReqId = 1;
-  #trayEventCb: ((event: import("@zturnlibs/core").TrayEventPayload) => void) | null =
+  #trayEventCb: ((event: import("@zturnlibs/ztron-core").TrayEventPayload) => void) | null =
     null;
   #menuEventCb: ((event: { menuId: string; itemId: string }) => void) | null =
     null;
@@ -493,7 +493,7 @@ export class HostRuntime implements RuntimeAdapter {
     createMenu: (menu) => {
       const addItems = (
         menuId: string,
-        items: import("@zturnlibs/core").MenuItemConfig[],
+        items: import("@zturnlibs/ztron-core").MenuItemConfig[],
       ) => {
         for (const item of items) {
           if (item.children?.length) {
@@ -652,7 +652,7 @@ export class HostRuntime implements RuntimeAdapter {
     items: async (menuId) => {
       const r = await this.sendRequest("menu_items", { menu_id: menuId });
       return Array.isArray(r)
-        ? (r as import("@zturnlibs/core").MenuItemsSnapshot)
+        ? (r as import("@zturnlibs/ztron-core").MenuItemsSnapshot)
         : [];
     },
     createDefaultMenu: (menuId) => {
@@ -818,7 +818,7 @@ export class HostRuntime implements RuntimeAdapter {
   };
 
   /** Image controller (implements `RuntimeAdapter.image`). */
-  readonly image: import("@zturnlibs/core").ImageController = {
+  readonly image: import("@zturnlibs/ztron-core").ImageController = {
     fromBytes: (base64) =>
       this.sendRequest("image_from_bytes", { b64: base64 }).then((r) =>
         typeof r === "string" ? Number(r) : -1,
@@ -843,7 +843,7 @@ export class HostRuntime implements RuntimeAdapter {
   };
 
   /** Process controller (implements `RuntimeAdapter.process`). */
-  readonly process: import("@zturnlibs/core").ProcessController = {
+  readonly process: import("@zturnlibs/ztron-core").ProcessController = {
     exit: (code) => {
       this.send({ type: "app_exit", label: "main", status: code ?? 0 });
     },
@@ -954,7 +954,7 @@ export class HostRuntime implements RuntimeAdapter {
         break;
       }
       case "tray_event": {
-        const ev = msg as unknown as import("@zturnlibs/core").TrayEventPayload;
+        const ev = msg as unknown as import("@zturnlibs/ztron-core").TrayEventPayload;
         this.#trayEventCb?.(ev);
         break;
       }

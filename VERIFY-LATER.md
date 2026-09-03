@@ -48,7 +48,7 @@
 - **就绪内容**：publish.yml 五包拓扑序流水线（0.1.0 已发成功过）；本会话新增 driver 包待入 publish 清单
 - **所需**：GitHub Actions 额度恢复
 - **验证方法**：打 tag `v*` 触发
-- **判定**：`@zturnlibs/driver@0.1.0` 出现在 Packages
+- **判定**：`@zturnlibs/ztron-driver@0.1.0` 出现在 Packages
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
 

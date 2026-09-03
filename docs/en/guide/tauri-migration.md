@@ -2,7 +2,7 @@
 title: Migrating from Tauri
 ---
 
-Ztron's API surface is deliberately aligned with Tauri v2 (`@zturnlibs/api`
+Ztron's API surface is deliberately aligned with Tauri v2 (`@zturnlibs/ztron-api`
 is translated from `@tauri-apps/api`), so the migration cost is mostly the
 backend language: Rust replaced by TypeScript. The repo's `DESIGN.md` §9
 gives the Rust → TS module mapping (copied verbatim):
@@ -35,7 +35,7 @@ the TS `ProjectConfigFile` interface. Field details are in
 
 ## Frontend Migration
 
-Usually just change the import: `@tauri-apps/api` → `@zturnlibs/api`. The
+Usually just change the import: `@tauri-apps/api` → `@zturnlibs/ztron-api`. The
 signatures of `invoke`, `listen`, `emit`, etc. are unchanged, and the event
 constants `TauriEvent` keep their names.
 

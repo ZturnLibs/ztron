@@ -6,7 +6,7 @@ The event system lets backend and frontend communicate in both directions: the
 frontend can listen to any named event emitted by the backend, and can also
 send targeted to the frontend/other windows. The listener registry lives in
 the backend's `EventManager`; the API is provided by the `event` module of
-`@zturnlibs/api`.
+`@zturnlibs/ztron-api`.
 
 ## listen / once / emit / emitTo
 
@@ -25,7 +25,7 @@ export type UnlistenFn = () => Promise<void>;
 Typical usage:
 
 ```ts
-import { listen, once, emit, emitTo } from "@zturnlibs/api";
+import { listen, once, emit, emitTo } from "@zturnlibs/ztron-api";
 
 // Listen (options.target can specify a window label, default { kind: "Any" })
 const unlisten = await listen<{ n: number }>("m3:tick", (e) => {

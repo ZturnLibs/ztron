@@ -1,5 +1,5 @@
 {
-  "name": "@zturnlibs/driver",
+  "name": "@zturnlibs/ztron-driver",
   "version": "0.1.0",
   "description": "Ztron WebDriver intermediary (W3C protocol relay; GAP F7)",
   "type": "module",
