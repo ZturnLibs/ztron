@@ -27,8 +27,9 @@ capability 中的 **`core:default`** 权限集授权，无 scope 约束。
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（运行中创建 → 操作 → 销毁，
-验证锚点 `MULTI_WINDOW_OK`、`SECOND_WINDOW_OK label=second`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 改写：运行中创建 →
+操作 → 销毁；锚点 `MULTI_WINDOW_OK`、`SECOND_WINDOW_OK label=second`
+为其真实运行输出）：
 
 ```ts
 import { WebviewWindow } from "@zturnlibs/ztron-api";

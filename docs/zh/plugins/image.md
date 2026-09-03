@@ -35,8 +35,8 @@ image 属于框架内建能力，其 `plugin:image|*` 命令由 capability 中�
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点 `IMAGE_OK`、
-`TRANSFORM_IMAGE_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 的托盘图标段落改写，
+PNG 数据省略；锚点 `IMAGE_OK`、`TRANSFORM_IMAGE_OK` 为其真实运行输出）：
 
 ```ts
 import { Image } from "@zturnlibs/ztron-api";

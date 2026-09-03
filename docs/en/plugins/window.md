@@ -37,8 +37,8 @@ From `examples/hello/capabilities/main.json`:
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchors
-`WIN_STATE_OK`, `TITLE_OK`, `MONITORS_OK`):
+Example (adapted from `examples/hello/frontend/src/main.ts`; the anchors
+`WIN_STATE_OK`, `TITLE_OK`, `MONITORS_OK` are its real run outputs):
 
 ```ts
 import { Window, availableMonitors, currentMonitor } from "@zturnlibs/ztron-api";

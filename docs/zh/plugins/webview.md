@@ -33,8 +33,9 @@ import { Webview, getAllWebviews } from "@zturnlibs/ztron-api";
 
 const wv = Webview.getCurrent();          // label 来自引导元数据
 await wv.clearAllBrowsingData();          // cookies/缓存/存储/IndexedDB
-const all = await getAllWebviews();       // 存活 webview 句柄列表
-await wv.setZoom(1);                      // CSS 缩放
+const wvs = await getAllWebviews();       // 存活 webview 句柄列表
+const zoomed = await wv.setZoom(1);       // CSS 缩放
+void zoomed;
 ```
 
 `toggleDevtools()` 返回 `{ supported, platform, reason? }`：macOS

@@ -38,8 +38,9 @@ by the **`core:default`** permission set in a capability; individual
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchors
-`IMAGE_OK`, `TRANSFORM_IMAGE_OK`):
+Example (adapted from the tray-icon sections of
+`examples/hello/frontend/src/main.ts`, PNG data elided; the anchors
+`IMAGE_OK`, `TRANSFORM_IMAGE_OK` are its real run outputs):
 
 ```ts
 import { Image } from "@zturnlibs/ztron-api";

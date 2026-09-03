@@ -30,9 +30,9 @@ set in a capability; no scope.
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (create → operate → destroy
-mid-run; verification anchors `MULTI_WINDOW_OK`,
-`SECOND_WINDOW_OK label=second`):
+Example (adapted from `examples/hello/frontend/src/main.ts`, create →
+operate → destroy mid-run; the anchors `MULTI_WINDOW_OK`,
+`SECOND_WINDOW_OK label=second` are its real run outputs):
 
 ```ts
 import { WebviewWindow } from "@zturnlibs/ztron-api";

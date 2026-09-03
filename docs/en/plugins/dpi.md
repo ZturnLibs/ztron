@@ -23,7 +23,7 @@ Types at a glance:
   physical based on the source (an instance or a plain object with a
   `type` field).
 - `SizeLike` / `PositionLike`: what geometry methods actually accept —
-  a number pair, a dpi instance, or a plain `{ width, height }` /
+  a single number, a dpi instance, or a plain `{ width, height }` /
   `{ x, y }` object.
 - `normalizeSize` / `normalizePosition`: normalize any of the shapes
   above into the wire protocol's plain `{ width, height }` /
@@ -42,17 +42,23 @@ of the geometry commands (`plugin:window|set_size` etc.) is covered in
 
 # Example
 
-Window geometry methods accept plain numbers as well as dpi instances
-(from the window sections of `examples/hello/frontend/src/main.ts`):
+Example (adapted from the window sections of the hello example) —
+`setSize` / `setPosition` accept number pairs as well as dpi instances;
+`setMinSize` / `setMaxSize` take a **single** `SizeLike` argument:
 
 ```ts
-import { LogicalSize } from "@zturnlibs/ztron-api";
-import { Window } from "@zturnlibs/ztron-api";
+import { LogicalSize, Window } from "@zturnlibs/ztron-api";
 
 const win = Window.getCurrent();
-await win.setMinSize(300, 200);                    // plain number pair
-await win.setMinSize(new LogicalSize(300, 200));   // dpi instance, equivalent
-await win.setBounds(60, 70, 800, 600);
+await win.setSize(800, 600);                        // number pair (width, height?)
+await win.setPosition(80, 90);                      // number pair (x, y?)
+await win.setSize(new LogicalSize(800, 600));       // dpi instance, equivalent
+
+// setMinSize / setMaxSize(size: SizeLike | null): with a number the second
+// argument is ignored (normalizeSize(a) yields height 0) — use a dpi
+// instance or a plain object instead
+await win.setMinSize(new LogicalSize(300, 200));    // dpi instance
+await win.setMinSize({ width: 300, height: 200 });  // or a plain object
 await win.setSizeConstraints({ minWidth: 320, minHeight: 240 });
 ```
 

@@ -27,8 +27,9 @@ scope 约束。
 # 示例
 
 `exit`/`relaunch` 一旦调用即终结当前进程，因此 hello 示例只验证命令
-注册而不实际调用（摘自 `examples/hello/frontend/src/main.ts`，验证锚点
-`PROCESS_OK`）：
+注册而不实际调用（示例首两行摘自
+`examples/hello/frontend/src/main.ts`，验证锚点 `PROCESS_OK`；用法段为
+示意代码）：
 
 ```ts
 const hasProcess = await invoke<boolean>("m3:has-process", {});

@@ -39,8 +39,8 @@ grant single commands. No scope.
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchors
-`EVENT_OK`, `WIN_EVENT_OK`):
+Example (adapted from `examples/hello/frontend/src/main.ts`; the anchors
+`EVENT_OK`, `WIN_EVENT_OK` are its real run outputs):
 
 ```ts
 import { listen } from "@zturnlibs/ztron-api";

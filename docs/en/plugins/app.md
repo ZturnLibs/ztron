@@ -24,8 +24,9 @@ the **`core:default`** permission set in a capability; individual
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchors
-`APP_OK`, `APP_CONFIG_OK`, `APP_LIFECYCLE_OK`):
+Example (adapted from `examples/hello/frontend/src/main.ts`, `report`
+calls omitted; the anchors `APP_OK`, `APP_CONFIG_OK`, `APP_LIFECYCLE_OK`
+are its real run outputs):
 
 ```ts
 import {

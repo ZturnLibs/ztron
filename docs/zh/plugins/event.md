@@ -35,8 +35,8 @@ scope 约束。
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点 `EVENT_OK`、
-`WIN_EVENT_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 改写；锚点 `EVENT_OK`、
+`WIN_EVENT_OK` 为其真实运行输出）：
 
 ```ts
 import { listen } from "@zturnlibs/ztron-api";

@@ -51,8 +51,9 @@ the ACL gate. See the [Security Model](/guide/security).
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchors
-`INVOKE_OK`, `CHANNEL_OK:1,2,3`, `CONVERT_FILE_SRC_OK`):
+Example (adapted from `examples/hello/frontend/src/main.ts`; the anchors
+`INVOKE_OK`, `CHANNEL_OK:1,2,3`, `CONVERT_FILE_SRC_OK` are its real run
+outputs):
 
 ```ts
 import { invoke, Channel, convertFileSrc } from "@zturnlibs/ztron-api";

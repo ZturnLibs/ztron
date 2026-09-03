@@ -41,8 +41,8 @@ path 是一个真实插件（`pathPlugin({ appId: "com.ztron.hello" })`），
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点
-`PATH_APP_DIRS_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 的路径段落改写，省略
+UI 上报；锚点 `PATH_APP_DIRS_OK` 为其真实运行输出）：
 
 ```ts
 import { path } from "@zturnlibs/ztron-api";

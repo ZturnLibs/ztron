@@ -38,8 +38,9 @@ import { Webview, getAllWebviews } from "@zturnlibs/ztron-api";
 
 const wv = Webview.getCurrent();          // label from the bootstrap metadata
 await wv.clearAllBrowsingData();          // cookies/cache/storage/IndexedDB
-const all = await getAllWebviews();       // live webview handles
-await wv.setZoom(1);                      // CSS zoom
+const wvs = await getAllWebviews();       // live webview handles
+const zoomed = await wv.setZoom(1);       // CSS zoom
+void zoomed;
 ```
 
 `toggleDevtools()` resolves `{ supported, platform, reason? }`: macOS

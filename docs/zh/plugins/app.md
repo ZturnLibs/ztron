@@ -23,8 +23,9 @@ app 属于框架内建能力，其 `plugin:app|*` 命令由 capability 中的
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点 `APP_OK`、
-`APP_CONFIG_OK`、`APP_LIFECYCLE_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 改写，省略 report
+上报；锚点 `APP_OK`、`APP_CONFIG_OK`、`APP_LIFECYCLE_OK` 为其真实运行
+输出）：
 
 ```ts
 import {

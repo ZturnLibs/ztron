@@ -43,8 +43,8 @@ ACL（默认全拒）只约束 `plugin:` 前缀的命令：内建命令由
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点 `INVOKE_OK`、
-`CHANNEL_OK:1,2,3`、`CONVERT_FILE_SRC_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 改写；锚点
+`INVOKE_OK`、`CHANNEL_OK:1,2,3`、`CONVERT_FILE_SRC_OK` 为其真实运行输出）：
 
 ```ts
 import { invoke, Channel, convertFileSrc } from "@zturnlibs/ztron-api";

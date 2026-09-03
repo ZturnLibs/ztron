@@ -43,8 +43,9 @@ takes no scope option.
 
 # Example
 
-From `examples/hello/frontend/src/main.ts` (verification anchor
-`PATH_APP_DIRS_OK`):
+Example (adapted from the path sections of
+`examples/hello/frontend/src/main.ts`, UI reporting omitted; the anchor
+`PATH_APP_DIRS_OK` is its real run output):
 
 ```ts
 import { path } from "@zturnlibs/ztron-api";

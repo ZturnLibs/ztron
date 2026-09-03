@@ -34,8 +34,8 @@ window 属于框架内建能力（不作为独立插件构造），其全部
 
 # 示例
 
-摘自 `examples/hello/frontend/src/main.ts`（验证锚点 `WIN_STATE_OK`、
-`TITLE_OK`、`MONITORS_OK`）：
+示例（基于 `examples/hello/frontend/src/main.ts` 改写；锚点
+`WIN_STATE_OK`、`TITLE_OK`、`MONITORS_OK` 为其真实运行输出）：
 
 ```ts
 import { Window, availableMonitors, currentMonitor } from "@zturnlibs/ztron-api";

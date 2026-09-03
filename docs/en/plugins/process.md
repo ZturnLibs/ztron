@@ -30,8 +30,9 @@ single commands. No scope.
 
 `exit`/`relaunch` terminate the current process when called, so the
 hello example only verifies command registration without invoking them
-(from `examples/hello/frontend/src/main.ts`, verification anchor
-`PROCESS_OK`):
+(the first two lines are taken from
+`examples/hello/frontend/src/main.ts`, verification anchor `PROCESS_OK`;
+the usage part is illustrative):
 
 ```ts
 const hasProcess = await invoke<boolean>("m3:has-process", {});
