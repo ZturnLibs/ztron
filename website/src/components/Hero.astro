@@ -1,0 +1,44 @@
+---
+import Terminal from './Terminal.astro';
+import { ANCHORS, REPO } from '../i18n/shared';
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+---
+<section class="hero">
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="container cols">
+    <div>
+      <p class="eyebrow">{s.hero.eyebrow}</p>
+      <h1>{s.hero.title}<br /><em>{s.hero.titleAccent}</em></h1>
+      <p class="body">{s.hero.body}</p>
+      <div class="ctas">
+        <a class="btn primary" href={ANCHORS.quickstart}>{s.hero.ctaPrimary}</a>
+        <a class="btn" href={REPO} target="_blank" rel="noopener">{s.hero.ctaSecondary}</a>
+      </div>
+    </div>
+    <Terminal title={s.terminal.title} lines={s.terminal.lines} />
+  </div>
+</section>
+<style>
+  .hero { position: relative; padding: 96px 0 104px; overflow: hidden; }
+  .grid-bg {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(560px 300px at 70% -10%, rgba(139, 92, 246, 0.16), transparent 70%),
+      radial-gradient(560px 300px at 90% 10%, rgba(34, 211, 238, 0.10), transparent 70%),
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    mask-image: linear-gradient(#000 55%, transparent);
+  }
+  .cols { position: relative; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+  .eyebrow { font-family: var(--font-mono); font-size: 13px; color: var(--accent-to); margin: 0 0 18px; }
+  h1 { font-size: 46px; line-height: 1.12; letter-spacing: -0.03em; margin: 0 0 20px; }
+  h1 em {
+    font-style: normal;
+    background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .body { color: var(--text-2); font-size: 17px; max-width: 520px; margin: 0 0 30px; }
+  .ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; gap: 40px; } h1 { font-size: 36px; } }
+</style>
