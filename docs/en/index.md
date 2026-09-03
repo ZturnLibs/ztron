@@ -1,16 +1,26 @@
 ---
+pageType: home
 title: Ztron Docs
+hero:
+  name: Ztron
+  text: A Tauri-style desktop framework, rewritten in TypeScript
+  tagline: Runs on txiki.js (~2MB) + the system WebView — TypeScript main process, any web stack for the frontend
+  actions:
+    - text: Quick Start
+      link: /start/quick-start
+    - text: Prerequisites & Install
+      link: /start/install
+    - text: CLI Reference
+      link: /reference/cli
+features:
+  - title: Two-process architecture
+    details: A native host (windows/tray/menus) cooperates with an async tjs backend over TCP/JSON; @zturnlibs/core provides IPC, events, plugins and the ACL.
+  - title: Tauri v2 capability parity
+    details: "@zturnlibs/api ports @tauri-apps/api; invoke / events / Channel / fs / http / os / store / log / shell / updater plugins included, with a migration guide (see the Guide)."
+  - title: macOS verified end-to-end
+    details: Milestones M0–P30 complete, 86 deterministic checks (drivable via `ztron check`); the Windows/Linux bundling pipeline is under construction.
+  - title: Guide & examples
+    details: Architecture, IPC, events, windows, configuration, security model, plus three runnable examples — hello / multiwin / menuprobe.
+  - title: 适用版本：`ztron 0.1.0`
+    details: Docs evolve with the code; breaking API changes update this site in the same PR (see CONTRIBUTING).
 ---
-
-# Ztron Docs
-
-A Tauri-style cross-platform desktop framework, rewritten in TypeScript, running on txiki.js + the system WebView.
-
-- [Quick Start](/start/quick-start) — get your first app running in 10 minutes
-- [Guide](/guide/architecture) — architecture, IPC, events, windows, configuration, security
-- [CLI Reference](/reference/cli) — init / dev / build / codegen / check / signer
-- [Examples](/start/examples) — hello / multiwin / menuprobe
-
-Current status: macOS end-to-end working (`ztron 0.1.0`); Windows/Linux bundling pipeline under construction.
-
-适用版本：`ztron 0.1.0`

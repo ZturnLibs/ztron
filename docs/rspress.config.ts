@@ -1,11 +1,10 @@
 import { defineConfig } from "rspress/config";
-import { fileURLToPath } from "node:url";
 
-// 站点根即本目录：zh/ 为默认语言（无路由前缀），en/ 挂 /en/。
-const root = fileURLToPath(new URL(".", import.meta.url));
-
+// root = 本目录（zh/ 为默认语言、无路由前缀，en/ 挂 /en/）。
+// __dirname 写法与 zturn-home-site 一致，已在 Rspress 1.x 验证可构建；
+// 勿改用 import.meta.url（会被打进客户端 bundle 导致构建失败）。
 export default defineConfig({
-  root,
+  root: __dirname,
   // GitHub Pages 项目页子路径；绑定自定义域名后改为 "/"
   base: "/ztron/",
   lang: "zh",
@@ -16,7 +15,16 @@ export default defineConfig({
     { lang: "en", label: "English" },
   ],
   route: {
-    exclude: ["**/superpowers/**", "**/scripts/**", "**/translations/**"],
+    // doc_build 必须排除：root 即本目录，产物在其中，二次构建会扫到自身
+    exclude: [
+      "**/doc_build/**",
+      "**/superpowers/**",
+      "**/scripts/**",
+      "**/translations/**",
+      "CONTRIBUTING.md",
+      "README.md",
+      "rspress.config.ts",
+    ],
   },
   themeConfig: {
     socialLinks: [
