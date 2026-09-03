@@ -1,2 +1,6 @@
 node_modules/
 doc_build/
+
+# Generated API reference (pnpm run gen:api) — never committed
+en/reference/api/
+zh/reference/api/

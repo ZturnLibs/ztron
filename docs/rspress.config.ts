@@ -25,6 +25,7 @@ export default defineConfig({
       "CONTRIBUTING.md",
       "README.md",
       "rspress.config.ts",
+      "typedoc.zh-plugin.ts",
     ],
   },
   themeConfig: {

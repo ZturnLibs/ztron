@@ -7,12 +7,23 @@
     "dev": "rspress dev",
     "build": "rspress build",
     "preview": "rspress preview",
+    "gen:api": "node --experimental-strip-types scripts/gen-api-docs.ts",
+    "gen:api:check": "node --experimental-strip-types scripts/gen-api-docs.ts --check",
+    "gen:commands": "node --experimental-strip-types scripts/gen-commands.ts",
+    "gen:commands:check": "node --experimental-strip-types scripts/gen-commands.ts --check",
+    "gen:config": "node --experimental-strip-types scripts/gen-config.ts",
+    "gen:config:check": "node --experimental-strip-types scripts/gen-config.ts --check",
     "check:locales": "node --experimental-strip-types scripts/check-locales.ts",
     "check:locales:deploy": "node --experimental-strip-types scripts/check-locales.ts --deploy",
     "test": "node --experimental-strip-types --test scripts/*.test.ts"
   },
   "dependencies": {
     "rspress": "^1.40.2"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.13.0",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20"

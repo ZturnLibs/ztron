@@ -1,0 +1,1768 @@
+{
+  "core.invoke": {
+    "summary": "向 Ztron 后端发送一条消息。",
+    "params": {
+      "cmd": "命令名称。",
+      "args": "传给命令的可选参数。",
+      "options": "请求选项。"
+    },
+    "returns": "一个 Promise，成功时 resolve 为后端响应，失败时 reject。"
+  },
+  "event.listen": {
+    "summary": "监听一个事件。",
+    "returns": "一个 Promise，resolve 为取消监听函数（当监听器离开作用域时调用它）。"
+  },
+  "event.emit": {
+    "summary": "向后端发出一个事件（由后端分发给所有监听者）。"
+  },
+  "fs.readFile": {
+    "summary": "读取一个二进制文件；以原始字节（Uint8Array）resolve（原始 IPC 响应——注入的 invoke 已解开后端信封）。"
+  },
+  "fs.writeFile": {
+    "summary": "从原始字节（或直接传 base64 字符串）写入一个二进制文件。"
+  },
+  "fs.readText": {
+    "summary": "读取一个文本文件（按 UTF-8 解码）。"
+  },
+  "fs.writeText": {
+    "summary": "写入一个文本文件。"
+  },
+  "fs.readDir": {
+    "summary": "列出一个目录的内容。"
+  },
+  "window.Window.getCurrent": {
+    "summary": "当前窗口（label 来自引导元数据）。"
+  },
+  "http.fetch": {
+    "summary": "执行一个受作用域约束的 HTTP 请求；URL 超出作用域时抛出异常。"
+  },
+  "window.Window.activityName": {
+    "summary": "上游仅 Android：当前 activity 名（桌面端为 null）。"
+  },
+  "window.Window.cursorPosition": {
+    "summary": "屏幕坐标系中的光标位置（无需 label；上游对齐）。"
+  },
+  "window.Window.clearEffects": {
+    "summary": "移除已应用的活力效果。"
+  },
+  "window.Window.destroy": {
+    "summary": "强制关闭窗口，绕过 preventClose。"
+  },
+  "window.Window.getByLabel": {
+    "summary": "按 label 查找存活窗口（不存在时为 null）。"
+  },
+  "window.Window.getState": {
+    "summary": "读取窗口的布尔状态位（maximized/fullscreen 等）。"
+  },
+  "window.Window.getTheme": {
+    "summary": "窗口跟随的 OS 配色（\"light\" | \"dark\"）。"
+  },
+  "window.Window.getTitle": {
+    "summary": "当前原生窗口标题。"
+  },
+  "window.Window.innerPosition": {
+    "summary": "窗口内容区位置（内容左上角）。以外框原点近似——精确内容原点需要测量标题栏高度。"
+  },
+  "window.Window.innerSize": {
+    "summary": "窗口内容区尺寸（点）——不含标题栏。"
+  },
+  "window.Window.isAlwaysOnTop": {
+    "summary": "窗口是否置顶于其他窗口。"
+  },
+  "window.Window.isClosable": {
+    "summary": "原生关闭按钮是否启用。"
+  },
+  "window.Window.isDecorated": {
+    "summary": "窗口是否有原生装饰（标题栏/边框）。"
+  },
+  "window.Window.isEnabled": {
+    "summary": "窗口是否启用（macOS：始终 true——无对应 NSWindow 状态）。"
+  },
+  "window.Window.isFocused": {
+    "summary": "窗口当前是否持有焦点（key window）。"
+  },
+  "window.Window.isMaximizable": {
+    "summary": "原生最大化/缩放按钮是否启用。"
+  },
+  "window.Window.isMinimizable": {
+    "summary": "原生最小化按钮是否启用。"
+  },
+  "window.Window.isResizable": {
+    "summary": "窗口是否可调整尺寸。"
+  },
+  "window.Window.isVisible": {
+    "summary": "窗口是否可见。"
+  },
+  "window.Window.maximize": {
+    "summary": "直接设置原生最大化状态（非切换，Tauri v2 拆分）。"
+  },
+  "window.Window.onCloseRequested": {
+    "summary": "请求关闭时触发。处理函数动态决定：调用 event.preventDefault() 保持窗口打开，否则处理函数完成后窗口被销毁（Tauri v2 语义）。"
+  },
+  "window.Window.onDragDropEvent": {
+    "summary": "归一化的拖放通知（Tauri DragDropEvent）：enter 携带 paths + position，over 仅 position，drop 携带 paths + position，leave 在拖拽离开窗口未放下时触发。位置为相对窗口左上角的物理像素。"
+  },
+  "window.Window.onFocusChanged": {
+    "summary": "焦点 + 失焦合并（Tauri v2 语法糖）。"
+  },
+  "window.Window.onScaleChanged": {
+    "summary": "缩放因子变化时触发（在 Retina 显示器间移动）。"
+  },
+  "window.Window.onThemeChanged": {
+    "summary": "系统主题变化时触发（载荷：\"dark\" | \"light\"）。"
+  },
+  "window.Window.outerPosition": {
+    "summary": "窗口外框位置（左上角原点）。"
+  },
+  "window.Window.outerSize": {
+    "summary": "窗口外框尺寸（宽 × 高，含装饰）。"
+  },
+  "window.Window.preventClose": {
+    "summary": "阻止窗口关闭；改为发出 ztron://close-requested 事件，由前端确认（随后调用 destroy()）。"
+  },
+  "window.Window.requestUserAttention": {
+    "summary": "弹跳 dock 图标直至激活。null 取消请求。（macOS 将 Critical/Informational 映射为弹跳样式。）"
+  },
+  "window.Window.scaleFactor": {
+    "summary": "窗口的缩放因子（Retina/HiDPI 上为 2）。"
+  },
+  "window.Window.sceneIdentifier": {
+    "summary": "上游仅 iOS：当前 scene 标识符（桌面端为 null）。"
+  },
+  "window.Window.setActivityName": {
+    "summary": "上游仅 Android：桌面端接受为已记录的空操作。"
+  },
+  "window.Window.setAlwaysOnBottom": {
+    "summary": "把窗口置于所有其他窗口之下（v2 新增）。"
+  },
+  "window.Window.setBackgroundColor": {
+    "summary": "设置窗口背景色：\"#rrggbb\"、\"#rrggbbaa\" 或 \"transparent\"。对无边框/透明窗口生效。"
+  },
+  "window.Window.setBadgeCount": {
+    "summary": "设置 dock 角标计数。null/undefined 移除角标。macOS dock / Windows 任务栏；其他平台不支持。"
+  },
+  "window.Window.setBadgeLabel": {
+    "summary": "设置 dock 角标为任意文本（仅 macOS）。null/undefined/\"\" 移除角标。"
+  },
+  "window.Window.setBounds": {
+    "summary": "一次调用设置窗口位置与尺寸（接受 dpi 类型）。"
+  },
+  "window.Window.setClosable": {
+    "summary": "切换原生关闭按钮。"
+  },
+  "window.Window.setContentProtected": {
+    "summary": "防止窗口内容被其他应用捕获。"
+  },
+  "window.Window.setCursor": {
+    "summary": "设置窗口光标（CSS 风格名：\"default\"、\"pointer\"、\"text\"、\"crosshair\"、\"move\"、\"not-allowed\"、各类 resize 光标等）。"
+  },
+  "window.Window.setCursorGrab": {
+    "summary": "把光标锁定在当前位置（Tauri setCursorGrab）。macOS 上光标视觉上停在原地；传 false 释放。"
+  },
+  "window.Window.setCursorIcon": {
+    "summary": "setCursor 的别名（Tauri v2 名称）。"
+  },
+  "window.Window.setCursorPosition": {
+    "summary": "把光标移动到窗口坐标（接受 dpi 类型）。"
+  },
+  "window.Window.setCursorVisible": {
+    "summary": "隐藏/显示系统光标（应用级隐藏计数——调用需配对）。"
+  },
+  "window.Window.setDecorations": {
+    "summary": "切换原生窗口装饰（标题栏/边框）。"
+  },
+  "window.Window.setEffects": {
+    "summary": "设置活力材质（macOS）。Windows 独有效果在该平台被忽略。"
+  },
+  "window.Window.setEnabled": {
+    "summary": "启用/禁用原生窗口。"
+  },
+  "window.Window.setFileDropEnabled": {
+    "summary": "启用/禁用原生文件拖放处理器。启用时（默认）文件拖放产生 onDragDropEvent 事件；禁用后页面可改用 HTML5 拖放 API。"
+  },
+  "window.Window.setFocusable": {
+    "summary": "切换窗口能否取得键盘焦点。"
+  },
+  "window.Window.setIcon": {
+    "summary": "以注册的 host 图像（Image）设置窗口/dock 图标。传 null 清除。"
+  },
+  "window.Window.setIgnoreCursorEvents": {
+    "summary": "切换窗口是否忽略鼠标/光标事件。"
+  },
+  "window.Window.setMaxSize": {
+    "summary": "设置窗口最大内容尺寸。null 取消约束（接受 dpi 类型）。"
+  },
+  "window.Window.setMaximizable": {
+    "summary": "切换原生最大化/缩放按钮。"
+  },
+  "window.Window.setMinSize": {
+    "summary": "设置窗口最小内容尺寸。null 取消约束（接受 dpi 类型，如 new LogicalSize(300, 200)）。"
+  },
+  "window.Window.setMinimizable": {
+    "summary": "切换原生最小化按钮（macOS/Windows；基于按钮掩码）。"
+  },
+  "window.Window.setOpacity": {
+    "summary": "设置窗口不透明度，0.0（全透明）到 1.0（不透明）。"
+  },
+  "window.Window.setOverlayIcon": {
+    "summary": "设置标题栏配件小图标（macOS 版的 Windows overlay/状态徽标）。传 null 清除。"
+  },
+  "window.Window.setPosition": {
+    "summary": "移动窗口。接受纯数字、LogicalPosition/PhysicalPosition 或普通 { x, y } 对象。"
+  },
+  "window.Window.setProgressBar": {
+    "summary": "设置 dock/任务栏进度（0.0–1.0），null 清除；macOS 上作用于应用级 dock tile，Windows 任务栏按窗口。接受裸确定值/null（v1 形状）或上游 ProgressBarState 对象：Indeterminate 切换旋转条，None 清除。"
+  },
+  "window.Window.setSceneIdentifier": {
+    "summary": "上游仅 iOS：桌面端接受为已记录的空操作。"
+  },
+  "window.Window.setShadow": {
+    "summary": "切换原生窗口阴影。"
+  },
+  "window.Window.setSimpleFullscreen": {
+    "summary": "无边框「简单」全屏：内容铺满屏幕而不经过原生全屏空间切换（退出时恢复边框与装饰）。"
+  },
+  "window.Window.setSize": {
+    "summary": "设置窗口尺寸。接受纯数字、LogicalSize/PhysicalSize 或普通 { width, height } 对象。"
+  },
+  "window.Window.setSizeConstraints": {
+    "summary": "一次调用设置最小/最大内容尺寸约束。"
+  },
+  "window.Window.setSkipTaskbar": {
+    "summary": "从任务栏/dock 隐藏窗口图标（macOS：整个应用）。"
+  },
+  "window.Window.setTheme": {
+    "summary": "应用级主题覆盖（\"dark\"/\"light\"；null 跟随系统）。"
+  },
+  "window.Window.setTitleBarStyle": {
+    "summary": "设置标题栏样式（仅 macOS）：\"visible\"（默认）、\"transparent\"（隐藏边框装饰）或 \"overlay\"（内容延伸至红绿灯之下——即 Tauri 的 transparent + 全尺寸内容视图）。"
+  },
+  "window.Window.setTrafficLightPosition": {
+    "summary": "移动红绿灯按钮（关闭/最小化/缩放）——用于 titleBarStyle: \"overlay\" 的无边框 macOS 窗口。"
+  },
+  "window.Window.setTransparent": {
+    "summary": "切换透明窗口背景。"
+  },
+  "window.Window.setVisibleOnAllWorkspaces": {
+    "summary": "在所有工作区/虚拟桌面显示窗口（macOS）。"
+  },
+  "window.Window.setZoom": {
+    "summary": "缩放 Web 内容（CSS zoom 系数，如 1.5）。"
+  },
+  "window.Window.show": {
+    "summary": "setVisible(true) / setVisible(false) 的别名（Tauri v2 对齐）。"
+  },
+  "window.Window.startDragging": {
+    "summary": "开始原生窗口拖拽——在无边框窗口的 data-tauri-drag-region 元素上响应 mousedown 调用。"
+  },
+  "window.Window.startResizeDragging": {
+    "summary": "开始原生调整尺寸拖拽（direction：\"north\"/\"south\"/\"east\"/\"west\" 或组合如 \"southeast\"）。macOS 未实现。"
+  },
+  "window.Window.theme": {
+    "summary": "OS 配色，getTheme 的别名（Tauri v2 对齐）。"
+  },
+  "window.Window.title": {
+    "summary": "设置窗口标题（setTitle 的别名，Tauri v2 对齐）。"
+  },
+  "window.Window.unmaximize": {
+    "summary": "还原最大化的窗口（未最大化时为空操作）。"
+  },
+  "window.CloseRequestedEvent": {
+    "summary": "投递给 Window.onCloseRequested：在处理函数内调用 CloseRequestedEvent.preventDefault 可保持窗口打开（@tauri-apps/api CloseRequestedEvent 的移植）。"
+  },
+  "window.CursorIcon": {
+    "summary": "setCursor/setCursorIcon 接受的 stock 光标形状（上游 CursorIcon 联合成员）。"
+  },
+  "window.Effect": {
+    "summary": "macOS 活力材质（NSVisualEffectMaterial）。"
+  },
+  "window.Effect.Blur": {
+    "summary": "仅 Windows（macOS 上为空操作，为跨平台配置保留）。"
+  },
+  "window.EffectState": {
+    "summary": "效果激活状态（仅 macOS）。"
+  },
+  "window.Effects": {
+    "summary": "窗口效果配置（Tauri Effects）。"
+  },
+  "window.Monitor": {
+    "summary": "一台物理显示器（值为物理像素）。"
+  },
+  "window.Monitor.workArea": {
+    "summary": "可用区域（不含菜单栏/dock/任务栏）。"
+  },
+  "window.ProgressBarStateInput.value": {
+    "summary": "status 为 Normal/Paused/Error 时的确定值。"
+  },
+  "window.ProgressBarStatus": {
+    "summary": "dock/任务栏进度条状态（上游 ProgressBarStatus）。"
+  },
+  "window.TitleBarStyle": {
+    "summary": "标题栏样式（仅 macOS）。"
+  },
+  "window.UserAttentionType": {
+    "summary": "Window.requestUserAttention 的注意请求类型。"
+  },
+  "window.WindowSizeConstraints": {
+    "summary": "窗口内容尺寸约束（逻辑像素；undefined = 未设置）。"
+  },
+  "window.availableMonitors": {
+    "summary": "全部显示器列表（物理像素）。"
+  },
+  "window.currentMonitor": {
+    "summary": "包含当前窗口的显示器（离屏时为 null）。"
+  },
+  "window.cursorPosition": {
+    "summary": "屏幕坐标系中的全局鼠标位置——无需窗口 label（上游 cursorPosition() 独立辅助函数）。"
+  },
+  "window.getAllWindows": {
+    "summary": "全部存活窗口的 label，包装为 Window 句柄。"
+  },
+  "window.monitorFromPoint": {
+    "summary": "包含该桌面点（物理像素，左上角原点）的显示器。"
+  },
+  "window.primaryMonitor": {
+    "summary": "主显示器。"
+  },
+  "window.setupDragRegion": {
+    "summary": "让所有带 data-tauri-drag-region 属性的元素可拖动窗口（Tauri 无边框窗口约定）。每页调用一次。"
+  },
+  "webview-window.WebviewWindow": {
+    "summary": "运行时创建的原生窗口（多窗口）。"
+  },
+  "webview-window.WebviewWindow.create": {
+    "summary": "以本实例的 label + 选项创建原生窗口。"
+  },
+  "webview-window.WebviewWindow.getCurrent": {
+    "summary": "当前窗口（label 来自引导元数据）。"
+  },
+  "webview-window.getCurrentWebviewWindow": {
+    "summary": "发起本次调用的窗口（Window 的单窗口别名）。"
+  },
+  "webview-window.WebviewWindow.activityName": {
+    "summary": "上游仅 Android：当前 activity 名（桌面端为 null）。"
+  },
+  "webview-window.WebviewWindow.cursorPosition": {
+    "summary": "屏幕坐标系中的光标位置（无需 label；上游对齐）。"
+  },
+  "webview-window.WebviewWindow.clearEffects": {
+    "summary": "移除已应用的活力效果。"
+  },
+  "webview-window.WebviewWindow.destroy": {
+    "summary": "强制关闭窗口，绕过 preventClose。"
+  },
+  "webview-window.WebviewWindow.getByLabel": {
+    "summary": "按 label 查找存活窗口（不存在时为 null）。"
+  },
+  "webview-window.WebviewWindow.getState": {
+    "summary": "读取窗口的布尔状态位（maximized/fullscreen 等）。"
+  },
+  "webview-window.WebviewWindow.getTheme": {
+    "summary": "窗口跟随的 OS 配色（\"light\" | \"dark\"）。"
+  },
+  "webview-window.WebviewWindow.getTitle": {
+    "summary": "当前原生窗口标题。"
+  },
+  "webview-window.WebviewWindow.innerPosition": {
+    "summary": "窗口内容区位置（内容左上角）。以外框原点近似——精确内容原点需要测量标题栏高度。"
+  },
+  "webview-window.WebviewWindow.innerSize": {
+    "summary": "窗口内容区尺寸（点）——不含标题栏。"
+  },
+  "webview-window.WebviewWindow.isAlwaysOnTop": {
+    "summary": "窗口是否置顶于其他窗口。"
+  },
+  "webview-window.WebviewWindow.isClosable": {
+    "summary": "原生关闭按钮是否启用。"
+  },
+  "webview-window.WebviewWindow.isDecorated": {
+    "summary": "窗口是否有原生装饰（标题栏/边框）。"
+  },
+  "webview-window.WebviewWindow.isEnabled": {
+    "summary": "窗口是否启用（macOS：始终 true——无对应 NSWindow 状态）。"
+  },
+  "webview-window.WebviewWindow.isFocused": {
+    "summary": "窗口当前是否持有焦点（key window）。"
+  },
+  "webview-window.WebviewWindow.isMaximizable": {
+    "summary": "原生最大化/缩放按钮是否启用。"
+  },
+  "webview-window.WebviewWindow.isMinimizable": {
+    "summary": "原生最小化按钮是否启用。"
+  },
+  "webview-window.WebviewWindow.isResizable": {
+    "summary": "窗口是否可调整尺寸。"
+  },
+  "webview-window.WebviewWindow.isVisible": {
+    "summary": "窗口是否可见。"
+  },
+  "webview-window.WebviewWindow.maximize": {
+    "summary": "直接设置原生最大化状态（非切换，Tauri v2 拆分）。"
+  },
+  "webview-window.WebviewWindow.onCloseRequested": {
+    "summary": "请求关闭时触发。处理函数动态决定：调用 event.preventDefault() 保持窗口打开，否则处理函数完成后窗口被销毁（Tauri v2 语义）。"
+  },
+  "webview-window.WebviewWindow.onDragDropEvent": {
+    "summary": "归一化的拖放通知（Tauri DragDropEvent）：enter 携带 paths + position，over 仅 position，drop 携带 paths + position，leave 在拖拽离开窗口未放下时触发。位置为相对窗口左上角的物理像素。"
+  },
+  "webview-window.WebviewWindow.onFocusChanged": {
+    "summary": "焦点 + 失焦合并（Tauri v2 语法糖）。"
+  },
+  "webview-window.WebviewWindow.onScaleChanged": {
+    "summary": "缩放因子变化时触发（在 Retina 显示器间移动）。"
+  },
+  "webview-window.WebviewWindow.onThemeChanged": {
+    "summary": "系统主题变化时触发（载荷：\"dark\" | \"light\"）。"
+  },
+  "webview-window.WebviewWindow.outerPosition": {
+    "summary": "窗口外框位置（左上角原点）。"
+  },
+  "webview-window.WebviewWindow.outerSize": {
+    "summary": "窗口外框尺寸（宽 × 高，含装饰）。"
+  },
+  "webview-window.WebviewWindow.preventClose": {
+    "summary": "阻止窗口关闭；改为发出 ztron://close-requested 事件，由前端确认（随后调用 destroy()）。"
+  },
+  "webview-window.WebviewWindow.requestUserAttention": {
+    "summary": "弹跳 dock 图标直至激活。null 取消请求。（macOS 将 Critical/Informational 映射为弹跳样式。）"
+  },
+  "webview-window.WebviewWindow.scaleFactor": {
+    "summary": "窗口的缩放因子（Retina/HiDPI 上为 2）。"
+  },
+  "webview-window.WebviewWindow.sceneIdentifier": {
+    "summary": "上游仅 iOS：当前 scene 标识符（桌面端为 null）。"
+  },
+  "webview-window.WebviewWindow.setActivityName": {
+    "summary": "上游仅 Android：桌面端接受为已记录的空操作。"
+  },
+  "webview-window.WebviewWindow.setAlwaysOnBottom": {
+    "summary": "把窗口置于所有其他窗口之下（v2 新增）。"
+  },
+  "webview-window.WebviewWindow.setBackgroundColor": {
+    "summary": "设置窗口背景色：\"#rrggbb\"、\"#rrggbbaa\" 或 \"transparent\"。对无边框/透明窗口生效。"
+  },
+  "webview-window.WebviewWindow.setBadgeCount": {
+    "summary": "设置 dock 角标计数。null/undefined 移除角标。macOS dock / Windows 任务栏；其他平台不支持。"
+  },
+  "webview-window.WebviewWindow.setBadgeLabel": {
+    "summary": "设置 dock 角标为任意文本（仅 macOS）。null/undefined/\"\" 移除角标。"
+  },
+  "webview-window.WebviewWindow.setBounds": {
+    "summary": "一次调用设置窗口位置与尺寸（接受 dpi 类型）。"
+  },
+  "webview-window.WebviewWindow.setClosable": {
+    "summary": "切换原生关闭按钮。"
+  },
+  "webview-window.WebviewWindow.setContentProtected": {
+    "summary": "防止窗口内容被其他应用捕获。"
+  },
+  "webview-window.WebviewWindow.setCursor": {
+    "summary": "设置窗口光标（CSS 风格名：\"default\"、\"pointer\"、\"text\"、\"crosshair\"、\"move\"、\"not-allowed\"、各类 resize 光标等）。"
+  },
+  "webview-window.WebviewWindow.setCursorGrab": {
+    "summary": "把光标锁定在当前位置（Tauri setCursorGrab）。macOS 上光标视觉上停在原地；传 false 释放。"
+  },
+  "webview-window.WebviewWindow.setCursorIcon": {
+    "summary": "setCursor 的别名（Tauri v2 名称）。"
+  },
+  "webview-window.WebviewWindow.setCursorPosition": {
+    "summary": "把光标移动到窗口坐标（接受 dpi 类型）。"
+  },
+  "webview-window.WebviewWindow.setCursorVisible": {
+    "summary": "隐藏/显示系统光标（应用级隐藏计数——调用需配对）。"
+  },
+  "webview-window.WebviewWindow.setDecorations": {
+    "summary": "切换原生窗口装饰（标题栏/边框）。"
+  },
+  "webview-window.WebviewWindow.setEffects": {
+    "summary": "设置活力材质（macOS）。Windows 独有效果在该平台被忽略。"
+  },
+  "webview-window.WebviewWindow.setEnabled": {
+    "summary": "启用/禁用原生窗口。"
+  },
+  "webview-window.WebviewWindow.setFileDropEnabled": {
+    "summary": "启用/禁用原生文件拖放处理器。启用时（默认）文件拖放产生 onDragDropEvent 事件；禁用后页面可改用 HTML5 拖放 API。"
+  },
+  "webview-window.WebviewWindow.setFocusable": {
+    "summary": "切换窗口能否取得键盘焦点。"
+  },
+  "webview-window.WebviewWindow.setIcon": {
+    "summary": "以注册的 host 图像（Image）设置窗口/dock 图标。传 null 清除。"
+  },
+  "webview-window.WebviewWindow.setIgnoreCursorEvents": {
+    "summary": "切换窗口是否忽略鼠标/光标事件。"
+  },
+  "webview-window.WebviewWindow.setMaxSize": {
+    "summary": "设置窗口最大内容尺寸。null 取消约束（接受 dpi 类型）。"
+  },
+  "webview-window.WebviewWindow.setMaximizable": {
+    "summary": "切换原生最大化/缩放按钮。"
+  },
+  "webview-window.WebviewWindow.setMinSize": {
+    "summary": "设置窗口最小内容尺寸。null 取消约束（接受 dpi 类型，如 new LogicalSize(300, 200)）。"
+  },
+  "webview-window.WebviewWindow.setMinimizable": {
+    "summary": "切换原生最小化按钮（macOS/Windows；基于按钮掩码）。"
+  },
+  "webview-window.WebviewWindow.setOpacity": {
+    "summary": "设置窗口不透明度，0.0（全透明）到 1.0（不透明）。"
+  },
+  "webview-window.WebviewWindow.setOverlayIcon": {
+    "summary": "设置标题栏配件小图标（macOS 版的 Windows overlay/状态徽标）。传 null 清除。"
+  },
+  "webview-window.WebviewWindow.setPosition": {
+    "summary": "移动窗口。接受纯数字、LogicalPosition/PhysicalPosition 或普通 { x, y } 对象。"
+  },
+  "webview-window.WebviewWindow.setProgressBar": {
+    "summary": "设置 dock/任务栏进度（0.0–1.0），null 清除；macOS 上作用于应用级 dock tile，Windows 任务栏按窗口。接受裸确定值/null（v1 形状）或上游 ProgressBarState 对象：Indeterminate 切换旋转条，None 清除。"
+  },
+  "webview-window.WebviewWindow.setSceneIdentifier": {
+    "summary": "上游仅 iOS：桌面端接受为已记录的空操作。"
+  },
+  "webview-window.WebviewWindow.setShadow": {
+    "summary": "切换原生窗口阴影。"
+  },
+  "webview-window.WebviewWindow.setSimpleFullscreen": {
+    "summary": "无边框「简单」全屏：内容铺满屏幕而不经过原生全屏空间切换（退出时恢复边框与装饰）。"
+  },
+  "webview-window.WebviewWindow.setSize": {
+    "summary": "设置窗口尺寸。接受纯数字、LogicalSize/PhysicalSize 或普通 { width, height } 对象。"
+  },
+  "webview-window.WebviewWindow.setSizeConstraints": {
+    "summary": "一次调用设置最小/最大内容尺寸约束。"
+  },
+  "webview-window.WebviewWindow.setSkipTaskbar": {
+    "summary": "从任务栏/dock 隐藏窗口图标（macOS：整个应用）。"
+  },
+  "webview-window.WebviewWindow.setTheme": {
+    "summary": "应用级主题覆盖（\"dark\"/\"light\"；null 跟随系统）。"
+  },
+  "webview-window.WebviewWindow.setTitleBarStyle": {
+    "summary": "设置标题栏样式（仅 macOS）：\"visible\"（默认）、\"transparent\"（隐藏边框装饰）或 \"overlay\"（内容延伸至红绿灯之下——即 Tauri 的 transparent + 全尺寸内容视图）。"
+  },
+  "webview-window.WebviewWindow.setTrafficLightPosition": {
+    "summary": "移动红绿灯按钮（关闭/最小化/缩放）——用于 titleBarStyle: \"overlay\" 的无边框 macOS 窗口。"
+  },
+  "webview-window.WebviewWindow.setTransparent": {
+    "summary": "切换透明窗口背景。"
+  },
+  "webview-window.WebviewWindow.setVisibleOnAllWorkspaces": {
+    "summary": "在所有工作区/虚拟桌面显示窗口（macOS）。"
+  },
+  "webview-window.WebviewWindow.setZoom": {
+    "summary": "缩放 Web 内容（CSS zoom 系数，如 1.5）。"
+  },
+  "webview-window.WebviewWindow.show": {
+    "summary": "setVisible(true) / setVisible(false) 的别名（Tauri v2 对齐）。"
+  },
+  "webview-window.WebviewWindow.startDragging": {
+    "summary": "开始原生窗口拖拽——在无边框窗口的 data-tauri-drag-region 元素上响应 mousedown 调用。"
+  },
+  "webview-window.WebviewWindow.startResizeDragging": {
+    "summary": "开始原生调整尺寸拖拽（direction：\"north\"/\"south\"/\"east\"/\"west\" 或组合如 \"southeast\"）。macOS 未实现。"
+  },
+  "webview-window.WebviewWindow.theme": {
+    "summary": "OS 配色，getTheme 的别名（Tauri v2 对齐）。"
+  },
+  "webview-window.WebviewWindow.title": {
+    "summary": "设置窗口标题（setTitle 的别名，Tauri v2 对齐）。"
+  },
+  "webview-window.WebviewWindow.unmaximize": {
+    "summary": "还原最大化的窗口（未最大化时为空操作）。"
+  },
+  "webview.Webview": {
+    "summary": "窗口内嵌 Web 内容的 webview 层控制。"
+  },
+  "webview.Webview.capabilities": {
+    "summary": "host webview 能力图（G7）：本后端每窗口一个 webview；同窗多 webview/reparent/autoResize 如实上报为 false 而非静默空操作。"
+  },
+  "webview.Webview.clearAllBrowsingData": {
+    "summary": "清空该 webview 存储的全部浏览数据：cookies、缓存、本地/会话存储、IndexedDB（WKWebsiteDataStore / WebView2 profile 等价物）。"
+  },
+  "webview.Webview.close": {
+    "summary": "关闭该 webview 所属的窗口。"
+  },
+  "webview.Webview.getByLabel": {
+    "summary": "按 label 查找 webview。一窗一 webview 时代，webview 存在当且仅当其窗口存在。"
+  },
+  "webview.Webview.getCurrent": {
+    "summary": "当前 webview（label 来自引导元数据）。"
+  },
+  "webview.Webview.hide": {
+    "summary": "隐藏该 webview 的窗口。"
+  },
+  "webview.Webview.position": {
+    "summary": "webview 位置（单 webview 时代与所属窗口外框位置一致——裸多 webview 拆分于 G7 落地）。"
+  },
+  "webview.Webview.print": {
+    "summary": "打开页面打印对话框（wry 对齐：委托给页面自身的 window.print()）。"
+  },
+  "webview.Webview.setBackgroundColor": {
+    "summary": "webview 层背景色（单 webview 时代：窗口表面）。"
+  },
+  "webview.Webview.setFocus": {
+    "summary": "聚焦该 webview（其窗口的按键状态）。"
+  },
+  "webview.Webview.setPosition": {
+    "summary": "在窗口内定位 webview 内容（无 reparent）。"
+  },
+  "webview.Webview.setSize": {
+    "summary": "在窗口内调整 webview 内容尺寸。"
+  },
+  "webview.Webview.setZoom": {
+    "summary": "设置 Web 内容缩放系数（CSS zoom）。"
+  },
+  "webview.Webview.show": {
+    "summary": "显示该 webview 的窗口。"
+  },
+  "webview.Webview.size": {
+    "summary": "webview 尺寸（与窗口一致；见 Webview.position）。"
+  },
+  "webview.Webview.toggleDevtools": {
+    "summary": "切换检查器。上游对齐注记：macOS WKWebView 无公开切换接口（调试构建默认启用），host 会在该平台如实上报 supported: false 而非静默失败。"
+  },
+  "webview.Webview.window": {
+    "summary": "所属窗口句柄（webview 控制常镜像窗口操作）。"
+  },
+  "webview.getAllWebviews": {
+    "summary": "以 Webview 句柄列出全部存活 webview。"
+  },
+  "webview.getCurrentWebview": {
+    "summary": "Webview.getCurrent 的上游命名别名。"
+  },
+  "app.BundleType": {
+    "summary": "当前发行版的安装器格式——镜像 Tauri 的 BundleType（在 .app 包内或 dev 下运行时为 App）。"
+  },
+  "app.defaultWindowIcon": {
+    "summary": "已注册的默认窗口图标（未设置时为 null）。"
+  },
+  "app.app.__type.defaultWindowIcon.__type": {
+    "summary": "已注册的默认窗口图标（未设置时为 null）。"
+  },
+  "app.fetchDataStoreIdentifiers": {
+    "summary": "上游仅 Android：已知的数据存储标识符（桌面端为空数组）。"
+  },
+  "app.app.__type.fetchDataStoreIdentifiers.__type": {
+    "summary": "上游仅 Android：已知的数据存储标识符（桌面端为空数组）。"
+  },
+  "app.getBundleType": {
+    "summary": "当前构建打包所用的发行格式。"
+  },
+  "app.app.__type.getBundleType.__type": {
+    "summary": "当前构建打包所用的发行格式。"
+  },
+  "app.getConfig": {
+    "summary": "应用配置（identifier/name/version；机密字段已剥离）。"
+  },
+  "app.app.__type.getConfig.__type": {
+    "summary": "应用配置（identifier/name/version；机密字段已剥离）。"
+  },
+  "app.getIdentifier": {
+    "summary": "配置的包标识符（如 com.example.app）。"
+  },
+  "app.app.__type.getIdentifier.__type": {
+    "summary": "配置的包标识符（如 com.example.app）。"
+  },
+  "app.getName": {
+    "summary": "配置的应用名（回落到包标识符）。"
+  },
+  "app.app.__type.getName.__type": {
+    "summary": "配置的应用名（回落到包标识符）。"
+  },
+  "app.getTauriVersion": {
+    "summary": "Ztron API 版本（镜像 Tauri 的 getTauriVersion）。"
+  },
+  "app.app.__type.getTauriVersion.__type": {
+    "summary": "Ztron API 版本（镜像 Tauri 的 getTauriVersion）。"
+  },
+  "app.getVersion": {
+    "summary": "配置的应用版本。"
+  },
+  "app.app.__type.getVersion.__type": {
+    "summary": "配置的应用版本。"
+  },
+  "app.app.__type.hide.__type": {
+    "summary": "隐藏整个应用及其所有窗口（macOS NSApp hide:）。"
+  },
+  "app.removeDataStore": {
+    "summary": "上游仅 Android：移除一个数据存储（桌面端为空操作）。"
+  },
+  "app.app.__type.removeDataStore.__type": {
+    "summary": "上游仅 Android：移除一个数据存储（桌面端为空操作）。"
+  },
+  "app.setDockVisibility": {
+    "summary": "切换运行中应用的 macOS Dock 图标。"
+  },
+  "app.app.__type.setDockVisibility.__type": {
+    "summary": "切换运行中应用的 macOS Dock 图标。"
+  },
+  "app.app.__type.show.__type": {
+    "summary": "显示整个应用（macOS：取消隐藏并激活）。"
+  },
+  "app.supportsMultipleWindows": {
+    "summary": "运行时是否支持继续创建新窗口。"
+  },
+  "app.app.__type.supportsMultipleWindows.__type": {
+    "summary": "运行时是否支持继续创建新窗口。"
+  },
+  "app.showApplication": {
+    "summary": "显示整个应用（macOS：取消隐藏并激活）。"
+  },
+  "app.hideApplication": {
+    "summary": "隐藏整个应用及其所有窗口（macOS NSApp hide:）。"
+  },
+  "core.Channel": {
+    "summary": "用于从后端接收有序流式消息的通道。保留 Tauri 实现的顺序逻辑：消息携带单调递增的 index 并按序投递，乱序消息排队等候补齐。"
+  },
+  "core.Channel.#nextMessageIndex": {
+    "summary": "用作保持消息顺序机制的索引。"
+  },
+  "core.Channel.id": {
+    "summary": "transformCallback 返回的回调 id。"
+  },
+  "core.Resource": {
+    "summary": "存储在资源表中、由后端持有的资源。存活于主进程，通过 close() 显式释放。"
+  },
+  "core.Resource.close": {
+    "summary": "销毁并从内存中清理该资源。"
+  },
+  "core.SERIALIZE_TO_IPC_FN": {
+    "summary": "特殊类型用于定义自身如何跨 IPC 序列化的键。若该值变更，请与 inject 包保持同步。"
+  },
+  "core.addPluginListener": {
+    "summary": "注册后端插件监听器，镜像 Tauri 的 addPluginListener（plugin:<plugin>|__listener / __unlistener 命令）。log 等插件因事件名不能含 | 而改用它。",
+    "params": {
+      "plugin": "插件名。",
+      "event": "事件名。",
+      "cb": "收到载荷时的回调。"
+    },
+    "returns": "一个 Promise，resolve 为取消监听函数。"
+  },
+  "core.convertFileSrc": {
+    "summary": "把设备文件路径转换为 WebView 可加载的 URL。",
+    "params": {
+      "filePath": "文件路径。",
+      "protocol": "使用的协议，缺省为 asset。"
+    },
+    "returns": "WebView 中可作为来源使用的 URL。"
+  },
+  "core.isZtron": {
+    "summary": "当前上下文是否为 Ztron WebView。"
+  },
+  "core.transformCallback": {
+    "summary": "把回调存入已知位置，返回后端日后可调用它的标识符。",
+    "returns": "与该回调关联的唯一标识符。"
+  },
+  "dpi.LogicalPosition": {
+    "summary": "以逻辑像素表示的位置。"
+  },
+  "dpi.LogicalSize": {
+    "summary": "以逻辑像素表示的尺寸。"
+  },
+  "dpi.PhysicalPosition": {
+    "summary": "以物理像素表示的位置。"
+  },
+  "dpi.PhysicalSize": {
+    "summary": "以物理像素表示的尺寸。"
+  },
+  "dpi.Position": {
+    "summary": "上游 dpi.Position 包装——逻辑或物理分辨率。"
+  },
+  "dpi.Size": {
+    "summary": "上游 dpi.Size 包装——逻辑或物理分辨率。"
+  },
+  "dpi.SizeLike": {
+    "summary": "窗口几何方法接受的任意尺寸值。"
+  },
+  "dpi.normalizePosition": {
+    "summary": "把位置型参数对归一化为普通 { x, y }。",
+    "params": {
+      "a": "位置值（数字、dpi 实例或普通对象）。",
+      "b": "与数字 a 配对的 y 值。"
+    }
+  },
+  "dpi.normalizeSize": {
+    "summary": "把尺寸型参数对归一化为普通 { width, height }。",
+    "params": {
+      "a": "尺寸值（数字、dpi 实例或普通对象）。",
+      "b": "与数字 a 配对的 height 值。"
+    }
+  },
+  "event.Event.event": {
+    "summary": "事件名。"
+  },
+  "event.Event.id": {
+    "summary": "用于取消监听的事件标识符。"
+  },
+  "event.Event.payload": {
+    "summary": "事件载荷。"
+  },
+  "event.EventTarget": {
+    "summary": "与 Tauri 兼容的事件目标。"
+  },
+  "event.Options.target": {
+    "summary": "要监听的事件目标，默认 { kind: 'Any' }。"
+  },
+  "event.ZtronEvent": {
+    "summary": "上游事件名常量（ZtronEvent 对齐）。WINDOW_CREATED / WEBVIEW_CREATED 在窗口创建时作为应用级广播触发；SUSPENDED/RESUMED 是移动端生命周期事件（桌面 host 不触发——仅为平台对齐保留名字）。"
+  },
+  "event.emitTo": {
+    "summary": "向匹配指定目标的监听者发出事件。",
+    "params": {
+      "target": "事件目标（EventTarget 或 label 字符串）。",
+      "event": "事件名。",
+      "payload": "事件载荷。"
+    }
+  },
+  "event.once": {
+    "summary": "监听一个事件；首次触发后自动取消监听。"
+  },
+  "image.Image": {
+    "summary": "注册在 host 中的原生图像。用 fromPath/fromBytes（以及 fromRGBA）创建，传给 tray.setIcon / setIcon 使用。"
+  },
+  "image.Image.close": {
+    "summary": "释放 host 中的该图像。"
+  },
+  "image.Image.fromBytes": {
+    "summary": "从原始字节加载图像。"
+  },
+  "image.Image.fromPath": {
+    "summary": "从文件路径加载图像。"
+  },
+  "image.Image.fromRGBA": {
+    "summary": "从 RGBA 像素数据构建图像（上游名称：Image.new）。"
+  },
+  "image.Image.new": {
+    "summary": "Image.fromRGBA 的上游对齐别名。"
+  },
+  "image.Image.rgba": {
+    "summary": "构建该图像所用的原始 RGBA 像素。仅经 fromRGBA/new 创建的图像携带像素；path/PNG 加载的图像在 C 层解码落地前 resolve 为 undefined（GAP.md B11）。"
+  },
+  "image.Image.rid": {
+    "summary": "host 侧图像注册表 id。"
+  },
+  "image.Image.size": {
+    "summary": "像素尺寸（未知时为 null——见 Image.rgba）。"
+  },
+  "image.ImageLike": {
+    "summary": "图标类 API 接受的任意值（路径 / Image / 原始字节 / 无）。"
+  },
+  "image.fromBase64": {
+    "summary": "把 base64 字符串解码为字节（分块处理，面向大载荷）。"
+  },
+  "image.toBase64": {
+    "summary": "把字节转换为 base64 字符串以供传输。"
+  },
+  "image.transformImage": {
+    "summary": "把图标参数归一化为 wire 形状：路径字符串保持为路径，Image 变为其注册表 id，原始字节先注册（host 侧解码）——移植自 @tauri-apps/api 的 transformImage。"
+  },
+  "path.BaseDirectory": {
+    "summary": "上游 BaseDirectory 名称（23 个）——作为 options.baseDir 传给 fs/path 函数；值对本模块中的目录 getter 解析（Tauri 字符串，如 BaseDirectory.AppConfig === \"AppConfig\"）。"
+  },
+  "path.appDataDir": {
+    "summary": "应用专属数据目录。"
+  },
+  "path.path.__type.appDataDir.__type": {
+    "summary": "应用专属数据目录。"
+  },
+  "path.cwd": {
+    "summary": "当前工作目录。"
+  },
+  "path.path.__type.cwd.__type": {
+    "summary": "当前工作目录。"
+  },
+  "path.delimiter": {
+    "summary": "PATH 风格变量的路径列表分隔符：POSIX 为 :，Windows 为 ;。"
+  },
+  "path.homeDir": {
+    "summary": "用户主目录。"
+  },
+  "path.path.__type.homeDir.__type": {
+    "summary": "用户主目录。"
+  },
+  "path.localDataDir": {
+    "summary": "appLocalDataDir 的 Tauri v2 名称（保留为别名——Tauri 自己的 JS API 两者都暴露）。"
+  },
+  "path.path.__type.localDataDir.__type": {
+    "summary": "appLocalDataDir 的 Tauri v2 名称（保留为别名——Tauri 自己的 JS API 两者都暴露）。"
+  },
+  "path.resolveResource": {
+    "summary": "把打包资源路径解析到资源目录下——Tauri v2 的 resolveResource(resourcePath, base?)（原 resolveResource）。绝对路径原样通过。"
+  },
+  "path.path.__type.resolveResource.__type": {
+    "summary": "把打包资源路径解析到资源目录下——Tauri v2 的 resolveResource(resourcePath, base?)（原 resolveResource）。绝对路径原样通过。"
+  },
+  "path.sep": {
+    "summary": "路径片段分隔符：POSIX 为 /，Windows 为 \\。"
+  },
+  "path.tempDir": {
+    "summary": "系统临时目录。"
+  },
+  "path.path.__type.tempDir.__type": {
+    "summary": "系统临时目录。"
+  },
+  "path.path.__type.sep": {
+    "summary": "路径片段分隔符：POSIX 为 /，Windows 为 \\。"
+  },
+  "path.path.__type.delimiter": {
+    "summary": "PATH 风格变量的路径列表分隔符：POSIX 为 :，Windows 为 ;。"
+  },
+  "path.resolveBaseDirectory": {
+    "summary": "把 BaseDirectory 名称解析为绝对路径。"
+  },
+  "process.exit": {
+    "summary": "以可选退出码终止应用。"
+  },
+  "process.process.__type.exit.__type": {
+    "summary": "以可选退出码终止应用。"
+  },
+  "process.relaunch": {
+    "summary": "重启应用。尽力而为：host 以分离方式 respawn 自身后当前进程终止（打包应用中由启动器 respawn 完整的 host + backend 对）。"
+  },
+  "process.process.__type.relaunch.__type": {
+    "summary": "重启应用。尽力而为：host 以分离方式 respawn 自身后当前进程终止（打包应用中由启动器 respawn 完整的 host + backend 对）。"
+  },
+  "cli.getArgv": {
+    "summary": "原始 argv（含可执行文件 argv[0]）。"
+  },
+  "cli.getMatches": {
+    "summary": "解析后的 CLI 匹配结果（旗标到值、收在 `_` 的位置参数、子命令树）。"
+  },
+  "fs.FileHandle": {
+    "summary": "作用域内的文件句柄（对齐上游 FileHandle）：读写推进内部游标；close() 会刷出缓冲写入。"
+  },
+  "fs.FileHandle.close": {
+    "summary": "刷出并释放句柄。"
+  },
+  "fs.FileHandle.constructor": {
+    "summary": "内部构造——请通过 open() 创建。"
+  },
+  "fs.FileHandle.flush": {
+    "summary": "把缓冲写入刷到磁盘。"
+  },
+  "fs.FileHandle.read": {
+    "summary": "从游标处读取至多 length 字节（线上为 base64）。"
+  },
+  "fs.FileHandle.seek": {
+    "summary": "移动游标；whence 取 \"start\"（默认）| \"current\" | \"end\"。"
+  },
+  "fs.FileHandle.write": {
+    "summary": "在游标处写入字节（并推进游标）。"
+  },
+  "fs.FsPathOptions": {
+    "summary": "v1 fs 函数接受的可选尾参。"
+  },
+  "fs.FsPathOptions.baseDir": {
+    "summary": "相对路径先按该基目录解析。"
+  },
+  "fs.MakeDirOptions": {
+    "summary": "makeDir 的选项。"
+  },
+  "fs.MakeDirOptions.recursive": {
+    "summary": "按需创建父目录；目录已存在时不报错。"
+  },
+  "fs.OpenOptions": {
+    "summary": "open 的选项。"
+  },
+  "fs.OpenOptions.append": {
+    "summary": "写入定位到文件末尾（隐含 write）。"
+  },
+  "fs.OpenOptions.baseDir": {
+    "summary": "相对路径的基目录。"
+  },
+  "fs.OpenOptions.create": {
+    "summary": "文件缺失时创建（配合 write/append）。"
+  },
+  "fs.WatchEvent": {
+    "summary": "文件系统 watch 事件（对齐 Tauri 的 watchEvent）。"
+  },
+  "fs.WatchEvent.path": {
+    "summary": "被改动条目的路径（监视目录时相对该目录；监视文件时即该文件本身）。"
+  },
+  "fs.WatchEvent.type": {
+    "summary": "\"modify\"（内容变化）| \"rename\"（创建/删除/移动）。"
+  },
+  "fs.chmod": {
+    "summary": "修改文件权限位（unix mode）。"
+  },
+  "fs.copyFile": {
+    "summary": "复制文件（源与目标都必须在作用域内）。"
+  },
+  "fs.exists": {
+    "summary": "检查路径是否存在（作用域外的路径报 false）。"
+  },
+  "fs.lstat": {
+    "summary": "不跟随符号链接的 stat。"
+  },
+  "fs.open": {
+    "summary": "打开一个作用域内的文件句柄。"
+  },
+  "fs.readLink": {
+    "summary": "读取符号链接的目标。"
+  },
+  "fs.remove": {
+    "summary": "删除文件（或空目录）。"
+  },
+  "fs.renameFile": {
+    "summary": "重命名/移动文件（两个路径都必须在作用域内）。"
+  },
+  "fs.stat": {
+    "summary": "查询文件元信息（大小/类型/最后修改时间）。"
+  },
+  "fs.truncate": {
+    "summary": "把文件截断（或零填充扩展）到 length 字节。"
+  },
+  "fs.watch": {
+    "summary": "监视路径变化。后端 watcher 就绪后 resolve 出取消监视函数；之后事件经 handler 流式送达。路径必须位于应用的 fs 作用域内（与所有 fs API 一致）。"
+  },
+  "fs.fs.__type.copyFile.__type": {
+    "summary": "复制文件（源与目标都必须在作用域内）。"
+  },
+  "fs.fs.__type.exists.__type": {
+    "summary": "检查路径是否存在（作用域外的路径报 false）。"
+  },
+  "fs.fs.__type.readDir.__type": {
+    "summary": "列出一个目录的内容。"
+  },
+  "fs.fs.__type.readFile.__type": {
+    "summary": "读取一个二进制文件；以原始字节（Uint8Array）resolve（原始 IPC 响应——注入的 invoke 已解开后端信封）。"
+  },
+  "fs.fs.__type.readText.__type": {
+    "summary": "读取一个文本文件（按 UTF-8 解码）。"
+  },
+  "fs.fs.__type.remove.__type": {
+    "summary": "删除文件（或空目录）。"
+  },
+  "fs.fs.__type.renameFile.__type": {
+    "summary": "重命名/移动文件（两个路径都必须在作用域内）。"
+  },
+  "fs.fs.__type.stat.__type": {
+    "summary": "查询文件元信息（大小/类型/最后修改时间）。"
+  },
+  "fs.fs.__type.watch.__type": {
+    "summary": "监视路径变化。后端 watcher 就绪后 resolve 出取消监视函数；之后事件经 handler 流式送达。路径必须位于应用的 fs 作用域内（与所有 fs API 一致）。"
+  },
+  "fs.fs.__type.writeFile.__type": {
+    "summary": "从原始字节（或直接传 base64 字符串）写入一个二进制文件。"
+  },
+  "fs.fs.__type.writeText.__type": {
+    "summary": "写入一个文本文件。"
+  },
+  "http.FetchOptions.responseType": {
+    "summary": "\"text\"（默认）| \"json\" | \"binary\"。流式请用 fetchStream()。"
+  },
+  "http.FetchOptions.timeoutMs": {
+    "summary": "N 毫秒后中止请求。"
+  },
+  "http.HttpResponse.binary": {
+    "summary": "responseType 为 \"binary\" 时提供（字节）。"
+  },
+  "http.HttpResponse.json": {
+    "summary": "responseType 为 \"json\" 时提供。"
+  },
+  "http.HttpStreamResponse": {
+    "summary": "流式响应：先到 headers，body chunk 随到达逐个给出。"
+  },
+  "http.HttpStreamResponse.body": {
+    "summary": "以字节流形式提供的响应体（渐进送达）。"
+  },
+  "http.fetchStream": {
+    "summary": "执行作用域内的 HTTP 请求，响应体以流交付：status + headers 一到 promise 即 resolve，body 随每个网络 chunk（Uint8Array）到达逐个产出——应用无需缓冲整个响应；流中途出错会让 body 的读取 reject。"
+  },
+  "http.http.__type.fetch.__type": {
+    "summary": "执行一个受作用域约束的 HTTP 请求；URL 超出作用域时抛出异常。"
+  },
+  "http.http.__type.fetchStream.__type": {
+    "summary": "执行作用域内的 HTTP 请求，响应体以流交付：status + headers 一到 promise 即 resolve，body 随每个网络 chunk（Uint8Array）到达逐个产出——应用无需缓冲整个响应；流中途出错会让 body 的读取 reject。"
+  },
+  "local-ip.getLocalIpv4": {
+    "summary": "主接口的 IPv4 地址（未知/离线时为 null）。"
+  },
+  "local-ip.localIp.__type.getLocalIpv4.__type": {
+    "summary": "主接口的 IPv4 地址（未知/离线时为 null）。"
+  },
+  "localhost.start": {
+    "summary": "启动（或报告）localhost 静态资源源。"
+  },
+  "localhost.status": {
+    "summary": "当前源状态。"
+  },
+  "localhost.stop": {
+    "summary": "停止该源。"
+  },
+  "localhost.localhost.__type.start.__type": {
+    "summary": "启动（或报告）localhost 静态资源源。"
+  },
+  "localhost.localhost.__type.status.__type": {
+    "summary": "当前源状态。"
+  },
+  "localhost.localhost.__type.stop.__type": {
+    "summary": "停止该源。"
+  },
+  "network.getLocalIpv4": {
+    "summary": "主接口的 IPv4（未知/离线时为 null）。"
+  },
+  "network.getLocalIpv6": {
+    "summary": "主接口的 IPv6（未知时为 null）。"
+  },
+  "network.getPublicIp": {
+    "summary": "公网 IPv4（离线/服务不可达时为 null）。"
+  },
+  "network.network.__type.getLocalIpv4.__type": {
+    "summary": "主接口的 IPv4（未知/离线时为 null）。"
+  },
+  "network.network.__type.getLocalIpv6.__type": {
+    "summary": "主接口的 IPv6（未知时为 null）。"
+  },
+  "network.network.__type.getPublicIp.__type": {
+    "summary": "公网 IPv4（离线/服务不可达时为 null）。"
+  },
+  "shell.Command": {
+    "summary": "对齐 Tauri `Command` 类的命令构建器。stdout/stderr 经 `ztron://shell-output` / `ztron://shell-error` 事件流式送达。"
+  },
+  "shell.Command.execute": {
+    "summary": "运行命令并收集全量输出，resolve 为该输出。"
+  },
+  "shell.Command.kill": {
+    "summary": "终止已 spawn 的命令（默认 SIGTERM）。"
+  },
+  "shell.Command.on": {
+    "summary": "注册事件监听器；返回 this 以便链式调用。"
+  },
+  "shell.Command.sidecar": {
+    "summary": "不支持（Ztron 无 sidecar 打包）。"
+  },
+  "shell.Command.spawn": {
+    "summary": "spawn 命令并流式发出输出事件；进程退出时 resolve。"
+  },
+  "shell.Command.spawnInteractive": {
+    "summary": "长驻 spawn：启动后 resolve 出命令 id；输出持续经 on(\"stdout\"/\"stderr\") 流式送达，终止经 on(\"terminated\")（{cid, code}）。配合 write 与 kill 驱动交互式进程。"
+  },
+  "shell.Command.status": {
+    "summary": "运行命令并 resolve 其退出码。"
+  },
+  "shell.Command.write": {
+    "summary": "向已 spawn 命令的标准输入写入（spawnInteractive 返回的 cid）。"
+  },
+  "shell.executeStream": {
+    "summary": "执行命令，stdout 块一到就回调 onChunk（适合长时命令）。resolve 为退出码。"
+  },
+  "shell.open": {
+    "summary": "用默认浏览器打开 http(s) URL（发出后不等待）。"
+  },
+  "shell.shell.__type.executeStream.__type": {
+    "summary": "执行命令，stdout 块一到就回调 onChunk（适合长时命令）。resolve 为退出码。"
+  },
+  "shell.shell.__type.open.__type": {
+    "summary": "用默认浏览器打开 http(s) URL（发出后不等待）。"
+  },
+  "upload.upload": {
+    "summary": "把文件内容上传到作用域内的 URL（原始 POST）。"
+  },
+  "upload.uploader.__type.upload.__type": {
+    "summary": "把文件内容上传到作用域内的 URL（原始 POST）。"
+  },
+  "websocket.connect": {
+    "summary": "打开 WebSocket 连接；resolve 出连接 id。"
+  },
+  "websocket.disconnect": {
+    "summary": "关闭连接。"
+  },
+  "websocket.onMessage": {
+    "summary": "监听到达的消息：handler({ id, message })。"
+  },
+  "websocket.onStatus": {
+    "summary": "监听连接状态变化：handler({ id, state })。"
+  },
+  "websocket.sendMessage": {
+    "summary": "在连接上发送文本消息。"
+  },
+  "websocket.websocket.__type.connect.__type": {
+    "summary": "打开 WebSocket 连接；resolve 出连接 id。"
+  },
+  "websocket.websocket.__type.disconnect.__type": {
+    "summary": "关闭连接。"
+  },
+  "websocket.websocket.__type.onMessage.__type": {
+    "summary": "监听到达的消息：handler({ id, message })。"
+  },
+  "websocket.websocket.__type.onStatus.__type": {
+    "summary": "监听连接状态变化：handler({ id, state })。"
+  },
+  "websocket.websocket.__type.sendMessage.__type": {
+    "summary": "在连接上发送文本消息。"
+  },
+  "clipboard.clear": {
+    "summary": "清空剪贴板的全部内容（文本、图像、文件）。"
+  },
+  "clipboard.clipboard.__type.clear.__type": {
+    "summary": "清空剪贴板的全部内容（文本、图像、文件）。"
+  },
+  "clipboard.clipboard.__type.readImage.__type": {
+    "summary": "从剪贴板读取图像，得到 PNG 字节（剪贴板没有图像时为 null）。"
+  },
+  "clipboard.clipboard.__type.writeImage.__type": {
+    "summary": "把图像写入剪贴板。接受原始 PNG 字节或已注册的 Image（宿主侧重编码）。"
+  },
+  "clipboard.readHtml": {
+    "summary": "读取剪贴板的 HTML flavor（不存在时为 null）。"
+  },
+  "clipboard.readImage": {
+    "summary": "从剪贴板读取图像，得到 PNG 字节（剪贴板没有图像时为 null）。Ztron 分歧：Tauri v2 返回 Image；这里直接返回原始 PNG 字节——需要注册图像时用 Image.fromBytes 包一层。"
+  },
+  "clipboard.writeHtml": {
+    "summary": "把 HTML 写入剪贴板（带纯文本回退）。"
+  },
+  "clipboard.writeImage": {
+    "summary": "把图像写入剪贴板。接受原始 PNG 字节（Uint8Array / number[] / ArrayBuffer）或已注册的 Image（宿主侧重编码）。"
+  },
+  "dialog.MessageDialogOptions.kind": {
+    "summary": "提示严重度：\"info\"（默认）| \"warning\" | \"error\"。"
+  },
+  "dialog.MessageDialogOptionsFull.kind": {
+    "summary": "提示严重度：\"info\"（默认）| \"warning\" | \"error\"。"
+  },
+  "dialog.OpenDialogOptions.filters": {
+    "summary": "允许的扩展名，如 [\"png\",\"jpg\"]。"
+  },
+  "dialog.OpenDialogOptions.maxFiles": {
+    "summary": "最大可选文件数（>1 启用多选；结果变为数组）。"
+  },
+  "dialog.ask": {
+    "summary": "弹出 OK/Cancel 询问对话框；确认时 resolve true。"
+  },
+  "dialog.confirm": {
+    "summary": "弹出 OK/Cancel 确认对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.ask.__type": {
+    "summary": "弹出 OK/Cancel 询问对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.confirm.__type": {
+    "summary": "弹出 OK/Cancel 确认对话框；确认时 resolve true。"
+  },
+  "dialog.dialog.__type.message.__type": {
+    "summary": "弹出原生消息/警告对话框；返回被点击按钮的索引。"
+  },
+  "dialog.dialog.__type.open.__type": {
+    "summary": "弹出原生打开文件（或目录）对话框；取消时为 null。"
+  },
+  "dialog.dialog.__type.save.__type": {
+    "summary": "弹出原生保存对话框；取消时为 null。"
+  },
+  "dialog.message": {
+    "summary": "弹出原生消息/警告对话框；返回被点击按钮的索引。"
+  },
+  "dialog.open": {
+    "summary": "弹出原生打开文件（或目录）对话框；取消时为 null。"
+  },
+  "dialog.save": {
+    "summary": "弹出原生保存对话框；取消时为 null。"
+  },
+  "global-shortcut.globalShortcut.__type.isRegistered.__type": {
+    "summary": "是否已有此 id 的快捷键处于注册状态。"
+  },
+  "global-shortcut.globalShortcut.__type.onShortcut.__type": {
+    "summary": "监听全局快捷键触发。"
+  },
+  "global-shortcut.globalShortcut.__type.register.__type": {
+    "summary": "注册一个全局热键。"
+  },
+  "global-shortcut.globalShortcut.__type.registerAll.__type": {
+    "summary": "一次调用批量注册热键（上游 registerAll）。按顺序返回每条的成功标志。"
+  },
+  "global-shortcut.globalShortcut.__type.unregister.__type": {
+    "summary": "按 id 注销之前注册的热键。"
+  },
+  "global-shortcut.globalShortcut.__type.unregisterAll.__type": {
+    "summary": "注销本进程注册的全部热键（上游同名）。"
+  },
+  "global-shortcut.isRegistered": {
+    "summary": "是否已有此 id 的快捷键处于注册状态。"
+  },
+  "global-shortcut.onShortcut": {
+    "summary": "监听全局快捷键触发。handler 收到 registerShortcut 注册时用的快捷键 id。"
+  },
+  "global-shortcut.registerAll": {
+    "summary": "一次调用批量注册热键（上游 registerAll）。按顺序返回每条的成功标志。"
+  },
+  "global-shortcut.registerShortcut": {
+    "summary": "注册一个全局热键。accelerator 形如 Cmd+Shift+K、Ctrl+Alt+1、F5 等。返回 OS 是否接受了这次注册。"
+  },
+  "global-shortcut.unregisterAll": {
+    "summary": "注销本进程注册的全部热键（上游同名）。"
+  },
+  "global-shortcut.unregisterShortcut": {
+    "summary": "按 id 注销之前注册的热键。"
+  },
+  "menu.AboutMetadata": {
+    "summary": "标准关于面板条目的元数据（上游 AboutMetadata）。"
+  },
+  "menu.CheckMenuItem": {
+    "summary": "勾选/切换条目（上游 CheckMenuItem）。"
+  },
+  "menu.IconMenuItem": {
+    "summary": "带系统内置图标的条目（上游 IconMenuItem）。"
+  },
+  "menu.IconMenuItemOptions": {
+    "summary": "携带内置图标的条目选项（上游 IconMenuItemOptions）。"
+  },
+  "menu.IconMenuItemOptions.icon": {
+    "summary": "一个 NativeIcon 种类（file/image-id 来源后续落地）。"
+  },
+  "menu.Menu.append": {
+    "summary": "运行期追加一个条目（或在 at 处插入）。"
+  },
+  "menu.Menu.default": {
+    "summary": "构建并注册标准的平台应用菜单，挂在自动生成的根 id 下（上游 Menu.default()）。"
+  },
+  "menu.Menu.getItemInfo": {
+    "summary": "读取条目的 live 状态（id 未知时为 null）。"
+  },
+  "menu.Menu.new": {
+    "summary": "上游风格构造：一步完成创建并注册。"
+  },
+  "menu.Menu.popup": {
+    "summary": "在窗口坐标处把该菜单弹出为上下文菜单——从 contextmenu DOM 事件里调用（先 e.preventDefault() 再 popup(e.x, e.y)）。省略坐标则用当前光标位置。"
+  },
+  "menu.Menu.remove": {
+    "summary": "按 id 移除运行期条目。"
+  },
+  "menu.Menu.removeAt": {
+    "summary": "按结构索引移除运行期条目（上游 removeAt）。"
+  },
+  "menu.Menu.setAsHelpMenuForNSApp": {
+    "summary": "把该子菜单标记为应用的帮助菜单。"
+  },
+  "menu.Menu.setAsWindowMenu": {
+    "summary": "把该菜单挂为某个窗口自己的菜单栏。"
+  },
+  "menu.Menu.setAsWindowsMenuForNSApp": {
+    "summary": "把 Window 角色子菜单路由给 NSApp（Windows 菜单行为）。"
+  },
+  "menu.Menu.setItemAccelerator": {
+    "summary": "设置条目上显示的快捷键（\"CmdOrCtrl+K\"）。"
+  },
+  "menu.Menu.setItemChecked": {
+    "summary": "设置 check/radio 条目的状态标记。"
+  },
+  "menu.Menu.setItemIcon": {
+    "summary": "给既有条目设置系统内置图标（IconMenuItem.setIcon）。"
+  },
+  "menu.Menu.snapshot": {
+    "summary": "每个直接子条目的结构化 live 快照（上游 items()；因本类已携带 v1 的配置树 items 字段而更名）。"
+  },
+  "menu.MenuItem": {
+    "summary": "普通可点击条目（上游 MenuItem）。"
+  },
+  "menu.MenuItemBase": {
+    "summary": "上游风格条目句柄（A2 tail）：每个包装一个 (menuId, itemId) 对，在既有命令协议之上提供 @tauri-apps/api/menu 的逐条目方法面。"
+  },
+  "menu.MenuItemLive": {
+    "summary": "Menu.items 提供的实时子条目快照（上游 items()）。"
+  },
+  "menu.MenuItemOptions.accelerator": {
+    "summary": "条目快捷键（\"CmdOrCtrl+Shift+K\"；显示在条目上，宿主侧解析）。"
+  },
+  "menu.MenuItemOptions.checked": {
+    "summary": "check/radio 条目的初始勾选状态。"
+  },
+  "menu.MenuItemOptions.children": {
+    "summary": "嵌套的子菜单条目。"
+  },
+  "menu.MenuItemOptions.icon": {
+    "summary": "系统内置图标种类（NativeIcon 值或显式图像名）。"
+  },
+  "menu.MenuItemOptions.predefined": {
+    "summary": "预定义系统行为（\"copy\"/\"paste\"/\"quit\"/\"about\"/…）。"
+  },
+  "menu.MenuItemOptions.type": {
+    "summary": "条目种类：normal / check / radio。"
+  },
+  "menu.NativeIcon": {
+    "summary": "系统内置图标（Tauri NativeIcon 对位）——宿主侧解析为 AppKit 模板图像；未映射的名字降级为无图标条目。"
+  },
+  "menu.PredefinedMenuItem": {
+    "summary": "预定义系统行为（上游 PredefinedMenuItem）。"
+  },
+  "menu.RadioMenuItem": {
+    "summary": "单选组条目（上游 RadioMenuItem；宿主维护状态标记）。"
+  },
+  "menu.Submenu": {
+    "summary": "运行期子菜单（上游 Submenu）：注册一个子菜单并挂为 parent 的子菜单条目。"
+  },
+  "menu.Submenu.append": {
+    "summary": "运行期追加一个条目（或在 at 处插入）。"
+  },
+  "menu.Submenu.default": {
+    "summary": "构建并注册标准的平台应用菜单，挂在自动生成的根 id 下（上游 Menu.default()）。"
+  },
+  "menu.Submenu.getItemInfo": {
+    "summary": "读取条目的 live 状态（id 未知时为 null）。"
+  },
+  "menu.Submenu.new": {
+    "summary": "上游风格构造：一步完成创建并注册。"
+  },
+  "menu.Submenu.popup": {
+    "summary": "在窗口坐标处把该菜单弹出为上下文菜单——从 contextmenu DOM 事件里调用（先 e.preventDefault() 再 popup(e.x, e.y)）。省略坐标则用当前光标位置。"
+  },
+  "menu.Submenu.remove": {
+    "summary": "按 id 移除运行期条目。"
+  },
+  "menu.Submenu.removeAt": {
+    "summary": "按结构索引移除运行期条目（上游 removeAt）。"
+  },
+  "menu.Submenu.setAsHelpMenuForNSApp": {
+    "summary": "把该子菜单标记为应用的帮助菜单。"
+  },
+  "menu.Submenu.setAsWindowMenu": {
+    "summary": "把该菜单挂为某个窗口自己的菜单栏。"
+  },
+  "menu.Submenu.setAsWindowsMenuForNSApp": {
+    "summary": "把 Window 角色子菜单路由给 NSApp（Windows 菜单行为）。"
+  },
+  "menu.Submenu.setItemAccelerator": {
+    "summary": "设置条目上显示的快捷键（\"CmdOrCtrl+K\"）。"
+  },
+  "menu.Submenu.setItemChecked": {
+    "summary": "设置 check/radio 条目的状态标记。"
+  },
+  "menu.Submenu.setItemIcon": {
+    "summary": "给既有条目设置系统内置图标（IconMenuItem.setIcon）。"
+  },
+  "menu.Submenu.snapshot": {
+    "summary": "每个直接子条目的结构化 live 快照（上游 items()；因本类已携带 v1 的配置树 items 字段而更名）。"
+  },
+  "menu.onMenuEvent": {
+    "summary": "监听菜单条目点击。"
+  },
+  "menu.setAppMenu": {
+    "summary": "创建一个菜单并安装为应用菜单栏。"
+  },
+  "notification.isPermissionGranted": {
+    "summary": "OS 是否已授权本应用发送通知。"
+  },
+  "notification.notification.__type.isPermissionGranted.__type": {
+    "summary": "OS 是否已授权本应用发送通知。"
+  },
+  "notification.notification.__type.requestPermission.__type": {
+    "summary": "向用户请求通知授权（resolve 授权结果）。"
+  },
+  "notification.notification.__type.send.__type": {
+    "summary": "发送原生通知（title + 可选 body）。"
+  },
+  "notification.requestPermission": {
+    "summary": "向用户请求通知授权（resolve 授权结果）。"
+  },
+  "notification.sendNotification": {
+    "summary": "发送原生通知（title + 可选 body）。"
+  },
+  "persisted-scope.getPersistedScope": {
+    "summary": "合并后的文件系统允许列表（基线 + 持久化条目）。"
+  },
+  "persisted-scope.persistedScope.__type.get.__type": {
+    "summary": "合并后的文件系统允许列表（基线 + 持久化条目）。"
+  },
+  "persisted-scope.persistedScope.__type.save.__type": {
+    "summary": "把合并后的允许列表写入持久化文件。"
+  },
+  "persisted-scope.savePersistedScope": {
+    "summary": "把合并后的允许列表写入持久化文件。"
+  },
+  "positioner.getFrame": {
+    "summary": "当前窗口的完整 frame（位置 + 大小）。"
+  },
+  "positioner.getPosition": {
+    "summary": "当前窗口的原点（frame 左上角）。"
+  },
+  "positioner.getSize": {
+    "summary": "当前窗口的内部大小（width × height）。"
+  },
+  "positioner.positioner.__type.getFrame.__type": {
+    "summary": "当前窗口的完整 frame（位置 + 大小）。"
+  },
+  "positioner.positioner.__type.getPosition.__type": {
+    "summary": "当前窗口的原点（frame 左上角）。"
+  },
+  "positioner.positioner.__type.getSize.__type": {
+    "summary": "当前窗口的内部大小（width × height）。"
+  },
+  "positioner.positioner.__type.setPosition.__type": {
+    "summary": "移动当前窗口，使其左上角位于 (x, y)。"
+  },
+  "positioner.setPosition": {
+    "summary": "移动当前窗口，使其左上角位于 (x, y)。"
+  },
+  "tray.TrayIcon": {
+    "summary": "类风格的托盘 API——@tauri-apps/api/tray TrayIcon 的移植。G5/B9：宿主保留至多 MAX_TRAYS 个 NSStatusItem；无 id 的方法作用于旧默认实例，带 id 的方法寻址其他实例。"
+  },
+  "tray.TrayIcon.create": {
+    "summary": "创建原生托盘项（title/tooltip 可选；id 用于额外实例）。"
+  },
+  "tray.TrayIcon.destroy": {
+    "summary": "移除托盘项。"
+  },
+  "tray.TrayIcon.getById": {
+    "summary": "此 id 的托盘实例是否存在（上游 TrayIcon.getById）。"
+  },
+  "tray.TrayIcon.onClick": {
+    "summary": "监听点击（仅在未挂菜单时）。"
+  },
+  "tray.TrayIcon.onDetailedClick": {
+    "summary": "富点击流（G5/B9）：宿主能提供时 handler 收到归属信息——button/clickCount/double/屏幕坐标；旧版 onClick 保持零参形状。"
+  },
+  "tray.TrayIcon.removeById": {
+    "summary": "按 id 移除实例（上游 TrayIcon.removeById）。"
+  },
+  "tray.TrayIcon.setIconAsTemplate": {
+    "summary": "把当前图标标记为模板图像——macOS 在亮/暗菜单栏中自适应渲染（单色 alpha 图）。"
+  },
+  "tray.TrayIcon.setMenu": {
+    "summary": "挂接已注册的菜单（macOS 上左键弹出）。"
+  },
+  "tray.TrayIcon.setShowMenuOnLeftClick": {
+    "summary": "切换实例的左键弹菜单行为（默认 = 旧实例）。"
+  },
+  "tray.TrayIcon.setVisible": {
+    "summary": "显示/隐藏托盘项。"
+  },
+  "tray.createTray": {
+    "summary": "创建带文本标题的系统托盘项。"
+  },
+  "tray.getTrayById": {
+    "summary": "此 id 的托盘实例是否存在。"
+  },
+  "tray.onTrayClick": {
+    "summary": "监听托盘点击。"
+  },
+  "tray.removeTrayById": {
+    "summary": "按 id 移除额外的托盘实例。"
+  },
+  "tray.setShowMenuOnLeftClick": {
+    "summary": "切换左键弹菜单行为（默认 = 旧实例）。"
+  },
+  "tray.setTrayIcon": {
+    "summary": "从文件路径、已注册 Image 或原始字节设置托盘图标（transformImage 归一化参数）。"
+  },
+  "tray.setTrayMenu": {
+    "summary": "把已注册的菜单挂到托盘（macOS 上左键弹出，遵循 NSStatusItem 惯例——Quit/Preferences 的标准位置）。"
+  },
+  "tray.tray.__type.create.__type": {
+    "summary": "创建带文本标题的系统托盘项。"
+  },
+  "tray.tray.__type.onClick.__type": {
+    "summary": "监听托盘点击。"
+  },
+  "tray.tray.__type.setIcon.__type": {
+    "summary": "从文件路径、已注册 Image 或原始字节设置托盘图标（transformImage 归一化参数）。"
+  },
+  "tray.tray.__type.setMenu.__type": {
+    "summary": "把已注册的菜单挂到托盘（macOS 上左键弹出，遵循 NSStatusItem 惯例——Quit/Preferences 的标准位置）。"
+  },
+  "updater.SignatureVerifyResult": {
+    "summary": "镜像后端 minisign 校验门的结果形状（保持 wire 对齐）。"
+  },
+  "updater.UpdateCheck.signature": {
+    "summary": "产物之上的 minisign 签名文本（已发布时存在）。"
+  },
+  "updater.downloadAndInstall": {
+    "summary": "流式下载+安装（Tauri downloadAndInstall 对位）：下载期间经 Channel 推送 Started → Progress×N → Finished，随后先执行 sha256 与（配置了 pubkey 时的）minisign 校验再重启。"
+  },
+  "updater.install": {
+    "summary": "一次性应用更新（保留向后兼容）：check → download → 双重完整性门 → 重启。ok: false = 清单没有更新版本。"
+  },
+  "updater.updater.__type.downloadAndInstall.__type": {
+    "summary": "流式下载+安装（Tauri downloadAndInstall 对位）：下载期间经 Channel 推送 Started → Progress×N → Finished，随后先执行 sha256 与（配置了 pubkey 时的）minisign 校验再重启。"
+  },
+  "updater.updater.__type.install.__type": {
+    "summary": "一次性应用更新（保留向后兼容）：check → download → 双重完整性门 → 重启。ok: false = 清单没有更新版本。"
+  },
+  "updater.updater.__type.verifySignature.__type": {
+    "summary": "在 inline 数据上校验 minisign 签名（不落盘）——把更新器的签名门暴露给工具链和测试。"
+  },
+  "updater.verifySignature": {
+    "summary": "在 inline 数据上校验 minisign 签名（不落盘）——把更新器的签名门暴露给工具链和测试。"
+  },
+  "window-state.WindowStateOptions.file": {
+    "summary": "状态 JSON 文件的绝对路径。"
+  },
+  "window-state.getWindowState": {
+    "summary": "读取持久化的窗口几何（没有保存时为 null）。"
+  },
+  "window-state.restoreWindowState": {
+    "summary": "恢复持久化的窗口几何（没有保存时不作为）。"
+  },
+  "window-state.saveWindowState": {
+    "summary": "持久化当前窗口几何并返回所保存的内容。"
+  },
+  "window-state.windowState.__type.get.__type": {
+    "summary": "读取持久化的窗口几何（没有保存时为 null）。"
+  },
+  "window-state.windowState.__type.restore.__type": {
+    "summary": "恢复持久化的窗口几何（没有保存时不作为）。"
+  },
+  "window-state.windowState.__type.save.__type": {
+    "summary": "持久化当前窗口几何并返回所保存的内容。"
+  },
+  "store.Store": {
+    "summary": "资源风格的 store 实例（上游 Store 对齐）：显式生命周期、实例级 autoSave 与变更监听；旧版函数面继续作用于同一批文件。"
+  },
+  "store.Store.load": {
+    "summary": "装载/附着 store 文件（autoSave 缺省为上游的 true）。"
+  },
+  "store.Store.onChange": {
+    "summary": "订阅 set/delete/reset 变更；返回取消监听函数。"
+  },
+  "store.Store.reset": {
+    "summary": "清空 store（按 autoSave 持久化；推送 reset 事件）。"
+  },
+  "store.Store.save": {
+    "summary": "无视 autoSave 立即持久化。"
+  },
+  "store.Store.saveTo": {
+    "summary": "把本 store 的 JSON 持久化到另一个路径。"
+  },
+  "store.Store.close": {
+    "summary": "冲刷（autoSave）并卸载实例。"
+  },
+  "store.StoreChangeEvent": {
+    "summary": "经 onChange 通道推送的变更记录（G9/D2）。"
+  },
+  "log.AttachConsoleOptions.logger": {
+    "summary": "每条记录的自定义 sink（缺省 console.log）。"
+  },
+  "log.LogSink": {
+    "summary": "客户端日志 sink（上游 attachLogger 形态）：接收级别与消息。"
+  },
+  "log.attachConsole": {
+    "summary": "镜像 @tauri-apps/plugin-log 的 attachConsole：经 addPluginListener('log','log',…) 契约订阅后端在 webview 目标下推送的每条记录。返回取消监听函数。"
+  },
+  "log.attachLogger": {
+    "summary": "注册客户端日志 sink，接收本页面发起的每一次 log* 调用（对齐上游 attachLogger 的 webview 目标；后端目标保留各自的 sink）。返回移除函数。"
+  },
+  "log.detachLogger": {
+    "summary": "移除之前注册的 sink。"
+  },
+  "sql.Database.load": {
+    "summary": "打开（或创建）数据库文件；返回一个池化连接。"
+  },
+  "sql.Database.execute": {
+    "summary": "执行 INSERT/UPDATE/DELETE（或任何非 SELECT）语句。"
+  },
+  "sql.Database.select": {
+    "summary": "执行 SELECT 并返回行。"
+  },
+  "stronghold.Stronghold": {
+    "summary": "每保险库句柄（上游 Stronghold 对象精神）：绑定路径，密码在会话期随实例保存。"
+  },
+  "stronghold.Stronghold.close": {
+    "summary": "脏则冲刷，并忘记密码。"
+  },
+  "stronghold.Stronghold.reload": {
+    "summary": "丢弃未保存状态并从磁盘重新打开。"
+  },
+  "internals.CallbackHandle": {
+    "summary": "回调句柄（`transformCallback` 返回的形态，携带数字 id）。"
+  },
+  "internals.Internals": {
+    "summary": "`@zturnlibs/ztron-inject` 必须暴露在 window 全局上的完整契约。"
+  },
+  "internals.Internals.invoke": {
+    "summary": "向后端发送消息并以响应 resolve。"
+  },
+  "internals.Internals.transformCallback": {
+    "summary": "注册一个 JS 回调并把它的标识符返回给后端。"
+  },
+  "internals.Internals.unregisterCallback": {
+    "summary": "按标识符移除之前注册的回调。"
+  },
+  "internals.Internals.runCallback": {
+    "summary": "调用一个已注册的回调（由后端经 eval 触发）。"
+  },
+  "internals.Internals.convertFileSrc": {
+    "summary": "把文件路径转换为 WebView 可加载的 URL。"
+  },
+  "internals.Internals.postMessage": {
+    "summary": "向后端发送一条原始 IPC 消息。"
+  },
+  "internals.Internals.metadata": {
+    "summary": "由后端注入的窗口元数据。"
+  },
+  "internals.InvokeArgs": {
+    "summary": "`Internals.invoke` 接受的命令参数形态。"
+  },
+  "internals.InvokeOptions": {
+    "summary": "转发给后端的 invoke 选项。"
+  },
+  "internals.internals": {
+    "summary": "带友好报错的访问器：不在 Ztron WebView 中运行时抛出异常。"
+  },
+  "mocks.mockIPC": {
+    "summary": "把页面的 invoke 传输换成内存处理器，让前端逻辑无需后端即可单测。"
+  },
+  "mocks.mockWindows": {
+    "summary": "注入窗口元数据（currentWindow/currentWebview 的 label 等）——`Window.getCurrent()` / `Webview.getCurrent()` 读取的形态。"
+  },
+  "mocks.mockConvertFileSrc": {
+    "summary": "覆盖 convertFileSrc，用于资源 URL 断言。"
+  },
+  "mocks.clearMocks": {
+    "summary": "恢复上述 mock 安装的真实传输/元数据。"
+  },
+  "opener.openUrl": {
+    "summary": "用默认（或指定）应用打开 URL。"
+  },
+  "opener.openPath": {
+    "summary": "用默认（或指定）应用打开路径（文件/目录）。"
+  },
+  "opener.revealItemInDir": {
+    "summary": "在文件管理器中显示该路径并选中条目。"
+  },
+  "os.locale": {
+    "summary": "系统 locale 标签（如 \"en-US\"），未知时为 null。"
+  },
+  "os.type": {
+    "summary": "操作系统类型（如 \"Darwin\"、\"Windows_NT\"、\"Linux\"）。"
+  },
+  "os.family": {
+    "summary": "操作系统家族（如 \"macos\"、\"windows\"、\"linux\"）。"
+  },
+  "os.eol": {
+    "summary": "换行序列（\"\\n\" 或 \"\\r\\n\"）。"
+  },
+  "os.os.__type.locale.__type": {
+    "summary": "系统 locale 标签（如 \"en-US\"），未知时为 null。"
+  },
+  "os.os.__type.type.__type": {
+    "summary": "操作系统类型（如 \"Darwin\"、\"Windows_NT\"、\"Linux\"）。"
+  },
+  "os.os.__type.family.__type": {
+    "summary": "操作系统家族（如 \"macos\"、\"windows\"、\"linux\"）。"
+  },
+  "os.os.__type.eol.__type": {
+    "summary": "换行序列（\"\\n\" 或 \"\\r\\n\"）。"
+  },
+  "single-instance.isPrimaryInstance": {
+    "summary": "本进程是否为主（最先启动的）实例。"
+  },
+  "single-instance.onSecondInstance": {
+    "summary": "监听第二个实例试图启动；handler 在主实例上运行，收到副实例的 argv/cwd（argv 目前恒为空数组）。"
+  },
+  "single-instance.singleInstance.__type.isPrimary.__type": {
+    "summary": "本进程是否为主（最先启动的）实例。"
+  },
+  "single-instance.singleInstance.__type.onSecondInstance.__type": {
+    "summary": "监听第二个实例试图启动；handler 在主实例上运行，收到副实例的 argv/cwd（argv 目前恒为空数组）。"
+  },
+  "deep-link.getCurrentUrl": {
+    "summary": "最近一次的深链 URL（应用正常启动时为 null）。"
+  },
+  "deep-link.onDeepLink": {
+    "summary": "订阅应用运行期间打开的深链 URL；handler 收到完整的 `ztron://…` URL。"
+  },
+  "deep-link.deepLink.__type.getCurrentUrl.__type": {
+    "summary": "最近一次的深链 URL（应用正常启动时为 null）。"
+  },
+  "deep-link.deepLink.__type.onDeepLink.__type": {
+    "summary": "订阅应用运行期间打开的深链 URL；handler 收到完整的 `ztron://…` URL。"
+  }
+}
