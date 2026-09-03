@@ -57,11 +57,11 @@ index 0000000..24e8bc6
 +  capabilities, owning native-side resources such as windows, tray, menus, and
 +  dialogs.
 +- **tjs backend (txiki.js process)**: an async JS backend hosting
-+  `@zturnlibs/core`'s IPC, events, commands, ACL capability layer, plugins, and
++  `@zturnlibs/ztron-core`'s IPC, events, commands, ACL capability layer, plugins, and
 +  the updater.
 +
 +The frontend is a plain Vite page that calls capabilities like
-+`invoke/listen/Channel/fs/http/os/store/log/shell` via `@zturnlibs/api`; at
++`invoke/listen/Channel/fs/http/os/store/log/shell` via `@zturnlibs/ztron-api`; at
 +packaging time the backend is compiled into a standalone executable with
 +`tjs compile`, and `ztron build` then produces a macOS `.app` (signed).
 +
@@ -69,11 +69,11 @@ index 0000000..24e8bc6
 +
 +| Package | Responsibility |
 +| --- | --- |
-+| `@zturnlibs/api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
-+| `@zturnlibs/core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
-+| `@zturnlibs/runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
-+| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
-+| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
++| `@zturnlibs/ztron-api` | Frontend API (translated from `@tauri-apps/api`) + fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog wrappers |
++| `@zturnlibs/ztron-core` | Main-process core: IPC, events, Channel, commands, plugins, ACL capability layer, PathScope, 25 plugins, MockRuntime test facility |
++| `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket adapter (Plan A) + FFI reference bindings |
++| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` bootstrap (embedded into page HTML) |
++| `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`; vite build + `ztron-host` + tjs backend |
 +
 +## How the Processes Cooperate
 +
@@ -195,7 +195,7 @@ index 0000000..e4eaed1
 +frontend can listen to any named event emitted by the backend, and can also
 +send targeted to the frontend/other windows. The listener registry lives in
 +the backend's `EventManager`; the API is provided by the `event` module of
-+`@zturnlibs/api`.
++`@zturnlibs/ztron-api`.
 +
 +## listen / once / emit / emitTo
 +
@@ -214,7 +214,7 @@ index 0000000..e4eaed1
 +Typical usage:
 +
 +```ts
-+import { listen, once, emit, emitTo } from "@zturnlibs/api";
++import { listen, once, emit, emitTo } from "@zturnlibs/ztron-api";
 +
 +// Listen (options.target can specify a window label, default { kind: "Any" })
 +const unlisten = await listen<{ n: number }>("m3:tick", (e) => {
@@ -298,7 +298,7 @@ index 0000000..88a7184
 +
 +```ts
 +// src/commands.ts —— typed commands (recognized by ztron codegen)
-+import { defineCommand } from "@zturnlibs/core";
++import { defineCommand } from "@zturnlibs/ztron-core";
 +
 +export const greet = defineCommand("my:greet", {
 +  args: {} as { name: string },
@@ -324,7 +324,7 @@ index 0000000..88a7184
 +
 +```ts
 +// frontend/src/main.ts —— frontend call
-+import { invoke } from "@zturnlibs/api";
++import { invoke } from "@zturnlibs/ztron-api";
 +const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
 +```
 +
@@ -456,7 +456,7 @@ index 0000000..8482f3c
 +title: Migrating from Tauri
 +---
 +
-+Ztron's API surface is deliberately aligned with Tauri v2 (`@zturnlibs/api`
++Ztron's API surface is deliberately aligned with Tauri v2 (`@zturnlibs/ztron-api`
 +is translated from `@tauri-apps/api`), so the migration cost is mostly the
 +backend language: Rust replaced by TypeScript. The repo's `DESIGN.md` §9
 +gives the Rust → TS module mapping (copied verbatim):
@@ -489,7 +489,7 @@ index 0000000..8482f3c
 +
 +## Frontend Migration
 +
-+Usually just change the import: `@tauri-apps/api` → `@zturnlibs/api`. The
++Usually just change the import: `@tauri-apps/api` → `@zturnlibs/ztron-api`. The
 +signatures of `invoke`, `listen`, `emit`, etc. are unchanged, and the event
 +constants `TauriEvent` keep their names.
 +
@@ -562,7 +562,7 @@ index 0000000..bba1cbc
 +
 +## Runtime: WebviewWindow
 +
-+`@zturnlibs/api` provides the `WebviewWindow` class for creating and
++`@zturnlibs/ztron-api` provides the `WebviewWindow` class for creating and
 +destroying windows while the app runs (the multiwin example uses it for a
 +10x create/destroy stress test). Runtime-created windows likewise enter the
 +host's webview registry, with label routing, per-window events, and registry
@@ -689,7 +689,7 @@ index 0000000..a0efebb
 +produces a macOS `.app` (ad-hoc signed; `.dmg` also supported).
 +
 +```bash
-+pnpm --filter @ztron/example-hello build
++pnpm --filter @zturnlibs/ztron-example-hello build
 +```
 +
 +## ztron codegen
@@ -779,13 +779,13 @@ index 0000000..8de5496
 +
 +| Name | Package | Demonstrates | Run command |
 +| --- | --- | --- | --- |
-+| hello | `@ztron/example-hello` | a full drill of invoke/events/Channel/fs/path and other APIs (86 checks) | `pnpm --filter @ztron/example-hello dev` |
-+| multiwin | `@ztron/example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @ztron/example-multiwin dev` |
-+| menuprobe | `@ztron/example-menuprobe` | menu capability probing | `pnpm --filter @ztron/example-menuprobe dev` |
++| hello | `@zturnlibs/ztron-example-hello` | a full drill of invoke/events/Channel/fs/path and other APIs (86 checks) | `pnpm --filter @zturnlibs/ztron-example-hello dev` |
++| multiwin | `@zturnlibs/ztron-example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
++| menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 +
 +## hello
 +
-+A full drill of `@zturnlibs/api` — invoke, events, Channel streams, fs/path/http/os, and other APIs — with 86 built-in deterministic checks; combined with `ztron check` it serves as the regression baseline for the whole framework (`FULL_OK`, exit 0). Its `ztron.conf.json` also demonstrates declarative multi-window (`windows[]`, with both window sources: the `url: "frontend"` placeholder and inline `html`). Source: `examples/hello/` (config `ztron.conf.json`, main process `src/main.ts`, commands `src/commands.ts`, frontend `frontend/src/main.ts`).
++A full drill of `@zturnlibs/ztron-api` — invoke, events, Channel streams, fs/path/http/os, and other APIs — with 86 built-in deterministic checks; combined with `ztron check` it serves as the regression baseline for the whole framework (`FULL_OK`, exit 0). Its `ztron.conf.json` also demonstrates declarative multi-window (`windows[]`, with both window sources: the `url: "frontend"` placeholder and inline `html`). Source: `examples/hello/` (config `ztron.conf.json`, main process `src/main.ts`, commands `src/commands.ts`, frontend `frontend/src/main.ts`).
 +
 +## multiwin
 +
@@ -845,7 +845,7 @@ index 0000000..fa89f56
 +
 +# Important Limitation: Monorepo-Only for Now
 +
-+The `@ztron/*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
++The `@zturnlibs/ztron-*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
 +
 +适用版本：`ztron 0.1.0`
 diff --git a/docs/en/start/intro.md b/docs/en/start/intro.md
@@ -867,10 +867,10 @@ index 0000000..d083024
 +```
 +┌────────────────────────┐  TCP/JSON   ┌──────────────────────────────────┐
 +│ ztron-host (native C)   │◄───────────►│ tjs backend (txiki.js, async)    │
-+│ system WebView + GUI    │             │ @zturnlibs/core: IPC/events/commands │
++│ system WebView + GUI    │             │ @zturnlibs/ztron-core: IPC/events/commands │
 +│ window/tray/menu/dialog │             │  ACL + plugins + updater         │
 +└────────────────────────┘             └──────────────────────────────────┘
-+        frontend: Vite page → @zturnlibs/api → invoke/listen/Channel/fs/http/os/store/log/shell
++        frontend: Vite page → @zturnlibs/ztron-api → invoke/listen/Channel/fs/http/os/store/log/shell
 +        packaging: tjs compile backend → ztron build → macOS .app (signed)
 +```
 +
@@ -887,7 +887,7 @@ index 0000000..d083024
 +
 +# Relationship to Tauri
 +
-+Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration) (guide chapters under construction).
++Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/ztron-api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration) (guide chapters under construction).
 +
 +适用版本：`ztron 0.1.0`
 diff --git a/docs/en/start/quick-start.md b/docs/en/start/quick-start.md
@@ -936,7 +936,7 @@ index 0000000..9aabffd
 +node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
 +```
 +
-+`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@ztron/*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli) (reference chapters under construction).
++`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@zturnlibs/ztron-*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli) (reference chapters under construction).
 +
 +适用版本：`ztron 0.1.0`
 diff --git a/docs/zh/guide/tauri-migration.md b/docs/zh/guide/tauri-migration.md
@@ -947,7 +947,7 @@ index 1032d26..24172da 100644
  title: 从 Tauri 迁移
  ---
  
- Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/api` 即从
+ Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/ztron-api` 即从
  `@tauri-apps/api` 翻译而来），迁移成本主要在后端语言：Rust 换成
  TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（原样
  照抄）：

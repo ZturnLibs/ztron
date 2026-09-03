@@ -48,9 +48,9 @@ index 0000000..556029e
 +- **ztron-host（原生 C 进程）**：持有系统 WebView 与 GUI 能力，负责
 +  窗口、托盘、菜单、对话框等原生侧资源。
 +- **tjs backend（txiki.js 进程）**：异步 JS 后端，承载
-+  `@zturnlibs/core` 的 IPC、事件、命令、ACL 能力层、插件与更新器。
++  `@zturnlibs/ztron-core` 的 IPC、事件、命令、ACL 能力层、插件与更新器。
 +
-+前端是普通的 Vite 页面，通过 `@zturnlibs/api` 调用
++前端是普通的 Vite 页面，通过 `@zturnlibs/ztron-api` 调用
 +`invoke/listen/Channel/fs/http/os/store/log/shell` 等能力；打包时后端经
 +`tjs compile` 编译为独立可执行文件，再由 `ztron build` 产出 macOS
 +`.app`（含签名）。
@@ -59,11 +59,11 @@ index 0000000..556029e
 +
 +| Package | 职责 |
 +| --- | --- |
-+| `@zturnlibs/api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
-+| `@zturnlibs/core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
-+| `@zturnlibs/runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
-+| `@zturnlibs/inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
-+| `@zturnlibs/cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
++| `@zturnlibs/ztron-api` | 前端 API（翻译自 `@tauri-apps/api`）+ fs/path/http/os/store/log/shell/updater/window/tray/menu/dialog 包装 |
++| `@zturnlibs/ztron-core` | 主进程核心：IPC、事件、Channel、命令、插件、ACL 能力层、PathScope、25 个插件、MockRuntime 测试设施 |
++| `@zturnlibs/ztron-runtime-ffi` | `HostRuntime` socket 适配器（Plan A）+ FFI 参考绑定 |
++| `@zturnlibs/ztron-inject` | `window.__TAURI_INTERNALS__` 引导（嵌入页面 HTML） |
++| `@zturnlibs/ztron-cli` | `dev`/`build`/`codegen`/`init`；vite 构建 + `ztron-host` + tjs 后端 |
 +
 +## 进程间如何协作
 +
@@ -179,7 +179,7 @@ index 0000000..5e7cb13
 +
 +事件系统让后端与前端双向通信：前端可以监听后端发出的任意命名事件，
 +也可以向前端/其他窗口定向发送。监听器注册表位于后端的 `EventManager`，
-+API 由 `@zturnlibs/api` 的 `event` 模块提供。
++API 由 `@zturnlibs/ztron-api` 的 `event` 模块提供。
 +
 +## listen / once / emit / emitTo
 +
@@ -198,7 +198,7 @@ index 0000000..5e7cb13
 +典型用法：
 +
 +```ts
-+import { listen, once, emit, emitTo } from "@zturnlibs/api";
++import { listen, once, emit, emitTo } from "@zturnlibs/ztron-api";
 +
 +// 监听（options.target 可指定窗口 label，默认 { kind: "Any" }）
 +const unlisten = await listen<{ n: number }>("m3:tick", (e) => {
@@ -278,7 +278,7 @@ index 0000000..4529c6a
 +
 +```ts
 +// src/commands.ts —— 类型化命令（可被 ztron codegen 识别）
-+import { defineCommand } from "@zturnlibs/core";
++import { defineCommand } from "@zturnlibs/ztron-core";
 +
 +export const greet = defineCommand("my:greet", {
 +  args: {} as { name: string },
@@ -304,7 +304,7 @@ index 0000000..4529c6a
 +
 +```ts
 +// frontend/src/main.ts —— 前端调用
-+import { invoke } from "@zturnlibs/api";
++import { invoke } from "@zturnlibs/ztron-api";
 +const echoed = await invoke<string>("my:echo", { msg: "hello-m3" });
 +```
 +
@@ -427,7 +427,7 @@ index 0000000..1032d26
 +title: 从 Tauri 迁移
 +---
 +
-+Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/api` 即从
++Ztron 的 API 面刻意与 Tauri v2 对齐（`@zturnlibs/ztron-api` 即从
 +`@tauri-apps/api` 翻译而来），迁移成本主要在后端语言：Rust 换成
 +TypeScript。仓库 `DESIGN.md` §9 给出了 Rust → TS 的模块对照表（原样
 +照抄）：
@@ -461,7 +461,7 @@ index 0000000..1032d26
 +
 +## 前端迁移
 +
-+通常只需改 import：`@tauri-apps/api` → `@zturnlibs/api`。`invoke`、
++通常只需改 import：`@tauri-apps/api` → `@zturnlibs/ztron-api`。`invoke`、
 +`listen`、`emit` 等签名不变，事件常量 `TauriEvent` 同名保留。
 +
 +## 差异注记
@@ -530,7 +530,7 @@ index 0000000..cbad865
 +
 +## 运行时：WebviewWindow
 +
-+`@zturnlibs/api` 提供 `WebviewWindow` 类，可在应用运行中创建与销毁
++`@zturnlibs/ztron-api` 提供 `WebviewWindow` 类，可在应用运行中创建与销毁
 +窗口（multiwin 示例以此做 10 次创建/销毁压力测试）。runtime 创建的
 +窗口同样进入 host 的 webview 注册表，具备 label 路由、per-window 事件
 +与关闭时的注册表清理。验证锚点：
@@ -629,7 +629,7 @@ index 0000000..daafc4c
 +（ad-hoc 签名；亦支持 `.dmg`）。
 +
 +```bash
-+pnpm --filter @ztron/example-hello build
++pnpm --filter @zturnlibs/ztron-example-hello build
 +```
 +
 +## ztron codegen
