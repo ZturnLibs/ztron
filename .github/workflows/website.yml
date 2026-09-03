@@ -30,7 +30,7 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
       - name: build website
-        run: pnpm --filter @zturnlibs/website build
+        run: pnpm --filter @zturnlibs/ztron-website build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist

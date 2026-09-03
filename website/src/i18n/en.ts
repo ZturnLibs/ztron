@@ -44,7 +44,7 @@ export const en = {
     hostTitle: 'ztron-host',
     hostBody: 'native C · system WebView · window / tray / menu / dialog',
     backendTitle: 'tjs backend',
-    backendBody: 'txiki.js · @ztronlibs/core · IPC · plugins · ACL · updater',
+    backendBody: 'txiki.js · @zturnlibs/ztron-core · IPC · plugins · ACL · updater',
     wireLabel: 'TCP · JSON',
     frontendLabel: 'Vite frontend → @zturnlibs/ztron-api (invoke · listen · Channel)',
     packagingLabel: 'tjs compile → ztron build → signed .app / .dmg',

@@ -4,7 +4,7 @@
 
 **Goal:** 在仓库内构建 Astro 双语（en `/` + zh `/zh/`）单页落地页 `website/`，并经 GitHub Actions 自动部署到 `https://zturnlibs.github.io/ztron/`。
 
-**Architecture:** `website/` 作为 pnpm workspace 新成员（`@zturnlibs/website`, private）。全部文案收敛到 `src/i18n/{en,zh}.ts` 两份 `satisfies SiteStrings` 字典，漏译在 `astro check`（并入 `build` 脚本）时构建失败。9 个分区组件由两个入口页组装，纯静态输出、零客户端框架。
+**Architecture:** `website/` 作为 pnpm workspace 新成员（`@zturnlibs/ztron-website`, private）。全部文案收敛到 `src/i18n/{en,zh}.ts` 两份 `satisfies SiteStrings` 字典，漏译在 `astro check`（并入 `build` 脚本）时构建失败。9 个分区组件由两个入口页组装，纯静态输出、零客户端框架。
 
 **Tech Stack:** Astro 5（devDeps 仅 `astro` + `@astrojs/check` + `typescript` + `shiki`），系统字体栈，CSS 自定义属性设计令牌，Actions `deploy-pages@v4`。
 
@@ -19,7 +19,7 @@
 - Astro `base: '/ztron/'`，站内资源路径一律 base-aware（`import.meta.env.BASE_URL`），禁止手写绝对 `/...`
 - 客户端 JS < 20KB；依赖面不超出 `astro`、`@astrojs/check`、`typescript`、`shiki`
 - 内容口径只取仓库事实（README/ROADMAP/DESIGN），不新造宣传数据
-- 每个任务独立可构建（`pnpm --filter @zturnlibs/website build` 退出 0）并单独提交
+- 每个任务独立可构建（`pnpm --filter @zturnlibs/ztron-website build` 退出 0）并单独提交
 - 在 `feat/home-page` 分支上工作；**不要动 `/Users/zyj/Zturn/tauri`（只读参考）**
 - 命令/包名/插件名等技术元素不翻译
 
@@ -52,7 +52,7 @@ packages:
 
 ```json
 {
-  "name": "@zturnlibs/website",
+  "name": "@zturnlibs/ztron-website",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -231,7 +231,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
 - [ ] **Step 1.9: 安装并构建验证**
 
-Run: `pnpm install && pnpm --filter @zturnlibs/website build`
+Run: `pnpm install && pnpm --filter @zturnlibs/ztron-website build`
 Expected: 安装成功更新 `pnpm-lock.yaml`；`astro check` 0 error；`astro build` 输出 `dist/index.html` 与 `dist/zh/index.html`，退出码 0。
 
 - [ ] **Step 1.10: Commit**
@@ -330,9 +330,9 @@ export const en = {
     hostTitle: 'ztron-host',
     hostBody: 'native C · system WebView · window / tray / menu / dialog',
     backendTitle: 'tjs backend',
-    backendBody: 'txiki.js · @ztronlibs/core · IPC · plugins · ACL · updater',
+    backendBody: 'txiki.js · @zturnlibs/ztron-core · IPC · plugins · ACL · updater',
     wireLabel: 'TCP · JSON',
-    frontendLabel: 'Vite frontend → @zturnlibs/api (invoke · listen · Channel)',
+    frontendLabel: 'Vite frontend → @zturnlibs/ztron-api (invoke · listen · Channel)',
     packagingLabel: 'tjs compile → ztron build → signed .app / .dmg',
   },
   plugins: {
@@ -367,7 +367,7 @@ export const en = {
       {
         id: 'monorepo',
         label: 'Inside the monorepo',
-        code: 'pnpm install\nscripts/build-native.sh                 # tjs + ztron-host + webview lib (macOS)\npnpm --filter @ztron/example-hello dev  # vite build + host + backend',
+        code: 'pnpm install\nscripts/build-native.sh                 # tjs + ztron-host + webview lib (macOS)\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite build + host + backend',
       },
       {
         id: 'scaffold',
@@ -378,13 +378,13 @@ export const en = {
   },
   packages: {
     heading: 'One workspace, five packages',
-    sub: 'Published to GitHub Packages as @zturnlibs/*.',
+    sub: 'Published to GitHub Packages as @zturnlibs/ztron-*.',
     items: [
-      { name: '@zturnlibs/api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
-      { name: '@zturnlibs/core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },
-      { name: '@zturnlibs/runtime-ffi', role: 'HostRuntime socket adapter (Plan A) + FFI reference bindings' },
-      { name: '@zturnlibs/inject', role: 'window.__TAURI_INTERNALS__ bootstrap injected into page HTML' },
-      { name: '@zturnlibs/cli', role: 'ztron dev / build / codegen / init — Vite build + host + backend' },
+      { name: '@zturnlibs/ztron-api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
+      { name: '@zturnlibs/ztron-core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },
+      { name: '@zturnlibs/ztron-runtime-ffi', role: 'HostRuntime socket adapter (Plan A) + FFI reference bindings' },
+      { name: '@zturnlibs/ztron-inject', role: 'window.__TAURI_INTERNALS__ bootstrap injected into page HTML' },
+      { name: '@zturnlibs/ztron-cli', role: 'ztron dev / build / codegen / init — Vite build + host + backend' },
     ],
   },
   footer: {
@@ -450,9 +450,9 @@ export const zh = {
     hostTitle: 'ztron-host',
     hostBody: '原生 C · 系统 WebView · 窗口 / 托盘 / 菜单 / 对话框',
     backendTitle: 'tjs backend',
-    backendBody: 'txiki.js · @zturnlibs/core · IPC · 插件 · ACL · 更新器',
+    backendBody: 'txiki.js · @zturnlibs/ztron-core · IPC · 插件 · ACL · 更新器',
     wireLabel: 'TCP · JSON',
-    frontendLabel: 'Vite 前端 → @zturnlibs/api（invoke · listen · Channel）',
+    frontendLabel: 'Vite 前端 → @zturnlibs/ztron-api（invoke · listen · Channel）',
     packagingLabel: 'tjs compile → ztron build → 签名 .app / .dmg',
   },
   plugins: {
@@ -487,7 +487,7 @@ export const zh = {
       {
         id: 'monorepo',
         label: '在 monorepo 内开发',
-        code: 'pnpm install\nscripts/build-native.sh                 # 构建 tjs + ztron-host + webview 库（macOS）\npnpm --filter @ztron/example-hello dev  # vite 构建 + host + backend',
+        code: 'pnpm install\nscripts/build-native.sh                 # 构建 tjs + ztron-host + webview 库（macOS）\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite 构建 + host + backend',
       },
       {
         id: 'scaffold',
@@ -498,13 +498,13 @@ export const zh = {
   },
   packages: {
     heading: '一个工作区，五个包',
-    sub: '以 @zturnlibs/* 发布到 GitHub Packages。',
+    sub: '以 @zturnlibs/ztron-* 发布到 GitHub Packages。',
     items: [
-      { name: '@zturnlibs/api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
-      { name: '@zturnlibs/core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },
-      { name: '@zturnlibs/runtime-ffi', role: 'HostRuntime socket 适配器（Plan A）+ FFI 参考绑定' },
-      { name: '@zturnlibs/inject', role: '注入页面 HTML 的 window.__TAURI_INTERNALS__ 引导' },
-      { name: '@zturnlibs/cli', role: 'ztron dev / build / codegen / init——Vite 构建 + host + 后端' },
+      { name: '@zturnlibs/ztron-api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
+      { name: '@zturnlibs/ztron-core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },
+      { name: '@zturnlibs/ztron-runtime-ffi', role: 'HostRuntime socket 适配器（Plan A）+ FFI 参考绑定' },
+      { name: '@zturnlibs/ztron-inject', role: '注入页面 HTML 的 window.__TAURI_INTERNALS__ 引导' },
+      { name: '@zturnlibs/ztron-cli', role: 'ztron dev / build / codegen / init——Vite 构建 + host + 后端' },
     ],
   },
   footer: {
@@ -550,7 +550,7 @@ export const repoDoc = (file: string) => `${REPO}/blob/main/${file}`;
 
 - [ ] **Step 2.5: 红灯验证（类型拦截缺 key）**
 
-Run: `pnpm --filter @ztronlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: **FAIL** —— `astro check` 报错，形如 `Property 'titleAccent' is missing in type ... but required in type SiteStrings`。
 
 - [ ] **Step 2.6: 补上缺失 key（绿灯）**
@@ -561,7 +561,7 @@ Expected: **FAIL** —— `astro check` 报错，形如 `Property 'titleAccent' 
     titleAccent: '桌面应用框架',
 ```
 
-Run: `pnpm --filter @ztronlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS，退出码 0。
 
 - [ ] **Step 2.7: Commit**
@@ -740,10 +740,10 @@ const s = getStrings('en');
 
 - [ ] **Step 3.6: 构建验证**
 
-Run: `pnpm --filter @zturnlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS 退出 0。
 
-Run: `pnpm --filter @zturnlibs/website dev`，浏览器打开 `http://localhost:4321/ztron/`
+Run: `pnpm --filter @zturnlibs/ztron-website dev`，浏览器打开 `http://localhost:4321/ztron/`
 Expected: 顶部导航（Logo/锚点/GitHub/中文按钮）与页脚渲染正常；点「中文」跳到 `/ztron/zh/` 显示中文导航；窗口缩到 <768px 出现汉堡按钮且可展开。
 
 - [ ] **Step 3.7: Commit**
@@ -848,7 +848,7 @@ const { s } = Astro.props;
 
 （zh 页 import 路径同样为 `../components/Hero.astro`）
 
-Run: `pnpm --filter @zturnlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS 退出 0；`astro dev` 下两语言 Hero + 终端渲染正常，CTA 跳转正确。
 
 - [ ] **Step 4.4: Commit**
@@ -919,7 +919,7 @@ const paths: Record<string, string> = {
 
 - [ ] **Step 5.2: 构建验证**
 
-Run: `pnpm --filter @ztronlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS；dev 页面 `#features` 锚点从导航可跳达，6 卡双语言渲染。
 
 - [ ] **Step 5.3: Commit**
@@ -1009,7 +1009,7 @@ const { s } = Astro.props;
 
 - [ ] **Step 6.2: 构建验证**
 
-Run: `pnpm --filter @ztronlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS；dev 下桌面档两框 + 渐变连线 + 两条底部注记，<760px 纵向堆叠。
 
 - [ ] **Step 6.3: Commit**
@@ -1079,7 +1079,7 @@ const total = s.plugins.groups.reduce((n, g) => n + g.plugins.length, 0);
 
 - [ ] **Step 7.3: 构建验证**
 
-Run: `pnpm --filter @ztronlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS；dev 下 5 组 chip 墙渲染，页面显示计数 25。
 
 - [ ] **Step 7.4: Commit**
@@ -1146,7 +1146,7 @@ const { s } = Astro.props;
 
 - [ ] **Step 8.2: 构建验证**
 
-Run: `pnpm --filter @ztronlbs/website build || pnpm --filter @zturnlibs/website build`
+Run: `pnpm --filter @ztronlbs/website build || pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS（第一条含拼写保护，正常用第二条）；dev 下三平台行 + 绿/琥珀 pill + ROADMAP 外链。
 
 - [ ] **Step 8.3: Commit**
@@ -1268,7 +1268,7 @@ const { s } = Astro.props;
 
 - [ ] **Step 9.4: 构建验证**
 
-Run: `pnpm --filter @zturnlibs/website build`
+Run: `pnpm --filter @zturnlibs/ztron-website build`
 Expected: PASS；dev 下 tab 可切换、代码块带 Shiki 配色（背景已被覆盖为 `--code-bg`），5 包卡片渲染。至此 9 分区全部就位，页面完整。
 
 - [ ] **Step 9.5: Commit**
@@ -1300,13 +1300,13 @@ Expected: 三个文件生成，`file website/public/*.png` 尺寸正确。
 
 - [ ] **Step 10.2: og-image（1200x630）**
 
-启动 `pnpm --filter @zturnlibs/website dev`，用浏览器工具将视口设为 1200x630，截图 Hero 区域（深色 + 标题 + 终端可见），保存为 `website/public/og-image.png`。若浏览器截图尺寸不精确，用 sips 归一：`sips -z 630 1200 <截图> --out website/public/og-image.png`。
+启动 `pnpm --filter @zturnlibs/ztron-website dev`，用浏览器工具将视口设为 1200x630，截图 Hero 区域（深色 + 标题 + 终端可见），保存为 `website/public/og-image.png`。若浏览器截图尺寸不精确，用 sips 归一：`sips -z 630 1200 <截图> --out website/public/og-image.png`。
 
 Expected: `file website/public/og-image.png` 报 1200x630。
 
 - [ ] **Step 10.3: 构建验证**
 
-Run: `pnpm --filter @zturnlibs/website build && ls website/dist/ztron 2>/dev/null || ls website/dist`
+Run: `pnpm --filter @zturnlibs/ztron-website build && ls website/dist/ztron 2>/dev/null || ls website/dist`
 Expected: PASS；dist 里包含 favicon-32.png / apple-touch-icon.png / og-image.png。
 
 - [ ] **Step 10.4: Commit**
@@ -1358,7 +1358,7 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
       - name: build website
-        run: pnpm --filter @zturnlibs/website build
+        run: pnpm --filter @zturnlibs/ztron-website build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist
@@ -1383,9 +1383,9 @@ Astro 双语落地页：英文 `/`，中文 `/zh/`。部署到 https://zturnlibs
 
 ## 本地开发
 
-    pnpm --filter @zturnlibs/website dev      # http://localhost:4321/ztron/
-    pnpm --filter @zturnlibs/website build    # astro check && astro build（漏译即失败）
-    pnpm --filter @zturnlibs/website preview
+    pnpm --filter @zturnlibs/ztron-website dev      # http://localhost:4321/ztron/
+    pnpm --filter @zturnlibs/ztron-website build    # astro check && astro build（漏译即失败）
+    pnpm --filter @zturnlibs/ztron-website preview
 
 ## 双语规则
 
@@ -1421,12 +1421,12 @@ git commit -m "ci(website): github pages deploy workflow + website readme"
 
 - [ ] **Step 12.1: 构建 + 双语完整性**
 
-Run: `pnpm --filter @zturnlibs/website build; echo "exit=$?"`
+Run: `pnpm --filter @zturnlibs/ztron-website build; echo "exit=$?"`
 Expected: `exit=0`，dist 含 `index.html`、`zh/index.html`、favicon、og-image（验收 #1 #2 已由 Task 2 红灯环节证明拦截生效）。
 
 - [ ] **Step 12.2: 本地预览全站走查**
 
-Run: `pnpm --filter @zturnlibs/website preview`（http://localhost:4321/ztron/）
+Run: `pnpm --filter @zturnlibs/ztron-website preview`（http://localhost:4321/ztron/）
 
 用浏览器工具核对（验收 #4）：
 - `/ztron/` 与 `/ztron/zh/` 9 个分区全部渲染

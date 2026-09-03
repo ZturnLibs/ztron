@@ -44,7 +44,7 @@ export const zh = {
     hostTitle: 'ztron-host',
     hostBody: '原生 C · 系统 WebView · 窗口 / 托盘 / 菜单 / 对话框',
     backendTitle: 'tjs backend',
-    backendBody: 'txiki.js · @ztronlibs/core · IPC · 插件 · ACL · 更新器',
+    backendBody: 'txiki.js · @zturnlibs/ztron-core · IPC · 插件 · ACL · 更新器',
     wireLabel: 'TCP · JSON',
     frontendLabel: 'Vite 前端 → @zturnlibs/ztron-api（invoke · listen · Channel）',
     packagingLabel: 'tjs compile → ztron build → 签名 .app / .dmg',

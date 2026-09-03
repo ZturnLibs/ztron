@@ -4,9 +4,9 @@ Astro 双语落地页：英文 `/`，中文 `/zh/`。部署到 https://zturnlibs
 
 ## 本地开发
 
-    pnpm --filter @zturnlibs/website dev      # http://localhost:4321/ztron/
-    pnpm --filter @zturnlibs/website build    # astro check && astro build（漏译即失败）
-    pnpm --filter @zturnlibs/website preview
+    pnpm --filter @zturnlibs/ztron-website dev      # http://localhost:4321/ztron/
+    pnpm --filter @zturnlibs/ztron-website build    # astro check && astro build（漏译即失败）
+    pnpm --filter @zturnlibs/ztron-website preview
 
 ## 双语规则
 
