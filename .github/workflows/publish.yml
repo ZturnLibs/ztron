@@ -45,14 +45,21 @@ jobs:
       - name: pack (leaf-first, workspace:* rewritten)
         run: |
           rm -rf /tmp/tgz && mkdir -p /tmp/tgz
+          : > /tmp/tgz/order.txt
           for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
             echo "--- packing $d"
-            (cd "$d" && pnpm pack --pack-destination /tmp/tgz) || exit 1
+            (cd "$d" && pnpm pack --pack-destination /tmp/tgz) > /dev/null
+            tgz=$(node -e "const p=require('./package.json');console.log(p.name.replace('@','').replace('/','-')+'-'+p.version+'.tgz')")
+            echo "/tmp/tgz/$tgz" >> /tmp/tgz/order.txt
           done
-          ls -la /tmp/tgz
+          cat /tmp/tgz/order.txt
+      # setup-node's .npmrc embeds the ${NODE_AUTH_TOKEN} placeholder —
+      # the token must come from this step's env or every PUT is E401.
       - name: publish tarballs to GitHub Packages
         run: |
-          for tgz in /tmp/tgz/*.tgz; do
+          while IFS= read -r tgz; do
             echo "--- publishing $tgz"
             npm publish "$tgz" --access restricted --tag latest || exit 1
-          done
+          done < /tmp/tgz/order.txt
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
