@@ -526,4 +526,4 @@ Source: `tests/helpers/manifest.ts` — mirrors the runtime registration surface
 | `plugin:updater\|install_stream` | `updater` | [`updater`](./api/updater) |
 | `plugin:updater\|install` | `updater` | [`updater`](./api/updater) |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

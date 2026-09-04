@@ -89,4 +89,4 @@ await invoke("plugin:log|info", { message: "spike-log-webview" });
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/log)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

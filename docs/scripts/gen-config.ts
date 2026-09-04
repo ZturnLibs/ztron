@@ -266,7 +266,7 @@ const T = {
 } as const;
 
 /** Footer both locales share (config surface is version-pinned). */
-const FOOTER = "适用版本：`ztron 0.3.0`";
+const FOOTER = "适用版本：`ztron 0.3.1`";
 
 /**
  * Description cell for one row. zh comes from config-zh.json (missing

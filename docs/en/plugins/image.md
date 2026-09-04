@@ -63,4 +63,4 @@ await setTrayIcon([0x89, 0x50, 0x4e, 0x47, /* … */]);
 `rgba`, `size`, `destroy`. Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

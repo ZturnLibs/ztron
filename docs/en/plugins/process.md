@@ -49,4 +49,4 @@ await relaunch();
 `plugin:process|*` totals **2 commands**: `exit`, `relaunch`. Full list
 in the [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

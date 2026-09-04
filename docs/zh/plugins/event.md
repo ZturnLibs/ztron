@@ -60,4 +60,4 @@ await listen("ztron://focus", fireWinEvent, { target: "main" });
 `plugin:event|*` 共 **4 条**：`listen`、`unlisten`、`emit`、
 `emit_to`。完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

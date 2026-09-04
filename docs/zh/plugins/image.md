@@ -58,4 +58,4 @@ await setTrayIcon([0x89, 0x50, 0x4e, 0x47, /* … */]);
 `plugin:image|*` 共 **5 条**：`from_path`、`from_bytes`、`rgba`、
 `size`、`destroy`。完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

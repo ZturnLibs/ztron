@@ -69,4 +69,4 @@
 | `bundle.copyright?` | `string` | 版权信息 |
 | `bundle.license?` | `string` | 许可证 |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

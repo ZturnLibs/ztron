@@ -81,4 +81,4 @@ export type WindowEventName =
 插件侧还有一条 `plugin:*|__listener` 契约（如 log 插件把日志推给
 webview 目标），P2 的插件页会展开。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

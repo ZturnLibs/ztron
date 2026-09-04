@@ -64,4 +64,4 @@ The window instance also offers convenience wrappers: `win.onResized` /
 `plugin:event|*` totals **4 commands**: `listen`, `unlisten`, `emit`,
 `emit_to`. Full list in the [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

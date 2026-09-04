@@ -96,4 +96,4 @@ report("TRAY_MENU_OK");
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/tray)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -104,4 +104,4 @@ the two install permissions); `updater:allow-install` (one-shot install)
 and `updater:allow-install-stream` (streaming install) must be granted
 separately.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -114,4 +114,4 @@ minisign 校验门暴露给工具链（inline 数据、不落盘），失败时�
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/updater)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

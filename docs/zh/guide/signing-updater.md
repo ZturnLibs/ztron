@@ -93,4 +93,4 @@ ztron signer verify <file> --public-key <path>
 两条）；`updater:allow-install`（一次性安装）与
 `updater:allow-install-stream`（流式安装）需要单独授予。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

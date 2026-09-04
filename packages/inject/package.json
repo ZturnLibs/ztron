@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-inject",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Ztron WebView bootstrap: provides window.__TAURI_INTERNALS__ (embedded into page HTML)",
   "type": "module",
   "main": "./dist/index.js",

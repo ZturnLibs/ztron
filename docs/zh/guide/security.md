@@ -77,4 +77,4 @@ label，`permissions` 是权限串列表。
 `devCsp` 单独配置，避免开发服务器的宽松策略进入生产。旧顶层 `csp`
 键仍可用，但建议迁移到 `app.security.csp`。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

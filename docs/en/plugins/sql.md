@@ -74,4 +74,4 @@ if (rows.length === 1 && rows[0]?.text === "hello-sql") {
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/sql).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

@@ -59,4 +59,4 @@ await win.setSizeConstraints({ minWidth: 320, minHeight: 240 });
 
 无专属命令（纯前端模块）。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

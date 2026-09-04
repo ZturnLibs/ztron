@@ -53,4 +53,4 @@ names now carry the `ztron://` prefix (e.g.
   for the Windows/Linux hosts are not yet provided, so no post-migration
   cross-platform timeline can be promised.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

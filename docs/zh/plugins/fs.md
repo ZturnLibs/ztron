@@ -120,4 +120,4 @@ null 时直接返回 false），并非前端断言。
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/fs)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

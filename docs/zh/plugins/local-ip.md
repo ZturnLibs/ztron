@@ -57,4 +57,4 @@ if (localIp && /^\d{1,3}(\.\d{1,3}){3}$/.test(localIp)) {
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/local-ip)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

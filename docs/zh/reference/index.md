@@ -13,4 +13,4 @@ title: 参考
 | [配置参考](/reference/config) | `ztron.conf.json` 全字段说明，由 `pnpm --dir docs run gen:config` 生成 |
 | [API 参考](/reference/api/) | TypeDoc 生成的 `@zturnlibs/ztron-api` API 文档 · 中文为翻译覆盖层 |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

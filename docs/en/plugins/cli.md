@@ -74,4 +74,4 @@ m.subcommand!.matches.args.port; // 8080 — numbers auto-coerced
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/cli).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

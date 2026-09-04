@@ -49,4 +49,4 @@ WKWebView 无公开切换接口，host 如实上报 `supported: false`（调试�
 `clear_all_browsing_data`、`print`、`set_background_color`、
 `toggle_devtools`。完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

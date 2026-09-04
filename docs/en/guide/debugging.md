@@ -105,4 +105,4 @@ ztron check --expect SECOND_WINDOW_OK,STRESS_OK
   `~/Library/Logs/com.ztron.hello/com.ztron.hello.log`), rotation backups
   in the same directory. See [Logging](/plugins/log).
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

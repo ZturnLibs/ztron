@@ -48,4 +48,4 @@ the same TCP/JSON path.
 - Capability gaps versus Tauri and the phased plan are in `ROADMAP.md`
 - For a fast start see "Quick Start"; for command-call details see [Calling Backend Commands](/guide/ipc)
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

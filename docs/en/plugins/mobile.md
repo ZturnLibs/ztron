@@ -86,4 +86,4 @@ Full list in the [Commands Reference](/reference/commands) and the
 per-module [API symbol reference](/reference/api) (barcode-scanner /
 biometric / geolocation / haptics / nfc).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

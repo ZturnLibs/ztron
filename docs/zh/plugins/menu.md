@@ -110,4 +110,4 @@ await dyn.remove("d1");
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/menu)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

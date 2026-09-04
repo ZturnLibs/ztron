@@ -117,4 +117,4 @@ Clicks arrive via `onMenuEvent` (`ztron://menu`, payload
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/menu).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

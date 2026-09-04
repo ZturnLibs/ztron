@@ -101,4 +101,4 @@ packers' productName is `productName ?? appName`.
   machines still requires you to perform Developer ID signing and
   notarization yourself.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

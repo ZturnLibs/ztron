@@ -13,4 +13,4 @@ This section is the entry point for getting started with Ztron: first read the [
 | [Quick Start](/start/quick-start) | Run the hello example in 10 minutes: dev, the `ztron check` regression and packaging the app |
 | [Examples](/start/examples) | Three runnable examples under `examples/`: hello, multiwin, menuprobe |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

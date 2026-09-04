@@ -13,7 +13,7 @@ For the full field table see [Reference · Configuration](/reference/config).
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "windows": [
     {
       "label": "main",
@@ -79,4 +79,4 @@ all follow macOS behavior.
 
 For the full field reference, see the [Config Reference](/reference/config).
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -56,4 +56,4 @@ No dedicated commands: creation goes through `plugin:webview|create`
 85 `plugin:window|*`. Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

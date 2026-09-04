@@ -59,4 +59,4 @@ const appData = await path.appDataDir();          // 含 "com.ztron.hello"
 `sep`、`home_dir`、`temp_dir`、`cwd` 与 21 个系统/应用目录 getter。
 完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`
