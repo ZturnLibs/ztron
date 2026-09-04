@@ -38,7 +38,14 @@ export function runDoctor(opts: {
 
   try {
     const p = env.ZTRON_TJS ?? findTjs();
-    checks.push({ name: "tjs runtime", pass: existsSync(resolve(p)) || p === "tjs", detail: p, hint: CHAIN_HINT });
+    const pass = existsSync(resolve(p)) || p === "tjs";
+    /* ZTRON_TJS pointing at a missing file is a distinct failure from "no
+       chain found" — the fix is correcting the env var, not cloning. */
+    const hint =
+      env.ZTRON_TJS && !pass
+        ? `ZTRON_TJS is set but points to a missing file: ${resolve(p)}. ${CHAIN_HINT}`
+        : CHAIN_HINT;
+    checks.push({ name: "tjs runtime", pass, detail: p, hint });
   } catch (e) {
     checks.push({ name: "tjs runtime", pass: false, detail: String((e as Error).message), hint: CHAIN_HINT });
   }

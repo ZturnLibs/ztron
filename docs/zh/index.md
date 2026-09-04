@@ -18,7 +18,7 @@ features:
   - title: Tauri v2 能力对齐
     details: "@zturnlibs/ztron-api 移植 @tauri-apps/api；invoke / 事件 / Channel / fs / http / os / store / log / shell / updater 等插件齐备，从 Tauri 迁移有对照指南（见指南）。"
   - title: macOS 全链路已验证
-    details: M0–P30 里程碑完成，86 项确定性检查（`ztron check` 可驱动回归）；Windows/Linux 打包链建设中。
+    details: M0–P30 里程碑完成，85 项确定性检查（`ztron check` 可驱动回归）；Windows/Linux 打包链建设中。
   - title: 指南与示例
     details: 架构、IPC、事件、窗口、配置、安全模型，以及 hello / multiwin / menuprobe 三个可运行示例。
   - title: 适用版本：`ztron 0.3.0`

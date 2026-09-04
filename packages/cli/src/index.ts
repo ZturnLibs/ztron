@@ -683,10 +683,9 @@ async function initProject(target: string): Promise<void> {
     }
   }
   console.log(`[ztron] scaffolded a project in ${target}`);
-  console.log(`[ztron] next: pnpm install && pnpm dev`);
   const hasChain = findNativeFile(target, "ztron-host") !== undefined;
   console.log(`[ztron] next steps:`);
-  console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && scripts/build-native.sh`);
+  console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && cd ztron && scripts/build-native.sh`);
   console.log(`  2. export ZTRON_TJS=<repo>/native/libs/tjs ZTRON_HOST_BIN=<repo>/native/libs/ztron-host ZTRON_WEBVIEW_LIB=<repo>/native/libs/libwebview.dylib`);
   console.log(`  3. pnpm install && npx ztron doctor && npx ztron dev`);
   if (!hasChain) {

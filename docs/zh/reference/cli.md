@@ -2,13 +2,14 @@
 title: CLI 参考
 ---
 
-`ztron` CLI 提供 `init`/`dev`/`build`/`codegen`/`check`/`signer`/
-`version` 七个主命令（另有 `icon`/`info`/`add`/`migrate` 辅助工具命令，
+`ztron` CLI 提供 `init`/`doctor`/`dev`/`build`/`codegen`/`check`/`signer`/
+`version` 八个主命令（另有 `icon`/`info`/`add`/`migrate` 辅助工具命令，
 见文末）。命令集以 `packages/cli/src/index.ts` 的分发 switch 为准
 （USAGE 字符串尚未收录 codegen/signer）。
 
 ```text
 ztron init [dir]                  在 [dir] 脚手架新项目（默认当前目录）
+ztron doctor                      一键体检 node / tjs / ztron-host / webview 库
 ztron dev [--entry <file>]        构建 + 在原生 host + tjs backend 下运行
 ztron build [--entry <file>]      产出独立可执行文件与 .app
 ztron codegen                     扫描 defineCommand，生成 src/ztron-commands.ts 类型绑定
@@ -32,6 +33,19 @@ ztron init [dir]
 
 ```bash
 node packages/cli/dist/index.js init my-app
+```
+
+## ztron doctor
+
+```text
+ztron doctor
+```
+
+一键体检 node / tjs / ztron-host / webview 库四项依赖：全部 PASS 时输出
+`doctor: OK`（exit 0）；任一 FAIL 输出对应修复提示并 exit 1。
+
+```bash
+node packages/cli/dist/index.js doctor
 ```
 
 ## ztron dev

@@ -39,7 +39,11 @@ jobs:
       # workspace:* protocols are not publishable; pnpm publish rewrites
       # them to the real version on pack. Publish leaf-first so a scoped
       # dependency exists by the time its dependents publish.
+      # setup-node's generated .npmrc references NODE_AUTH_TOKEN; without it
+      # the GitHub Packages publish 401s.
       - name: publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
             echo "--- publishing $d"

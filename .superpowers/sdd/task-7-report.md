@@ -101,3 +101,37 @@ counterpart return 200 with new content (`grep ztron init my-app`).
 - Main repo `native/libs/` missing `tjs`: next `scripts/build-native.sh` run
   (with the Task 5 fix) will place it; until then `ZTRON_TJS` is needed for
   doctor/dev on this machine.
+
+## Final-review fix wave (append)
+
+**Commit:** `fix(onboarding): final-review wave (init guidance, doctor ref entry, publish tokens, 85 checks, tjs hint)`
+
+1. **N1 — `packages/cli/src/index.ts` initProject**: deleted the stale
+   `[ztron] next: pnpm install && pnpm dev` line (contradicted the next-steps
+   block); step-1 clone guidance is now verbatim-executable:
+   `clone https://github.com/ZturnLibs/ztron && cd ztron && scripts/build-native.sh`.
+   `tests/unit/cli-init-hints.test.ts` still green (next steps / ZTRON_TJS /
+   ztron dev / ztron doctor all present).
+2. **N2 — `docs/{zh,en}/reference/cli.md`**: added `ztron doctor` to the intro
+   count (七→八 / seven→eight), a USAGE-block row, and a full section (zh:
+   一键体检 node/tjs/ztron-host/webview 库，全 PASS 输出 `doctor: OK`，任一
+   FAIL 输出修复提示并 exit 1；en mirror), placed after `ztron init` per USAGE
+   order.
+3. **publish.yml**: `publish` job (GitHub Packages) publish step now sets
+   `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` (setup-node's generated
+   .npmrc references it; without it the fallback channel 401s on the next
+   `v*` tag).
+4. **`docs/{zh,en}/index.md`**: hero claim 86 → 85 checks (both locales; live
+   count per Task 6's run; closes the Task 7 "follow-ups" sweep item).
+5. **N3 — `packages/cli/src/doctor.ts`**: when `ZTRON_TJS` is set but the
+   resolved path doesn't exist, the tjs hint now reads
+   `ZTRON_TJS is set but points to a missing file: <path>. <CHAIN_HINT>` —
+   the fix is correcting the env var, not cloning. `runDoctor` signature and
+   report shape unchanged (still 5 checks).
+
+Verification: `pnpm --filter @zturnlibs/ztron-cli build` exit 0;
+`pnpm test:unit` 121 pass / 0 fail (incl. init-hints + doctor 3);
+`pnpm --dir docs run check:locales:deploy` OK;
+`pnpm --dir docs run build` exit 0; `publish.yml` → `yaml ok`;
+manual `init /tmp/xx-$$` shows no stale line and `cd ztron` in step 1;
+doctor with a bogus `ZTRON_TJS` prints the missing-file hint.
