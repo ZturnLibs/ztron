@@ -45,6 +45,7 @@ const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebV
 
 Usage:
   ztron init [dir]                 Scaffold a new project in [dir] (default .)
+  ztron doctor                     Check node/tjs/host/webview chain (exit 1 on fail)
   ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
   ztron build [--entry <file>]     Produce a standalone executable (M4)
   ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
@@ -1249,6 +1250,17 @@ async function main(): Promise<void> {
     case "init": {
       const target = positional ? resolve(cwd, positional) : cwd;
       await initProject(target);
+      break;
+    }
+    case "doctor": {
+      const { runDoctor } = await import("./doctor.js");
+      const report = runDoctor({ cwd, env: process.env, platform: process.platform });
+      for (const c of report.checks) {
+        console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
+        if (!c.pass) console.log(`      hint: ${c.hint}`);
+      }
+      console.log(report.ok ? "doctor: OK" : "doctor: FAILED");
+      if (!report.ok) process.exitCode = 1;
       break;
     }
     case "dev": {
