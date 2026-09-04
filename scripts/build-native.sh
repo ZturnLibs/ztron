@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the M0 native toolchain for the current platform:
-#   1. txiki.js `tjs` runtime  -> native/txiki.js/build/tjs
+#   1. txiki.js `tjs` runtime  -> native/libs/tjs (built in native/txiki.js/build/tjs)
 #   2. webview shared library  -> native/libs/libwebview.<ext>
 set -euo pipefail
 
@@ -77,4 +77,8 @@ case "$(uname -s)" in
     ;;
 esac
 
-echo "==> done. tjs: $NATIVE/txiki.js/build/tjs, host: $NATIVE/libs/ztron-host"
+# Collect tjs into native/libs/ so it is the single artifacts directory
+# (docs, `ztron init` guidance, and the doctor fixture all expect libs/tjs).
+[ -f "$NATIVE/txiki.js/build/tjs" ] && cp "$NATIVE/txiki.js/build/tjs" "$NATIVE/libs/"
+
+echo "==> done. tjs: $NATIVE/libs/tjs, host: $NATIVE/libs/ztron-host"
