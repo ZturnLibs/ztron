@@ -36,12 +36,23 @@ jobs:
             echo "--- $d"
             (cd "$d" && npm pack --dry-run) || exit 1
           done
-      # workspace:* protocols are not publishable; pnpm publish rewrites
+      # workspace:* protocols are not publishable; pnpm pack rewrites
       # them to the real version on pack. Publish leaf-first so a scoped
       # dependency exists by the time its dependents publish.
-      - name: publish
+      # pnpm publish E401s against GitHub Packages (it does not reliably
+      # pick up the project .npmrc authToken), so pack with pnpm and push
+      # with npm, which does.
+      - name: pack (leaf-first, workspace:* rewritten)
         run: |
+          rm -rf /tmp/tgz && mkdir -p /tmp/tgz
           for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
-            echo "--- publishing $d"
-            (cd "$d" && pnpm publish --no-git-checks --access restricted) || exit 1
+            echo "--- packing $d"
+            (cd "$d" && pnpm pack --pack-destination /tmp/tgz) || exit 1
+          done
+          ls -la /tmp/tgz
+      - name: publish tarballs to GitHub Packages
+        run: |
+          for tgz in /tmp/tgz/*.tgz; do
+            echo "--- publishing $tgz"
+            npm publish "$tgz" --access restricted --tag latest || exit 1
           done
