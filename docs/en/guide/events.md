@@ -4,7 +4,7 @@ title: Events & Channel
 
 The event system lets backend and frontend communicate in both directions: the
 frontend can listen to any named event emitted by the backend, and can also
-send targeted to the frontend/other windows. The listener registry lives in
+send targeted events to the frontend/other windows. The listener registry lives in
 the backend's `EventManager`; the API is provided by the `event` module of
 `@zturnlibs/ztron-api`.
 
@@ -39,7 +39,7 @@ await once("app:ready", () => console.log("ready"));
 // Send an event to the backend (the backend fans out to all listeners)
 await emit("frontend:poke", { at: Date.now() });
 
-// Send targeted to a specific window
+// Send a targeted event to a specific window
 await emitTo("main", "broadcast:x", { v: 1 });
 ```
 
@@ -86,4 +86,4 @@ On the plugin side there is also a `plugin:*|__listener` contract (e.g. the
 log plugin pushing logs to a webview target); the P2 plugins page will expand
 on it.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

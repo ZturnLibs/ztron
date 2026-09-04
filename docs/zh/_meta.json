@@ -1,5 +1,6 @@
 [
   { "text": "开始", "link": "/start/" },
   { "text": "指南", "link": "/guide/" },
-  { "text": "参考", "link": "/reference/" }
+  { "text": "参考", "link": "/reference/" },
+  { "text": "插件", "link": "/plugins/" }
 ]

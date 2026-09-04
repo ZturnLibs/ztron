@@ -43,4 +43,4 @@ WebView（通过 `tjs:ffi` 绑定 `webview/webview` 的 C API）。
 - 与 Tauri 的能力差距与阶段计划见 `ROADMAP.md`
 - 快速上手见「快速开始」；命令调用细节见 [调用后端命令](/guide/ipc)
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -21,6 +21,8 @@ features:
     details: M0–P30 里程碑完成，85 项确定性检查（`ztron check` 可驱动回归）；Windows/Linux 打包链建设中。
   - title: 指南与示例
     details: 架构、IPC、事件、窗口、配置、安全模型，以及 hello / multiwin / menuprobe 三个可运行示例。
-  - title: 适用版本：`ztron 0.3.0`
+  - title: 插件体系
+    details: 40 个内建/插件能力页（window、webview、fs、http、tray…）逐模块说明权限、scope、示例与命令清单，与命令级 API 参考互为对照。
+  - title: 适用版本：`ztron 0.3.1`
     details: 文档随代码演进；重大 API 变更会在同一 PR 中更新本站（见 CONTRIBUTING）。
 ---

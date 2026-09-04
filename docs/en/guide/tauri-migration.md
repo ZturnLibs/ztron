@@ -49,8 +49,8 @@ names now carry the `ztron://` prefix (e.g.
   matches Tauri's own recommended practice on Android (P24).
 - `app.withGlobalTauri` is supported (injecting the
   `window.__ZTRON_INTERNALS__` bootstrap, see the `inject` package).
-- Capability coverage and gaps are in `ROADMAP.md`; Windows/Linux hosts are
-  not yet compilable or bundleable, so no post-migration cross-platform
-  timeline can be promised.
+- Capability coverage and gaps are in `ROADMAP.md`; compilation and bundling
+  for the Windows/Linux hosts are not yet provided, so no post-migration
+  cross-platform timeline can be promised.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

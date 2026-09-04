@@ -6,12 +6,14 @@ title: Configuring ztron.conf.json
 dev/build time in two layers (CLI fail-fast + core), and consumed via
 `AppBuilder.fromConfig`. The hello example's full config:
 
+For the full field table see [Reference · Configuration](/reference/config).
+
 ```json
 {
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "windows": [
     {
       "label": "main",
@@ -75,10 +77,6 @@ abort directly with a `ztron.conf.json: ...` error.
 Windows/Linux bundling targets are not yet provided; the fields on this page
 all follow macOS behavior.
 
-## What's Next
+For the full field reference, see the [Config Reference](/reference/config).
 
-P2 plans to auto-generate a full configuration reference from the
-`ProjectConfigFile` type; the field table on this page will then be
-maintained by that generator.
-
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

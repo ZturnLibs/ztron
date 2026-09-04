@@ -6,12 +6,14 @@ title: 配置 ztron.conf.json
 （CLI fail-fast + core），经 `AppBuilder.fromConfig` 消费。hello 示例
 的完整配置：
 
+全字段说明见[参考 · 配置](/reference/config)。
+
 ```json
 {
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "windows": [
     {
       "label": "main",
@@ -74,9 +76,6 @@ title: 配置 ztron.conf.json
 
 Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准。
 
-## 后续
+完整字段说明见[配置参考](/reference/config)。
 
-P2 计划从 `ProjectConfigFile` 类型自动生成全量配置参考，届时本页字段
-表将由生成器维护。
-
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

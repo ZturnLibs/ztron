@@ -1,5 +1,6 @@
 [
   { "text": "Start", "link": "/start/" },
   { "text": "Guide", "link": "/guide/" },
-  { "text": "Reference", "link": "/reference/" }
+  { "text": "Reference", "link": "/reference/" },
+  { "text": "Plugins", "link": "/plugins/" }
 ]
