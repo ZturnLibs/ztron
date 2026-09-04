@@ -15,7 +15,7 @@ Ztron's capability surface is made of built-in modules and plugins; this section
 | [WebviewWindow (webview-window)](/plugins/webview-window) | Create native windows at runtime: `WebviewWindow` extends `Window` and adds `create()`, which really creates a second window while the app runs |
 | [App (app)](/plugins/app) | App metadata and whole-app lifecycle: name/version/identifier queries, whole-app show/hide and the macOS Dock icon toggle |
 | [Process (process)](/plugins/process) | Two process-level operations: exiting the app and relaunching it |
-| [Event (event)](/plugins/event) | Frontend entry of the two-way event system: listen to named backend events, emit targeted to the frontend or other windows |
+| [Event (event)](/plugins/event) | Frontend entry of the two-way event system: listen to named backend events, emit targeted events to the frontend or other windows |
 | [Path (path)](/plugins/path) | Path utilities: string operations, 30+ system and app directory getters, bundled-resource resolution and the `BaseDirectory` name table |
 | [Image (image)](/plugins/image) | Register and reference native images: registered images pass by registry id (`rid`) to icon-accepting APIs such as `tray.setIcon` and `window.setIcon` |
 | [DPI (dpi)](/plugins/dpi) | DPI-aware geometry types: logical pixels scale with the window's DPI factor, physical pixels are real device pixels |

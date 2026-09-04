@@ -25,7 +25,7 @@ The two processes communicate over TCP/JSON: `ztron-host` owns the native GUI su
 | Platform | Status |
 | --- | --- |
 | macOS | End-to-end verified: M0–P30 milestones, all 86 deterministic checks passing (`FULL_OK`, exit 0), drivable as a regression run via `ztron check` |
-| Windows / Linux | host skeleton compiles, not yet in the bundling pipeline, no release timeline committed |
+| Windows / Linux | Host skeleton compiles, not yet in the bundling pipeline, no release timeline committed |
 
 The capability surface includes multi-window (`MULTI_WINDOW_OK`), tray and menus (`TRAY_OK`, `MENU_OK`), drag & drop (`DRAG_DROP_ARMED`), streaming HTTP requests (`HTTP_STREAM_OK`), updater (`UPDATER_OK`), dmg bundling, and more; verification anchors for each are listed in the Status table of the repo [README.md](https://github.com/ZturnLibs/ztron/blob/main/README.md). Capability gaps and phased plans are tracked in [ROADMAP.md](https://github.com/ZturnLibs/ztron/blob/main/ROADMAP.md).
 
