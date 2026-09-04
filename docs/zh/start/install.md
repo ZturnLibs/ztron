@@ -6,39 +6,49 @@ title: 前置条件与安装
 
 | 依赖 | 要求 | 说明 |
 | --- | --- | --- |
-| macOS | Apple Silicon（已验证） | Intel 机型未验证，可尝试但如遇问题请提 issue |
-| Node.js | ≥ 20 | docs 工程与部分脚本以此为准 |
-| pnpm | 9 | workspace 解析依赖 pnpm |
-| Xcode Command Line Tools | 需要 | `scripts/build-native.sh` 编译原生链（tjs + ztron-host + webview 库）使用系统编译器 |
+| macOS | Apple Silicon（已验证） | Intel 未验证，可尝试；Windows/Linux 仅有 host 骨架，暂不可用 |
+| Node.js | ≥ 20 | |
+| pnpm | 9 | 构建原生链与示例使用 |
+| Xcode Command Line Tools | 需要 | 编译原生链（txiki.js + ztron-host + webview 库） |
 
-Windows/Linux 目前仅有 host 骨架（编译通过），尚不可用于开发或打包，也不承诺发布时间。
-
-# 获取源码与安装依赖
+# 第 1 步：安装 CLI
 
 ```bash
-git clone https://github.com/ZturnLibs/ztron.git
-cd ztron
+npm i -g @zturnlibs/ztron-cli
+```
+
+> 包同时发布在 GitHub Packages。若 npmjs 不可用，可在 `~/.npmrc` 写入
+> `@zturnlibs:registry=https://npm.pkg.github.com` 与
+> `//npm.pkg.github.com/:_authToken=<你的 GitHub PAT>` 后再安装。
+
+# 第 2 步：获取原生链（一次性）
+
+原生链 = `tjs` 运行时 + `ztron-host`（原生窗口宿主）+ webview 动态库，
+当前需从源码编译一次（约几分钟，仅首次与上游变更后需要）：
+
+```bash
+git clone https://github.com/ZturnLibs/ztron.git ~/ztron
+cd ~/ztron
 pnpm install
+scripts/build-native.sh                 # 产出 native/libs/{tjs,ztron-host,libwebview.dylib}
 ```
 
-# 构建原生链
+# 第 3 步：指向原生链
+
+把下面三行写进 `~/.zshrc`（路径按你的 clone 位置调整）：
 
 ```bash
-scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
+export ZTRON_TJS=~/ztron/native/libs/tjs
+export ZTRON_HOST_BIN=~/ztron/native/libs/ztron-host
+export ZTRON_WEBVIEW_LIB=~/ztron/native/libs/libwebview.dylib
 ```
 
-首次构建耗时较长（需编译 txiki.js 与原生宿主）；之后仅在相关源码变更时才需重跑。
-
-# 构建 workspace 包
+# 第 4 步：体检
 
 ```bash
-pnpm build
+ztron doctor
 ```
 
-该命令生成 `packages/*/dist`，之后 CLI 才可用（以 `node packages/cli/dist/index.js …` 形式调用）。
+五行全 PASS、输出 `doctor: OK` 即装好。任何 FAIL 都带修复提示。
 
-# 重要限制：目前需在 monorepo 内使用
-
-`@zturnlibs/ztron-*` 系列包当前以 `workspace:` 协议解析，因此 `ztron init` 脚手架创建的新项目必须位于本 monorepo 内，才能正确解析依赖。发布管线已就绪（打 tag 触发 `publish.yml`，发布到 GitHub Packages）；解除此限制后本节将随之更新。
-
-适用版本：`ztron 0.3.0`
+**下一步：[快速开始](/start/quick-start)**
