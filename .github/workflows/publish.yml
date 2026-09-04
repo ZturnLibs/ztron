@@ -45,3 +45,30 @@ jobs:
             echo "--- publishing $d"
             (cd "$d" && pnpm publish --no-git-checks --access restricted) || exit 1
           done
+
+  publish-npm:
+    name: publish @zturnlibs/ztron-* to npmjs (public)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+          scope: "@zturnlibs"
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: build (workspace)
+        run: pnpm run build
+      - name: publish (leaf-first, public scoped)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
+            echo "--- publishing $d"
+            (cd "$d" && pnpm publish --no-git-checks --access public) || exit 1
+          done
