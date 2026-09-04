@@ -1,163 +1,180 @@
-### Task 1: 站点骨架（可安装、可构建、双语最小首页）
+### Task 1: 提取 native-locate 共享模块
 
 **Files:**
-- Create: `docs/package.json`、`docs/.gitignore`、`docs/rspress.config.ts`、`docs/i18n.json`、`docs/zh/index.md`、`docs/en/index.md`、`docs/zh/_nav.json`、`docs/en/_nav.json`
-- Create: `docs/public/zturnlabs-icon.png`（复制自 `/Users/zyj/Zturn/zturn-home-site/docs/public/zturnlabs-icon.png`）
+- Create: `packages/cli/src/native-locate.ts`
+- Modify: `packages/cli/src/index.ts`（删除 `findTjs`/`findNativeFile`/`findHostBin`/`findWebviewLib` 本地实现，改为 import）
+- Test: `tests/unit/cli-native-locate.test.ts`
 
 **Interfaces:**
-- Consumes: 无（首个任务）
-- Produces: `docs/` 可构建站点；目录约定 `docs/zh`（默认语言、无路由前缀）与 `docs/en`（`/en/` 前缀）；`i18n.json` 键 `start`/`guide`/`reference`（后续任务在 `_nav.json` 里以键引用）
+- Produces: `findTjs(): string`（找不到时 throw Error）、`findNativeFile(start: string, file: string): string | undefined`、`findHostBin(appRoot: string): string`、`findWebviewLib(appRoot: string): string | undefined`——签名与 index.ts 现状逐字一致，index.ts 其余调用点不动
 
-- [ ] **Step 1: 写 `docs/package.json`**
+- [ ] **Step 1: 写失败测试**
 
-```json
-{
-  "name": "@zturnlibs/ztron-docs",
-  "version": "0.3.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "rspress dev",
-    "build": "rspress build",
-    "preview": "rspress preview",
-    "check:locales": "node --experimental-strip-types scripts/check-locales.ts",
-    "check:locales:deploy": "node --experimental-strip-types scripts/check-locales.ts --deploy",
-    "test": "node --experimental-strip-types --test scripts/*.test.ts"
-  },
-  "dependencies": {
-    "rspress": "^1.40.2"
-  },
-  "engines": {
-    "node": ">=20"
-  }
-}
-```
-
-- [ ] **Step 2: 写 `docs/.gitignore`**
-
-```
-node_modules/
-doc_build/
-```
-
-- [ ] **Step 3: 写 `docs/rspress.config.ts`**
+`tests/unit/cli-native-locate.test.ts`：
 
 ```ts
-import { defineConfig } from "rspress/config";
-import { fileURLToPath } from "node:url";
+/** native-locate: env overrides + walk-up resolution (shared by dev/build/doctor). */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  findTjs,
+  findNativeFile,
+  findHostBin,
+  findWebviewLib,
+} from "../../packages/cli/dist/native-locate.js";
 
-// 站点根即本目录：zh/ 为默认语言（无路由前缀），en/ 挂 /en/。
-const root = fileURLToPath(new URL(".", import.meta.url));
+function tmpProject(): string {
+  return mkdtempSync(join(tmpdir(), "ztron-nl-"));
+}
 
-export default defineConfig({
-  root,
-  // GitHub Pages 项目页子路径；绑定自定义域名后改为 "/"
-  base: "/ztron/",
-  lang: "zh",
-  title: "Ztron",
-  icon: "/zturnlabs-icon.png",
-  locales: [
-    { lang: "zh", label: "中文" },
-    { lang: "en", label: "English" },
-  ],
-  route: {
-    exclude: ["**/superpowers/**", "**/scripts/**", "**/translations/**"],
-  },
-  themeConfig: {
-    socialLinks: [
-      {
-        icon: "github",
-        mode: "link",
-        content: "https://github.com/ZturnLibs/ztron",
-      },
-    ],
-    footer: {
-      message: `
-        <div>
-          <div><a href="https://github.com/ZturnLibs/ztron">GitHub</a> · Ztron</div>
-          <div><a href="https://beian.miit.gov.cn/">鄂ICP备2025110122号</a></div>
-        </div>
-      `,
-    },
-  },
+test("findNativeFile walks up to native/libs", () => {
+  const root = tmpProject();
+  const deep = join(root, "a", "b", "proj");
+  mkdirSync(join(root, "native", "libs"), { recursive: true });
+  mkdirSync(deep, { recursive: true });
+  writeFileSync(join(root, "native", "libs", "ztron-host"), "#!/bin/sh\n");
+  assert.equal(findNativeFile(deep, "ztron-host"), join(root, "native", "libs", "ztron-host"));
+  assert.equal(findNativeFile(root, "missing"), undefined);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("findTjs prefers ZTRON_TJS, then PATH probe, else throws", () => {
+  const fake = join(tmpProject(), "tjs-fake");
+  writeFileSync(fake, "#!/bin/sh\n");
+  process.env.ZTRON_TJS = fake;
+  assert.equal(findTjs(), fake);
+  const saved = process.env.ZTRON_TJS;
+  delete process.env.ZTRON_TJS;
+  // PATH probe of a non-existent name fails -> throws with install hint.
+  const savedPath = process.env.PATH;
+  process.env.PATH = "/nonexistent-ztron-path";
+  assert.throws(() => findTjs(), /txiki\.js runtime/);
+  process.env.PATH = savedPath;
+  process.env.ZTRON_TJS = saved;
+});
+
+test("findHostBin: env wins over walk-up; findWebviewLib picks platform name", () => {
+  const root = tmpProject();
+  const deep = join(root, "proj");
+  mkdirSync(join(root, "native", "libs"), { recursive: true });
+  mkdirSync(deep, { recursive: true });
+  writeFileSync(join(root, "native", "libs", "ztron-host"), "x");
+  const libName = process.platform === "darwin" ? "libwebview.dylib" : "libwebview.so";
+  writeFileSync(join(root, "native", "libs", libName), "x");
+  const envHost = join(tmpProject(), "elsewhere-host");
+  writeFileSync(envHost, "x");
+  process.env.ZTRON_HOST_BIN = envHost;
+  assert.equal(findHostBin(deep), envHost);
+  delete process.env.ZTRON_HOST_BIN;
+  assert.equal(findHostBin(deep), join(root, "native", "libs", "ztron-host"));
+  assert.equal(findWebviewLib(deep), join(root, "native", "libs", libName));
+  rmSync(root, { recursive: true, force: true });
+  rmSync(envHost, { recursive: true, force: true });
 });
 ```
 
-- [ ] **Step 4: 写 `docs/i18n.json`（导航键双语）**
+- [ ] **Step 2: 跑测试确认失败**
 
-```json
-{
-  "start": { "zh": "开始", "en": "Start" },
-  "guide": { "zh": "指南", "en": "Guide" },
-  "reference": { "zh": "参考", "en": "Reference" },
-  "plugins": { "zh": "插件", "en": "Plugins" }
+Run: `pnpm --filter @zturnlibs/ztron-cli build 2>&1 | head -3; pnpm test:unit 2>&1 | grep "cli-native-locate"`
+Expected: FAIL（`Cannot find module .../dist/native-locate.js`）
+
+- [ ] **Step 3: 写 `native-locate.ts`（从 index.ts 原样搬移四个函数）**
+
+```ts
+/**
+ * Native-chain locators shared by dev/build/check and doctor.
+ * Resolution order per artifact: explicit env var, then walk-up
+ * `native/libs/<file>` from the starting directory (8 levels).
+ */
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+
+/** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
+export function findTjs(): string {
+  const configured = process.env.ZTRON_TJS;
+  if (configured) {
+    return configured;
+  }
+  const probe = spawnSync("tjs", ["-v"], { encoding: "utf8" });
+  if (probe.status === 0) {
+    return "tjs";
+  }
+  throw new Error(
+    "txiki.js runtime (`tjs`) not found on PATH. Install it or set ZTRON_TJS=/path/to/tjs",
+  );
+}
+
+/** Walks up from `start` looking for `native/libs/<file>`. */
+export function findNativeFile(start: string, file: string): string | undefined {
+  let dir = start;
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = resolve(dir, "native", "libs", file);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return undefined;
+}
+
+export function findHostBin(appRoot: string): string {
+  const env = process.env.ZTRON_HOST_BIN;
+  if (env) {
+    return resolve(env);
+  }
+  return (
+    findNativeFile(appRoot, "ztron-host") ??
+    resolve(appRoot, "native/libs/ztron-host")
+  );
+}
+
+/** Locates the platform webview shared library (next to the host). */
+export function findWebviewLib(appRoot: string): string | undefined {
+  const env = process.env.ZTRON_WEBVIEW_LIB;
+  if (env) {
+    return resolve(env);
+  }
+  const name =
+    process.platform === "darwin"
+      ? "libwebview.dylib"
+      : process.platform === "win32"
+        ? "webview.dll"
+        : "libwebview.so";
+  return findNativeFile(appRoot, name);
 }
 ```
 
-- [ ] **Step 5: 写最小首页与导航**
+然后 `packages/cli/src/index.ts`：删除本地 `findTjs`/`findNativeFile`/`findHostBin`/`findWebviewLib` 四个函数体，顶部加：
 
-`docs/zh/index.md`：
-
-```markdown
----
-title: Ztron 文档
----
-
-# Ztron 文档
-
-Tauri 风格的跨平台桌面框架，以 TypeScript 重写，运行于 txiki.js + 系统 WebView。
-
-（P1 内容建设中——本页在 Task 3 之后由正式首页替换。）
-
-适用版本：`ztron 0.1.0`
+```ts
+import {
+  findTjs,
+  findNativeFile,
+  findHostBin,
+  findWebviewLib,
+} from "./native-locate.js";
 ```
 
-`docs/en/index.md`：
+（若 `findNativeFile` 在 index.ts 有其他调用点，保持不动——import 已覆盖。）
 
-```markdown
----
-title: Ztron Docs
----
+- [ ] **Step 4: 跑测试确认通过**
 
-# Ztron Docs
+Run: `pnpm --filter @zturnlibs/ztron-cli build && pnpm test:unit 2>&1 | tail -5`
+Expected: `pass 129+ / fail 0`（基线 126 + 新 3），全绿
 
-A Tauri-style cross-platform desktop framework rewritten in TypeScript, on txiki.js + the system WebView.
-
-(Placeholder while P1 content lands — replaced by the real landing page after Task 3.)
-
-适用版本：`ztron 0.1.0`
-```
-
-`docs/zh/_nav.json` 与 `docs/en/_nav.json` 内容相同（text 为 i18n 键，链接在各自 locale 内解析）：
-
-```json
-[
-  { "text": "start", "link": "/start/intro" },
-  { "text": "guide", "link": "/guide/architecture" },
-  { "text": "reference", "link": "/reference/cli" }
-]
-```
-
-- [ ] **Step 6: 复制品牌图标**
+- [ ] **Step 5: Commit**
 
 ```bash
-mkdir -p docs/public
-cp /Users/zyj/Zturn/zturn-home-site/docs/public/zturnlabs-icon.png docs/public/
-```
-
-- [ ] **Step 7: 安装并构建验证**
-
-```bash
-cd docs && pnpm install && pnpm build
-```
-
-预期：`install` 生成 `docs/pnpm-lock.yaml`；`build` exit 0，产出 `docs/doc_build/`，内含 `index.html`（zh 默认）与 `en/index.html`。若 `en/` 前缀缺失，检查 `locales` 配置拼写。
-
-- [ ] **Step 8: 提交**
-
-```bash
-git add docs/package.json docs/pnpm-lock.yaml docs/.gitignore docs/rspress.config.ts docs/i18n.json docs/zh docs/en docs/public
-git commit -m "docs(site): rspress skeleton - bilingual locales, base path, brand icon"
+git add packages/cli/src/native-locate.ts packages/cli/src/index.ts tests/unit/cli-native-locate.test.ts
+git commit -m "refactor(cli): extract native-locate shared module (finders for dev/build/doctor)"
 ```
 
 ---

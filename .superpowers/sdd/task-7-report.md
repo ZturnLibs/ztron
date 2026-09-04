@@ -1,50 +1,103 @@
-# Task 7 Report: 根仓库接线（转发脚本 + README 入口）
+# Task 7 Report: `examples.md` touch-up + end-to-end acceptance + PR
 
-## Status: COMPLETE
+**Status:** complete
+**Commit:** `c27192a` docs(start): examples positioning + deep-dive links (zh/en)
+**Branch/PR:** `feat/onboarding` → `main` — https://github.com/ZturnLibs/ztron/pull/8
 
-Commit: `7ee455d` on `feat/docs` — "docs: root wiring - docs:* forwarding scripts + README section"
-(2 files changed: README.md +10, package.json +6/-1)
+(Replaces the stale feat/docs-session report "根仓库接线" — that project was
+merged via #2; this file now tracks the onboarding-journey Task 7.)
 
-## What was done
+## Step 1 — examples.md edits (zh/en)
 
-1. **Root `package.json`** — appended 4 scripts verbatim from the brief, after `dev`, with comma placement corrected (`dev` gained a trailing comma; `docs:check` is last, no trailing comma):
-   - `docs:dev` → `pnpm --dir docs run dev`
-   - `docs:build` → `pnpm --dir docs run build`
-   - `docs:preview` → `pnpm --dir docs run preview`
-   - `docs:check` → `pnpm --dir docs run check:locales`
-   - Existing scripts (build/typecheck/test/test:unit/dev) untouched.
-2. **Root `README.md`** — inserted the `## Documentation` section verbatim from the brief between `## Tests` (after "See `tests/README.md` for the design.") and `## Quick start`.
+`docs/zh/start/examples.md` + `docs/en/start/examples.md`:
 
-## ⚠️ Major environment finding: branch drift (handled)
+- Top positioning note (blockquote): `examples/` belongs to the framework repo
+  (contributor/developer perspective); app devs enter via the quick-start
+  `ztron init` path. Link target `/start/quick-start` (exists, Task 6 page).
+- Trailing deep-dive line: 架构 / IPC / 安全 ACL / CLI 命令参考 (en mirror).
+- hello check count corrected **86 → 85** in all 4 spots (table cell + prose,
+  zh + en), matching Task 6's live `ztron check` observation.
+- Verified in built output: `docs/doc_build/start/examples.html` (zh) and
+  `docs/doc_build/en/start/examples.html` (en) carry the new content; no
+  `86 检查` / `86 checks` remains in the start/ pages.
 
-- The task context said "branch feat/docs", but the main checkout `/Users/zyj/Zturn/Ztron` was **on `main`** (b38105d) — docs/ content (Tasks 1–6) does not exist on main; it lives only on `feat/docs` (3e1b6eb). Stale `docs/node_modules` in the main checkout suggests it *was* on feat/docs during Tasks 1–6 and was switched to main afterwards (possibly by the home-page session setup or the user).
-- My first edits landed on main's file states. I **reverted them** (`git restore README.md package.json` in the main checkout) and redid the work on the correct branch.
-- Direct `git checkout feat/docs` was blocked: README.md/package.json differ between branches (main is at 0.3.0 with `@zturnlibs/ztron-*`-era README; feat/docs root at 0.1.0 with `@zturnlibs/ztron-*` rename) and `.superpowers/sdd/progress.md` (controller's task-6 tracking line — preserved untouched) also differs and is locally modified.
-- **Solution**: created a dedicated worktree `/Users/zyj/Zturn/Ztron/.worktrees/docs` on `feat/docs`, applied edits there, verified, committed there. Main checkout left exactly as found (only controller's progress.md mod + untracked `.worktrees/`). Worktree kept in place (has node_modules + dist builds; useful for Task 8). Main and feat/docs have diverged and will need a deliberate merge/integration decision by the controller — out of scope here.
+### Deviation from brief text (deliberate)
 
-## Adaptations from the brief
+- Brief's deep-dive line linked `[API 参考](/en/reference/api/)` and
+  `[命令参考](/reference/commands)`. Neither page exists in the docs tree
+  (docs/{en,zh}/{guide,reference,start}; reference has only `cli.md`). Used the
+  real command-reference page `/reference/cli` — the same target/label Task 6's
+  accepted quick-start pages use (`[CLI 参考](/reference/cli)`). Spec §5.4 only
+  requires "结尾链 guide/architecture 与 reference"; all four shipped targets
+  exist. Dropped the nonexistent API-reference link.
+- `docs/zh/index.md` hero still says "86 项确定性检查" — left alone per
+  instruction (only start/examples.md in scope).
 
-1. **Verification (controller-authorized)**: ran `pnpm docs:check` + `pnpm test` only; did NOT run `pnpm docs:build`/rspress (macOS 26 native-module hang; build verified in CI per Task 8).
-2. **Worktree instead of main checkout** (branch drift, see above). Same scoped `git add package.json README.md` discipline — never `git add -A`/`commit -a`.
-3. **Extra bootstrap in the worktree** (environmental, not content changes): fresh worktree lacked gitignored artifacts, so `pnpm install --frozen-lockfile` (465 ms) + `pnpm build` (all `tsc`, exit 0) were required before `pnpm test` could run — tests import `packages/*/dist/index.js`. No repo files changed by this.
+## Step 2 — end-to-end acceptance (spec §7)
 
-## Verification results (in the worktree, on feat/docs)
+1. **Clean-dir init → dev → build**: covered by Task 6 (clean tmpdir;
+   init/doctor/codegen/build exit 0; hello `ztron check` → `FULL_OK`). Brief
+   marks this "Task 6 Step 3 已覆盖，复核 exit 0" — evidence cited, not re-run.
+2. **`ztron doctor` 3-state** (CLI: `packages/cli/dist/index.js doctor`):
+   - Provisioned (worktree root, `ZTRON_TJS=/Users/zyj/Zturn/Ztron/native/txiki.js/build/tjs`;
+     host/webview resolved via walk-up to `/Users/zyj/Zturn/Ztron/native/libs/`):
+     `PASS ×5` (node 24.1.0 / tjs / ztron-host / libwebview.dylib / darwin),
+     `doctor: OK`, **exit 0**.
+   - Bare dir `/tmp/ztron-doctor-bare`, `env -u ZTRON_TJS -u ZTRON_HOST_BIN -u
+     ZTRON_WEBVIEW_LIB PATH=/nonexistent <abs-node> … doctor`: tjs FAIL + hint,
+     ztron-host FAIL + hint, webview FAIL + hint, `doctor: FAILED`, **exit 1**.
+     (Node itself must be invoked by absolute path when PATH=/nonexistent —
+     brief's command line elides this.)
+   - Third state (tjs present, host missing): host/webview FAIL + hint, exit 1.
+   - Unit coverage: `tests/unit/cli-doctor.test.ts` (within the 121 green CLI
+     tests from Tasks 1–3).
+   - Environment note: this machine has no `tjs` on PATH; the all-green state
+     requires `ZTRON_TJS` (a documented, hint-recommended resolution path).
+     Main repo `native/libs/` lacks `tjs` (built before the Task 5
+     `build-native.sh` fix); the worktree has no `native/libs` and resolves
+     host/webview by the 8-level walk-up — by design.
+3. **Locale gate + full suite**:
+   - `pnpm --dir docs run check:locales:deploy` → `[check-locales] OK — zh/en
+     trees match, no placeholders`, exit 0.
+   - `pnpm test` (root: `tests/unit/*.test.ts` + `tests/core.test.ts`) →
+     **134 tests / 133 pass / 0 fail / 1 skipped / 0 todo**, exit 0. Skipped =
+     `PathScope allows $TMP and denies /etc` (pre-existing env-dependent skip,
+     not onboarding code). Baseline expectation "126+ from main plus new CLI
+     tests" satisfied (feat/docs-era baseline was 126 total / 125 pass / 1 skip;
+     branch adds the doctor/locate/init-hints suites).
+4. **npm channel**: `npm view @zturnlibs/ztron-cli
+   --registry=https://registry.npmjs.org` → **E404**, exit 1 (local default
+   registry is a private mirror `npm.ixiaochuan.cn`, also 404). Expected: the
+   publish-npm job needs the repo secret `NPM_TOKEN`; npmjs channel stays dark
+   until first `v*` tag publish. Stated in PR body as prerequisite, non-blocker.
 
-| Check | Result |
-| --- | --- |
-| `pnpm docs:check` | exit 0 — `[check-locales] OK — zh/en trees match`; forwarding script resolves `docs/` correctly |
-| `pnpm test` | exit 0 — 126 tests: 125 pass / 1 skip / 0 fail (root test chain unaffected; feat/docs has a few more tests than main's 110 due to stronghold/F4 commits) |
-| `node -e "JSON.parse(...)"` on package.json | valid JSON |
+## Step 3 — final gate + build
 
-Not run (per adaptation): `pnpm docs:build` — deferred to CI (Task 8).
+- Locale gate: OK (above), exit 0.
+- `pnpm --dir docs run build` → `success Pages rendered in 116 ms.`, exit 0.
 
-## Commit hygiene
+## Step 4 — commit / push / PR
 
-- `git status` before commit showed exactly `M README.md`, `M package.json` — nothing else staged or swept in.
-- Commit: `7ee455d`, parents on `feat/docs` (3e1b6eb = Task 6).
+- Commit `c27192a` (examples only, per brief's `git add` list), pushed
+  `feat/onboarding` to origin, PR created:
+  **https://github.com/ZturnLibs/ztron/pull/8** — body covers spec link,
+  W1/W2/W3 summaries, acceptance evidence table, NPM_TOKEN prerequisite,
+  and the pnpm≥10 esbuild postinstall observation (scaffold-level fix —
+  ship `pnpm-workspace.yaml`/`.npmrc` from `ztron init` — proposed for a
+  later pass; `pnpm install` still exits 0, warning only).
 
-## Concerns / follow-ups for controller
+## Step 5 — post-merge live verification
 
-1. **Branch drift is the big one**: the SDD docs project (feat/docs) and main (0.3.0, renamed packages) have diverged. Task 8 (CI) should be done aware of this; eventually feat/docs needs rebasing/merging onto main, and root README/package.json will conflict (both were modified on main since the fork point: version bump 0.1.0→0.3.0, README `@zturnlibs/ztron-*`→? naming, Tests count). My commit touches exactly the two files that will conflict — resolution is straightforward (keep main's newer content + add the docs wiring).
-2. Worktree `/Users/zyj/Zturn/Ztron/.worktrees/docs` left in place (clean, committed). Remove with `git worktree remove .worktrees/docs` when no longer needed.
-3. Main checkout untouched: `git status` = only ` M .superpowers/sdd/progress.md` (controller's) + `?? .worktrees/`.
+Pending merge (maintainer): after website.yml goes green, verify
+`https://zturnlibs.github.io/ztron/docs/start/quick-start.html` and the zh
+counterpart return 200 with new content (`grep ztron init my-app`).
+
+## Concerns / follow-ups
+
+- `NPM_TOKEN` secret must be configured before the next `v*` tag (W1 gate).
+- pnpm≥10 esbuild postinstall issue (PR body, deferred).
+- `docs/zh/index.md` hero + README still say 86 checks — out of Task 7 scope,
+  suggest a one-line sweep in a future docs pass.
+- Main repo `native/libs/` missing `tjs`: next `scripts/build-native.sh` run
+  (with the Task 5 fix) will place it; until then `ZTRON_TJS` is needed for
+  doctor/dev on this machine.

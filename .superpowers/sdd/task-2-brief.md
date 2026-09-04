@@ -1,157 +1,191 @@
-### Task 2: check-locales 结构一致性检查（TDD）
+### Task 2: `ztron doctor` 体检命令
 
 **Files:**
-- Create: `docs/scripts/check-locales.ts`、`docs/scripts/check-locales.test.ts`
-- Modify: 无（package.json 脚本已含 check:locales/test）
+- Create: `packages/cli/src/doctor.ts`
+- Modify: `packages/cli/src/index.ts`（help 文本 + switch case）
+- Test: `tests/unit/cli-doctor.test.ts`
 
 **Interfaces:**
-- Consumes: `docs/zh`、`docs/en` 目录树
-- Produces: `walk(dir, base?): string[]`；`diffTrees(zhFiles: string[], enFiles: string[]): { missingInEn: string[]; missingInZh: string[] }`；`findPlaceholders(enDir: string, enFiles: string[]): string[]`；CLI 退出码 0/1，`--deploy` 标志；占位标记正则 `<!-- i18n:untranslated -->`（Task 5/6 依赖此约定）
+- Consumes: Task 1 的 `findTjs/findNativeFile/findHostBin/findWebviewLib`（import 自 `./native-locate.js`）
+- Produces: `runDoctor(opts: { cwd: string; env: NodeJS.ProcessEnv; platform: string }): DoctorReport`，其中 `DoctorReport = { checks: Array<{ name: string; pass: boolean; detail: string; hint: string }>, ok: boolean }`——纯函数可测；index.ts 的 case 负责渲染与 exit code
 
-- [ ] **Step 1: 写失败测试 `docs/scripts/check-locales.test.ts`**
+- [ ] **Step 1: 写失败测试**
+
+`tests/unit/cli-doctor.test.ts`：
 
 ```ts
-/** Unit tests for the zh/en parity checker. */
-import test from "node:test";
+/** `ztron doctor` — environment check for newcomers (all-pass / missing chains). */
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { diffTrees, findPlaceholders } from "./check-locales.ts";
+import { runDoctor } from "../../packages/cli/dist/doctor.js";
 
-test("identical trees produce no diffs", () => {
-  const d = diffTrees(["index.md", "start/_meta.json"], ["index.md", "start/_meta.json"]);
-  assert.deepEqual(d.missingInEn, []);
-  assert.deepEqual(d.missingInZh, []);
-});
-
-test("file in zh missing from en is reported", () => {
-  const d = diffTrees(["index.md", "guide/ipc.md"], ["index.md"]);
-  assert.deepEqual(d.missingInEn, ["guide/ipc.md"]);
-  assert.deepEqual(d.missingInZh, []);
-});
-
-test("file in en missing from zh is reported", () => {
-  const d = diffTrees(["index.md"], ["index.md", "orphan.md"]);
-  assert.deepEqual(d.missingInZh, ["orphan.md"]);
-});
-
-test("generated reference/api subtree is exempt", () => {
-  const d = diffTrees(["index.md", "reference/api/fs.md"], ["index.md"]);
-  assert.deepEqual(d.missingInEn, []);
-  assert.deepEqual(d.missingInZh, []);
-});
-
-test("findPlaceholders flags en pages carrying the marker", () => {
-  const dir = mkdtempSync(join(tmpdir(), "cl-test-"));
-  try {
-    mkdirSync(join(dir, "guide"), { recursive: true });
-    writeFileSync(join(dir, "index.md"), "# Home\n");
-    writeFileSync(join(dir, "guide", "ipc.md"), "<!-- i18n:untranslated -->\n# IPC\n");
-    assert.deepEqual(findPlaceholders(dir, ["index.md", "guide/ipc.md"]), ["guide/ipc.md"]);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
+function nativeRepo(): string {
+  const root = mkdtempSync(join(tmpdir(), "ztron-doc-"));
+  mkdirSync(join(root, "native", "libs"), { recursive: true });
+  for (const f of ["tjs", "ztron-host", "libwebview.dylib", "webview.dll", "libwebview.so"]) {
+    writeFileSync(join(root, "native", "libs", f), "x");
   }
+  return root;
+}
+
+const CLEAN_ENV = { PATH: "/nonexistent-ztron-path" } as NodeJS.ProcessEnv;
+
+test("doctor: all pass when chain is discoverable", () => {
+  const repo = nativeRepo();
+  const r = runDoctor({ cwd: repo, env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") }, platform: "darwin" });
+  assert.equal(r.ok, true);
+  assert.equal(r.checks.length, 5);
+  for (const c of r.checks) assert.equal(c.pass, true, `${c.name}: ${c.detail}`);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: missing host+tjs fails with hints, ok=false", () => {
+  const empty = mkdtempSync(join(tmpdir(), "ztron-doc0-"));
+  const r = runDoctor({ cwd: empty, env: CLEAN_ENV, platform: "darwin" });
+  assert.equal(r.ok, false);
+  const byName = Object.fromEntries(r.checks.map((c) => [c.name, c]));
+  assert.equal(byName["tjs runtime"].pass, false);
+  assert.match(byName["tjs runtime"].hint, /build-native\.sh/);
+  assert.equal(byName["ztron-host"].pass, false);
+  assert.equal(byName["webview library"].pass, false);
+  assert.equal(byName["node >= 20"].pass, true);
+  rmSync(empty, { recursive: true, force: true });
+});
+
+test("doctor: non-macOS platform yields a warning check", () => {
+  const repo = nativeRepo();
+  const r = runDoctor({ cwd: repo, env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") }, platform: "linux" });
+  const platform = r.checks.find((c) => c.name === "platform");
+  assert.ok(platform);
+  assert.equal(platform.pass, true); // warning, not failure
+  assert.match(platform.detail, /skeleton|骨架/);
+  rmSync(repo, { recursive: true, force: true });
 });
 ```
 
-- [ ] **Step 2: 运行确认失败**
+- [ ] **Step 2: 跑测试确认失败**
 
-```bash
-pnpm --dir docs run test
-```
+Run: `pnpm --filter @zturnlibs/ztron-cli build; pnpm test:unit 2>&1 | grep "cli-doctor"`
+Expected: FAIL（`Cannot find module .../dist/doctor.js`）
 
-预期：FAIL，`Cannot find module './check-locales.ts'`。
-
-- [ ] **Step 3: 实现 `docs/scripts/check-locales.ts`**
+- [ ] **Step 3: 写 `doctor.ts`**
 
 ```ts
 /**
- * check-locales — enforce zh/en structural parity for the docs site.
- * zh/ is the canonical tree; en/ must mirror it file-for-file.
- * Exit 1 on any mismatch. --deploy additionally fails on untranslated
- * placeholder markers in en/ pages (release gate, spec §5.1/§8.2).
- * reference/api/ is exempt: P2 gen-api-docs output, gitignored.
+ * `ztron doctor` — one-shot environment check for newcomers.
+ * Pure logic here (returns a report); index.ts renders and sets exit code.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { findTjs, findHostBin, findWebviewLib } from "./native-locate.js";
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const EXEMPT = [/^reference[/\\]api[/\\]/];
-const PLACEHOLDER = /<!--\s*i18n:untranslated\s*-->/;
-const TRACKED = /\.(md|mdx)$|^_meta\.json$|^_nav\.json$/;
+export interface DoctorCheck {
+  name: string;
+  pass: boolean;
+  detail: string;
+  hint: string;
+}
+export interface DoctorReport {
+  checks: DoctorCheck[];
+  ok: boolean;
+}
 
-export function walk(dir: string, base = ""): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(join(dir, base))) {
-    const rel = base ? `${base}/${name}` : name;
-    if (statSync(join(dir, rel)).isDirectory()) out.push(...walk(dir, rel));
-    else if (TRACKED.test(name)) out.push(rel);
+const CHAIN_HINT =
+  "clone https://github.com/ZturnLibs/ztron and run `scripts/build-native.sh`, then export ZTRON_TJS / ZTRON_HOST_BIN / ZTRON_WEBVIEW_LIB to native/libs/*";
+
+export function runDoctor(opts: {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  platform: string;
+}): DoctorReport {
+  const { cwd, env, platform } = opts;
+  const checks: DoctorCheck[] = [];
+
+  const nodeOk = Number.parseInt(process.versions.node, 10) >= 20;
+  checks.push({
+    name: "node >= 20",
+    pass: nodeOk,
+    detail: process.versions.node,
+    hint: "install Node.js 20+ from https://nodejs.org",
+  });
+
+  try {
+    const p = env.ZTRON_TJS ?? findTjs();
+    checks.push({ name: "tjs runtime", pass: existsSync(resolve(p)) || p === "tjs", detail: p, hint: CHAIN_HINT });
+  } catch (e) {
+    checks.push({ name: "tjs runtime", pass: false, detail: String((e as Error).message), hint: CHAIN_HINT });
   }
-  return out;
-}
 
-export interface TreeDiff {
-  missingInEn: string[];
-  missingInZh: string[];
-}
+  const host = env.ZTRON_HOST_BIN
+    ? resolve(env.ZTRON_HOST_BIN)
+    : findHostBin(cwd);
+  checks.push({
+    name: "ztron-host",
+    pass: existsSync(host),
+    detail: host,
+    hint: CHAIN_HINT,
+  });
 
-export function diffTrees(zhFiles: string[], enFiles: string[]): TreeDiff {
-  const keep = (f: string) => !EXEMPT.some((re) => re.test(f));
-  const en = new Set(enFiles.filter(keep));
-  const zh = new Set(zhFiles.filter(keep));
-  return {
-    missingInEn: zhFiles.filter((f) => keep(f) && !en.has(f)),
-    missingInZh: enFiles.filter((f) => keep(f) && !zh.has(f)),
-  };
-}
+  const lib = findWebviewLib(cwd);
+  checks.push({
+    name: "webview library",
+    pass: Boolean(lib && existsSync(lib)),
+    detail: lib ?? "not found",
+    hint: CHAIN_HINT,
+  });
 
-export function findPlaceholders(enDir: string, enFiles: string[]): string[] {
-  return enFiles.filter(
-    (f) => f.endsWith(".md") && PLACEHOLDER.test(readFileSync(join(enDir, f), "utf8")),
-  );
-}
+  if (platform !== "darwin") {
+    checks.push({
+      name: "platform",
+      pass: true, // warning only
+      detail: `${platform} — host is a skeleton; macOS is the supported dev platform`,
+      hint: "see ROADMAP.md for Windows/Linux status",
+    });
+  }
 
-function main(): void {
-  const deploy = process.argv.includes("--deploy");
-  const zhDir = join(ROOT, "zh");
-  const enDir = join(ROOT, "en");
-  const { missingInEn, missingInZh } = diffTrees(walk(zhDir), walk(enDir));
-  const placeholders = deploy ? findPlaceholders(enDir, walk(enDir)) : [];
-  for (const f of missingInEn) console.error(`[check-locales] missing in en/: ${f}`);
-  for (const f of missingInZh) console.error(`[check-locales] missing in zh/: ${f}`);
-  for (const f of placeholders) console.error(`[check-locales] untranslated placeholder in en/: ${f}`);
-  if (missingInEn.length || missingInZh.length || placeholders.length) process.exit(1);
-  console.log(`[check-locales] OK — zh/en trees match${deploy ? ", no placeholders" : ""}`);
+  return { checks, ok: checks.every((c) => c.pass) };
 }
-
-const invokedDirectly =
-  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (invokedDirectly) main();
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [ ] **Step 4: index.ts 挂子命令**
 
-```bash
-pnpm --dir docs run test
+help 文本（`index.ts` 的 usage 区，`ztron init` 行后）加：
+
+```
+ *   2b. ztron doctor                Check node/tjs/host/webview chain (exit 1 on fail)
 ```
 
-预期：5 tests PASS。
+switch 内（`case "init"` 后）加：
 
-- [ ] **Step 5: 验证 CLI 两种模式（当前 zh/en 同构，均应通过）**
-
-```bash
-pnpm --dir docs run check:locales && pnpm --dir docs run check:locales:deploy
+```ts
+    case "doctor": {
+      const { runDoctor } = await import("./doctor.js");
+      const report = runDoctor({ cwd, env: process.env, platform: process.platform });
+      for (const c of report.checks) {
+        console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
+        if (!c.pass) console.log(`      hint: ${c.hint}`);
+      }
+      console.log(report.ok ? "doctor: OK" : "doctor: FAILED");
+      if (!report.ok) process.exitCode = 1;
+      break;
+    }
 ```
 
-预期：两行 `[check-locales] OK …`，exit 0。
+（顶部静态 import 亦可，避免动态 import 也行——用静态 `import { runDoctor } from "./doctor.js";` 与其他 import 并列，case 内直接调用。）
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 5: 跑测试 + 手验**
+
+Run: `pnpm --filter @zturnlibs/ztron-cli build && pnpm test:unit 2>&1 | tail -4 && node packages/cli/dist/index.js doctor; echo "exit=$?"`
+Expected: 单测全绿；本机（worktree 无 native/libs 时）tjs 可能 PASS（PATH 有 tjs）而 host FAIL → `doctor: FAILED` exit 1；在仓库根跑则全绿 `doctor: OK` exit 0
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add docs/scripts/check-locales.ts docs/scripts/check-locales.test.ts
-git commit -m "docs(site): zh/en parity checker - tree diff + deploy placeholder gate (TDD)"
+git add packages/cli/src/doctor.ts packages/cli/src/index.ts tests/unit/cli-doctor.test.ts
+git commit -m "feat(cli): ztron doctor - one-shot native-chain environment check"
 ```
 
 ---
