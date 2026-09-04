@@ -59,7 +59,8 @@ logPlugin({
 检查行——两种形态都认：hello 风格的
 `[m3] frontend reported: "TAG:detail"` 与裸 `TAG_OK` / `X_FAIL` 行；
 出现 `*_FAIL` / `ERROR` 或 native crash 行即记失败。**exit 0 的条件：
-应用自身打出 `SPIKE_RESULT: FULL_OK` 且 0 个 FAIL**；`--expect`
+应用自身打出 `SPIKE_RESULT: FULL_OK` 且 0 个 FAIL**（使用 `--expect`
+指定必需 tag 时，以其满足为准，可替代 FULL_OK）；`--expect`
 （逗号分隔）可钉住必须出现的 tag，`--timeout`（毫秒，缺省 120000）
 限定总时长。harness 的判定覆盖子进程自身的退出码。
 

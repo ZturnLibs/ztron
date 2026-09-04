@@ -27,8 +27,9 @@ Four steps in order (from `buildApp`/`packMacApp` in
    frontend artifacts and icon, then codesigns (see below).
 
 Outside macOS (Linux/Windows) only a directory layout is produced today:
-`dist/<appName>/` containing `ztron-host` + the webview library +
-`frontend/`.
+`dist/<appName>/` on Linux, while the Windows branch currently hardcodes
+`dist/ZtronApp/` (regardless of `appName`) — either way it contains
+`ztron-host` + the webview library + `frontend/`.
 
 ## The .app Layout
 

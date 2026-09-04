@@ -67,9 +67,10 @@ recognized: the hello-style
 `[m3] frontend reported: "TAG:detail"` and bare `TAG_OK` / `X_FAIL`
 lines; a `*_FAIL` / `ERROR` tag or a native crash line counts as a
 failure. **Exit 0 requires the app's own `SPIKE_RESULT: FULL_OK` line and
-zero FAILs**; `--expect` (comma-separated) pins tags that must appear,
-and `--timeout` (ms, default 120000) bounds the run. The harness verdict
-overrides the child's own exit code.
+zero FAILs** (when `--expect` pins required tags, satisfying them takes
+precedence and replaces FULL_OK); `--expect` (comma-separated) pins tags
+that must appear, and `--timeout` (ms, default 120000) bounds the run.
+The harness verdict overrides the child's own exit code.
 
 On hello (command is the real usage; output quoted from the README P30
 record):

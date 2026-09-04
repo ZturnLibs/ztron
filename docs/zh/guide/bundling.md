@@ -23,7 +23,8 @@ title: 打包与分发
    dylib、现场编译 Mach-O launcher、拷贝前端产物与图标，然后
    codesign（见下）。
 
-macOS 之外（Linux/Windows）当前只做目录布局：`dist/<appName>/` 下放
+macOS 之外（Linux/Windows）当前只做目录布局：Linux 为 `dist/<appName>/`，
+Windows 分支目前硬编码 `dist/ZtronApp/`（不随 `appName` 变化）；目录下放
 `ztron-host` + webview 库 + `frontend/`。
 
 ## .app 结构
