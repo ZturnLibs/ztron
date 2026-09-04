@@ -1,1 +1,1 @@
-["architecture", "ipc", "events", "window", "config", "security", "tauri-migration"]
+["architecture", "ipc", "events", "window", "config", "security", "bundling", "signing-updater", "debugging", "tauri-migration"]
