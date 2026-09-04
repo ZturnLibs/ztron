@@ -24,4 +24,4 @@ A menu capability probing example, covering menu construction and dynamic manipu
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

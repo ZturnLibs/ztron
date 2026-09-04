@@ -93,4 +93,4 @@ ztron check --expect SECOND_WINDOW_OK,STRESS_OK
   `~/Library/Logs/com.ztron.hello/com.ztron.hello.log`），轮换备份在
   同目录。详见[日志](/plugins/log)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -19,4 +19,4 @@ title: 指南
 | [调试与日志](/guide/debugging) | 调试入口汇总：DevTools 开关、log 插件结构化日志与 `ztron check` 回归运行器 |
 | [从 Tauri 迁移](/guide/tauri-migration) | Rust → TS 模块对照：`@zturnlibs/ztron-api` 即 `@tauri-apps/api` 的翻译，前端多数只需替换导入来源 |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

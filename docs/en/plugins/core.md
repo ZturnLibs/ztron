@@ -74,4 +74,4 @@ imgEl.src = convertFileSrc(`${temp}/icon.png`);
 `plugin:resources|close` (used by `Resource.close()`). Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

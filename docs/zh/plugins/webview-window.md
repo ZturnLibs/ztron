@@ -52,4 +52,4 @@ await second.destroy();              // 销毁后主窗口操作不受影响
 `plugin:webview` 命令之一），窗口操作走 85 条 `plugin:window|*`。
 完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

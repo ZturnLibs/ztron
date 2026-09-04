@@ -57,4 +57,4 @@ await hideApplication(); await showApplication();
 `default_window_icon`、`fetch_data_store_identifiers`、
 `remove_data_store`。完整清单见 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

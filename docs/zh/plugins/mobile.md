@@ -77,4 +77,4 @@ await nfcScan();                // → 标签内容（字符串）
 [API 符号参考](/reference/api)（barcode-scanner / biometric /
 geolocation / haptics / nfc）。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

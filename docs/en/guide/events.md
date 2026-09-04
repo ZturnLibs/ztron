@@ -86,4 +86,4 @@ On the plugin side there is also a `plugin:*|__listener` contract (e.g. the
 log plugin pushing logs to a webview target); the P2 plugins page will expand
 on it.
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

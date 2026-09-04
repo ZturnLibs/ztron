@@ -69,4 +69,4 @@ Ztron 的能力面由内建模块与插件构成，本节逐模块给出命令�
 | --- | --- |
 | [移动端插件一览（mobile）](/plugins/mobile) | 五个移动端方向插件（barcode-scanner/biometric/geolocation/haptics/nfc）：命令面对齐上游，桌面运行时每条命令确定性失败关闭（抛 `PluginUnavailable`） |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -13,7 +13,7 @@ title: 配置 ztron.conf.json
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "windows": [
     {
       "label": "main",
@@ -78,4 +78,4 @@ Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准�
 
 完整字段说明见[配置参考](/reference/config)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -13,4 +13,4 @@ title: 开始
 | [快速开始](/start/quick-start) | 10 分钟跑通 hello 示例：dev 运行、`ztron check` 回归与打包应用 |
 | [示例](/start/examples) | `examples/` 下三个可运行示例：hello、multiwin、menuprobe |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

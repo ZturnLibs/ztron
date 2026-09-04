@@ -46,4 +46,4 @@ await relaunch();
 `plugin:process|*` 共 **2 条**：`exit`、`relaunch`。完整清单见
 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

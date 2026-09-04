@@ -54,4 +54,4 @@ if (pos && Math.abs(pos.x - 120) <= 3 && Math.abs(pos.y - 140) <= 3) {
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/positioner)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

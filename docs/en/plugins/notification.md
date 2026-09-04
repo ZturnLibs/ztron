@@ -83,4 +83,4 @@ the API:
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/notification).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

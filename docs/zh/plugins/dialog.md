@@ -66,4 +66,4 @@ const btn = await message({ title: "完成", message: "已导出", kind: "info" 
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/dialog)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

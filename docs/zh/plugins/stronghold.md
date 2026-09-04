@@ -79,4 +79,4 @@ await stronghold.reload("/tmp/vault.bin", "correct horse"); // 丢弃未保存�
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/stronghold)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

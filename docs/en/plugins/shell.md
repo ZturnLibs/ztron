@@ -105,4 +105,4 @@ await interactive.write(cid, "echo-me-back\n");
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/shell).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

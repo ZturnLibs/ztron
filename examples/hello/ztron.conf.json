@@ -2,7 +2,7 @@
   "entry": "src/main.ts",
   "frontend": "frontend",
   "identifier": "com.ztron.hello",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "windows": [
     {
       "label": "main",

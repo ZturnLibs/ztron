@@ -50,4 +50,4 @@ Rust 的 `#[tauri::command]` 宏 + `invoke_handler` 注册，改为
 - 能力覆盖度与差距见 `ROADMAP.md`；Windows/Linux host 尚未提供编译
   与打包，暂无法承诺迁移后的跨平台时间表。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -1294,7 +1294,7 @@ async function main(): Promise<void> {
 
   switch (command) {
     case "version": {
-      console.log("ztron 0.3.0");
+      console.log("ztron 0.3.1");
       break;
     }
     case "init": {

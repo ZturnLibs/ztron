@@ -55,4 +55,4 @@ WKWebView has no public toggle, so the host reports
 `print`, `set_background_color`, `toggle_devtools`. Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

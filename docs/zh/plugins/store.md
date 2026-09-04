@@ -97,4 +97,4 @@ no-op（上游也没有按监听器退订；语义随 `close` 走）——包内
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/store)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

@@ -40,4 +40,4 @@ node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your c
 
 `init` 脚手架生成 `src/main.ts` 与 `frontend/`；`codegen` 为你的命令生成类型化 invoke 绑定。注：目前新项目需位于 monorepo 内（`@zturnlibs/ztron-*` 以 `workspace:` 解析），详见[前置条件与安装](/start/install)。命令详解见 [CLI 参考](/reference/cli)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

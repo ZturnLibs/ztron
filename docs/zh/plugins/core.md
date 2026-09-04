@@ -65,4 +65,4 @@ imgEl.src = convertFileSrc(`${temp}/icon.png`);
 `Resource.close()` 使用）。完整清单见
 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

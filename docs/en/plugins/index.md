@@ -69,4 +69,4 @@ Ztron's capability surface is made of built-in modules and plugins; this section
 | --- | --- |
 | [Mobile Plugins Overview (mobile)](/plugins/mobile) | Five mobile-oriented plugins (barcode-scanner/biometric/geolocation/haptics/nfc): command surface aligned with upstream, every command fails closed deterministically on desktop runtimes (throws `PluginUnavailable`) |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

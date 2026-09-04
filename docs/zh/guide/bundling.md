@@ -87,4 +87,4 @@ staging 目录放入 `.app` 与指向 `/Applications` 的符号链接（经典�
   notarization"（见 <https://github.com/ZturnLibs/ztron#readme>）。
   分发到其他机器仍需自行完成 Developer ID 签名与公证。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

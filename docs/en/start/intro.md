@@ -33,4 +33,4 @@ The capability surface includes multi-window (`MULTI_WINDOW_OK`), tray and menus
 
 Ztron's API protocol is isomorphic to `@tauri-apps/api` — `@zturnlibs/ztron-api` is its port, so in most cases frontend code only needs the import source swapped. IPC, capabilities (ACL), and the configuration model all align with Tauri v2. Differences and migration notes are covered in the [Migration guide](/guide/tauri-migration).
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

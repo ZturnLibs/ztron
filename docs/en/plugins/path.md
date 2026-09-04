@@ -63,4 +63,4 @@ const appData = await path.appDataDir();          // contains "com.ztron.hello"
 system/app directory getters. Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

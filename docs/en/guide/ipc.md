@@ -69,4 +69,4 @@ permission string in a capability (e.g. `fs:allow-read-file`) and the scope —
 unauthorized calls are rejected in the backend (verification anchor
 `ACL_DENY_OK`). See the [Security Model](/guide/security).
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

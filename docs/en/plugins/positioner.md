@@ -60,4 +60,4 @@ No dedicated commands (reuses `plugin:window|get_position` /
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/positioner).
 
-Applicable version: `ztron 0.3.0`
+Applicable version: `ztron 0.3.1`

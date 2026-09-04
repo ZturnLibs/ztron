@@ -192,7 +192,7 @@ const T = {
 } as const;
 
 /** Footer both locales share (command surface is version-pinned). */
-const FOOTER = "适用版本：`ztron 0.3.0`";
+const FOOTER = "适用版本：`ztron 0.3.1`";
 
 /**
  * Render one locale's page. Table cells escape `|` so the full

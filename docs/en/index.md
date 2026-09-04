@@ -23,6 +23,6 @@ features:
     details: Architecture, IPC, events, windows, configuration, security model, plus three runnable examples — hello / multiwin / menuprobe.
   - title: Plugin system
     details: 40 built-in/plugin capability pages (window, webview, fs, http, tray…) documenting permissions, scope, examples and command lists per module, cross-linked with the command-level API reference.
-  - title: 适用版本：`ztron 0.3.0`
+  - title: 适用版本：`ztron 0.3.1`
     details: Docs evolve with the code; breaking API changes update this site in the same PR (see CONTRIBUTING).
 ---

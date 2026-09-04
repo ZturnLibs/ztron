@@ -19,4 +19,4 @@ The guide explains Ztron's core mechanics by topic: starting from the two-proces
 | [Debugging & Logging](/guide/debugging) | A roundup of debugging entry points: the DevTools toggle, structured logging via the log plugin, and the `ztron check` regression runner |
 | [Migrating from Tauri](/guide/tauri-migration) | Rust → TS module mapping: `@zturnlibs/ztron-api` is a translation of `@tauri-apps/api`; the frontend mostly just swaps imports |
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`

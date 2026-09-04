@@ -65,4 +65,4 @@ const cur = await currentMonitor();          // { name, position, size, workArea
 光标/主题/徽标/效果/事件等全部窗口面。完整清单见
 [命令参考](/reference/commands)。
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.1`
