@@ -5,6 +5,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createHash,
   createPublicKey,
@@ -18,10 +21,14 @@ import {
   generateKeypair,
   signMinisig,
   parseSecretKeyFile,
+  parsePublicKeyFile,
   parseSignatureFile,
   dumpSignatureFile,
   compareSemver,
 } from "../../packages/core/dist/index.js";
+// The CLI source directly (root suite runs under --experimental-strip-types;
+// the prebuilt cli dist is pinned to an older review snapshot).
+import { signer } from "../../packages/cli/src/signer.ts";
 import { sha512 } from "../../packages/core/dist/plugins/crypto/sha512.js";
 import { blake2b } from "../../packages/core/dist/plugins/crypto/blake2b.js";
 import {
@@ -206,4 +213,43 @@ test("updater: verify_signature routes the offline gate end-to-end", async () =>
   );
   assert.equal(badRes.ok, false);
   assert.equal(badRes.error, "message-signature");
+});
+
+// ---------------------------------------------------------------------------
+// `ztron signer` CLI — the files it writes must form a MATCHING key pair
+
+test("signer CLI: plaintext generate writes a matching pub/sk pair (sign→verify roundtrip)", async () => {
+  delete process.env.ZTRON_SIGNER_PASSWORD; // force the plaintext branch
+  const dir = mkdtempSync(join(tmpdir(), "ztron-signer-"));
+  try {
+    const pkPath = join(dir, "test.pub");
+    const skPath = join(dir, "test.key");
+    await signer(["generate", "--pk-file", pkPath, "--sk-file", skPath]);
+
+    const pkText = readFileSync(pkPath, "utf8");
+    const skText = readFileSync(skPath, "utf8");
+    const pub = parsePublicKeyFile(pkText);
+    const sk = parseSecretKeyFile(skText); // throws on bad checksum
+
+    /* The secret must be the private half of the PUBLISHED public key:
+       same keynum, and sk64 = seed(32) ‖ pk(32) with pk equal to the .pub. */
+    assert.deepEqual(
+      [...sk.keynum],
+      [...pub.keynum],
+      "keynum mismatch: generate wrote two different keypairs",
+    );
+    assert.deepEqual(
+      [...sk.sk64.subarray(32)],
+      [...pub.pk],
+      "embedded pk mismatch: generate wrote two different keypairs",
+    );
+
+    // End-to-end: a signature made from the .sk verifies under the .pub.
+    const data = new TextEncoder().encode("artifact signed by the CLI");
+    const sigText = signMinisig(data, sk, { trustedComment: "cli roundtrip" });
+    const res = verifyMinisig(data, sigText, pkText);
+    assert.equal(res.ok, true, JSON.stringify(res));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
