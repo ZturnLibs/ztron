@@ -48,8 +48,11 @@ jobs:
           : > /tmp/tgz/order.txt
           for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
             echo "--- packing $d"
-            (cd "$d" && pnpm pack --pack-destination /tmp/tgz) > /dev/null
-            tgz=$(node -e "const p=require('./package.json');console.log(p.name.replace('@','').replace('/','-')+'-'+p.version+'.tgz')")
+            tgz=$(
+              cd "$d" || exit 1
+              pnpm pack --pack-destination /tmp/tgz > /dev/null
+              node -e "const p=require('./package.json');console.log(p.name.replace('@','').replace('/','-')+'-'+p.version+'.tgz')"
+            )
             echo "/tmp/tgz/$tgz" >> /tmp/tgz/order.txt
           done
           cat /tmp/tgz/order.txt
