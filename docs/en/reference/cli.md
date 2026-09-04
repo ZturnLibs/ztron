@@ -2,14 +2,15 @@
 title: CLI Reference
 ---
 
-The `ztron` CLI provides seven main commands — `init`/`dev`/`build`/`codegen`/
-`check`/`signer`/`version` (plus the `icon`/`info`/`add`/`migrate` utility
-commands, see the end). The command set is defined by the dispatch switch in
-`packages/cli/src/index.ts` (the USAGE strings do not yet cover
-codegen/signer).
+The `ztron` CLI provides eight main commands — `init`/`doctor`/`dev`/
+`build`/`codegen`/`check`/`signer`/`version` (plus the
+`icon`/`info`/`add`/`migrate` utility commands, see the end). The command set
+is defined by the dispatch switch in `packages/cli/src/index.ts` (the USAGE
+strings do not yet cover codegen/signer).
 
 ```text
 ztron init [dir]                  scaffold a new project in [dir] (default: current directory)
+ztron doctor                      one-shot environment check for node/tjs/ztron-host/webview
 ztron dev [--entry <file>]        build + run under the native host + tjs backend
 ztron build [--entry <file>]      produce a standalone executable and .app
 ztron codegen                     scan defineCommand, generate src/ztron-commands.ts typed bindings
@@ -34,6 +35,20 @@ directory): generates the `src/main.ts` entry, the `frontend/` skeleton, and
 
 ```bash
 node packages/cli/dist/index.js init my-app
+```
+
+## ztron doctor
+
+```text
+ztron doctor
+```
+
+One-shot environment check for node / tjs / ztron-host / the webview
+library: prints `doctor: OK` and exits 0 when all checks pass; on any FAIL
+it prints the per-check fix hints and exits 1.
+
+```bash
+node packages/cli/dist/index.js doctor
 ```
 
 ## ztron dev

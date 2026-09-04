@@ -2,42 +2,103 @@
 title: Quick Start
 ---
 
-# Running hello (10 minutes)
+# Try Ztron (3 lines)
 
-Prerequisite: complete [Prerequisites & Installation](/start/install) (both the native chain and workspace packages built).
-
-```bash
-cd examples/hello
-node ../../packages/cli/dist/index.js dev
-```
-
-What `dev` does: it first builds the frontend with Vite, then launches `ztron-host` (the native window) and starts the tjs backend connection; success is the native window appearing.
-
-Regression run (parses the checks reported by the app; exits 0 only on `FULL_OK` + 0 FAIL):
+Prerequisite: complete [Prerequisites & Installation](/start/install) (`ztron doctor` fully green).
 
 ```bash
-node ../../packages/cli/dist/index.js check
+ztron init my-app && cd my-app
+pnpm install
+ztron dev
 ```
 
-`check` prints statistics over all checks — the hello example reports `86 checks passed (FULL_OK)`. It also supports `--expect TAGS` to pin required tags and `--timeout ms` to bound the duration.
+Success is the native window showing "Hello Ztron". `dev` starts a Vite dev server,
+launches the native window and boots the tjs backend; frontend edits hot-reload
+instantly (HMR).
 
-# Bundling the App
+# Your First App
+
+## Project Structure
+
+```
+my-app/
+├── ztron.conf.json      # window declarations + entry (entry: src/main.ts)
+├── src/main.ts          # backend: connect to the host, register commands
+└── frontend/            # frontend: a plain Vite page
+    ├── index.html
+    └── src/main.ts
+```
+
+## Edit the Frontend
+
+Open `frontend/index.html`, change `<h1>Hello Ztron</h1>` to
+`<h1>我的第一个 Ztron 应用</h1>` ("My First Ztron App") and add a button:
+
+```html
+<h1>我的第一个 Ztron 应用</h1>
+<button id="greet">打招呼</button>
+<p id="out"></p>
+```
+
+Saving takes effect inside the window immediately (Vite HMR).
+
+## Add a TypeScript Command (backend → frontend)
+
+Commands are defined in the backend (create `src/commands.ts` next to
+`src/main.ts`):
+
+```ts
+import { defineCommand } from "@zturnlibs/ztron-core";
+
+export const greet = defineCommand("my:greet", {
+  args: {} as { name: string },
+  result: "" as string,
+  handler: (args) => `你好, ${args.name}`,
+});
+```
+
+Register it in `src/main.ts` (the `init` template already ships a command
+registration site inside `.setup((app) => …)` — add one line,
+`app.commandDef(greet)`, next to the template's own `app.command("hello", …)`,
+plus the import):
+
+```ts
+import { greet } from "./commands.js";
+```
+
+```ts
+// inside .setup((app) => { … }):
+app.commandDef(greet);
+```
+
+Generate the typed frontend bindings (the `@zturnlibs/ztron-api` package is
+already listed in `dependencies` by `init`):
 
 ```bash
-node ../../packages/cli/dist/index.js build
+ztron codegen
 ```
 
-Produces a standalone executable and a `.app` (ad-hoc signed).
+Call it from the frontend (`frontend/src/main.ts`):
 
-# Creating Your Own Project (inside the monorepo)
+```ts
+import { invoke } from "@zturnlibs/ztron-api";
+
+document.getElementById("greet")!.onclick = async () => {
+  document.getElementById("out")!.textContent = await invoke("my:greet", { name: "Ztron" });
+};
+```
+
+Click the button → "你好, Ztron" appears. This chain (backend command →
+codegen → frontend invoke) is the entire skeleton of a Ztron app.
+
+## Packaging
 
 ```bash
-node packages/cli/dist/index.js init my-app   # scaffolds src/main.ts + frontend/
-cd my-app
-node ../packages/cli/dist/index.js dev --entry src/main.ts
-node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
+ztron build
 ```
 
-`init` scaffolds `src/main.ts` and `frontend/`; `codegen` generates typed invoke bindings for your commands. Note: for now new projects must live inside the monorepo (`@zturnlibs/ztron-*` resolves via `workspace:`), see [Prerequisites & Installation](/start/install). Command details are in the [CLI Reference](/reference/cli).
+Produces a standalone `.app` (ad-hoc signed, `.dmg` included by default).
+Before distributing, adjust `identifier` and the window declarations in
+`ztron.conf.json`.
 
-适用版本：`ztron 0.3.1`
+**Next: [Examples](/start/examples) · [Architecture](/guide/architecture) · [CLI Reference](/reference/cli)**

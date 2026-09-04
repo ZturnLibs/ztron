@@ -34,11 +34,18 @@ import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
 import { codegen } from "./codegen.js";
+import {
+  findTjs,
+  findNativeFile,
+  findHostBin,
+  findWebviewLib,
+} from "./native-locate.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
 Usage:
   ztron init [dir]                 Scaffold a new project in [dir] (default .)
+  ztron doctor                     Check node/tjs/host/webview chain (exit 1 on fail)
   ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
   ztron build [--entry <file>]     Produce a standalone executable (M4)
   ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
@@ -90,63 +97,6 @@ const DEFAULT_CSP =
   "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
   "connect-src 'self' http://localhost:* ws://localhost:*";
 
-/** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
-function findTjs(): string {
-  const configured = process.env.ZTRON_TJS;
-  if (configured) {
-    return configured;
-  }
-  const probe = spawnSync("tjs", ["-v"], { encoding: "utf8" });
-  if (probe.status === 0) {
-    return "tjs";
-  }
-  throw new Error(
-    "txiki.js runtime (`tjs`) not found on PATH. Install it or set ZTRON_TJS=/path/to/tjs",
-  );
-}
-
-/** Walks up from `start` looking for `native/libs/<file>`. */
-function findNativeFile(start: string, file: string): string | undefined {
-  let dir = start;
-  for (let i = 0; i < 8; i += 1) {
-    const candidate = resolve(dir, "native", "libs", file);
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-  return undefined;
-}
-
-function findHostBin(appRoot: string): string {
-  const env = process.env.ZTRON_HOST_BIN;
-  if (env) {
-    return resolve(env);
-  }
-  return (
-    findNativeFile(appRoot, "ztron-host") ??
-    resolve(appRoot, "native/libs/ztron-host")
-  );
-}
-
-/** Locates the platform webview shared library (next to the host). */
-function findWebviewLib(appRoot: string): string | undefined {
-  const env = process.env.ZTRON_WEBVIEW_LIB;
-  if (env) {
-    return resolve(env);
-  }
-  const name =
-    process.platform === "darwin"
-      ? "libwebview.dylib"
-      : process.platform === "win32"
-        ? "webview.dll"
-        : "libwebview.so";
-  return findNativeFile(appRoot, name);
-}
 function parseArgs(argv: string[]): {
   command: string;
   entry: string;
@@ -733,7 +683,14 @@ async function initProject(target: string): Promise<void> {
     }
   }
   console.log(`[ztron] scaffolded a project in ${target}`);
-  console.log(`[ztron] next: pnpm install && pnpm dev`);
+  const hasChain = findNativeFile(target, "ztron-host") !== undefined;
+  console.log(`[ztron] next steps:`);
+  console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && cd ztron && scripts/build-native.sh`);
+  console.log(`  2. export ZTRON_TJS=<repo>/native/libs/tjs ZTRON_HOST_BIN=<repo>/native/libs/ztron-host ZTRON_WEBVIEW_LIB=<repo>/native/libs/libwebview.dylib`);
+  console.log(`  3. pnpm install && npx ztron doctor && npx ztron dev`);
+  if (!hasChain) {
+    console.log(`[ztron] note: no native/libs found above ${target} — run \`ztron doctor\` after step 2.`);
+  }
 }
 
 function basenameOf(p: string): string {
@@ -1300,6 +1257,17 @@ async function main(): Promise<void> {
     case "init": {
       const target = positional ? resolve(cwd, positional) : cwd;
       await initProject(target);
+      break;
+    }
+    case "doctor": {
+      const { runDoctor } = await import("./doctor.js");
+      const report = runDoctor({ cwd, env: process.env, platform: process.platform });
+      for (const c of report.checks) {
+        console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
+        if (!c.pass) console.log(`      hint: ${c.hint}`);
+      }
+      console.log(report.ok ? "doctor: OK" : "doctor: FAILED");
+      if (!report.ok) process.exitCode = 1;
       break;
     }
     case "dev": {

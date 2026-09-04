@@ -6,39 +6,53 @@ title: Prerequisites & Installation
 
 | Dependency | Requirement | Notes |
 | --- | --- | --- |
-| macOS | Apple Silicon (verified) | Intel machines unverified; you can try, but please file an issue if you hit problems |
-| Node.js | ≥ 20 | The docs workspace and some scripts target this version |
-| pnpm | 9 | workspace resolution depends on pnpm |
-| Xcode Command Line Tools | required | `scripts/build-native.sh` builds the native chain (tjs + ztron-host + webview lib) with the system compiler |
+| macOS | Apple Silicon (verified) | Intel unverified, you can try it; Windows/Linux only have a host skeleton, not yet usable |
+| Node.js | ≥ 20 | |
+| pnpm | 9 | used to build the native chain and the examples |
+| Xcode Command Line Tools | required | compiles the native chain (txiki.js + ztron-host + webview lib) |
 
-Windows/Linux currently only have a host skeleton (it compiles); they are not yet usable for development or bundling, and no release timeline is committed.
-
-# Getting the Source & Installing Dependencies
+# Step 1: Install the CLI
 
 ```bash
-git clone https://github.com/ZturnLibs/ztron.git
-cd ztron
+npm i -g @zturnlibs/ztron-cli
+```
+
+> The package is also published on GitHub Packages. If npmjs is unavailable,
+> write `@zturnlibs:registry=https://npm.pkg.github.com` and
+> `//npm.pkg.github.com/:_authToken=<your GitHub PAT>` into `~/.npmrc`,
+> then install again.
+
+# Step 2: Get the Native Chain (one-time)
+
+The native chain = the `tjs` runtime + `ztron-host` (the native window host) +
+the webview dynamic library. It currently has to be compiled from source once
+(a few minutes; only needed on the first run and after upstream changes):
+
+```bash
+git clone https://github.com/ZturnLibs/ztron.git ~/ztron
+cd ~/ztron
 pnpm install
+scripts/build-native.sh                 # produces native/libs/{tjs,ztron-host,libwebview.dylib}
 ```
 
-# Building the Native Chain
+# Step 3: Point to the Native Chain
+
+Put the following three lines into `~/.zshrc` (adjust the paths to where you
+cloned):
 
 ```bash
-scripts/build-native.sh                 # builds tjs + ztron-host + webview lib (macOS)
+export ZTRON_TJS=~/ztron/native/libs/tjs
+export ZTRON_HOST_BIN=~/ztron/native/libs/ztron-host
+export ZTRON_WEBVIEW_LIB=~/ztron/native/libs/libwebview.dylib
 ```
 
-The first build takes a while (it compiles txiki.js and the native host); afterwards you only need to re-run it when the relevant sources change.
-
-# Building the Workspace Packages
+# Step 4: Health Check
 
 ```bash
-pnpm build
+ztron doctor
 ```
 
-This generates `packages/*/dist`; the CLI is usable afterwards (invoked as `node packages/cli/dist/index.js …`).
+When all five lines PASS and it prints `doctor: OK`, installation is done.
+Every FAIL comes with a fix hint.
 
-# Important Limitation: Monorepo-Only for Now
-
-The `@zturnlibs/ztron-*` packages currently resolve via the `workspace:` protocol, so a new project scaffolded by `ztron init` must live inside this monorepo for dependencies to resolve. The publishing pipeline is ready (tag-push triggers `publish.yml`, publishing to GitHub Packages); this section will be updated once the limitation is lifted.
-
-适用版本：`ztron 0.3.1`
+**Next: [Quick Start](/start/quick-start)**
