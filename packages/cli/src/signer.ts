@@ -56,13 +56,14 @@ export async function signer(argv: string[]): Promise<void> {
       const comment = flags.comment ?? "ztron signer public key";
       const password =
         flags.password ?? process.env.ZTRON_SIGNER_PASSWORD ?? "";
-      const { publicKeyText, secret } = generateKeypair(comment);
+      const { publicKeyText, secretKeyText, secret } = generateKeypair(comment);
       writeFile(pkPath, publicKeyText);
       if (flags.password || process.env.ZTRON_SIGNER_PASSWORD) {
         writeFile(skPath, dumpEncryptedSecretKeyFile(secret, password));
         console.log("signer: secret key written ENCRYPTED (scrypt, minisign format)");
       } else {
-        const { secretKeyText } = generateKeypair(comment);
+        // secretKeyText is the plaintext serialization of the SAME `secret`
+        // the public key came from — never a second keypair.
         writeFile(skPath, secretKeyText);
       }
       console.log(`signer: generated key pair\n  public key: ${pkPath}\n  secret key: ${skPath}`);
