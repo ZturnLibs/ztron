@@ -34,6 +34,12 @@ import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
 import { codegen } from "./codegen.js";
+import {
+  findTjs,
+  findNativeFile,
+  findHostBin,
+  findWebviewLib,
+} from "./native-locate.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
@@ -90,63 +96,6 @@ const DEFAULT_CSP =
   "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
   "connect-src 'self' http://localhost:* ws://localhost:*";
 
-/** Locate the txiki `tjs` binary (env ZTRON_TJS or on PATH). */
-function findTjs(): string {
-  const configured = process.env.ZTRON_TJS;
-  if (configured) {
-    return configured;
-  }
-  const probe = spawnSync("tjs", ["-v"], { encoding: "utf8" });
-  if (probe.status === 0) {
-    return "tjs";
-  }
-  throw new Error(
-    "txiki.js runtime (`tjs`) not found on PATH. Install it or set ZTRON_TJS=/path/to/tjs",
-  );
-}
-
-/** Walks up from `start` looking for `native/libs/<file>`. */
-function findNativeFile(start: string, file: string): string | undefined {
-  let dir = start;
-  for (let i = 0; i < 8; i += 1) {
-    const candidate = resolve(dir, "native", "libs", file);
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      break;
-    }
-    dir = parent;
-  }
-  return undefined;
-}
-
-function findHostBin(appRoot: string): string {
-  const env = process.env.ZTRON_HOST_BIN;
-  if (env) {
-    return resolve(env);
-  }
-  return (
-    findNativeFile(appRoot, "ztron-host") ??
-    resolve(appRoot, "native/libs/ztron-host")
-  );
-}
-
-/** Locates the platform webview shared library (next to the host). */
-function findWebviewLib(appRoot: string): string | undefined {
-  const env = process.env.ZTRON_WEBVIEW_LIB;
-  if (env) {
-    return resolve(env);
-  }
-  const name =
-    process.platform === "darwin"
-      ? "libwebview.dylib"
-      : process.platform === "win32"
-        ? "webview.dll"
-        : "libwebview.so";
-  return findNativeFile(appRoot, name);
-}
 function parseArgs(argv: string[]): {
   command: string;
   entry: string;
