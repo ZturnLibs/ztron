@@ -1,1 +1,1 @@
-["cli", "commands", "config", "api"]
+["cli", "commands", "config", { "type": "dir", "name": "api" }]
