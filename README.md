@@ -91,6 +91,16 @@ Three layers target 100% coverage of features + API:
 
 See `tests/README.md` for the design.
 
+## Documentation
+
+Bilingual docs (zh default / en mirror) live in [`docs/`](./docs) — an Rspress site, installed independently of the workspace. Published at `https://zturnlibs.github.io/ztron/docs/` alongside the homepage (deployed together by `website.yml`):
+
+```bash
+pnpm docs:dev     # dev server
+pnpm docs:build   # static build -> docs/doc_build/
+pnpm docs:check   # zh/en structure parity gate
+```
+
 ## Quick start
 
 **Use it (npm, macOS)** — no clone of this repo needed; just the one-time
