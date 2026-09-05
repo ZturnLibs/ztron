@@ -47,7 +47,12 @@ test("findHostBin: env wins over walk-up; findWebviewLib picks platform name", (
   mkdirSync(join(root, "native", "libs"), { recursive: true });
   mkdirSync(deep, { recursive: true });
   writeFileSync(join(root, "native", "libs", "ztron-host"), "x");
-  const libName = process.platform === "darwin" ? "libwebview.dylib" : "libwebview.so";
+  const libName =
+    process.platform === "darwin"
+      ? "libwebview.dylib"
+      : process.platform === "win32"
+        ? "webview.dll"
+        : "libwebview.so";
   writeFileSync(join(root, "native", "libs", libName), "x");
   const envHost = join(tmpProject(), "elsewhere-host");
   writeFileSync(envHost, "x");

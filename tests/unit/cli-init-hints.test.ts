@@ -5,8 +5,10 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const CLI = new URL("../../packages/cli/dist/index.js", import.meta.url).pathname;
+// fileURLToPath (not .pathname): .pathname yields "/D:/..." on Windows.
+const CLI = fileURLToPath(new URL("../../packages/cli/dist/index.js", import.meta.url));
 
 test("init prints next steps with ZTRON_* hint outside a native repo", () => {
   const dir = mkdtempSync(join(tmpdir(), "ztron-init-"));
