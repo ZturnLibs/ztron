@@ -7,6 +7,8 @@ A Tauri-style cross-platform desktop framework **rewritten in TypeScript** on to
 See [DESIGN.md](./DESIGN.md) for the full architecture, milestones, findings and risks;
 [ROADMAP.md](./ROADMAP.md) for the capability gap vs Tauri and the phased plan.
 
+**Homepage**: https://zturnlibs.github.io/ztron/ · **Docs**: https://zturnlibs.github.io/ztron/docs/ (zh/en)
+
 ## Architecture
 
 ```
@@ -90,6 +92,20 @@ Three layers target 100% coverage of features + API:
 See `tests/README.md` for the design.
 
 ## Quick start
+
+**Use it (npm, macOS)** — no clone of this repo needed; just the one-time
+native chain (see the [getting-started guide](https://zturnlibs.github.io/ztron/docs/start/install)):
+
+```bash
+npm i -g @zturnlibs/ztron-cli
+ztron init my-app && cd my-app
+pnpm install
+ztron dev                # native window opens
+ztron build              # package + ad-hoc sign ZtronApp.app
+ztron doctor             # check node/tjs/host/webview chain any time
+```
+
+**Develop inside the monorepo (contributors)**:
 
 ```bash
 pnpm install
