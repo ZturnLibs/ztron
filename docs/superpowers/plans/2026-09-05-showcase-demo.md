@@ -1207,7 +1207,7 @@ const monitors: Demo = {
   code: `import { Window, availableMonitors, currentMonitor } from "@zturnlibs/ztron-api";
 
 const win = Window.getCurrent();
-const un = win.onMoved(() => console.log("窗口移动了"));
+const un = await win.onMoved(() => console.log("窗口移动了"));
 
 const monitors = await availableMonitors();
 const cur = await currentMonitor();
@@ -1219,7 +1219,7 @@ un();`,
     area.append(
       act(out, "监听移动（8 秒，拖动窗口试试）", async () => {
         let times = 0;
-        const un = win.onMoved(() => {
+        const un = await win.onMoved(() => {
           times++;
           out.info(`移动事件 x${times}`);
         });
