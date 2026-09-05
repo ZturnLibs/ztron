@@ -11,7 +11,7 @@ export interface TerminalLine { prompt?: string; text: string; kind?: 'cmd' | 'o
 
 export interface SiteStrings {
   meta: { title: string; description: string };
-  nav: { features: string; architecture: string; plugins: string; status: string; quickstart: string; langLabel: string };
+  nav: { features: string; architecture: string; plugins: string; status: string; quickstart: string; docs: string; langLabel: string };
   hero: { eyebrow: string; title: string; titleAccent: string; body: string; ctaPrimary: string; ctaSecondary: string };
   terminal: { title: string; lines: TerminalLine[] };
   features: { heading: string; headingAccent: string; sub: string; items: Feature[] };

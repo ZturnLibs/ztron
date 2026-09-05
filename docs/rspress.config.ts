@@ -29,6 +29,16 @@ export default defineConfig({
     ],
   },
   themeConfig: {
+    // 顶部导航（zh 口径——主题 1.47 对 per-locale nav 覆盖支持不完整，
+    // 对象/locales 形态均导致 navbar 不渲染，实测回退为单份；en 用户
+    // 走 footer 的 Home 链接或右上角语言切换）。
+    // navbar 的渲染与否取决于 themeConfig.nav 是否存在，故此处必须有。
+    nav: [
+      { text: "主页", link: "https://zturnlibs.github.io/ztron/zh/" },
+      { text: "快速开始", link: "/start/intro.html" },
+      { text: "指南", link: "/guide/architecture.html" },
+      { text: "API 参考", link: "/reference/api/index.html" },
+    ],
     socialLinks: [
       {
         icon: "github",
@@ -39,7 +49,9 @@ export default defineConfig({
     footer: {
       message: `
         <div>
-          <div><a href="https://github.com/ZturnLibs/ztron">GitHub</a> · Ztron</div>
+          <a href="https://zturnlibs.github.io/ztron/zh/">主页</a> ·
+          <a href="https://zturnlibs.github.io/ztron/">Home</a> ·
+          <a href="https://github.com/ZturnLibs/ztron">GitHub</a> · Ztron
         </div>
       `,
     },

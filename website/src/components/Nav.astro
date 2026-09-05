@@ -11,12 +11,17 @@ const links = [
   [ANCHORS.status, s.nav.status],
   [ANCHORS.quickstart, s.nav.quickstart],
 ] as const;
+// zh docs live at the docs root; en docs under /docs/en/.
+const docsHref = locale === 'zh'
+  ? `${import.meta.env.BASE_URL}docs/`
+  : `${import.meta.env.BASE_URL}docs/en/`;
 ---
 <header class="nav">
   <div class="container inner">
     <a href={import.meta.env.BASE_URL} aria-label="Ztron"><Logo /></a>
     <nav class="links" data-nav-links>
       {links.map(([href, label]) => <a href={href}>{label}</a>)}
+      <a href={docsHref}>{s.nav.docs}</a>
       <a class="gh" href={REPO} target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
     <LangSwitcher locale={locale} label={s.nav.langLabel} />

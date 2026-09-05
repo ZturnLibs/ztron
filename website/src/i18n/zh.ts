@@ -6,7 +6,7 @@ export const zh = {
     description:
       '基于 ~2MB 的 txiki.js 运行时 + 系统 WebView 构建跨平台桌面应用：原生窗口、托盘、菜单、25 个插件与 ACL 权限，全栈 TypeScript。',
   },
-  nav: { features: '特性', architecture: '架构', plugins: '插件', status: '状态', quickstart: '快速上手', langLabel: 'EN' },
+  nav: { features: '特性', architecture: '架构', plugins: '插件', status: '状态', quickstart: '快速上手', docs: '文档', langLabel: 'EN' },
   hero: {
     eyebrow: 'Tauri 式架构 · 纯 TypeScript · ~2MB 运行时',
     title: '为 TypeScript 而生的',
@@ -104,6 +104,7 @@ export const zh = {
   footer: {
     license: 'MIT © 2026 ZtronLibs',
     links: [
+      { label: '文档 ↗', href: 'https://zturnlibs.github.io/ztron/docs/' },
       { label: 'GitHub ↗', href: 'https://github.com/ZturnLibs/ztron' },
       { label: 'DESIGN.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/DESIGN.md' },
       { label: 'ROADMAP.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/ROADMAP.md' },
