@@ -7,6 +7,7 @@ import { windowDemos } from "./demos/window";
 import { fsDemos } from "./demos/fs";
 import { dialogDemos } from "./demos/dialogs";
 import { netDemos } from "./demos/net";
+import { menuTrayDemos } from "./demos/menu-tray";
 
 /** 分类目录：Task 3-10 逐个补充 demos/* 模块后在此登记 */
 const CATALOG: { category: string; demos: Demo[] }[] = [
@@ -15,6 +16,7 @@ const CATALOG: { category: string; demos: Demo[] }[] = [
   { category: "文件", demos: fsDemos },
   { category: "对话框与通知", demos: dialogDemos },
   { category: "网络", demos: netDemos },
+  { category: "菜单与托盘", demos: menuTrayDemos },
 ];
 
 const nav = document.getElementById("nav")!;
