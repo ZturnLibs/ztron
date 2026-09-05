@@ -76,23 +76,23 @@ export const zh = {
   quickstart: {
     heading: '快速',
     headingAccent: '上手',
-    sub: '两条命令，一个原生窗口。',
+    sub: '装好 CLI，脚手架一跑，原生窗口即现。',
     tabs: [
+      {
+        id: 'scaffold',
+        label: '脚手架新项目',
+        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # 原生窗口出现即成功',
+      },
       {
         id: 'monorepo',
         label: '在 monorepo 内开发',
         code: 'pnpm install\nscripts/build-native.sh                 # 构建 tjs + ztron-host + webview 库（macOS）\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite 构建 + host + backend',
       },
-      {
-        id: 'scaffold',
-        label: '脚手架新项目',
-        code: 'ztron init my-app        # 生成 src/main.ts + frontend/\ncd my-app\nztron dev --entry src/main.ts\nztron codegen            # 类型化 invoke 绑定',
-      },
     ],
   },
   packages: {
     heading: '一个工作区，五个包',
-    sub: '以 @zturnlibs/ztron-* 发布到 GitHub Packages。',
+    sub: '已发布到 npm：@zturnlibs/ztron-*。全局装一个 CLI 即可开发。',
     items: [
       { name: '@zturnlibs/ztron-api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
       { name: '@zturnlibs/ztron-core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },
