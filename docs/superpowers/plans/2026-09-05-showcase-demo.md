@@ -1936,7 +1936,7 @@ await db.close();`,
         await db.execute("CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, text TEXT)");
         await db.execute("INSERT INTO notes(text) VALUES(?)", [fieldValue(note)]);
         await db.close();
-        out.ok(`已插入「${note.value}」`);
+        out.ok(`已插入「${fieldValue(note)}」`);
       }),
       act(out, "查询全部", async () => {
         const db = await Database.load(`${await path.tempDir()}/ztron_showcase.db`);
