@@ -168,4 +168,76 @@ const theme = await win.getTheme();   // "light" | "dark"
   },
 };
 
-export const windowDemos: Demo[] = [winControl, multiwin, monitors, theme];
+const frameless: Demo = {
+  id: "window.frameless",
+  title: "无边框窗口",
+  description:
+    "关掉系统标题栏后如何自己掌控窗口：透明、背景色、阴影、红绿灯位置、悬浮标题栏、点击穿透与拖动区。每个效果几秒后自动恢复。",
+  code: `import { Window } from "@zturnlibs/ztron-api";
+
+const win = Window.getCurrent();
+await win.setDecorations(false);   // 无边框（无标题栏）
+await win.setTransparent(true);    // 透明
+await win.setBackgroundColor("#101418"); // 自定义底色
+await win.setShadow(false);        // 阴影
+await win.setTrafficLightPosition(24, 40); // macOS 红绿灯位置
+await win.setTitleBarStyle("overlay");     // 标题栏悬浮
+await win.setIgnoreCursorEvents(true);     // 点击穿透
+await win.startDragging();         // 无边框时靠拖动区移动窗口
+await win.setDecorations(true);    // 恢复
+
+// 也可以在 ztron.conf.json 的窗口声明里写 "decorations": false`,
+  docPath: "/plugins/window.html",
+  mount(area, out) {
+    const win = Window.getCurrent();
+    area.append(
+      act(out, "无边框 4 秒", async () => {
+        await win.setDecorations(false);
+        out.info("标题栏已隐藏（红绿灯消失），4 秒后自动恢复");
+        await new Promise((r) => setTimeout(r, 4000));
+        await win.setDecorations(true);
+        out.ok("已恢复系统标题栏。声明式写法：conf 里 \"decorations\": false");
+      }),
+      act(out, "全透明 3 秒", async () => {
+        await win.setTransparent(true);
+        await new Promise((r) => setTimeout(r, 3000));
+        await win.setTransparent(false);
+        out.ok("透明开关往返完成");
+      }),
+      act(out, "背景变色 3 秒", async () => {
+        await win.setBackgroundColor("#4c3a63");
+        await new Promise((r) => setTimeout(r, 3000));
+        await win.setBackgroundColor("transparent");
+        out.ok("底色已还原");
+      }),
+      act(out, "关阴影 2 秒", async () => {
+        await win.setShadow(false);
+        await new Promise((r) => setTimeout(r, 2000));
+        await win.setShadow(true);
+        out.ok("阴影已恢复（注意看窗口边缘）");
+      }),
+      act(out, "红绿灯移位 + 悬浮标题栏 3 秒", async () => {
+        await win.setTrafficLightPosition(24, 40);
+        await win.setTitleBarStyle("overlay");
+        out.info("红绿灯下移、标题栏悬浮在内容上，3 秒后恢复");
+        await new Promise((r) => setTimeout(r, 3000));
+        await win.setTitleBarStyle("visible");
+        await win.setTrafficLightPosition(16, 16);
+        out.ok("标题栏样式与红绿灯位置已还原");
+      }),
+      act(out, "点击穿透 2 秒", async () => {
+        await win.setIgnoreCursorEvents(true);
+        out.info("窗口正忽略所有鼠标事件（点它试试，会穿透到后面的窗口），2 秒后自动恢复");
+        await new Promise((r) => setTimeout(r, 2000));
+        await win.setIgnoreCursorEvents(false);
+        out.ok("鼠标事件已恢复");
+      }),
+      act(out, "触发拖动", async () => {
+        await win.startDragging();
+        out.ok("拖动命令已下发。说明：无边框窗口靠拖动区移动，macOS 依赖当前鼠标按下事件，从按钮触发通常原地不动，真实拖动请配合无边框 + 声明拖动区使用");
+      }),
+    );
+  },
+};
+
+export const windowDemos: Demo[] = [winControl, multiwin, monitors, theme, frameless];

@@ -225,6 +225,7 @@ export const docUrl = (docPath: string) => `${DOCS_BASE}${docPath}`;
 | 窗口 | 多窗口 | `WebviewWindow` 创建/销毁第二窗口 | `/plugins/webview-window.html` |
 | 窗口 | 窗口事件与显示器 | `onMoved/onResized`、`availableMonitors` | `/plugins/dpi.html` |
 | 窗口 | 主题切换与跟随系统（增补） | `setTheme("dark"/"light"/null)`、`getTheme`、CSS `prefers-color-scheme` 浅色令牌 | `/plugins/window.html` |
+| 窗口 | 无边框窗口（增补） | `setDecorations`、`setTransparent`、`setBackgroundColor`、`setShadow`、`setTrafficLightPosition`、`setTitleBarStyle`、`setIgnoreCursorEvents`、`startDragging` | `/plugins/window.html` |
 | 文件 | 读写文本/二进制 | `fs.readTextFile/writeFile/readFile` | `/plugins/fs.html` |
 | 文件 | 目录浏览与路径 | `fs.readDir`、`path.appDataDir()`、`BaseDirectory` | `/plugins/path.html` |
 | 文件 | 文件监听 | `fs.watch` → WatchEvent | `/plugins/fs.html` |
