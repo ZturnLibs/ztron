@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 在 `examples/showcase` 交付一个面向新手应用开发者的交互式 kitchen-sink 演示应用：31 张功能卡片（点按钮真跑）+ 卡片内嵌最小代码片段 + 一键跳转线上文档站。
+**Goal:** 在 `examples/showcase` 交付一个面向新手应用开发者的交互式 kitchen-sink 演示应用：32 张功能卡片（点按钮真跑）+ 卡片内嵌最小代码片段 + 一键跳转线上文档站。
 
 **Architecture:** 与 hello 同构的 ztron 应用（`ztron.conf.json` 单窗口 + tjs 后端注册插件 + Vite 前端）。前端用「demo 注册表」抽象：每个 demo 是 `{ id, title, description, code, docPath, mount(area, out) }` 纯数据项，`main.ts` 按分类渲染侧边栏导航与卡片。视觉继承官网品牌令牌（深色、紫青渐变）。
 

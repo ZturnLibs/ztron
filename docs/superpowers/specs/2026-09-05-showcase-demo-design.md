@@ -238,7 +238,7 @@ export const docUrl = (docPath: string) => `${DOCS_BASE}${docPath}`;
 | 数据 | 键值存储 | `Store` set/get/onChanged + 持久化 | `/plugins/store.html` |
 | 数据 | SQLite | `Database` 建表/插入/查询 | `/plugins/sql.html` |
 | 数据 | 日志 | `logger` 多 target + `attachLogger` | `/plugins/log.html` |
-| 系统 | 应用信息 | `os`/`app`/`process`：版本/平台/内存 | `/plugins/os.html` |
+| 系统 | 应用信息 | `os`/`app`/`process`：版本/平台/内存 | `/plugins/app.html` |
 | 系统 | 执行命令 | `Command` 输出捕获 + 交互式 stdin | `/plugins/shell.html` |
 | 系统 | 打开 URL/文件 | `openUrl`/`openPath`/`revealItemInDir` | `/plugins/opener.html` |
 | 系统 | 单实例 | `isPrimaryInstance` + 二实例回调 | `/plugins/single-instance.html` |
