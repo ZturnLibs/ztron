@@ -168,9 +168,20 @@ new AppBuilder(runtime, "com.ztron.showcase")
     app.command("showcase:echo-port", () => echoPort);
 
     // 前端冒烟上报：ztron check --expect SHOWCASE_OK 解析这行日志。
-    app.command("showcase:report", (_args) => {
+    // check 模式（CLI 注入 ZTRON_CHECK=1）：上报即收尾退出（hello 同款——
+    // 停 near-HMR 轮询 → terminate 主 webview → 显式 exit），让 harness 在
+    // 子进程退出后给出确定性判定；交互式 ztron dev（无该变量）窗口保持常开。
+    app.command("showcase:report", (_args, ctx) => {
       const { received } = _args as { received?: string };
       console.log(`[showcase] frontend reported: "${received}"`);
+      if (
+        tjs.env.ZTRON_CHECK === "1" &&
+        received?.split(":")[0] === "SHOWCASE_OK"
+      ) {
+        if (reloadTimer) clearInterval(reloadTimer);
+        ctx.webview.terminate();
+        setTimeout(() => tjs.exit(0), 300);
+      }
     });
 
     // 事件卡片：连续 emit 3 次 tick（120ms 间隔）。
