@@ -6,7 +6,7 @@ export const en = {
     description:
       'Cross-platform desktop apps on a ~2 MB txiki.js runtime + system WebView. Native windows, tray, menus, 25 plugins and an ACL — all in TypeScript.',
   },
-  nav: { features: 'Features', architecture: 'Architecture', plugins: 'Plugins', status: 'Status', quickstart: 'Quick Start', langLabel: '中文' },
+  nav: { features: 'Features', architecture: 'Architecture', plugins: 'Plugins', status: 'Status', quickstart: 'Quick Start', docs: 'Docs', langLabel: '中文' },
   hero: {
     eyebrow: 'Tauri-style · Pure TypeScript · ~2 MB runtime',
     title: 'The desktop framework,',
@@ -104,6 +104,7 @@ export const en = {
   footer: {
     license: 'MIT © 2026 ZtronLibs',
     links: [
+      { label: 'Docs ↗', href: 'https://zturnlibs.github.io/ztron/docs/en/' },
       { label: 'GitHub ↗', href: 'https://github.com/ZturnLibs/ztron' },
       { label: 'DESIGN.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/DESIGN.md' },
       { label: 'ROADMAP.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/ROADMAP.md' },
