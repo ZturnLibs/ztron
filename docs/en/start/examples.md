@@ -4,7 +4,7 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains four runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains five runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
@@ -12,6 +12,7 @@ The repo's `examples/` directory contains four runnable examples, all directly r
 | multiwin | `@zturnlibs/ztron-example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
+| showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 32 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 
 ## hello
 
@@ -28,6 +29,16 @@ A menu capability probing example, covering menu construction and dynamic manipu
 ## bench
 
 The perf benchmark example: `ztron bench` drives its automated measurement sequence (cold/warm start, invoke P50/P95, Channel throughput, event round trip, window create, RSS, app size) and compares the results against the `perf-budget.json` budgets as a regression gate (see the Bench section of the repo root README). Source: `examples/bench/`.
+
+## showcase
+
+An interactive demo app for **beginner app developers** (the counterpart of Electron API Demos):
+category navigation on the left, one card per feature, buttons that really execute, minimal code
+snippets embedded in each card, and a "Docs" button linking straight to the matching docs page.
+Covers core IPC/events/Channel, windows and multi-window, fs/path, http/streaming/WebSocket,
+dialogs/notifications/clipboard, menu/tray/global shortcuts, store/sql/log, and the nine-piece
+system integration set. Its `ztron.conf.json` and `capabilities/` are themselves a configuration
+template for new projects. Smoke gate: `ztron check --expect SHOWCASE_OK`. Source: `examples/showcase/`.
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 

@@ -1,0 +1,19 @@
+{
+  "entry": "src/main.ts",
+  "frontend": "frontend",
+  "identifier": "com.ztron.showcase",
+  "version": "0.1.0",
+  "windows": [
+    {
+      "label": "main",
+      "title": "Ztron Showcase",
+      "width": 1024,
+      "height": 680,
+      "minWidth": 760,
+      "minHeight": 480,
+      "url": "frontend",
+      "titleBarStyle": "visible",
+      "resizable": true
+    }
+  ]
+}

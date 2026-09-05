@@ -101,6 +101,9 @@ pnpm docs:build   # static build -> docs/doc_build/
 pnpm docs:check   # zh/en structure parity gate
 ```
 
+A beginner-friendly interactive demo lives at `examples/showcase/` (run with
+`pnpm --filter @zturnlibs/ztron-example-showcase dev`); see [docs/zh/start/examples.md](./docs/zh/start/examples.md).
+
 ## Quick start
 
 **Use it (npm, macOS)** — no clone of this repo needed; just the one-time

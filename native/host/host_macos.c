@@ -951,9 +951,14 @@ static void handle_window_op(Msg *m, webview_t w) {
   } else if (strcmp(m->type, "is_fullscreen") == 0) {
     result = (wnd_style_mask(wnd) & NS_FULLSCREEN_MASK) != 0;
   } else if (strcmp(m->type, "set_fullscreen") == 0) {
-    unsigned long mask = wnd_style_mask(wnd);
-    wnd_set_style_mask(wnd, m->bool_val ? (mask | NS_FULLSCREEN_MASK)
-                                        : (mask & ~NS_FULLSCREEN_MASK));
+    /* AppKit raises NSGenericException when NSWindowStyleMaskFullScreen is
+       applied via setStyleMask: outside a fullscreen transition — go through
+       toggleFullScreen: (same path as the cmd+shift+F menu accelerator),
+       and only when the current state differs from the target. */
+    int cur = (wnd_style_mask(wnd) & NS_FULLSCREEN_MASK) != 0;
+    if (((int)m->bool_val) != cur) {
+      wnd_void(wnd, "toggleFullScreen:");
+    }
   } else if (strcmp(m->type, "set_always_on_top") == 0) {
     OBJC_MSG(void(*)(id, SEL, long), wnd, sel_registerName("setLevel:"),
              m->bool_val ? 1 : NS_NORMAL_LEVEL);
