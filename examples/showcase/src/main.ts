@@ -19,6 +19,7 @@ import {
   websocketPlugin,
   localIpPlugin,
   networkPlugin,
+  openerPlugin,
   loadCapabilities,
 } from "@zturnlibs/ztron-core";
 import { greet, add, echo } from "./commands.js";
@@ -106,6 +107,7 @@ new AppBuilder(runtime, "com.ztron.showcase")
   .plugin(websocketPlugin())
   .plugin(localIpPlugin())
   .plugin(networkPlugin())
+  .plugin(openerPlugin())
   .setup((app) => {
     // P2 dev：CLI 重建前端后刷新页面（与 hello 同款 near-HMR 轮询）
     let reloadTimer: ReturnType<typeof setInterval> | undefined;

@@ -1,6 +1,6 @@
 {
   "identifier": "main-capabilities",
-  "description": "Showcase 全量权限：core/path/fs/http/os/store/log/shell/updater/sql/autostart/window-state/single-instance/websocket/local-ip/network/persisted-scope/fs-watch/fs-binary。",
+  "description": "Showcase 全量权限：core/path/fs/http/os/store/log/shell/updater/sql/autostart/window-state/single-instance/websocket/local-ip/network/opener/persisted-scope/fs-watch/fs-binary。",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -26,6 +26,7 @@
     "websocket:default",
     "local-ip:default",
     "network:default",
+    "opener:default",
     "persisted-scope:default"
   ]
 }

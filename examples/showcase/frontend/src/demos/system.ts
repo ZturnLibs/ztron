@@ -32,7 +32,7 @@ const info = await os.info();   // { platform, arch, version, ... }
 const type = await os.type();   // "Darwin" / "Windows_NT" / "Linux"
 const eol = await os.eol();     // "\\n" 或 "\\r\\n"
 const locale = await os.locale();`,
-  docPath: "/plugins/os.html",
+  docPath: "/plugins/app.html",
   mount(area, out) {
     area.append(
       act(out, "读取系统信息", async () => {

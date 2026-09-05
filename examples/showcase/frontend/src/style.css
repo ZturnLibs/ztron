@@ -62,10 +62,6 @@ body {
   border: 0;
   border-left: 2px solid transparent;
   cursor: pointer;
-  transition:
-    color 0.15s ease-out,
-    background-color 0.15s ease-out,
-    border-color 0.15s ease-out;
 }
 .nav-item:hover { color: var(--text-1); background: var(--elevated); }
 .nav-item.active {
@@ -101,7 +97,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-ctl);
 }
-.card-out:empty::before { content: "运行按钮后，结果会显示在这里"; color: rgba(154, 163, 178, 0.55); }
+.card-out:empty::before { content: "运行按钮后，结果会显示在这里"; color: rgba(154, 163, 178, 0.7); }
 .card-out.ok { color: var(--ok); }
 .card-out.fail { color: var(--bad); }
 .card-code { position: relative; margin: 14px 0 0; }
@@ -132,10 +128,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-ctl);
   cursor: pointer;
-  transition:
-    transform 0.12s ease-out,
-    border-color 0.15s ease-out,
-    background-color 0.15s ease-out;
+  transition: transform 0.15s ease-out;
 }
 .btn:hover { border-color: rgba(255, 255, 255, 0.2); }
 .btn:active { transform: translateY(1px); }
