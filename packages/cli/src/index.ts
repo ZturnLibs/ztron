@@ -52,6 +52,10 @@ Usage:
                                    Regression run: parse the app's reported
                                    checks; exit 0 only on FULL_OK + no FAILs
                                    (--expect pins required tags, comma-sep)
+  ztron bench [--runs n] [--record] [--no-gui] [--json <path>]
+                                   Perf bench: multi-round spawn of the
+                                   examples/bench app (phase timing, ps RSS
+                                   sampling) gated by perf-budget.json
   ztron version                    Print version
 `;
 
@@ -176,6 +180,26 @@ function resolveEntry(cwd: string, entryArg: string): string {
 }
 
 /**
+ * Vite dev servers opened by runApp. `dev`/`check` keep theirs for the
+ * process lifetime; bench rounds run many runApp calls inside one CLI
+ * process, so each round closes its server before the next one starts.
+ */
+const openDevServers: Array<{ close: () => Promise<void> }> = [];
+
+/** Closes every dev server opened by runApp (best-effort, bounded wait). */
+async function closeDevServers(): Promise<void> {
+  const servers = openDevServers.splice(0);
+  await Promise.all(
+    servers.map((s) =>
+      Promise.race([
+        s.close().catch(() => {}),
+        new Promise<void>((r) => setTimeout(r, 5000)),
+      ]),
+    ),
+  );
+}
+
+/**
  * Starts the Vite dev server for the frontend, returning its URL.
  *
  * P2: WKWebView blocks plain `http://` via ATS unless the host runs inside a
@@ -205,6 +229,7 @@ async function startFrontendDevServer(
     await server.close();
     return null;
   }
+  openDevServers.push(server);
   console.log(`[ztron] vite dev server: http://127.0.0.1:${port}`);
   /* Bind the URL to the literal IP: `localhost` may resolve to ::1 first and
      hit an unrelated IPv6 listener on the same port. */
@@ -332,15 +357,33 @@ async function bundle(entry: string, outfile: string): Promise<void> {
   });
 }
 
-/** Spawns ztron-host and resolves with its listening port. */
-function spawnHost(hostBin: string): Promise<number> {
+/**
+ * Spawns ztron-host and resolves with its listening port.
+ *
+ * `hooks` (bench mode only) exposes the host pid and forwards each complete
+ * stdout line (e.g. `PORT=…`) to the bench runner for phase timing.
+ */
+function spawnHost(
+  hostBin: string,
+  hooks?: { onLine?: (line: string) => void; onPid?: (pid: number) => void },
+): Promise<number> {
   return new Promise((resolvePort, reject) => {
     const child = spawn(hostBin, ["0"], {
       stdio: ["ignore", "pipe", "inherit"],
     });
+    hooks?.onPid?.(child.pid ?? -1);
     let stdout = "";
+    let forwarded = 0; // chars of stdout already handed to hooks.onLine
     child.stdout.on("data", (chunk: Buffer) => {
       stdout += chunk.toString();
+      if (hooks?.onLine) {
+        const lines = stdout.slice(forwarded).split("\n");
+        forwarded = stdout.length - (lines.pop() ?? "").length;
+        for (const line of lines) {
+          const t = line.trim();
+          if (t) hooks.onLine(t);
+        }
+      }
       const m = /^PORT=(\d+)/m.exec(stdout);
       if (m) {
         resolvePort(Number(m[1]));
@@ -427,12 +470,17 @@ async function check(cwd: string, entry: string, args: string[]): Promise<void> 
 interface CheckOptions {
   timeoutMs: number;
   required: string[];
+  /** bench-mode plumbing: line forwarding + pid exposure for `ztron bench`. */
+  bench?: {
+    onLine?: (line: string) => void;
+    onPids?: (p: { host: number; backend: number }) => void;
+  };
 }
 
-async function runApp(
+export async function runApp(
   cwd: string,
   entry: string,
-  mode: "dev" | "check",
+  mode: "dev" | "check" | "bench",
   checkOpts: CheckOptions = { timeoutMs: 120_000, required: [] },
 ): Promise<void> {
   const tjs = findTjs();
@@ -482,7 +530,19 @@ async function runApp(
 
   let port: number;
   console.log(`[ztron] starting host: ${hostBin}`);
-  port = await spawnHost(hostBin);
+  const benchHooks = mode === "bench" ? checkOpts.bench : undefined;
+  let hostPid = -1;
+  port = await spawnHost(
+    hostBin,
+    benchHooks
+      ? {
+          onLine: (line) => benchHooks.onLine?.(line),
+          onPid: (pid) => {
+            hostPid = pid;
+          },
+        }
+      : undefined,
+  );
 
   console.log(`[ztron] running backend via ${tjs} on port ${port}`);
   const env: NodeJS.ProcessEnv = {
@@ -500,13 +560,24 @@ async function runApp(
   };
 
   // Async spawn (not spawnSync) so the watcher's setTimeout keeps running on
-  // the main event loop while the backend is up.
+  // the main event loop while the backend is up. bench mode pipes output too
+  // (its harness parses every line); only dev inherits the terminal stdio.
+  const child = spawn(tjs, ["run", bundlePath], {
+    stdio: mode === "dev" ? "inherit" : ["ignore", "pipe", "pipe"],
+    cwd,
+    env,
+  });
+
+  if (mode === "bench") {
+    try {
+      await runBenchHarness(child, hostPid, checkOpts);
+    } finally {
+      await closeDevServers();
+    }
+    return;
+  }
+
   await new Promise<void>((resolve) => {
-    const child = spawn(tjs, ["run", bundlePath], {
-      stdio: mode === "check" ? ["ignore", "pipe", "pipe"] : "inherit",
-      cwd,
-      env,
-    });
     const verdictBox = { value: -1 }; // -1 = not decided
     if (mode === "check") {
       runCheckHarness(child, checkOpts, verdictBox);
@@ -518,6 +589,74 @@ async function runApp(
       process.exit(verdictBox.value >= 0 ? verdictBox.value : (code ?? 1));
     });
   });
+}
+
+/**
+ * Bench-round harness: forwards every backend stdout/stderr line to
+ * `opts.bench.onLine`, resolves once the app reports BENCH_DONE (after
+ * killing the round's backend + host) and rejects on BENCH_FAIL, early exit
+ * or timeout. Unlike check mode it never calls process.exit — the bench
+ * runner drives many rounds inside one CLI process.
+ */
+function runBenchHarness(
+  child: ReturnType<typeof spawn>,
+  hostPid: number,
+  opts: CheckOptions,
+): Promise<void> {
+  const onLine = opts.bench?.onLine;
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      killRoundProcesses(child.pid, hostPid);
+    };
+    const ok = () => {
+      finish();
+      resolve();
+    };
+    const fail = (err: Error) => {
+      finish();
+      reject(err);
+    };
+    const handle = (line: string) => {
+      onLine?.(line);
+      if (line.includes("BENCH_DONE")) {
+        ok();
+      } else if (line.includes("BENCH_FAIL:")) {
+        const reason = line.split("BENCH_FAIL:")[1] ?? "unknown";
+        fail(new Error(`bench app reported BENCH_FAIL: ${reason.slice(0, 160)}`));
+      }
+    };
+    child.stdout?.on("data", (c: Buffer) => c.toString().split("\n").forEach(handle));
+    child.stderr?.on("data", (c: Buffer) => c.toString().split("\n").forEach(handle));
+    child.on("exit", (code) => {
+      fail(new Error(`bench app exited (code ${code ?? "signal"}) before BENCH_DONE`));
+    });
+    child.on("error", (err) =>
+      fail(err instanceof Error ? err : new Error(String(err))),
+    );
+    timer = setTimeout(
+      () => fail(new Error(`bench round timed out after ${opts.timeoutMs}ms without BENCH_DONE`)),
+      opts.timeoutMs,
+    );
+    opts.bench?.onPids?.({ host: hostPid, backend: child.pid ?? -1 });
+  });
+}
+
+/** SIGKILLs the round's backend then host so the next bench round is clean. */
+function killRoundProcesses(backendPid: number | undefined, hostPid: number): void {
+  for (const pid of [backendPid ?? -1, hostPid]) {
+    if (pid > 0) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        /* already gone */
+      }
+    }
+  }
 }
 
 /** Parses check-mode backend output into a pass/fail report.
@@ -767,7 +906,7 @@ status.textContent = String(await invoke("hello", { name: "scaffold" }));
  *   3. assemble a platform bundle (macOS: Ztron*.app with a launcher that
  *      coordinates ztron-host + ztron-backend and passes the invokeKey)
  */
-async function buildApp(cwd: string, entry: string): Promise<void> {
+export async function buildApp(cwd: string, entry: string): Promise<void> {
   const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
   const appRoot = dirname(entryPath);
@@ -1284,6 +1423,19 @@ async function main(): Promise<void> {
     }
     case "check": {
       await check(cwd, resolveEntry(cwd, entryArg), process.argv.slice(3));
+      break;
+    }
+    case "bench": {
+      const benchArgs = process.argv.slice(3);
+      const { runBench, renderBenchReport } = await import("./bench.js");
+      const result = await runBench({
+        cwd,
+        runs: numberFlag(benchArgs, "--runs", 3),
+        noGui: benchArgs.includes("--no-gui"),
+        record: benchArgs.includes("--record"),
+        jsonPath: resolve(cwd, flagValue(benchArgs, "--json") ?? "bench-results.json"),
+      });
+      renderBenchReport(result);
       break;
     }
     case "icon": {
