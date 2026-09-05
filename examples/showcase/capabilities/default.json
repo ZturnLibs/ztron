@@ -1,0 +1,31 @@
+{
+  "identifier": "main-capabilities",
+  "description": "Showcase 全量权限：core/path/fs/http/os/store/log/shell/updater/sql/autostart/window-state/single-instance/websocket/local-ip/network/persisted-scope/fs-watch/fs-binary。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "path:default",
+    "fs:write-default",
+    "fs:allow-copy",
+    "fs:allow-rename",
+    "fs:allow-stat",
+    "fs:allow-make-dir",
+    "fs:allow-watch",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "http:default",
+    "os:default",
+    "store:write",
+    "log:default",
+    "shell:default",
+    "updater:default",
+    "sql:default",
+    "autostart:default",
+    "window-state:write",
+    "single-instance:default",
+    "websocket:default",
+    "local-ip:default",
+    "network:default",
+    "persisted-scope:default"
+  ]
+}
