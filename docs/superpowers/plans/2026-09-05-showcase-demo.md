@@ -73,7 +73,8 @@ export interface Demo {
   mount(area: HTMLElement, out: Output): void;
 }
 export function act(out: Output, label: string, run: () => Promise<void> | void): HTMLButtonElement;
-export function field(labelText: string, placeholder?: string, value?: string): HTMLInputElement;
+export function field(labelText: string, placeholder?: string, value?: string): HTMLLabelElement;
+export function fieldValue(f: HTMLLabelElement): string;
 export function output(): Output;
 export function icon(name: "book" | "copy" | "external"): SVGSVGElement;
 export function extractError(e: unknown): string;
@@ -750,8 +751,8 @@ export function act(
   return b;
 }
 
-/** label 在上的输入框（无 placeholder-as-label） */
-export function field(labelText: string, placeholder = "", value = ""): HTMLInputElement {
+/** label 在上的输入框（无 placeholder-as-label）。返回包裹 label，取值用 fieldValue() */
+export function field(labelText: string, placeholder = "", value = ""): HTMLLabelElement {
   const wrap = document.createElement("label");
   wrap.className = "field";
   const cap = document.createElement("span");
@@ -760,8 +761,12 @@ export function field(labelText: string, placeholder = "", value = ""): HTMLInpu
   input.placeholder = placeholder;
   input.value = value;
   wrap.append(cap, input);
-  // 返回 input 本身：demo 只关心取值；样式由 .field 后代选择器命中
-  return input;
+  return wrap;
+}
+
+/** 读取 field() 包裹内输入框的当前值 */
+export function fieldValue(f: HTMLLabelElement): string {
+  return (f.querySelector("input") as HTMLInputElement).value;
 }
 
 /** Tabler Icons (MIT) 内联 SVG，strokeWidth 2；本应用仅用这 3 枚 */
@@ -940,7 +945,7 @@ git commit -m "feat(examples): showcase frontend shell - brand tokens, demo regi
 
 ```ts
 import { invoke, listen, Channel, getName, getVersion, getIdentifier } from "@zturnlibs/ztron-api";
-import { act, field, type Demo } from "../demo-ui";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
 const about: Demo = {
   id: "app.about",
@@ -991,7 +996,7 @@ const msg2 = await typed("showcase:greet", { name: "Ztron" });`,
     area.append(
       name,
       act(out, "greet", async () => {
-        out.ok(await invoke("showcase:greet", { name: name.value || "世界" }));
+        out.ok(await invoke("showcase:greet", { name: fieldValue(name) || "世界" }));
       }),
       act(out, "add(2, 3)", async () => {
         out.ok(`2 + 3 = ${await invoke("showcase:add", { a: 2, b: 3 })}`);
@@ -1274,7 +1279,7 @@ git commit -m "feat(examples): showcase window demos - control/multiwin/monitors
 
 ```ts
 import { fs, path } from "@zturnlibs/ztron-api";
-import { act, field, type Demo } from "../demo-ui";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
 const readWrite: Demo = {
   id: "fs.rw",
@@ -1294,7 +1299,7 @@ const back = await fs.readFile("$TMP/ztron_demo.bin");`,
     area.append(
       content,
       act(out, "写入并读回", async () => {
-        await fs.writeText("$TMP/ztron_showcase.txt", content.value);
+        await fs.writeText("$TMP/ztron_showcase.txt", fieldValue(content));
         const back = await fs.readText("$TMP/ztron_showcase.txt");
         out.ok(`读回：${back}`);
       }),
@@ -1421,7 +1426,7 @@ import {
   readClipboardHtml,
   clearClipboard,
 } from "@zturnlibs/ztron-api";
-import { act, field, type Demo } from "../demo-ui";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
 const fileDialogs: Demo = {
   id: "dialog.file",
@@ -1530,7 +1535,7 @@ await clearClipboard();`,
     area.append(
       text,
       act(out, "写文本", async () => {
-        await writeClipboardText(text.value);
+        await writeClipboardText(fieldValue(text));
         out.ok("已写入剪贴板，去别处粘贴试试");
       }),
       act(out, "读文本", async () => {
@@ -1875,7 +1880,7 @@ git commit -m "feat(examples): showcase menu-tray demos - appmenu/tray/global-sh
 
 ```ts
 import { store, Database, logger, attachConsole, path } from "@zturnlibs/ztron-api";
-import { act, field, type Demo } from "../demo-ui";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
 const storeDemo: Demo = {
   id: "data.store",
@@ -1894,7 +1899,7 @@ await store.clear(file);`,
       kv,
       act(out, "set", async () => {
         const file = `${await path.tempDir()}/ztron_showcase_store.json`;
-        await store.set(file, "greeting", kv.value || "hello");
+        await store.set(file, "greeting", fieldValue(kv) || "hello");
         out.ok(`已写入 ${file}`);
       }),
       act(out, "get", async () => {
@@ -1929,7 +1934,7 @@ await db.close();`,
       act(out, "插入一条", async () => {
         const db = await Database.load(`${await path.tempDir()}/ztron_showcase.db`);
         await db.execute("CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, text TEXT)");
-        await db.execute("INSERT INTO notes(text) VALUES(?)", [note.value]);
+        await db.execute("INSERT INTO notes(text) VALUES(?)", [fieldValue(note)]);
         await db.close();
         out.ok(`已插入「${note.value}」`);
       }),
@@ -1964,8 +1969,8 @@ detach();`,
     area.append(
       msg,
       act(out, "写 info / error", async () => {
-        await logger.info(msg.value);
-        await logger.error(`${msg.value} (error 级别)`);
+        await logger.info(fieldValue(msg));
+        await logger.error(`${fieldValue(msg)} (error 级别)`);
         out.ok("已写入。终端可见 stdout 版本；文件在 ~/Library/Logs/com.ztron.showcase/");
       }),
       act(out, "attachConsole 回显", async () => {
