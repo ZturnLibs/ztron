@@ -134,6 +134,16 @@ node ../packages/cli/dist/index.js dev --entry src/main.ts
 node ../packages/cli/dist/index.js codegen    # typed invoke bindings for your commands
 ```
 
+## Bench
+
+```bash
+node packages/cli/dist/index.js bench --runs 3            # measure vs budget
+node packages/cli/dist/index.js bench --record --runs 3   # re-record baseline
+```
+
+Cold/warm start, invoke P50/P95, channel throughput, window create, RSS, app size.
+Budgets are machine-local (Apple Silicon baseline); see perf-budget.json.
+
 ## Remaining (needs target platforms / deep water)
 
 - Windows (WebView2) / Linux (WebKitGTK) host compile + NSIS/AppImage packaging
