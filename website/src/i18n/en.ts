@@ -76,23 +76,23 @@ export const en = {
   quickstart: {
     heading: 'Quick ',
     headingAccent: 'start',
-    sub: 'Two commands to a native window.',
+    sub: 'Install the CLI, scaffold, and a native window opens.',
     tabs: [
+      {
+        id: 'scaffold',
+        label: 'Scaffold a project',
+        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # native window opens',
+      },
       {
         id: 'monorepo',
         label: 'Inside the monorepo',
         code: 'pnpm install\nscripts/build-native.sh                 # tjs + ztron-host + webview lib (macOS)\npnpm --filter @zturnlibs/ztron-example-hello dev  # vite build + host + backend',
       },
-      {
-        id: 'scaffold',
-        label: 'Scaffold a project',
-        code: 'ztron init my-app        # src/main.ts + frontend/\ncd my-app\nztron dev --entry src/main.ts\nztron codegen            # typed invoke bindings',
-      },
     ],
   },
   packages: {
     heading: 'One workspace, five packages',
-    sub: 'Published to GitHub Packages as @zturnlibs/ztron-*.',
+    sub: 'Published to npm as @zturnlibs/ztron-*. Install the CLI globally and go.',
     items: [
       { name: '@zturnlibs/ztron-api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
       { name: '@zturnlibs/ztron-core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },
