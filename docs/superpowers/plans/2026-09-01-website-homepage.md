@@ -388,7 +388,7 @@ export const en = {
     ],
   },
   footer: {
-    license: 'MIT © 2026 ZtronLibs',
+    license: 'MIT © 2026 ZturnLibs',
     links: [
       { label: 'GitHub ↗', href: 'https://github.com/ZturnLibs/ztron' },
       { label: 'DESIGN.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/DESIGN.md' },
@@ -508,7 +508,7 @@ export const zh = {
     ],
   },
   footer: {
-    license: 'MIT © 2026 ZtronLibs',
+    license: 'MIT © 2026 ZturnLibs',
     links: [
       { label: 'GitHub ↗', href: 'https://github.com/ZturnLibs/ztron' },
       { label: 'DESIGN.md ↗', href: 'https://github.com/ZturnLibs/ztron/blob/main/DESIGN.md' },

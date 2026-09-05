@@ -102,7 +102,7 @@ export const zh = {
     ],
   },
   footer: {
-    license: 'MIT © 2026 ZtronLibs',
+    license: 'MIT © 2026 ZturnLibs',
     links: [
       { label: '文档 ↗', href: 'https://zturnlibs.github.io/ztron/docs/' },
       { label: 'GitHub ↗', href: 'https://github.com/ZturnLibs/ztron' },
