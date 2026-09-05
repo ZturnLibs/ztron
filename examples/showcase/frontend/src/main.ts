@@ -3,10 +3,12 @@ import { invoke, openUrl, writeClipboardText } from "@zturnlibs/ztron-api";
 import { icon, output, type Demo } from "./demo-ui";
 import { docUrl } from "./doc-links";
 import { coreDemos } from "./demos/core";
+import { windowDemos } from "./demos/window";
 
 /** 分类目录：Task 3-10 逐个补充 demos/* 模块后在此登记 */
 const CATALOG: { category: string; demos: Demo[] }[] = [
   { category: "核心", demos: coreDemos },
+  { category: "窗口", demos: windowDemos },
 ];
 
 const nav = document.getElementById("nav")!;
