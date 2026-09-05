@@ -9,6 +9,7 @@ import { dialogDemos } from "./demos/dialogs";
 import { netDemos } from "./demos/net";
 import { menuTrayDemos } from "./demos/menu-tray";
 import { dataDemos } from "./demos/data";
+import { systemDemos } from "./demos/system";
 
 /** 分类目录：Task 3-10 逐个补充 demos/* 模块后在此登记 */
 const CATALOG: { category: string; demos: Demo[] }[] = [
@@ -19,6 +20,7 @@ const CATALOG: { category: string; demos: Demo[] }[] = [
   { category: "网络", demos: netDemos },
   { category: "菜单与托盘", demos: menuTrayDemos },
   { category: "数据", demos: dataDemos },
+  { category: "系统集成", demos: systemDemos },
 ];
 
 const nav = document.getElementById("nav")!;
