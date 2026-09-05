@@ -32,3 +32,6 @@ examples/**/frontend/dist/
 # packaged app output (ztron build)
 dist/
 .worktrees/
+
+# bench run output (the committed baseline is perf-budget.json)
+bench-results.json

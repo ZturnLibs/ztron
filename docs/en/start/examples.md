@@ -4,13 +4,14 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains three runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains four runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
 | hello | `@zturnlibs/ztron-example-hello` | a full drill of invoke/events/Channel/fs/path and other APIs (85 checks) | `pnpm --filter @zturnlibs/ztron-example-hello dev` |
 | multiwin | `@zturnlibs/ztron-example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
+| bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
 
 ## hello
 
@@ -23,6 +24,10 @@ Demonstrates the two ways of doing multi-window: statically declaring in `ztron.
 ## menuprobe
 
 A menu capability probing example, covering menu construction and dynamic manipulation capabilities. Source: `examples/menuprobe/`.
+
+## bench
+
+The perf benchmark example: `ztron bench` drives its automated measurement sequence (cold/warm start, invoke P50/P95, Channel throughput, event round trip, window create, RSS, app size) and compares the results against the `perf-budget.json` budgets as a regression gate (see the Bench section of the repo root README). Source: `examples/bench/`.
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 

@@ -1,0 +1,19 @@
+{
+  "_comment": "预算基线；ztron bench --record 重写。比对：时间/内存 ×1.25、吞吐 ÷1.25 内为 PASS",
+  "recordedAt": "2026-09-05T14:23:48.618Z",
+  "env": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "note": "Apple M3 — machine-local baseline"
+  },
+  "budgets": {
+    "coldStartMs": 582,
+    "warmStartMs": 551,
+    "invokeP50Ms": 0.3125,
+    "invokeP95Ms": 1,
+    "channelMBps": 8.505,
+    "eventRoundTripMs": 0.3,
+    "windowCreateMs": 58,
+    "appSizeMb": 6.21
+  }
+}
