@@ -1,0 +1,9 @@
+{
+  "entry": "src/main.ts",
+  "frontend": "frontend",
+  "identifier": "com.ztron.bench",
+  "version": "0.3.1",
+  "windows": [
+    { "label": "main", "title": "Ztron Bench", "width": 640, "height": 480, "url": "frontend" }
+  ]
+}
