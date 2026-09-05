@@ -4,7 +4,7 @@ title: 示例
 
 > `examples/` 属于框架仓库（贡献者/开发者视角）。普通应用开发请从[快速开始](/start/quick-start)的 `ztron init` 路径进入。
 
-仓库 `examples/` 目录下有四个可运行示例，均可用 pnpm filter 直接运行：
+仓库 `examples/` 目录下有五个可运行示例，均可用 pnpm filter 直接运行：
 
 | 名称 | 包名 | 演示内容 | 运行命令 |
 | --- | --- | --- | --- |
@@ -12,6 +12,7 @@ title: 示例
 | multiwin | `@zturnlibs/ztron-example-multiwin` | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单能力探测 | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | 性能基准测量序列（invoke/Channel/窗口） | `node packages/cli/dist/index.js bench --runs 3` |
+| showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：34 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 
 ## hello
 
@@ -28,6 +29,11 @@ title: 示例
 ## bench
 
 性能基准示例：`ztron bench` 驱动其自动化测量序列（冷/热启动、invoke P50/P95、Channel 吞吐、事件往返、窗口创建、RSS、应用体积），并与 `perf-budget.json` 预算比对形成回归门禁（见仓库根 README 的 Bench 小节）。源码：`examples/bench/`。
+
+## showcase
+
+面向新手的交互式演示应用（34 张卡片，点按钮真跑 + 代码片段 + 文档直达）。
+查看与使用方法见专页：[Showcase 演示应用](/start/showcase)。
 
 各示例均依赖 monorepo 内的 workspace 包，需先完成[安装](/start/install)与原生链构建。
 

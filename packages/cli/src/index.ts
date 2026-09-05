@@ -552,6 +552,10 @@ export async function runApp(
     ZTRON_INVOKE_KEY: invokeKey,
     /* Declarative config (windows/identifier/version) for AppBuilder.fromConfig */
     ZTRON_CONF: JSON.stringify(readProjectConfig(cwd)),
+    /* Check-mode marker: lets interactive apps (e.g. examples/showcase) gate
+       their post-report self-exit on it — `ztron dev` stays open, `check`
+       gets a deterministic harness verdict once the backend process exits. */
+    ...(mode === "check" ? { ZTRON_CHECK: "1" } : {}),
     ...(frontendUrl ? { ZTRON_DEV_URL: frontendUrl } : {}),
     ...(reloadFile ? { ZTRON_RELOAD_FILE: reloadFile } : {}),
     ...(existsSync(resolve(cwd, "capabilities"))

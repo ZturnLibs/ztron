@@ -1,0 +1,64 @@
+---
+import { highlight } from '../lib/highlight';
+interface Props { s: import('../i18n/types').SiteStrings }
+const { s } = Astro.props;
+const rendered = await highlight(s.showcase.runCode);
+const docsHref = '/ztron/docs/start/showcase.html';
+const sourceHref = 'https://github.com/ZturnLibs/ztron/tree/main/examples/showcase';
+---
+<section class="section" id="showcase">
+  <div class="container">
+    <h2 class="section-title">{s.showcase.heading}<em>{s.showcase.headingAccent}</em></h2>
+    <p class="section-sub">{s.showcase.sub}</p>
+    <div class="split">
+      <div class="copy">
+        <ul class="bullets">
+          {s.showcase.bullets.map((b) => <li>{b}</li>)}
+        </ul>
+        <div class="chips">
+          {s.showcase.categories.map((c) => <span class="chip">{c}</span>)}
+        </div>
+        <div class="ctas">
+          <a class="btn primary" href={docsHref}>{s.showcase.ctas.docs}</a>
+          <a class="btn ghost" href={sourceHref} target="_blank" rel="noopener">{s.showcase.ctas.source}</a>
+        </div>
+      </div>
+      <div class="run">
+        <div class="run-label">{s.showcase.runLabel}</div>
+        <Fragment set:html={rendered} />
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  .split { display: grid; grid-template-columns: 1.15fr 1fr; gap: 32px; align-items: center; }
+  .bullets { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 10px; }
+  .bullets li { position: relative; padding-left: 22px; color: var(--text-1); font-size: 15px; }
+  .bullets li::before {
+    content: ''; position: absolute; left: 2px; top: 9px; width: 8px; height: 8px;
+    border-radius: 2px; background: linear-gradient(120deg, var(--accent-from), var(--accent-to));
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .chip {
+    font-size: 12.5px; color: var(--text-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px; background: var(--surface);
+  }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 10px 20px; border-radius: 8px; font-size: 14px;
+    text-decoration: none; font-family: var(--font-ui);
+  }
+  .btn.primary {
+    color: #0a0c10; font-weight: 600;
+    background: linear-gradient(120deg, var(--accent-from), var(--accent-to));
+  }
+  .btn.ghost { color: var(--text-1); border: 1px solid var(--border); background: var(--surface); }
+  .btn.ghost:hover { border-color: var(--accent-from); }
+  .run-label { font-size: 13px; color: var(--text-2); margin-bottom: 10px; }
+  .run :global(pre.shiki) {
+    background: var(--code-bg) !important; border: 1px solid var(--border);
+    border-radius: var(--radius); margin: 0; padding: 20px 22px;
+    font-size: 13.5px; line-height: 1.85; overflow-x: auto;
+  }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+</style>

@@ -90,6 +90,21 @@ export const en = {
       },
     ],
   },
+  showcase: {
+    heading: 'See it all in the ',
+    headingAccent: 'Showcase',
+    sub: 'A runnable desktop app with 34 interactive cards — every button calls the real API: native dialogs, clipboard, multi-window, theme switching, frameless tricks. Each card carries a copyable snippet and a direct link to its docs page.',
+    bullets: [
+      '8 categories: core IPC & events, windows, fs, network, dialogs, menu & tray, data, system',
+      'Live demo, inline result, minimal snippet, docs link — one card per feature',
+      'ACL denials and errors are shown verbatim: error-reading is part of the lesson',
+      'CI-friendly smoke gate: ztron check --expect SHOWCASE_OK',
+    ],
+    categories: ['Core x4', 'Window x5', 'FS x3', 'Network x3', 'Dialogs x4', 'Menu & Tray x3', 'Data x3', 'System x9'],
+    runLabel: 'Run it from the repo root',
+    runCode: 'git clone https://github.com/ZturnLibs/ztron.git\ncd ztron && pnpm install\npnpm --filter @zturnlibs/ztron-example-showcase dev',
+    ctas: { docs: 'Usage guide', source: 'Source' },
+  },
   packages: {
     heading: 'One workspace, five packages',
     sub: 'Published to npm as @zturnlibs/ztron-*. Install the CLI globally and go.',

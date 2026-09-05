@@ -4,7 +4,7 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains four runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains five runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
@@ -12,6 +12,7 @@ The repo's `examples/` directory contains four runnable examples, all directly r
 | multiwin | `@zturnlibs/ztron-example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
+| showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 34 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 
 ## hello
 
@@ -28,6 +29,12 @@ A menu capability probing example, covering menu construction and dynamic manipu
 ## bench
 
 The perf benchmark example: `ztron bench` drives its automated measurement sequence (cold/warm start, invoke P50/P95, Channel throughput, event round trip, window create, RSS, app size) and compares the results against the `perf-budget.json` budgets as a regression gate (see the Bench section of the repo root README). Source: `examples/bench/`.
+
+## showcase
+
+An interactive demo app for beginners (34 cards: live buttons + snippets + doc links).
+See the dedicated page for viewing and usage: [Showcase Demo App](/en/start/showcase).
+
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 
