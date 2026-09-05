@@ -90,6 +90,21 @@ export const zh = {
       },
     ],
   },
+  showcase: {
+    heading: '在 Showcase 里',
+    headingAccent: '全部点一遍',
+    sub: '一个可直接运行的桌面应用，34 张可交互卡片：每个按钮都真实调用 API——原生对话框、剪贴板、多窗口、主题切换、无边框窗口。每张卡附最小代码片段与文档页直达按钮。',
+    bullets: [
+      '8 大分类：核心 IPC 与事件、窗口、文件、网络、对话框、菜单与托盘、数据、系统集成',
+      '每张卡 = 真实演示 + 就地结果 + 最小片段 + 文档直达',
+      'ACL 拒绝与错误原样显示——读懂报错也是课程的一部分',
+      'CI 友好冒烟门禁：ztron check --expect SHOWCASE_OK',
+    ],
+    categories: ['核心 x4', '窗口 x5', '文件 x3', '网络 x3', '对话框 x4', '菜单与托盘 x3', '数据 x3', '系统集成 x9'],
+    runLabel: '在仓库根目录运行',
+    runCode: 'git clone https://github.com/ZturnLibs/ztron.git\ncd ztron && pnpm install\npnpm --filter @zturnlibs/ztron-example-showcase dev',
+    ctas: { docs: '查看与使用方法', source: '源码' },
+  },
   packages: {
     heading: '一个工作区，五个包',
     sub: '已发布到 npm：@zturnlibs/ztron-*。全局装一个 CLI 即可开发。',

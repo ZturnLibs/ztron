@@ -19,6 +19,7 @@ export interface SiteStrings {
   plugins: { heading: string; headingAccent: string; sub: string; groups: PluginGroup[] };
   statusm: { heading: string; sub: string; rows: StatusRow[]; checks: string; more: string; moreLabel: string };
   quickstart: { heading: string; headingAccent: string; sub: string; tabs: CodeTab[] };
+  showcase: { heading: string; headingAccent: string; sub: string; bullets: string[]; categories: string[]; runLabel: string; runCode: string; ctas: { docs: string; source: string } };
   packages: { heading: string; sub: string; items: PackageCard[] };
   footer: { license: string; links: { label: string; href: string }[] };
 }

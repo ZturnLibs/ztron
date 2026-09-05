@@ -32,12 +32,8 @@ title: 示例
 
 ## showcase
 
-面向**新手应用开发者**的交互式演示应用（对标 Electron API Demos）：左侧分类导航，
-每个功能一张卡片，点按钮真跑、卡片内嵌最小代码片段、「文档」按钮直达文档站对应页面。
-覆盖核心 IPC/事件/Channel、窗口与多窗口、fs/path、http/流式/WebSocket、对话框/通知/剪贴板、
-菜单/托盘/全局快捷键、store/sql/log、以及系统集成九件套。其 `ztron.conf.json` 与
-`capabilities/` 本身就是新手项目的配置范本。冒烟门禁：`ztron check --expect SHOWCASE_OK`。
-源码：`examples/showcase/`。
+面向新手的交互式演示应用（34 张卡片，点按钮真跑 + 代码片段 + 文档直达）。
+查看与使用方法见专页：[Showcase 演示应用](/start/showcase)。
 
 各示例均依赖 monorepo 内的 workspace 包，需先完成[安装](/start/install)与原生链构建。
 

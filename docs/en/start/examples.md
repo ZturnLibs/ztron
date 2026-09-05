@@ -32,13 +32,9 @@ The perf benchmark example: `ztron bench` drives its automated measurement seque
 
 ## showcase
 
-An interactive demo app for **beginner app developers** (the counterpart of Electron API Demos):
-category navigation on the left, one card per feature, buttons that really execute, minimal code
-snippets embedded in each card, and a "Docs" button linking straight to the matching docs page.
-Covers core IPC/events/Channel, windows and multi-window, fs/path, http/streaming/WebSocket,
-dialogs/notifications/clipboard, menu/tray/global shortcuts, store/sql/log, and the nine-piece
-system integration set. Its `ztron.conf.json` and `capabilities/` are themselves a configuration
-template for new projects. Smoke gate: `ztron check --expect SHOWCASE_OK`. Source: `examples/showcase/`.
+An interactive demo app for beginners (34 cards: live buttons + snippets + doc links).
+See the dedicated page for viewing and usage: [Showcase Demo App](/en/start/showcase).
+
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 
