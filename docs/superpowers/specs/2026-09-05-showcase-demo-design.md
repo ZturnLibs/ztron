@@ -7,6 +7,62 @@
 - 关联：`2026-09-03-onboarding-journey-design.md`（互补——该设计做发布/CLI/
   文档旅程，本设计交付「玩中学」的 API 演示载体，可挂入其 W3 文档旅程）
 
+## 0. 视觉设计（design-taste-frontend 读向）
+
+**Design Read**：开发者工具的演示型产品 UI（非落地页），受众为新手应用开发者；
+视觉语言继承 **Ztron 官网既有品牌令牌**（`website/src/styles/tokens.css`），
+深色科技风家族；实现用原生 CSS 自定义属性（教学样本不加 Tailwind/框架依赖）。
+
+**设计旋钮**：VARIANCE 4（产品 UI 需可预期的导航）/ MOTION 3（克制的状态
+反馈）/ DENSITY 5（日常应用密度）。
+
+### 0.1 令牌继承（品牌一致性）
+
+直接复用官网调色板与字体栈（`frontend/src/style.css` 顶部重声明一份，注释
+注明来源是 `website/src/styles/tokens.css`，demo 与官网同族）：
+
+- 表面：`--bg #0a0c10` / `--surface #11141b` / `--elevated #161a23`，
+  边框 `rgba(255,255,255,.08)`；
+- 文字：`--text-1 #e6eaf2` / `--text-2 #9aa3b2`；
+- 品牌：`--accent-from #8b5cf6 → --accent-to #22d3ee` 渐变（品牌已有紫青
+  渐变，按品牌保真原则继承，仅用于主按钮/选中态/标题点缀，不做大面积
+  发光）；语义色 `--ok #34d399` / `--bad #f87171` / `--wip #fbbf24`；
+- 字体：`system-ui + PingFang SC` UI 栈、`ui-monospace + SF Mono` 码栈
+  （本地应用不引 webfont）；圆角统一 10px（按钮/输入 8px，容器 10px，
+  遵循单一圆角体系）；主题锁定深色（与官网一致，单主题锁）。
+
+### 0.2 布局与卡片解剖
+
+```
+┌──────────┬──────────────────────────────────────┐
+│ 侧边栏    │  内容区（可滚动）                      │
+│ 220px    │  ┌──────────────────────────────────┐ │
+│ 品牌+版本 │  │ 卡片头：标题 + 描述    [文档]按钮  │ │
+│ ──────── │  ├──────────────────────────────────┤ │
+│ 分类（8） │  │ 交互区：按钮/输入 → 操作           │ │
+│  └demo名 │  ├──────────────────────────────────┤ │
+│          │  │ 结果区：等宽输出（成功绿/错误红）   │ │
+│          │  ├──────────────────────────────────┤ │
+│          │  │ 代码区：<pre> 深底码块 + 复制按钮  │ │
+│          │  └──────────────────────────────────┘ │
+└──────────┴──────────────────────────────────────┘
+```
+
+- 侧边栏：品牌字标 + 当前分类高亮（品牌渐变文字或左侧 2px 渐变条）、demo
+  项 hover/focus 态；内容区单卡片聚焦（一次一个 demo，非瀑布流）；
+- 状态完备：每个操作按钮有 idle/loading/成功/错误四态呈现于结果区；`:active`
+  下 `translate-y(1px)` 触感反馈；转场 150-250ms ease-out，只动
+  transform/opacity，`prefers-reduced-motion` 全量降级；
+- 反 AI 套路约束：无紫色外发光、无纯黑纯白、无装饰性状态圆点、UI 文案
+  零破折号（`—`）、分类不加 eyebrow 小标签、图标统一 Tabler Icons 内联
+  SVG（strokeWidth 2，仅 book/copy/external-link 等 3-4 枚，不用 emoji）。
+
+### 0.3 代码块
+
+`--code-bg #0d1017` 深底 + 等宽字体，单色文字（无高亮库，YAGNI）；右上角
+「复制」按钮（Tabler copy 图标），点击经 `writeClipboardText` 复制——用
+Ztron API 复制 Ztron 的示例代码，本身是一次 API 自举演示。
+
 ## 1. 目标与非目标
 
 ### 目标
@@ -17,7 +73,7 @@
    真发 HTTP、真创建第二个窗口），结果就地显示；
 2. **看代码**：每张卡片内嵌该功能的最小 API 用法片段（与实现同文件，天然
    不漂移），新手复制即可用；
-3. **查文档**：每张卡片一个「📖 文档」按钮，经 `opener.openUrl` 跳转到
+3. **查文档**：每张卡片一个「文档」按钮，经 `opener.openUrl` 跳转到
    线上文档站对应页面（zh 默认）。
 
 同时把 demo 应用自身当作教学样本：`ztron.conf.json`、`capabilities/` ACL、
@@ -83,6 +139,7 @@ examples/showcase/
     ├── index.html           # 骨架：侧边栏 + 内容区 + 卡片容器
     └── src/
         ├── main.ts          # demo 注册表装载 + 路由（分类→卡片切换）
+        ├── style.css        # 品牌令牌 + 全部样式（来源注释指向官网 tokens.css）
         ├── demo-ui.ts       # 极小 helper：button/field/output/card 布局
         ├── doc-links.ts     # docUrl(path) → 线上文档站 URL 常量与拼接
         └── demos/
@@ -130,8 +187,9 @@ const DOCS_BASE = "https://zturnlibs.github.io/ztron/docs";
 export const docUrl = (docPath: string) => `${DOCS_BASE}${docPath}`;
 ```
 
-- 卡片头部「📖 文档」按钮：`openUrl(docUrl(demo.docPath))`（opener 插件）在
-  系统默认浏览器打开 zh 文档页；opener 失败时降级 `window.open`；
+- 卡片头部「文档」按钮（Tabler book 图标 + 文字）：
+  `openUrl(docUrl(demo.docPath))`（opener 插件）在系统默认浏览器打开 zh
+  文档页；opener 失败时降级 `window.open`；
 - `docPath` 与 `docs/zh/plugins/_meta.json` 一一对应，实现计划中附对照表。
 
 ### 4.4 错误处理（本身是教学点）
