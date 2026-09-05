@@ -126,4 +126,46 @@ un();`,
   },
 };
 
-export const windowDemos: Demo[] = [winControl, multiwin, monitors];
+const theme: Demo = {
+  id: "window.theme",
+  title: "主题切换与跟随系统",
+  description: "setTheme 切换原生窗口外观，整个界面即时变色；传 null 恢复跟随系统，随 macOS 外观设置同步。",
+  code: `import { Window } from "@zturnlibs/ztron-api";
+
+const win = Window.getCurrent();
+await win.setTheme("dark");     // 深色
+await win.setTheme("light");    // 浅色
+await win.setTheme(null);       // 跟随系统
+const theme = await win.getTheme();   // "light" | "dark"
+
+// 页面配色由 CSS 媒体查询自动跟随，无需 JS：
+// @media (prefers-color-scheme: light) { :root { ...浅色令牌... } }`,
+  docPath: "/plugins/window.html",
+  mount(area, out) {
+    const win = Window.getCurrent();
+    const report = async (label: string) => {
+      const native = await win.getTheme();
+      const css = matchMedia("(prefers-color-scheme: dark)").matches ? "深色" : "浅色";
+      out.ok(`${label}：窗口主题 ${native}，页面媒体查询判定${css}`);
+    };
+    area.append(
+      act(out, "深色", async () => {
+        await win.setTheme("dark");
+        await report("深色主题");
+      }),
+      act(out, "浅色", async () => {
+        await win.setTheme("light");
+        await report("浅色主题");
+      }),
+      act(out, "跟随系统", async () => {
+        await win.setTheme(null);
+        await report("跟随系统");
+      }),
+      act(out, "读当前状态", async () => {
+        await report("当前状态");
+      }),
+    );
+  },
+};
+
+export const windowDemos: Demo[] = [winControl, multiwin, monitors, theme];

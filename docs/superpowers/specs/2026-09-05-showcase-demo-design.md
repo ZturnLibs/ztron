@@ -29,7 +29,9 @@
   发光）；语义色 `--ok #34d399` / `--bad #f87171` / `--wip #fbbf24`；
 - 字体：`system-ui + PingFang SC` UI 栈、`ui-monospace + SF Mono` 码栈
   （本地应用不引 webfont）；圆角统一 10px（按钮/输入 8px，容器 10px，
-  遵循单一圆角体系）；主题锁定深色（与官网一致，单主题锁）。
+  遵循单一圆角体系）；默认深色（与官网一致），浅色由 `prefers-color-scheme`
+  令牌覆盖提供（2026-09-06 用户增补「主题切换与跟随系统」卡片时引入，
+  覆盖最初的单主题锁决定）。
 
 ### 0.2 布局与卡片解剖
 
@@ -222,6 +224,7 @@ export const docUrl = (docPath: string) => `${DOCS_BASE}${docPath}`;
 | 窗口 | 窗口控制 | `Window`：setTitle/setSize/fullscreen/center… | `/plugins/window.html` |
 | 窗口 | 多窗口 | `WebviewWindow` 创建/销毁第二窗口 | `/plugins/webview-window.html` |
 | 窗口 | 窗口事件与显示器 | `onMoved/onResized`、`availableMonitors` | `/plugins/dpi.html` |
+| 窗口 | 主题切换与跟随系统（增补） | `setTheme("dark"/"light"/null)`、`getTheme`、CSS `prefers-color-scheme` 浅色令牌 | `/plugins/window.html` |
 | 文件 | 读写文本/二进制 | `fs.readTextFile/writeFile/readFile` | `/plugins/fs.html` |
 | 文件 | 目录浏览与路径 | `fs.readDir`、`path.appDataDir()`、`BaseDirectory` | `/plugins/path.html` |
 | 文件 | 文件监听 | `fs.watch` → WatchEvent | `/plugins/fs.html` |

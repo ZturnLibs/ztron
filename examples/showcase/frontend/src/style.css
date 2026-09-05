@@ -1,5 +1,6 @@
 /* Ztron Showcase —— 令牌逐字继承官网 website/src/styles/tokens.css（品牌一致性）。
-   深色主题锁定（与官网一致）；圆角体系：容器 10px、交互控件 8px。 */
+   深色为默认主题（与官网一致）；浅色经 prefers-color-scheme 覆盖（见下方媒体查询，
+   配合「主题切换与跟随系统」卡片演示）。圆角体系：容器 10px、交互控件 8px。 */
 :root {
   --bg: #0a0c10;
   --surface: #11141b;
@@ -17,6 +18,22 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
   --radius: 10px;
   --radius-ctl: 8px;
+}
+/* 浅色令牌：窗口主题为浅色（setTheme("light") 或系统浅色且窗口跟随系统）时，
+   WKWebView 的 prefers-color-scheme 跟随窗口外观，这里整体翻转到浅色。
+   文字对比度按 WCAG AA 校验（text-1 ≈ 15:1，text-2 ≈ 5.8:1）。 */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f2f3f7;
+    --surface: #ffffff;
+    --elevated: #f7f8fa;
+    --border: rgba(11, 15, 26, 0.1);
+    --text-1: #1a1d26;
+    --text-2: #5b6472;
+    --ok: #067a53;
+    --bad: #c53030;
+    --code-bg: #eef0f4;
+  }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -97,7 +114,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-ctl);
 }
-.card-out:empty::before { content: "运行按钮后，结果会显示在这里"; color: rgba(154, 163, 178, 0.7); }
+.card-out:empty::before { content: "运行按钮后，结果会显示在这里"; color: var(--text-2); }
 .card-out.ok { color: var(--ok); }
 .card-out.fail { color: var(--bad); }
 .card-code { position: relative; margin: 14px 0 0; }

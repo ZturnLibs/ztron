@@ -12,7 +12,7 @@ title: 示例
 | multiwin | `@zturnlibs/ztron-example-multiwin` | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单能力探测 | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | 性能基准测量序列（invoke/Channel/窗口） | `node packages/cli/dist/index.js bench --runs 3` |
-| showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：32 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
+| showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：33 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 
 ## hello
 
