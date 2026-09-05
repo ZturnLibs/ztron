@@ -68,8 +68,8 @@ export function act(
   return b;
 }
 
-/** label 在上的输入框（无 placeholder-as-label） */
-export function field(labelText: string, placeholder = "", value = ""): HTMLInputElement {
+/** label 在上的输入框（无 placeholder-as-label）。返回包裹 label，取值用 fieldValue() */
+export function field(labelText: string, placeholder = "", value = ""): HTMLLabelElement {
   const wrap = document.createElement("label");
   wrap.className = "field";
   const cap = document.createElement("span");
@@ -78,7 +78,12 @@ export function field(labelText: string, placeholder = "", value = ""): HTMLInpu
   input.placeholder = placeholder;
   input.value = value;
   wrap.append(cap, input);
-  return input;
+  return wrap;
+}
+
+/** 读取 field() 包裹内输入框的当前值 */
+export function fieldValue(f: HTMLLabelElement): string {
+  return (f.querySelector("input") as HTMLInputElement).value;
 }
 
 /** Tabler Icons (MIT) 内联 SVG，strokeWidth 2；本应用仅用这 3 枚 */
