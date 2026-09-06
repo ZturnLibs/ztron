@@ -4,7 +4,7 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains five runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains six runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
@@ -13,6 +13,7 @@ The repo's `examples/` directory contains five runnable examples, all directly r
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
 | showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 34 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
+| react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 verification example (calling Ztron APIs the React way) | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
 
 ## hello
 
@@ -35,6 +36,13 @@ The perf benchmark example: `ztron bench` drives its automated measurement seque
 An interactive demo app for beginners (34 cards: live buttons + snippets + doc links).
 See the dedicated page for viewing and usage: [Showcase Demo App](/en/start/showcase).
 
+## react-demo
+
+A React 19 + Tailwind CSS v4 verification example: standard React idioms
+(`createRoot`, hooks, `React.lazy`) running directly on Ztron's dev/build
+pipeline, exercising dev HMR, IIFE bundling, and the full IPC chain (invoke,
+events, Channel, window theme). For integration and bundling constraints see
+the dedicated page: [Frontend Frameworks & Third-Party Packages](/guide/frontend-frameworks).
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 

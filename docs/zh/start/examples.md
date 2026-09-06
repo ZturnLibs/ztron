@@ -4,7 +4,7 @@ title: 示例
 
 > `examples/` 属于框架仓库（贡献者/开发者视角）。普通应用开发请从[快速开始](/start/quick-start)的 `ztron init` 路径进入。
 
-仓库 `examples/` 目录下有五个可运行示例，均可用 pnpm filter 直接运行：
+仓库 `examples/` 目录下有六个可运行示例，均可用 pnpm filter 直接运行：
 
 | 名称 | 包名 | 演示内容 | 运行命令 |
 | --- | --- | --- | --- |
@@ -13,6 +13,7 @@ title: 示例
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单能力探测 | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | 性能基准测量序列（invoke/Channel/窗口） | `node packages/cli/dist/index.js bench --runs 3` |
 | showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：34 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
+| react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 验证示例（React 写法调用 Ztron API） | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
 
 ## hello
 
@@ -34,6 +35,13 @@ title: 示例
 
 面向新手的交互式演示应用（34 张卡片，点按钮真跑 + 代码片段 + 文档直达）。
 查看与使用方法见专页：[Showcase 演示应用](/start/showcase)。
+
+## react-demo
+
+React 19 + Tailwind CSS v4 验证示例：标准 React 写法（`createRoot`、hooks、
+`React.lazy`）直接跑在 Ztron 的 dev/构建管线上，覆盖 dev HMR、IIFE 打包与
+IPC 全链路（invoke、事件、Channel、窗口主题）。接入方式与打包约束见专页：
+[前端框架与第三方包](/guide/frontend-frameworks)。
 
 各示例均依赖 monorepo 内的 workspace 包，需先完成[安装](/start/install)与原生链构建。
 
