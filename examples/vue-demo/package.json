@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "ztron dev --entry src/main.ts",
-    "build": "ztron build --entry src/main.ts",
+    "build": "tsc -p tsconfig.json",
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
