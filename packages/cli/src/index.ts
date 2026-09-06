@@ -40,6 +40,7 @@ import {
   findNativeFile,
   findHostBin,
   findWebviewLib,
+  findBundledNative,
 } from "./native-locate.js";
 
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
@@ -815,13 +816,16 @@ async function initProject(
       ? `[ztron] scaffolded a project in ${target}`
       : `[ztron] scaffolded a project in ${target} (template: ${templateName})`,
   );
-  const hasChain = findNativeFile(target, "ztron-host") !== undefined;
+  const hasChain =
+    findNativeFile(target, "ztron-host") !== undefined ||
+    findBundledNative("ztron-host") !== undefined;
   console.log(`[ztron] next steps:`);
-  console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && cd ztron && scripts/build-native.sh`);
-  console.log(`  2. export ZTRON_TJS=<repo>/native/libs/tjs ZTRON_HOST_BIN=<repo>/native/libs/ztron-host ZTRON_WEBVIEW_LIB=<repo>/native/libs/libwebview.dylib`);
-  console.log(`  3. pnpm install && npx ztron doctor && npx ztron dev`);
+  console.log(`  1. pnpm install && npx ztron doctor`);
+  console.log(`  2. npx ztron dev`);
   if (!hasChain) {
-    console.log(`[ztron] note: no native/libs found above ${target} — run \`ztron doctor\` after step 2.`);
+    console.log(
+      `[ztron] note: no native chain bundled or found above ${target} — reinstall the CLI (\`npm i -g @zturnlibs/ztron-cli\`), or build from source (docs: start/install) and export ZTRON_TJS / ZTRON_HOST_BIN / ZTRON_WEBVIEW_LIB.`,
+    );
   }
 }
 
