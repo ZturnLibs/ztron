@@ -789,7 +789,9 @@ async function initProject(
   opts: { template?: string } = {},
 ): Promise<void> {
   const templateName = opts.template || "vanilla";
-  const buildTemplate = TEMPLATES[templateName];
+  const buildTemplate = Object.hasOwn(TEMPLATES, templateName)
+    ? TEMPLATES[templateName]
+    : undefined;
   if (!buildTemplate) {
     throw new Error(
       `unknown template "${templateName}" (valid templates: ` +

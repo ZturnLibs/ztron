@@ -191,14 +191,19 @@ test("init --template react-ts prints template-aware next steps", () => {
 test("init --template bogus exits 1 listing valid templates", () => {
   const dir = join(tmpdir(), "ztron-t-bogus");
   rmSync(dir, { recursive: true, force: true });
-  const r = spawnSync(process.execPath, [CLI, "init", dir, "--template", "bogus"], {
-    encoding: "utf8",
-  });
-  assert.equal(r.status, 1);
-  const out = r.stdout + r.stderr;
-  assert.match(out, /vanilla/);
-  assert.match(out, /react-ts/);
-  assert.ok(!existsSync(join(dir, "package.json")), "must not scaffold on unknown template");
+  for (const bogus of ["bogus", "constructor", "toString"]) {
+    const r = spawnSync(process.execPath, [CLI, "init", dir, "--template", bogus], {
+      encoding: "utf8",
+    });
+    assert.equal(r.status, 1, `template "${bogus}" must exit 1`);
+    const out = r.stdout + r.stderr;
+    assert.match(out, /vanilla/);
+    assert.match(out, /react-ts/);
+    assert.ok(
+      !existsSync(join(dir, "package.json")),
+      `template "${bogus}" must not scaffold`,
+    );
+  }
   rmSync(dir, { recursive: true, force: true });
 });
 
