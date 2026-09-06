@@ -29,16 +29,10 @@ export default defineConfig({
     ],
   },
   themeConfig: {
-    // 顶部导航（zh 口径——主题 1.47 对 per-locale nav 覆盖支持不完整，
-    // 对象/locales 形态均导致 navbar 不渲染，实测回退为单份；en 用户
-    // 走 footer 的 Home 链接或右上角语言切换）。
-    // navbar 的渲染与否取决于 themeConfig.nav 是否存在，故此处必须有。
-    nav: [
-      { text: "主页", link: "https://zturnlibs.github.io/ztron/zh/" },
-      { text: "快速开始", link: "/start/intro.html" },
-      { text: "指南", link: "/guide/architecture.html" },
-      { text: "API 参考", link: "/reference/api/index.html" },
-    ],
+    // 注意：这里绝不能手写 themeConfig.nav/sidebar。rspress core 仅在
+    // `!haveNavSidebarConfig` 时注册 plugin-auto-nav-sidebar；一旦手写，
+    // _meta.json 驱动的左侧边栏将不再生成（构建静默成功、菜单为空）。
+    // 顶部导航项改在 docs/{zh,en}/_meta.json 中维护（插件原生源，支持外链）。
     socialLinks: [
       {
         icon: "github",

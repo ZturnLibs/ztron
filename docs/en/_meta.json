@@ -1,6 +1,22 @@
 [
-  { "text": "Start", "link": "/start/" },
-  { "text": "Guide", "link": "/guide/" },
-  { "text": "Reference", "link": "/reference/" },
-  { "text": "Plugins", "link": "/plugins/" }
+  {
+    "text": "Home",
+    "link": "https://zturnlibs.github.io/ztron/"
+  },
+  {
+    "text": "Quick Start",
+    "link": "/start/intro.html"
+  },
+  {
+    "text": "Guide",
+    "link": "/guide/architecture.html"
+  },
+  {
+    "text": "API Reference",
+    "link": "/reference/api/index.html"
+  },
+  {
+    "text": "Plugins",
+    "link": "/plugins/"
+  }
 ]
