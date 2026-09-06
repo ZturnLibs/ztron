@@ -52,10 +52,12 @@ body {
   flex: none;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
+/* 分类列表自身滚动；语言开关固定在底部始终可见 */
+#nav { flex: 1; overflow-y: auto; }
 .brand {
   padding: 18px 16px 4px;
   font-size: 16px;
@@ -119,11 +121,12 @@ body {
 
 /* 语言开关 */
 .lang-switch {
-  margin-top: auto;
+  flex: none;
   display: flex;
   gap: 6px;
   padding: 12px 16px 16px;
   border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 .lang-btn {
   flex: 1;
