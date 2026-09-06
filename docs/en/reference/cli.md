@@ -11,7 +11,7 @@ strings do not yet cover codegen/signer).
 ```text
 ztron init [dir] [--template <name>]
                                   scaffold a new project in [dir] (default: current directory);
-                                  templates: vanilla (default) | react-ts | vue-ts
+                                  templates: vanilla (default) | react-ts | vue-ts | svelte
 ztron doctor                      one-shot environment check for node/tjs/ztron-host/webview
 ztron dev [--entry <file>]        build + run under the native host + tjs backend
 ztron build [--entry <file>]      produce a standalone executable and .app
@@ -50,12 +50,19 @@ Templates (`--template <name>`, default `vanilla`):
   (vue + tailwindcss plugins), a `<script setup lang="ts">` Tailwind-styled
   greeting `App.vue`, typecheck via `vue-tsc --noEmit`, and the same
   `defineCommand("app:greet")` backend.
+- `svelte` — Svelte 5 + Tailwind CSS v4 scaffold (config values identical
+  to the pipeline-verified `examples/svelte-demo`): `frontend/vite.config.ts`
+  (svelte + tailwindcss plugins), a root `svelte.config.js` (for
+  svelte-check), a runes-style Tailwind-styled greeting `App.svelte` with a
+  `mount(App, { target })` entry, typecheck via `svelte-check`, and the
+  same `defineCommand("app:greet")` backend.
   Unknown template names exit 1 listing the valid templates.
 
 ```bash
 node packages/cli/dist/index.js init my-app
 node packages/cli/dist/index.js init my-app --template react-ts
 node packages/cli/dist/index.js init my-app --template vue-ts
+node packages/cli/dist/index.js init my-app --template svelte
 ```
 
 ## ztron doctor
