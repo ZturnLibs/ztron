@@ -72,7 +72,7 @@ await invoke("showcase:stream", { ch: channel });`,
     category: "Core",
     about: {
       title: "About this app",
-      description: "Read app metadata (name / version / identifier) — the three simplest APIs.",
+      description: "Read app metadata (name / version / identifier): the three simplest APIs.",
       code: `import { getName, getVersion, getIdentifier } from "@zturnlibs/ztron-api";
 
 const name = await getName();            // "com.ztron.showcase"
@@ -105,7 +105,7 @@ const msg2 = await typed("showcase:greet", { name: "Ztron" });`,
     },
     events: {
       title: "Events: listen / emit",
-      description: "The backend emits global events, the frontend subscribes with listen — the other shape of cross-process messaging.",
+      description: "The backend emits global events, the frontend subscribes with listen; the other shape of cross-process messaging.",
       code: `import { listen } from "@zturnlibs/ztron-api";
 
 const unlisten = await listen<{ n: number }>("showcase:tick", (e) => {
@@ -119,7 +119,7 @@ unlisten();`,
     },
     channel: {
       title: "Channel streaming",
-      description: "A Channel lets the backend push messages to the frontend continuously — download progress, log tails, etc.",
+      description: "A Channel lets the backend push messages to the frontend continuously: download progress, log tails, etc.",
       code: `import { invoke, Channel } from "@zturnlibs/ztron-api";
 
 const channel = new Channel<number>((progress) => {

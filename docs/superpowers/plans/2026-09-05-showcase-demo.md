@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 平台：macOS only（框架宿主现状）；UI 文案全部中文；窗口 label 固定 `main`；应用标识固定 `com.ztron.showcase`。
+- 平台：macOS only（框架宿主现状）；UI 文案 zh 默认 + en 可切换（2026-09-06 用户增补多语言，见 usage 页）；窗口 label 固定 `main`；应用标识固定 `com.ztron.showcase`。
 - 命令 id 统一前缀 `showcase:`；示例代码片段里的命令 id 必须与 `src/commands.ts`/`src/main.ts` 实际注册的一致。
 - 前端零框架：原生 DOM + 单个 `frontend/src/style.css`；禁止引入 React/Vue/Tailwind/图标库包。
 - 视觉：深色主题锁定；颜色/字体/圆角令牌**逐字取自** `website/src/styles/tokens.css`（`--bg #0a0c10` / `--surface #11141b` / `--elevated #161a23` / `--text-1 #e6eaf2` / `--text-2 #9aa3b2` / `--accent-from #8b5cf6` / `--accent-to #22d3ee` / `--ok #34d399` / `--bad #f87171` / `--code-bg #0d1017` / radius 10px）；图标仅允许 3 枚 Tabler Icons 内联 SVG（book/copy/external-link，strokeWidth 2）；UI 可见文案**零破折号（—）**、零 emoji、无装饰性状态圆点。

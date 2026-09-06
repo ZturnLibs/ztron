@@ -55,7 +55,7 @@ export const CHROME: Record<Lang, {
     outPlaceholder: "运行按钮后，结果会显示在这里",
   },
   en: {
-    brandSub: "Hands-on feature demos — every card ships code and docs",
+    brandSub: "Hands-on feature demos: every card ships code and docs",
     docs: "Docs",
     copy: "Copy",
     emptyHint: "No demo modules registered (see CATALOG in frontend/src/main.ts)",
