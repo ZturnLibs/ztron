@@ -298,7 +298,7 @@ mount(App, { target: document.getElementById("root")! });
 
 Components and type checking: components are written with
 `<script lang="ts">` plus Svelte 5 runes, with UI state declared via
-`$state` / `$derived`. The typecheck script is
+`$state` (`$derived` available). The typecheck script is
 `svelte-check --tsconfig ./tsconfig.json --config ./svelte.config.js`, and
 the two configs split the work: during dev / build the Svelte 5 compiler
 understands erasable `lang="ts"` syntax natively, so the vite plugin
