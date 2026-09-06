@@ -276,7 +276,7 @@ mount(App, { target: document.getElementById("root")! });
 ```
 
 组件与类型检查：组件用 `<script lang="ts">` 加 Svelte 5 runes 编写，状态
-用 `$state` / `$derived` 声明。typecheck 脚本为
+用 `$state` 声明（`$derived` 可选）。typecheck 脚本为
 `svelte-check --tsconfig ./tsconfig.json --config ./svelte.config.js`，两个
 配置各司其职：dev / build 时 Svelte 5 编译器原生理解 `lang="ts"` 的
 erasable 语法，vite 插件直接编译，无需预处理；根级 `svelte.config.js`
