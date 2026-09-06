@@ -10,11 +10,58 @@ permissions:
   contents: read
 
 jobs:
+  native-darwin-arm64:
+    name: build prebuilt native chain (macOS arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: build native chain (txiki.js + webview, cmake)
+        run: bash scripts/build-native.sh
+      - name: stage artifacts into the platform package
+        run: |
+          mkdir -p packages/native-darwin-arm64/native/libs
+          for f in tjs ztron-host; do
+            cp "native/libs/$f" "packages/native-darwin-arm64/native/libs/$f"
+          done
+          # build-native.sh's cp follows the cmake symlink chain, so native/libs
+          # carries ONE real libwebview.dylib. ztron-host's install name is
+          # @rpath/libwebview.0.12.dylib — stage the real file under all three
+          # names (real copies; no symlink preservation concerns in tarballs).
+          for f in libwebview.dylib libwebview.0.12.dylib libwebview.0.12.0.dylib; do
+            cp "native/libs/libwebview.dylib" \
+              "packages/native-darwin-arm64/native/libs/$f"
+          done
+      - name: verify artifact manifest
+        run: |
+          test -x packages/native-darwin-arm64/native/libs/tjs
+          test -x packages/native-darwin-arm64/native/libs/ztron-host
+          test -f packages/native-darwin-arm64/native/libs/libwebview.dylib
+      - name: pack platform package
+        run: |
+          cd packages/native-darwin-arm64
+          tgz="$(npm pack --pack-destination /tmp | tail -1)"
+          echo "TGZ=/tmp/$tgz" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ztron-darwin-arm64-tgz
+          path: /tmp/ztron-darwin-arm64-*.tgz
+          if-no-files-found: error
+
   publish:
     name: publish @zturnlibs/ztron-* to GitHub Packages
+    needs: native-darwin-arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-darwin-arm64-tgz
+          path: /tmp/native-tgz
+      # leaf-first: the CLI's optionalDependencies point at this package.
+      - name: publish native platform package
+        run: npm publish /tmp/native-tgz/ztron-darwin-arm64-*.tgz --access restricted --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
@@ -69,9 +116,18 @@ jobs:
 
   publish-npm:
     name: publish @zturnlibs/ztron-* to npmjs (public)
+    needs: native-darwin-arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-darwin-arm64-tgz
+          path: /tmp/native-tgz
+      - name: publish native platform package
+        run: npm publish /tmp/native-tgz/ztron-darwin-arm64-*.tgz --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
@@ -110,3 +166,29 @@ jobs:
           done < /tmp/tgz/order.txt
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  smoke-npm:
+    name: smoke — real npm install, doctor, init, build
+    needs: publish-npm
+    runs-on: macos-14
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: install CLI (retry for registry propagation)
+        run: |
+          for i in 1 2 3 4 5; do
+            if npm i -g @zturnlibs/ztron-cli; then exit 0; fi
+            echo "retry $i"; sleep 20
+          done
+          exit 1
+      - name: doctor must be all green on the bundled chain alone
+        run: ztron doctor
+      - name: init + build a scaffolded app
+        run: |
+          cd "$(mktemp -d)"
+          ztron init smoke-app
+          cd smoke-app
+          npm install --no-fund --no-audit
+          ztron build
+          test -d dist
