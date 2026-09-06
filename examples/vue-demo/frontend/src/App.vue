@@ -174,7 +174,7 @@ async function runFsRoundTrip() {
             输入名字，前端经 IPC 调用后端注册的 vue-demo:greet，返回拼接问候语。
           </p>
           <div class="mt-4 flex flex-wrap items-center gap-3">
-            <input v-model="name" class="w-56 rounded-lg border border-black/10 bg-[#eef0f4] px-2.5 py-1.5 text-[13px] outline-none focus:border-[#22d3ee] dark:border-white/10 dark:bg-[#0d1017] dark:text-[#e6eaf2]" placeholder="名字" />
+            <input v-model="name" :class="field" placeholder="名字" />
             <button :class="btnPrimary" :disabled="greetBusy" @click="void runGreet()">
               问候
             </button>
