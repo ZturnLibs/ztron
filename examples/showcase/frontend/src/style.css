@@ -18,6 +18,8 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
   --radius: 10px;
   --radius-ctl: 8px;
+  --scrollbar-thumb: rgba(154, 163, 178, 0.35);
+  --scrollbar-thumb-hover: rgba(154, 163, 178, 0.55);
 }
 /* 浅色令牌：窗口主题为浅色（setTheme("light") 或系统浅色且窗口跟随系统）时，
    WKWebView 的 prefers-color-scheme 跟随窗口外观，这里整体翻转到浅色。
@@ -33,6 +35,8 @@
     --ok: #067a53;
     --bad: #c53030;
     --code-bg: #eef0f4;
+    --scrollbar-thumb: rgba(91, 100, 114, 0.35);
+    --scrollbar-thumb-hover: rgba(91, 100, 114, 0.55);
   }
 }
 * { box-sizing: border-box; }
@@ -201,6 +205,16 @@ svg.icon {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* 细滚动条（WebKit）：胶囊拇指 + 透明轨道，随主题令牌配色 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
