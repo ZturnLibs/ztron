@@ -4,7 +4,7 @@
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { findTjs, findHostBin, findWebviewLib } from "./native-locate.js";
+import { findTjs, findHostBin, findWebviewLib, findBundledNative } from "./native-locate.js";
 
 export interface DoctorCheck {
   name: string;
@@ -18,7 +18,7 @@ export interface DoctorReport {
 }
 
 const CHAIN_HINT =
-  "clone https://github.com/ZturnLibs/ztron and run `scripts/build-native.sh`, then export ZTRON_TJS / ZTRON_HOST_BIN / ZTRON_WEBVIEW_LIB to native/libs/*";
+  "reinstall the CLI (`npm i -g @zturnlibs/ztron-cli`) for the bundled native chain; or build from source: clone https://github.com/ZturnLibs/ztron && `scripts/build-native.sh`, then export ZTRON_TJS / ZTRON_HOST_BIN / ZTRON_WEBVIEW_LIB";
 
 export function runDoctor(opts: {
   cwd: string;
@@ -53,18 +53,22 @@ export function runDoctor(opts: {
   const host = env.ZTRON_HOST_BIN
     ? resolve(env.ZTRON_HOST_BIN)
     : findHostBin(cwd);
+  const hostBundled = findBundledNative("ztron-host");
   checks.push({
     name: "ztron-host",
     pass: existsSync(host),
-    detail: host,
+    detail: hostBundled ? `${host} (bundled: ${hostBundled})` : host,
     hint: CHAIN_HINT,
   });
 
   const lib = findWebviewLib(cwd);
+  const libBundled = findBundledNative(
+    platform === "win32" ? "webview.dll" : platform === "linux" ? "libwebview.so" : "libwebview.dylib",
+  );
   checks.push({
     name: "webview library",
     pass: Boolean(lib && existsSync(lib)),
-    detail: lib ?? "not found",
+    detail: libBundled ? `${lib ?? "not found"} (bundled: ${libBundled})` : (lib ?? "not found"),
     hint: CHAIN_HINT,
   });
 

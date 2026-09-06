@@ -106,8 +106,8 @@ A beginner-friendly interactive demo lives at `examples/showcase/` (run with
 
 ## Quick start
 
-**Use it (npm, macOS)** — no clone of this repo needed; just the one-time
-native chain (see the [getting-started guide](https://zturnlibs.github.io/ztron/docs/start/install)):
+**Use it (npm, macOS)** — no clone of this repo needed; the prebuilt native
+chain comes with the CLI (see the [getting-started guide](https://zturnlibs.github.io/ztron/docs/start/install)):
 
 ```bash
 npm i -g @zturnlibs/ztron-cli

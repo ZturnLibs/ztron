@@ -256,6 +256,10 @@ importers:
       vite:
         specifier: ^6.0.0
         version: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
+    optionalDependencies:
+      '@zturnlibs/ztron-darwin-arm64':
+        specifier: workspace:*
+        version: link:../native-darwin-arm64
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
@@ -282,6 +286,8 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/native-darwin-arm64: {}
 
   packages/runtime-ffi:
     dependencies:

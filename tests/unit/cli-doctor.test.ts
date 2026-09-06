@@ -33,6 +33,7 @@ test("doctor: missing host+tjs fails with hints, ok=false", () => {
   const byName = Object.fromEntries(r.checks.map((c) => [c.name, c]));
   assert.equal(byName["tjs runtime"].pass, false);
   assert.match(byName["tjs runtime"].hint, /build-native\.sh/);
+  assert.match(byName["tjs runtime"].hint, /ztron-cli/);
   assert.equal(byName["ztron-host"].pass, false);
   assert.equal(byName["webview library"].pass, false);
   assert.equal(byName["node >= 20"].pass, true);
@@ -46,5 +47,22 @@ test("doctor: non-macOS platform yields a warning check", () => {
   assert.ok(platform);
   assert.equal(platform.pass, true); // warning, not failure
   assert.match(platform.detail, /skeleton|骨架/);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: walk-up chain alone satisfies checks without env (bundled layer is unit-tested in cli-native-locate)", () => {
+  const repo = nativeRepo();
+  const deep = join(repo, "anywhere", "proj");
+  const r = runDoctor({
+    cwd: deep, // walk-up finds repo's native/libs without env
+    // tjs layer has no walk-up (env -> bundled -> PATH), so pin it like the
+    // sibling tests do; host/webview below still come from walk-up alone.
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+  });
+  assert.equal(r.ok, true);
+  const byName = Object.fromEntries(r.checks.map((c) => [c.name, c]));
+  assert.equal(byName["ztron-host"].pass, true);
+  assert.equal(byName["webview library"].pass, true);
   rmSync(repo, { recursive: true, force: true });
 });

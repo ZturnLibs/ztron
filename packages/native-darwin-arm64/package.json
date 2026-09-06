@@ -1,0 +1,20 @@
+{
+  "name": "@zturnlibs/ztron-darwin-arm64",
+  "version": "0.3.1",
+  "description": "Ztron prebuilt native chain for macOS Apple Silicon (tjs runtime + ztron-host + libwebview)",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["native"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZturnLibs/ztron.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZturnLibs/ztron/issues"
+  },
+  "homepage": "https://github.com/ZturnLibs/ztron#readme",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}

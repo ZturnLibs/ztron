@@ -28,6 +28,9 @@
     "@zturnlibs/ztron-inject": "workspace:*",
     "@zturnlibs/ztron-core": "workspace:*"
   },
+  "optionalDependencies": {
+    "@zturnlibs/ztron-darwin-arm64": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2"
   },
