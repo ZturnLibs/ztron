@@ -47,7 +47,7 @@ const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebV
 Usage:
   ztron init [dir] [--template <name>]
                                    Scaffold a new project in [dir] (default .)
-                                   (templates: vanilla | react-ts | vue-ts)
+                                   (templates: vanilla | react-ts | vue-ts | svelte)
   ztron doctor                     Check node/tjs/host/webview chain (exit 1 on fail)
   ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
   ztron build [--entry <file>]     Produce a standalone executable (M4)
