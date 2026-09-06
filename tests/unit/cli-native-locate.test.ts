@@ -1,7 +1,7 @@
 /** native-locate: env overrides + walk-up resolution (shared by dev/build/doctor). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,10 +9,13 @@ import {
   findNativeFile,
   findHostBin,
   findWebviewLib,
+  findBundledNativeFrom,
 } from "../../packages/cli/dist/native-locate.js";
 
 function tmpProject(): string {
-  return mkdtempSync(join(tmpdir(), "ztron-nl-"));
+  // realpath: on macOS tmpdir (/var/...) is a symlink to /private/var/...;
+  // require.resolve returns the real path, so keep fixtures consistent.
+  return realpathSync(mkdtempSync(join(tmpdir(), "ztron-nl-")));
 }
 
 test("findNativeFile walks up to native/libs", () => {
@@ -63,4 +66,34 @@ test("findHostBin: env wins over walk-up; findWebviewLib picks platform name", (
   assert.equal(findWebviewLib(deep), join(root, "native", "libs", libName));
   rmSync(root, { recursive: true, force: true });
   rmSync(envHost, { recursive: true, force: true });
+});
+
+test("findBundledNativeFrom resolves artifacts from a fake platform package", () => {
+  const root = tmpProject();
+  const pkg = join(root, "node_modules", "@zturnlibs", "ztron-darwin-arm64");
+  mkdirSync(join(pkg, "native", "libs"), { recursive: true });
+  writeFileSync(
+    join(pkg, "package.json"),
+    JSON.stringify({ name: "@zturnlibs/ztron-darwin-arm64", version: "0.0.0-test" }),
+  );
+  writeFileSync(join(pkg, "native", "libs", "ztron-host"), "x");
+  assert.equal(
+    findBundledNativeFrom(root, "ztron-host"),
+    join(pkg, "native", "libs", "ztron-host"),
+  );
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("findBundledNativeFrom returns undefined when package or artifact is absent", () => {
+  const root = tmpProject();
+  assert.equal(findBundledNativeFrom(root, "ztron-host"), undefined);
+  // package present but artifact missing (in-repo workspace link ships empty)
+  const pkg = join(root, "node_modules", "@zturnlibs", "ztron-darwin-arm64");
+  mkdirSync(pkg, { recursive: true });
+  writeFileSync(
+    join(pkg, "package.json"),
+    JSON.stringify({ name: "@zturnlibs/ztron-darwin-arm64", version: "0.0.0-test" }),
+  );
+  assert.equal(findBundledNativeFrom(root, "tjs"), undefined);
+  rmSync(root, { recursive: true, force: true });
 });
