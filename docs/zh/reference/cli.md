@@ -8,7 +8,9 @@ title: CLI 参考
 （USAGE 字符串尚未收录 codegen/signer）。
 
 ```text
-ztron init [dir]                  在 [dir] 脚手架新项目（默认当前目录）
+ztron init [dir] [--template <name>]
+                                  在 [dir] 脚手架新项目（默认当前目录）；
+                                  模板 vanilla（缺省）| react-ts
 ztron doctor                      一键体检 node / tjs / ztron-host / webview 库
 ztron dev [--entry <file>]        构建 + 在原生 host + tjs backend 下运行
 ztron build [--entry <file>]      产出独立可执行文件与 .app
@@ -25,14 +27,25 @@ ztron version                     打印版本
 ## ztron init
 
 ```text
-ztron init [dir]
+ztron init [dir] [--template <name>]
 ```
 
 在目标目录（缺省为当前目录）脚手架新项目：生成 `src/main.ts` 入口与
-`frontend/` 前端骨架，以及 `ztron.conf.json`。
+`frontend/` 前端骨架，以及 `ztron.conf.json`。只写入不存在的文件（已
+存在的内容不会被覆盖）。
+
+模板（`--template <name>`，缺省 `vanilla`）：
+
+- `vanilla` — 原生 JS 骨架：`hello` 命令 + 内联 HTML 回退 + 极简前端。
+- `react-ts` — React 19 + Tailwind CSS v4 脚手架（配置值与管线验证过的
+  `examples/react-demo` 一致）：`capabilities/`、`tsconfig.json`、
+  `frontend/vite.config.ts`（react + tailwindcss 插件）、Tailwind 风格的
+  `App.tsx` 问候页，后端经 `defineCommand("app:greet")` 注册类型化命令。
+  未知模板名报错退出（exit 1）并列出有效模板。
 
 ```bash
 node packages/cli/dist/index.js init my-app
+node packages/cli/dist/index.js init my-app --template react-ts
 ```
 
 ## ztron doctor

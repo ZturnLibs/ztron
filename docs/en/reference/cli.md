@@ -9,7 +9,9 @@ is defined by the dispatch switch in `packages/cli/src/index.ts` (the USAGE
 strings do not yet cover codegen/signer).
 
 ```text
-ztron init [dir]                  scaffold a new project in [dir] (default: current directory)
+ztron init [dir] [--template <name>]
+                                  scaffold a new project in [dir] (default: current directory);
+                                  templates: vanilla (default) | react-ts
 ztron doctor                      one-shot environment check for node/tjs/ztron-host/webview
 ztron dev [--entry <file>]        build + run under the native host + tjs backend
 ztron build [--entry <file>]      produce a standalone executable and .app
@@ -26,15 +28,28 @@ ztron version                     print the version
 ## ztron init
 
 ```text
-ztron init [dir]
+ztron init [dir] [--template <name>]
 ```
 
 Scaffolds a new project in the target directory (default: current
 directory): generates the `src/main.ts` entry, the `frontend/` skeleton, and
-`ztron.conf.json`.
+`ztron.conf.json`. Only missing files are written (existing content is never
+overwritten).
+
+Templates (`--template <name>`, default `vanilla`):
+
+- `vanilla` — plain JS skeleton: a `hello` command + inline HTML fallback +
+  a minimal frontend.
+- `react-ts` — React 19 + Tailwind CSS v4 scaffold (config values identical
+  to the pipeline-verified `examples/react-demo`): `capabilities/`,
+  `tsconfig.json`, `frontend/vite.config.ts` (react + tailwindcss plugins),
+  and a Tailwind-styled greeting `App.tsx`; the backend registers a typed
+  command via `defineCommand("app:greet")`. Unknown template names exit 1
+  listing the valid templates.
 
 ```bash
 node packages/cli/dist/index.js init my-app
+node packages/cli/dist/index.js init my-app --template react-ts
 ```
 
 ## ztron doctor
