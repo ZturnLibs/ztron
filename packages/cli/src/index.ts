@@ -826,7 +826,7 @@ async function initProject(
 }
 
 function basenameOf(p: string): string {
-  const parts = p.split("/").filter(Boolean);
+  const parts = p.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? "ztron-app";
 }
 
