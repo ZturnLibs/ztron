@@ -4,9 +4,11 @@
  * Each builder returns a { relativePath -> content } map; initProject writes
  * only the files that do not exist yet. Dependency conventions: `latest` for
  * @zturnlibs/* (npm-publish convention), caret ranges for third-party
- * toolchain. The react-ts template codifies the pipeline-verified
- * React 19 + Tailwind CSS v4 configuration from examples/react-demo
- * (PR #20), minimized to a runnable scaffold (greet button only).
+ * toolchain. The react-ts and vue-ts templates codify the pipeline-verified
+ * React 19 / Vue 3 + Tailwind CSS v4 configurations from examples/react-demo
+ * (PR #20) and examples/vue-demo, minimized to runnable scaffolds (greet
+ * button only). The backend bootstrap is framework-agnostic and shared
+ * verbatim by both.
  */
 
 export type TemplateFiles = Record<string, string>;
@@ -379,8 +381,199 @@ export function reactTsTemplate(name: string): TemplateFiles {
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * vue-ts — Vue 3 + Tailwind CSS v4 (config verbatim from
+ * examples/vue-demo, minimized). Backend bootstrap is shared verbatim
+ * with react-ts: HostRuntime/AppBuilder/defineCommand are framework-
+ * agnostic — only the frontend entry differs.
+ * ------------------------------------------------------------------ */
+
+const VUE_VITE_CONFIG = `// Project-level Vite config: Vue 3 + Tailwind CSS v4 plugins. \`ztron dev\` /
+// \`ztron build\` create the Vite server/build themselves (root = this frontend
+// dir, injecting the ztron bridge plugin) and merge this file on top, so
+// third-party plugins belong here — no need to restate base / output.format
+// (the CLI pins "./" and "iife").
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [vue(), tailwindcss()],
+});
+`;
+
+const VUE_INDEX_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Ztron App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
+`;
+
+const VUE_INDEX_CSS = `@import "tailwindcss";
+`;
+
+const VUE_MAIN_TS = `import { createApp } from "vue";
+import App from "./App.vue";
+import "./index.css";
+
+createApp(App).mount("#root");
+`;
+
+const VUE_APP_VUE = `<script setup lang="ts">
+/**
+ * Minimal greeting UI: input + button calling invoke<string>("app:greet",
+ * { name }) over the ztron IPC bridge. Tailwind atomic classes only, dark
+ * as the default look (bg-neutral-950 / text-neutral-100 family).
+ *
+ * Upgrade path: run \`ztron codegen\` to generate src/ztron-commands.ts
+ * typed bindings from the backend's defineCommand calls, then invoke via
+ * those for compile-time-checked command names and payloads.
+ */
+import { ref } from "vue";
+import { invoke } from "@zturnlibs/ztron-api";
+
+const name = ref("Ztron");
+const greeting = ref("");
+const error = ref("");
+
+async function runGreet() {
+  error.value = "";
+  try {
+    greeting.value = await invoke<string>("app:greet", { name: name.value });
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  }
+}
+</script>
+
+<template>
+  <main class="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 text-neutral-100">
+    <h1 class="text-2xl font-semibold">Ztron App</h1>
+    <div class="flex items-center gap-2">
+      <input
+        v-model="name"
+        class="w-56 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
+        placeholder="Your name"
+      />
+      <button
+        class="rounded-lg bg-neutral-100 px-3.5 py-1.5 text-sm font-semibold text-neutral-950 transition-transform active:translate-y-px"
+        @click="void runGreet()"
+      >
+        Greet
+      </button>
+    </div>
+    <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+    <pre v-if="greeting" class="font-mono text-sm text-neutral-300">{{ greeting }}</pre>
+  </main>
+</template>
+`;
+
+export function vueTsTemplate(name: string): TemplateFiles {
+  return {
+    "package.json": JSON.stringify(
+      {
+        name,
+        version: "0.1.0",
+        private: true,
+        type: "module",
+        scripts: {
+          dev: "ztron dev",
+          build: "ztron build",
+          typecheck: "vue-tsc --noEmit",
+        },
+        dependencies: {
+          "@zturnlibs/ztron-api": "latest",
+          "@zturnlibs/ztron-core": "latest",
+          "@zturnlibs/ztron-runtime-ffi": "latest",
+          vue: "latest",
+        },
+        devDependencies: {
+          "@zturnlibs/ztron-cli": "latest",
+          vite: "^6.0.0",
+          "@vitejs/plugin-vue": "^6.0.0",
+          "vue-tsc": "^3.0.0",
+          tailwindcss: "^4.0.0",
+          "@tailwindcss/vite": "^4.0.0",
+          typescript: "^5.7.2",
+          "@types/node": "^22.10.2",
+        },
+      },
+      null,
+      2,
+    ),
+    // Standalone equivalent of the repo's tsconfig.base.json + the demo's
+    // overrides (lib/types) — no repo file to extend in a fresh project.
+    // No jsx: .vue SFCs are type-checked by vue-tsc directly.
+    "tsconfig.json": JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2022",
+          module: "ESNext",
+          moduleResolution: "Bundler",
+          lib: ["ES2022", "DOM", "DOM.Iterable"],
+          types: ["node"],
+          strict: true,
+          noUncheckedIndexedAccess: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+          resolveJsonModule: true,
+          isolatedModules: true,
+          useDefineForClassFields: true,
+          noEmit: true,
+        },
+        include: ["src", "frontend/src"],
+      },
+      null,
+      2,
+    ),
+    "ztron.conf.json": JSON.stringify(
+      {
+        entry: "src/main.ts",
+        frontend: "frontend",
+        identifier: "com.example.app",
+        version: "0.1.0",
+        windows: [
+          {
+            label: "main",
+            title: "Ztron App",
+            url: "frontend",
+            width: 1024,
+            height: 680,
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    "capabilities/default.json": JSON.stringify(
+      {
+        identifier: "main",
+        description: "Default capabilities for the main window.",
+        windows: ["main"],
+        permissions: ["core:default"],
+      },
+      null,
+      2,
+    ),
+    "src/main.ts": REACT_MAIN_TEMPLATE,
+    "frontend/vite.config.ts": VUE_VITE_CONFIG,
+    "frontend/index.html": VUE_INDEX_HTML,
+    "frontend/src/index.css": VUE_INDEX_CSS,
+    "frontend/src/main.ts": VUE_MAIN_TS,
+    "frontend/src/App.vue": VUE_APP_VUE,
+  };
+}
+
 /** Registry: template name -> builder. */
 export const TEMPLATES: Record<string, (name: string) => TemplateFiles> = {
   vanilla: vanillaTemplate,
   "react-ts": reactTsTemplate,
+  "vue-ts": vueTsTemplate,
 };
