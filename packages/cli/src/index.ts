@@ -34,6 +34,7 @@ import { dirname, join, resolve } from "node:path";
 import { build as viteBuild, createServer } from "vite";
 import { ztronVitePlugin } from "./vite-plugin.js";
 import { codegen } from "./codegen.js";
+import { TEMPLATES } from "./templates.js";
 import {
   findTjs,
   findNativeFile,
@@ -44,7 +45,9 @@ import {
 const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
 
 Usage:
-  ztron init [dir]                 Scaffold a new project in [dir] (default .)
+  ztron init [dir] [--template <name>]
+                                   Scaffold a new project in [dir] (default .)
+                                   (templates: vanilla | react-ts)
   ztron doctor                     Check node/tjs/host/webview chain (exit 1 on fail)
   ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
   ztron build [--entry <file>]     Produce a standalone executable (M4)
@@ -105,19 +108,24 @@ function parseArgs(argv: string[]): {
   command: string;
   entry: string;
   positional: string;
+  template: string;
 } {
   const command = argv[0] ?? "dev";
   let entry = "";
   let positional = "";
+  let template = "";
   for (let i = 1; i < argv.length; i += 1) {
     const a = argv[i] ?? "";
     if (a === "--entry") {
       entry = argv[i + 1] ?? "";
+    } else if (a === "--template") {
+      template = argv[i + 1] ?? "";
+      i += 1; // consume the flag value so it cannot become the positional
     } else if (!a.startsWith("-") && !positional) {
       positional = a;
     }
   }
-  return { command, entry, positional };
+  return { command, entry, positional, template };
 }
 
 /** Reads `ztron.conf.json` if present. */
@@ -776,56 +784,37 @@ function randomKey(): string {
 }
 
 /** Scaffolds a minimal Ztron project in `target`. */
-async function initProject(target: string): Promise<void> {
+async function initProject(
+  target: string,
+  opts: { template?: string } = {},
+): Promise<void> {
+  const templateName = opts.template || "vanilla";
+  const buildTemplate = Object.hasOwn(TEMPLATES, templateName)
+    ? TEMPLATES[templateName]
+    : undefined;
+  if (!buildTemplate) {
+    throw new Error(
+      `unknown template "${templateName}" (valid templates: ` +
+        `${Object.keys(TEMPLATES).join(", ")})`,
+    );
+  }
   mkdirSync(join(target, "src"), { recursive: true });
   mkdirSync(join(target, "frontend", "src"), { recursive: true });
   const name = basenameOf(target);
-
-  const files: Record<string, string> = {
-    "package.json": JSON.stringify(
-      {
-        name,
-        version: "0.1.0",
-        private: true,
-        type: "module",
-        scripts: {
-          dev: "ztron dev",
-          build: "ztron build",
-        },
-        dependencies: {
-          "@zturnlibs/ztron-api": "latest",
-          "@zturnlibs/ztron-core": "latest",
-          "@zturnlibs/ztron-runtime-ffi": "latest",
-        },
-        devDependencies: {
-          "@zturnlibs/ztron-cli": "latest",
-        },
-      },
-      null,
-      2,
-    ),
-    "ztron.conf.json": JSON.stringify(
-      {
-        entry: "src/main.ts",
-        identifier: "com.example.app",
-        version: "0.1.0",
-        windows: [{ label: "main", title: "Ztron App", width: 800, height: 600 }],
-      },
-      null,
-      2,
-    ),
-    "src/main.ts": MAIN_TEMPLATE,
-    "frontend/index.html": FRONTEND_HTML,
-    "frontend/src/main.ts": FRONTEND_MAIN,
-  };
+  const files = buildTemplate(name);
 
   for (const [rel, content] of Object.entries(files)) {
     const file = join(target, rel);
     if (!existsSync(file)) {
+      mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, content);
     }
   }
-  console.log(`[ztron] scaffolded a project in ${target}`);
+  console.log(
+    templateName === "vanilla"
+      ? `[ztron] scaffolded a project in ${target}`
+      : `[ztron] scaffolded a project in ${target} (template: ${templateName})`,
+  );
   const hasChain = findNativeFile(target, "ztron-host") !== undefined;
   console.log(`[ztron] next steps:`);
   console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && cd ztron && scripts/build-native.sh`);
@@ -840,68 +829,6 @@ function basenameOf(p: string): string {
   const parts = p.split("/").filter(Boolean);
   return parts[parts.length - 1] ?? "ztron-app";
 }
-
-const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@zturnlibs/ztron-core";
-import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
-
-declare const tjs: { env: Record<string, string | undefined> };
-
-const runtime = new HostRuntime({
-  host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
-  port: Number(tjs.env.ZTRON_HOST_PORT),
-});
-await runtime.connect();
-
-// The CLI points ZTRON_DEV_URL at the built/development frontend index.html;
-// inline html is only a fallback when no frontend is configured.
-const devUrl = tjs.env.ZTRON_DEV_URL;
-
-const html = \`<!doctype html>
-<html>
-  <body style="font-family:system-ui;padding:2rem">
-    <h1>Hello Ztron</h1>
-    <p id="status">ready</p>
-  </body>
-</html>\`;
-
-new AppBuilder(runtime, "com.example.app")
-  .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
-  .setup((app) => {
-    app.command("hello", (args) => {
-      const { name } = (args ?? {}) as { name?: string };
-      return "hello, " + (name ?? "world");
-    });
-  })
-  .window({
-    label: "main",
-    title: "My Ztron App",
-    width: 800,
-    height: 600,
-    ...(devUrl ? { url: devUrl } : { html }),
-  })
-  .build()
-  .run();
-`;
-
-const FRONTEND_HTML = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>My Ztron App</title>
-  </head>
-  <body style="font-family:system-ui;padding:2rem">
-    <h1>Hello Ztron</h1>
-    <p>invoke: <span id="status">running...</span></p>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
-</html>
-`;
-
-const FRONTEND_MAIN = `import { invoke } from "@zturnlibs/ztron-api";
-
-const status = document.getElementById("status")!;
-status.textContent = String(await invoke("hello", { name: "scaffold" }));
-`;
 
 /**
  * Produces a distributable build:
@@ -1389,6 +1316,7 @@ async function main(): Promise<void> {
     command,
     entry: entryArg,
     positional,
+    template,
   } = parseArgs(process.argv.slice(2));
   const cwd = process.cwd();
 
@@ -1399,7 +1327,7 @@ async function main(): Promise<void> {
     }
     case "init": {
       const target = positional ? resolve(cwd, positional) : cwd;
-      await initProject(target);
+      await initProject(target, { template });
       break;
     }
     case "doctor": {
