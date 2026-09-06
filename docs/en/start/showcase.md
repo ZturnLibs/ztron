@@ -37,6 +37,7 @@ hot-reload; use `ztron build` for packaging.
   3. **Code** — the minimal usage snippet; the copy button uses Ztron's own
      clipboard API;
 - **Docs button** — top-right of every card, linking straight to this site.
+- **Language switch** - the 中文 / EN toggle at the bottom of the sidebar localizes every visible string (code comments included); your choice is remembered.
 
 ## The 34 cards at a glance
 

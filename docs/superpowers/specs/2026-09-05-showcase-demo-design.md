@@ -9,7 +9,7 @@
 
 ## 0. 视觉设计（design-taste-frontend 读向）
 
-**Design Read**：开发者工具的演示型产品 UI（非落地页），受众为新手应用开发者；
+**Design Read**：开发者工具的演示型产品 UI（非落地页），受众为新手应用开发者；UI 语言 zh 默认 + en 可切换（侧边栏语言开关，选择持久化；2026-09-06 增补）；
 视觉语言继承 **Ztron 官网既有品牌令牌**（`website/src/styles/tokens.css`），
 深色科技风家族；实现用原生 CSS 自定义属性（教学样本不加 Tailwind/框架依赖）。
 

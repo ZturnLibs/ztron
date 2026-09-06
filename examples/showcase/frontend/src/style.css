@@ -18,6 +18,8 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
   --radius: 10px;
   --radius-ctl: 8px;
+  --scrollbar-thumb: rgba(154, 163, 178, 0.35);
+  --scrollbar-thumb-hover: rgba(154, 163, 178, 0.55);
 }
 /* 浅色令牌：窗口主题为浅色（setTheme("light") 或系统浅色且窗口跟随系统）时，
    WKWebView 的 prefers-color-scheme 跟随窗口外观，这里整体翻转到浅色。
@@ -33,6 +35,8 @@
     --ok: #067a53;
     --bad: #c53030;
     --code-bg: #eef0f4;
+    --scrollbar-thumb: rgba(91, 100, 114, 0.35);
+    --scrollbar-thumb-hover: rgba(91, 100, 114, 0.55);
   }
 }
 * { box-sizing: border-box; }
@@ -52,10 +56,12 @@ body {
   flex: none;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
+/* 分类列表自身滚动；语言开关固定在底部始终可见 */
+#nav { flex: 1; overflow-y: auto; }
 .brand {
   padding: 18px 16px 4px;
   font-size: 16px;
@@ -115,6 +121,32 @@ body {
   border-radius: var(--radius-ctl);
 }
 .card-out:empty::before { content: "运行按钮后，结果会显示在这里"; color: var(--text-2); }
+:root[lang="en"] .card-out:empty::before { content: "Run a button and results appear here"; }
+
+/* 语言开关 */
+.lang-switch {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.lang-btn {
+  flex: 1;
+  padding: 5px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ctl);
+  cursor: pointer;
+}
+.lang-btn.on {
+  color: var(--text-1);
+  border-color: var(--accent-to);
+}
 .card-out.ok { color: var(--ok); }
 .card-out.fail { color: var(--bad); }
 .card-code { position: relative; margin: 14px 0 0; }
@@ -173,6 +205,16 @@ svg.icon {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* 细滚动条（WebKit）：胶囊拇指 + 透明轨道，随主题令牌配色 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
