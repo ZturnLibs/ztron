@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* 细滚动条（WebKit）：胶囊拇指 + 透明轨道，自 examples/showcase/frontend/src/style.css */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(154, 163, 178, 0.35);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(154, 163, 178, 0.55); }
+::-webkit-scrollbar-corner { background: transparent; }

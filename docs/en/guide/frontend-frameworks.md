@@ -5,8 +5,9 @@ title: Frontend Frameworks & Third-Party Packages
 Ztron's frontend layer is a standard Vite project and is framework-agnostic.
 React, Vue, Svelte, Solid, Tailwind CSS, and the rest of the frontend
 ecosystem plug in directly. This page uses `examples/react-demo`
-(React 19 + Tailwind CSS v4) as a living example to cover the integration
-recipe and the bundling constraints.
+(React 19 + Tailwind CSS v4) and `examples/vue-demo` (Vue 3 + Tailwind CSS
+v4) as living examples to cover the integration recipe and the bundling
+constraints.
 
 ## The Core Takeaway: Framework-Agnostic
 
@@ -146,6 +147,102 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 const stream = useChannelStream<number>("react-demo:stream");
 ```
 
+## Vue 3 Integration
+
+`examples/vue-demo` replicates the full react-demo showcase (five tabs:
+backend calls, events, Channel, theme, system) in Vue 3, proving that the
+same pipeline holds for SFC single-file components. The dependencies are
+again plain frontend dependencies:
+
+```jsonc
+// examples/vue-demo/package.json (excerpt)
+{
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vue-tsc": "^3.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "vite": "^6.0.0"
+  }
+}
+```
+
+The `vite` note is the same as for React (the config file itself must
+resolve it; same 6.x major as the CLI). `@vitejs/plugin-vue` uses the
+vite-6-compatible 6.x major.
+
+`frontend/vite.config.ts` just swaps the React plugin for the Vue one:
+
+```ts
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [vue(), tailwindcss()],
+});
+```
+
+The entry `frontend/src/main.ts` is a plain Vue entry; the bridge is already
+in place from the index.html stage:
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import "./index.css";
+
+createApp(App).mount("#root");
+```
+
+Single-file components and type checking: components are written with
+`<script setup lang="ts">`, and the typecheck script becomes
+`vue-tsc --noEmit` (vue-tsc understands `.vue` files directly; the tsconfig
+needs no jsx setting, and include only has to cover `src` and
+`frontend/src`). The across-the-root constraint from react-demo applies to
+Vue as well: runtime calls go through `invoke<string>("vue-demo:greet",
+{ name })` directly, with the codegen bindings shown only as a reference
+shape.
+
+The composables cleanup convention: React's hooks cleanup rule translates
+to Vue as **the unlisten must be torn down in `onUnmounted` /
+`onScopeDispose`**. `frontend/src/composables.ts` in vue-demo provides three
+composables you can copy as-is (also the seed implementation of a future
+`@zturnlibs/ztron-vue` package):
+
+```ts
+// Declarative command call: runs once in setup; results are dropped after
+// unmount. Returns three refs { data, error, loading }; the watch's
+// onCleanup invalidates late responses
+function useInvoke<T>(cmd: string, args?: InvokeArgs): InvokeState<T>;
+
+// Backend event subscription: await listen inside onMounted, unlisten in
+// onUnmounted; if unmount lands before listen resolves, the listener is
+// unregistered as soon as it arrives
+function useListen<T>(event: string, handler: EventCallback<T>): void;
+
+// Channel streaming call: start() creates the channel and invokes; messages
+// accumulate in arrival order; onScopeDispose invalidates the in-flight run
+// so late messages never reach an unmounted component
+function useChannelStream<T = unknown>(
+  cmd: string,
+  args?: InvokeArgs,
+): { messages; status; error; start };
+```
+
+defineAsyncComponent and IIFE inlining: Vue's lazy-loading idiom is
+`defineAsyncComponent(() => import("./LazyPane.vue"))`. Like `React.lazy`,
+dynamic `import()` is inlined into the main bundle by the single-file IIFE
+artifact of `ztron build` (vue-demo verifies this with the `VUE_LAZY_OK`
+marker string inside LazyPane), and there is likewise no real code
+splitting.
+
+To start from a scaffold, `ztron init --template vue-ts` generates the same
+minimal project (see the [CLI Reference](/reference/cli)).
+
 ## Tailwind CSS v4
 
 Tailwind v4 plugs in with a single `@tailwindcss/vite` line (the
@@ -205,14 +302,14 @@ choice.
 
 ## Other Frameworks
 
-Vue (`@vitejs/plugin-vue`), Svelte (`@sveltejs/vite-plugin-svelte`), and
-Solid (`vite-plugin-solid`) each use their official Vite plugin; list it in
-the `plugins` array of `frontend/vite.config.ts` and everything else follows
-the exact same pattern as React: the bridge is injected by the CLI, the
-config is merged by Vite, and runtime calls go through
-`@zturnlibs/ztron-api`. The subscription/request cleanup convention applies
-equally; wrap it for each framework's lifecycle following the react-demo
-`hooks.ts` pattern.
+Svelte (`@sveltejs/vite-plugin-svelte`) and Solid (`vite-plugin-solid`) use
+their official Vite plugins; list them in the `plugins` array of
+`frontend/vite.config.ts` and everything else follows the exact same pattern
+as React and Vue: the bridge is injected by the CLI, the config is merged by
+Vite, and runtime calls go through `@zturnlibs/ztron-api`. The
+subscription/request cleanup convention applies equally; wrap it for each
+framework's lifecycle following the react-demo `hooks.ts` or the vue-demo
+`composables.ts` pattern.
 
 **Deep dive: [Examples](/start/examples) · [Calling Backend Commands](/guide/ipc) · [CLI Reference](/reference/cli)**
 
