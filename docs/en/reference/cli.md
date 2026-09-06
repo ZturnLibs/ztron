@@ -11,7 +11,7 @@ strings do not yet cover codegen/signer).
 ```text
 ztron init [dir] [--template <name>]
                                   scaffold a new project in [dir] (default: current directory);
-                                  templates: vanilla (default) | react-ts
+                                  templates: vanilla (default) | react-ts | vue-ts
 ztron doctor                      one-shot environment check for node/tjs/ztron-host/webview
 ztron dev [--entry <file>]        build + run under the native host + tjs backend
 ztron build [--entry <file>]      produce a standalone executable and .app
@@ -44,12 +44,18 @@ Templates (`--template <name>`, default `vanilla`):
   to the pipeline-verified `examples/react-demo`): `capabilities/`,
   `tsconfig.json`, `frontend/vite.config.ts` (react + tailwindcss plugins),
   and a Tailwind-styled greeting `App.tsx`; the backend registers a typed
-  command via `defineCommand("app:greet")`. Unknown template names exit 1
-  listing the valid templates.
+  command via `defineCommand("app:greet")`.
+- `vue-ts` — Vue 3 + Tailwind CSS v4 scaffold (config values identical to
+  the pipeline-verified `examples/vue-demo`): `frontend/vite.config.ts`
+  (vue + tailwindcss plugins), a `<script setup lang="ts">` Tailwind-styled
+  greeting `App.vue`, typecheck via `vue-tsc --noEmit`, and the same
+  `defineCommand("app:greet")` backend.
+  Unknown template names exit 1 listing the valid templates.
 
 ```bash
 node packages/cli/dist/index.js init my-app
 node packages/cli/dist/index.js init my-app --template react-ts
+node packages/cli/dist/index.js init my-app --template vue-ts
 ```
 
 ## ztron doctor

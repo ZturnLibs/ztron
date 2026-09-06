@@ -4,7 +4,7 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains six runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains seven runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
@@ -14,6 +14,7 @@ The repo's `examples/` directory contains six runnable examples, all directly ru
 | bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
 | showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 34 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 | react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 verification example (calling Ztron APIs the React way) | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
+| vue-demo | `@zturnlibs/ztron-example-vue-demo` | Vue 3 + Tailwind v4 verification example (calling Ztron APIs the Vue way) | `pnpm --filter @zturnlibs/ztron-example-vue-demo dev` |
 
 ## hello
 
@@ -43,6 +44,14 @@ A React 19 + Tailwind CSS v4 verification example: standard React idioms
 pipeline, exercising dev HMR, IIFE bundling, and the full IPC chain (invoke,
 events, Channel, window theme). For integration and bundling constraints see
 the dedicated page: [Frontend Frameworks & Third-Party Packages](/guide/frontend-frameworks).
+
+## vue-demo
+
+A Vue 3 + Tailwind CSS v4 verification example: standard Vue idioms
+(`<script setup>`, composables, `defineAsyncComponent`) replicating the five
+react-demo tabs, covering dev HMR, IIFE bundling, and the full IPC chain;
+smoke anchor `VUE_DEMO_OK`. For integration see the dedicated page:
+[Frontend Frameworks & Third-Party Packages](/guide/frontend-frameworks).
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 

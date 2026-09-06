@@ -4,7 +4,8 @@ title: 前端框架与第三方包
 
 Ztron 的前端层是一个标准 Vite 工程，框架无关。React、Vue、Svelte、Solid、
 Tailwind CSS 等前端生态的框架与工具链都能直接接入。本文以
-`examples/react-demo`（React 19 + Tailwind CSS v4）为活例子，说明接入方式
+`examples/react-demo`（React 19 + Tailwind CSS v4）与
+`examples/vue-demo`（Vue 3 + Tailwind CSS v4）为活例子，说明接入方式
 与打包边界。
 
 ## 核心结论：框架无关
@@ -135,6 +136,93 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 const stream = useChannelStream<number>("react-demo:stream");
 ```
 
+## Vue 3 接入
+
+`examples/vue-demo` 用 Vue 3 复刻了 react-demo 的全部演示（五个标签：调用
+后端、事件、Channel、主题、系统），证明同一管线对 SFC 单文件组件同样成立。
+依赖同样只是普通前端依赖：
+
+```jsonc
+// examples/vue-demo/package.json（节选）
+{
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vue-tsc": "^3.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "vite": "^6.0.0"
+  }
+}
+```
+
+`vite` 的说明与 React 一致（配置文件自身要能解析到它，与 CLI 同一 6.x
+主版本）。`@vitejs/plugin-vue` 用与 vite 6 兼容的 6.x 大版本。
+
+`frontend/vite.config.ts` 把 React 插件换成 Vue 插件即可：
+
+```ts
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [vue(), tailwindcss()],
+});
+```
+
+入口 `frontend/src/main.ts` 是普通 Vue 入口，桥同样在 index.html 阶段已
+注入完毕：
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import "./index.css";
+
+createApp(App).mount("#root");
+```
+
+单文件组件与类型检查：组件用 `<script setup lang="ts">` 编写，
+typecheck 脚本换成 `vue-tsc --noEmit`（vue-tsc 直接理解 `.vue` 文件，
+tsconfig 无需 jsx 配置，include 覆盖 `src` 与 `frontend/src` 即可）。
+react-demo 的「越 root 引用」约束对 Vue 同样成立：运行时用
+`invoke<string>("vue-demo:greet", { name })` 直调，codegen 类型绑定只作
+参考形状展示。
+
+composables 清理约定：React 的 hooks 清理约定换到 Vue 就是
+**unlisten 挂在 `onUnmounted`/`onScopeDispose` 上收尾**。vue-demo 的
+`frontend/src/composables.ts` 给出三个可直接抄走的 composable（也是未来
+`@zturnlibs/ztron-vue` 包的种子实现）：
+
+```ts
+// 声明式调用命令：setup 时执行一次，卸载后丢弃结果
+// 返回 { data, error, loading } 三个 ref（watch 的 onCleanup 作废晚到响应）
+function useInvoke<T>(cmd: string, args?: InvokeArgs): InvokeState<T>;
+
+// 订阅后端事件：onMounted 内 await listen，onUnmounted 时 unlisten；
+// 若卸载先于 listen 兑现，拿到监听后立即注销
+function useListen<T>(event: string, handler: EventCallback<T>): void;
+
+// Channel 流式调用：start() 创建通道并 invoke，消息按到达顺序累积；
+// onScopeDispose 作废进行中的一轮，晚到消息不写入已卸载组件
+function useChannelStream<T = unknown>(
+  cmd: string,
+  args?: InvokeArgs,
+): { messages; status; error; start };
+```
+
+defineAsyncComponent 与 IIFE 内联：Vue 的懒加载写法是
+`defineAsyncComponent(() => import("./LazyPane.vue"))`。与 React.lazy
+一样，`ztron build` 的单文件 IIFE 产物会把动态 import 内联进主包（vue-demo
+用 LazyPane 里的 `VUE_LAZY_OK` 标记串验证了这一点），同样没有真正的代码
+分割。
+
+想从脚手架开始时，`ztron init --template vue-ts` 会生成同款最小工程
+（见 [CLI 参考](/reference/cli)）。
+
 ## Tailwind CSS v4
 
 Tailwind v4 经 `@tailwindcss/vite` 一行接入（上面的 `tailwindcss()`），
@@ -187,12 +275,12 @@ Nuxt、Remix 这类以服务器端渲染为前提的元框架不适用。SPA 路
 
 ## 其他框架
 
-Vue（`@vitejs/plugin-vue`）、Svelte（`@sveltejs/vite-plugin-svelte`）、
-Solid（`vite-plugin-solid`）都用各自的官方 Vite 插件，写进
-`frontend/vite.config.ts` 的 `plugins` 数组即可，其余模式与 React 完全
-相同：桥由 CLI 注入，配置由 Vite 合并，运行时用 `@zturnlibs/ztron-api`。
-订阅/请求的清理约定同样适用，可按各框架的生命周期照 react-demo 的
-`hooks.ts` 模式封装。
+Svelte（`@sveltejs/vite-plugin-svelte`）、Solid（`vite-plugin-solid`）用
+各自的官方 Vite 插件，写进 `frontend/vite.config.ts` 的 `plugins` 数组
+即可，其余模式与 React、Vue 完全相同：桥由 CLI 注入，配置由 Vite 合并，
+运行时用 `@zturnlibs/ztron-api`。订阅/请求的清理约定同样适用，可按各框架
+的生命周期照 react-demo 的 `hooks.ts` 或 vue-demo 的 `composables.ts`
+模式封装。
 
 **深入：[示例](/start/examples) · [调用后端命令](/guide/ipc) · [CLI 参考](/reference/cli)**
 
