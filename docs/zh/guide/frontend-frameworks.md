@@ -4,8 +4,9 @@ title: 前端框架与第三方包
 
 Ztron 的前端层是一个标准 Vite 工程，框架无关。React、Vue、Svelte、Solid、
 Tailwind CSS 等前端生态的框架与工具链都能直接接入。本文以
-`examples/react-demo`（React 19 + Tailwind CSS v4）与
-`examples/vue-demo`（Vue 3 + Tailwind CSS v4）为活例子，说明接入方式
+`examples/react-demo`（React 19 + Tailwind CSS v4）、
+`examples/vue-demo`（Vue 3 + Tailwind CSS v4）与
+`examples/svelte-demo`（Svelte 5 + Tailwind CSS v4）为活例子，说明接入方式
 与打包边界。
 
 ## 核心结论：框架无关
@@ -223,6 +224,97 @@ defineAsyncComponent 与 IIFE 内联：Vue 的懒加载写法是
 想从脚手架开始时，`ztron init --template vue-ts` 会生成同款最小工程
 （见 [CLI 参考](/reference/cli)）。
 
+## Svelte 5 接入
+
+`examples/svelte-demo` 用 Svelte 5 复刻了 react-demo 的全部演示（五个标签：
+调用后端、事件、Channel、主题、系统），证明同一管线对 Svelte 单文件组件
+同样成立。依赖同样只是普通前端依赖：
+
+```jsonc
+// examples/svelte-demo/package.json（节选）
+{
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "vite": "^6.0.0"
+  }
+}
+```
+
+`vite` 的说明与 React、Vue 一致（配置文件自身要能解析到它，与 CLI 同一
+6.x 主版本）。`@sveltejs/vite-plugin-svelte` 用与 vite 6 兼容的 5.x 大版本
+（该插件的 6.x 对应 vite 7）。
+
+`frontend/vite.config.ts` 把框架插件换成 svelte 插件即可：
+
+```ts
+import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [svelte(), tailwindcss()],
+});
+```
+
+入口 `frontend/src/main.ts` 是普通 Svelte 5 入口，用 `mount` 惯用法
+（取代 Svelte 4 的 `new App({...})` 构造器写法），桥同样在 index.html
+阶段已注入完毕：
+
+```ts
+import { mount } from "svelte";
+import App from "./App.svelte";
+import "./index.css";
+
+mount(App, { target: document.getElementById("root")! });
+```
+
+组件与类型检查：组件用 `<script lang="ts">` 加 Svelte 5 runes 编写，状态
+用 `$state` / `$derived` 声明。typecheck 脚本为
+`svelte-check --tsconfig ./tsconfig.json --config ./svelte.config.js`，两个
+配置各司其职：dev / build 时 Svelte 5 编译器原生理解 `lang="ts"` 的
+erasable 语法，vite 插件直接编译，无需预处理；根级 `svelte.config.js`
+（挂 `vitePreprocess`）由 svelte-check 读取，且必须用 `--config` 显式
+指定，否则 svelte-check 从 `frontend/src` 向上搜配置会先撞到
+`frontend/vite.config.ts` 而报「No Svelte configuration found」。
+react/vue 的「越 root 引用」约束对 Svelte 同样成立：运行时用
+`invoke<string>("svelte-demo:greet", { name })` 直调，codegen 类型绑定只作
+参考形状展示。
+
+runes 清理约定：React/Vue 的清理约定换到 Svelte 就是**订阅在 `onMount`
+发起、unlisten 在 `onDestroy` 收尾**。svelte-demo 的
+`frontend/src/lib/listeners.ts` 给出可直接抄走的监听助手（也是未来
+`@zturnlibs/ztron-svelte` 包的种子实现；只用生命周期钩子、不涉及 runes，
+所以放普通 `.ts` 模块即可）：
+
+```ts
+// 订阅后端事件：onMount 内 await listen，onDestroy 时 unlisten；
+// 若卸载先于 listen 兑现，拿到监听后立即注销
+function listenOnMount<T>(event: string, handler: EventCallback<T>): void;
+```
+
+{#await import} 与 IIFE 内联：Svelte 的懒加载写法是 await 块直接消费动态
+import 的模块命名空间，解构出组件再渲染：
+
+```svelte
+{#await import("./LazyPane.svelte") then { default: Lazy }}
+  <Lazy />
+{/await}
+```
+
+与 `React.lazy`、`defineAsyncComponent` 一样，`ztron build` 的单文件 IIFE
+产物会把动态 import 内联进主包（svelte-demo 用 LazyPane 里的
+`SVELTE_LAZY_OK` 标记串验证了这一点），同样没有真正的代码分割。
+
+想从脚手架开始时，`ztron init --template svelte` 会生成同款最小工程
+（见 [CLI 参考](/reference/cli)）。
+
 ## Tailwind CSS v4
 
 Tailwind v4 经 `@tailwindcss/vite` 一行接入（上面的 `tailwindcss()`），
@@ -275,12 +367,12 @@ Nuxt、Remix 这类以服务器端渲染为前提的元框架不适用。SPA 路
 
 ## 其他框架
 
-Svelte（`@sveltejs/vite-plugin-svelte`）、Solid（`vite-plugin-solid`）用
-各自的官方 Vite 插件，写进 `frontend/vite.config.ts` 的 `plugins` 数组
-即可，其余模式与 React、Vue 完全相同：桥由 CLI 注入，配置由 Vite 合并，
-运行时用 `@zturnlibs/ztron-api`。订阅/请求的清理约定同样适用，可按各框架
-的生命周期照 react-demo 的 `hooks.ts` 或 vue-demo 的 `composables.ts`
-模式封装。
+Solid（`vite-plugin-solid`）等框架用各自的官方 Vite 插件，写进
+`frontend/vite.config.ts` 的 `plugins` 数组即可，其余模式与 React、Vue、
+Svelte 完全相同：桥由 CLI 注入，配置由 Vite 合并，运行时用
+`@zturnlibs/ztron-api`。订阅/请求的清理约定同样适用，可按各框架
+的生命周期照 react-demo 的 `hooks.ts`、vue-demo 的 `composables.ts` 或
+svelte-demo 的 `listeners.ts` 模式封装。
 
 **深入：[示例](/start/examples) · [调用后端命令](/guide/ipc) · [CLI 参考](/reference/cli)**
 

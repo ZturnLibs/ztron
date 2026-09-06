@@ -4,7 +4,7 @@ title: Examples
 
 > The `examples/` directory belongs to the framework repo (contributor/developer perspective). For regular app development, start from the `ztron init` path in [Quick Start](/start/quick-start).
 
-The repo's `examples/` directory contains seven runnable examples, all directly runnable via pnpm filters:
+The repo's `examples/` directory contains eight runnable examples, all directly runnable via pnpm filters:
 
 | Name | Package | Demonstrates | Run command |
 | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ The repo's `examples/` directory contains seven runnable examples, all directly 
 | showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 34 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 | react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 verification example (calling Ztron APIs the React way) | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
 | vue-demo | `@zturnlibs/ztron-example-vue-demo` | Vue 3 + Tailwind v4 verification example (calling Ztron APIs the Vue way) | `pnpm --filter @zturnlibs/ztron-example-vue-demo dev` |
+| svelte-demo | `@zturnlibs/ztron-example-svelte-demo` | Svelte 5 + Tailwind v4 verification example (calling Ztron APIs the Svelte way) | `pnpm --filter @zturnlibs/ztron-example-svelte-demo dev` |
 
 ## hello
 
@@ -52,6 +53,14 @@ A Vue 3 + Tailwind CSS v4 verification example: standard Vue idioms
 react-demo tabs, covering dev HMR, IIFE bundling, and the full IPC chain;
 smoke anchor `VUE_DEMO_OK`. For integration see the dedicated page:
 [Frontend Frameworks & Third-Party Packages](/guide/frontend-frameworks).
+
+## svelte-demo
+
+A Svelte 5 + Tailwind CSS v4 verification example: standard Svelte 5 idioms
+(runes, a `mount` entry, `{#await import}` lazy loading) replicating the
+five react-demo tabs, covering dev HMR, IIFE bundling, and the full IPC
+chain; smoke anchor `SVELTE_DEMO_OK`. For integration see the dedicated
+page: [Frontend Frameworks & Third-Party Packages](/guide/frontend-frameworks).
 
 Each example depends on workspace packages inside the monorepo; complete [Installation](/start/install) and the native chain build first.
 

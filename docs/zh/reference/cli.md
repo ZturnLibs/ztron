@@ -10,7 +10,7 @@ title: CLI 参考
 ```text
 ztron init [dir] [--template <name>]
                                   在 [dir] 脚手架新项目（默认当前目录）；
-                                  模板 vanilla（缺省）| react-ts | vue-ts
+                                  模板 vanilla（缺省）| react-ts | vue-ts | svelte
 ztron doctor                      一键体检 node / tjs / ztron-host / webview 库
 ztron dev [--entry <file>]        构建 + 在原生 host + tjs backend 下运行
 ztron build [--entry <file>]      产出独立可执行文件与 .app
@@ -46,12 +46,19 @@ ztron init [dir] [--template <name>]
   tailwindcss 插件）、`<script setup lang="ts">` 的 Tailwind 风格
   `App.vue` 问候页，typecheck 走 `vue-tsc --noEmit`，后端同样是
   `defineCommand("app:greet")`。
+- `svelte` — Svelte 5 + Tailwind CSS v4 脚手架（配置值与管线验证过的
+  `examples/svelte-demo` 一致）：`frontend/vite.config.ts`（svelte +
+  tailwindcss 插件）、根级 `svelte.config.js`（svelte-check 用）、
+  runes 写法的 Tailwind 风格 `App.svelte` 问候页，入口用
+  `mount(App, { target })`，typecheck 走 `svelte-check`，后端同样是
+  `defineCommand("app:greet")`。
   未知模板名报错退出（exit 1）并列出有效模板。
 
 ```bash
 node packages/cli/dist/index.js init my-app
 node packages/cli/dist/index.js init my-app --template react-ts
 node packages/cli/dist/index.js init my-app --template vue-ts
+node packages/cli/dist/index.js init my-app --template svelte
 ```
 
 ## ztron doctor

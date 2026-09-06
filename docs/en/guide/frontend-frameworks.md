@@ -5,9 +5,9 @@ title: Frontend Frameworks & Third-Party Packages
 Ztron's frontend layer is a standard Vite project and is framework-agnostic.
 React, Vue, Svelte, Solid, Tailwind CSS, and the rest of the frontend
 ecosystem plug in directly. This page uses `examples/react-demo`
-(React 19 + Tailwind CSS v4) and `examples/vue-demo` (Vue 3 + Tailwind CSS
-v4) as living examples to cover the integration recipe and the bundling
-constraints.
+(React 19 + Tailwind CSS v4), `examples/vue-demo` (Vue 3 + Tailwind CSS
+v4), and `examples/svelte-demo` (Svelte 5 + Tailwind CSS v4) as living
+examples to cover the integration recipe and the bundling constraints.
 
 ## The Core Takeaway: Framework-Agnostic
 
@@ -243,6 +243,106 @@ splitting.
 To start from a scaffold, `ztron init --template vue-ts` generates the same
 minimal project (see the [CLI Reference](/reference/cli)).
 
+## Svelte 5 Integration
+
+`examples/svelte-demo` replicates the full react-demo showcase (five tabs:
+backend calls, events, Channel, theme, system) in Svelte 5, proving that the
+same pipeline holds for Svelte single-file components. The dependencies are
+again plain frontend dependencies:
+
+```jsonc
+// examples/svelte-demo/package.json (excerpt)
+{
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "vite": "^6.0.0"
+  }
+}
+```
+
+The `vite` note is the same as for React and Vue (the config file itself
+must resolve it; same 6.x major as the CLI). `@sveltejs/vite-plugin-svelte`
+uses the vite-6-compatible 5.x major (the plugin's 6.x targets vite 7).
+
+`frontend/vite.config.ts` just swaps the framework plugin for the Svelte
+one:
+
+```ts
+import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [svelte(), tailwindcss()],
+});
+```
+
+The entry `frontend/src/main.ts` is a plain Svelte 5 entry using the
+`mount` idiom (which replaces the Svelte 4 `new App({...})` constructor
+style); the bridge is already in place from the index.html stage:
+
+```ts
+import { mount } from "svelte";
+import App from "./App.svelte";
+import "./index.css";
+
+mount(App, { target: document.getElementById("root")! });
+```
+
+Components and type checking: components are written with
+`<script lang="ts">` plus Svelte 5 runes, with UI state declared via
+`$state` / `$derived`. The typecheck script is
+`svelte-check --tsconfig ./tsconfig.json --config ./svelte.config.js`, and
+the two configs split the work: during dev / build the Svelte 5 compiler
+understands erasable `lang="ts"` syntax natively, so the vite plugin
+compiles directly without preprocessing; the root `svelte.config.js`
+(with `vitePreprocess`) is read by svelte-check and must be pinned with
+`--config`, otherwise svelte-check's upward search from `frontend/src`
+hits `frontend/vite.config.ts` first and fails with "No Svelte
+configuration found". The across-the-root constraint from react/vue
+applies to Svelte as well: runtime calls go through
+`invoke<string>("svelte-demo:greet", { name })` directly, with the codegen
+bindings shown only as a reference shape.
+
+The runes cleanup convention: React/Vue's cleanup rule translates to Svelte
+as **subscriptions start in `onMount` and the unlisten is torn down in
+`onDestroy`**. `frontend/src/lib/listeners.ts` in svelte-demo provides a
+listener helper you can copy as-is (also the seed implementation of a
+future `@zturnlibs/ztron-svelte` package; it only uses lifecycle hooks and
+no runes, so a plain `.ts` module is enough):
+
+```ts
+// Backend event subscription: await listen inside onMount, unlisten in
+// onDestroy; if unmount lands before listen resolves, the listener is
+// unregistered as soon as it arrives
+function listenOnMount<T>(event: string, handler: EventCallback<T>): void;
+```
+
+{#await import} and IIFE inlining: Svelte's lazy-loading idiom is an await
+block that consumes the dynamic import's module namespace and destructures
+the component out of it:
+
+```svelte
+{#await import("./LazyPane.svelte") then { default: Lazy }}
+  <Lazy />
+{/await}
+```
+
+Like `React.lazy` and `defineAsyncComponent`, dynamic `import()` is inlined
+into the main bundle by the single-file IIFE artifact of `ztron build`
+(svelte-demo verifies this with the `SVELTE_LAZY_OK` marker string inside
+LazyPane), and there is likewise no real code splitting.
+
+To start from a scaffold, `ztron init --template svelte` generates the same
+minimal project (see the [CLI Reference](/reference/cli)).
+
 ## Tailwind CSS v4
 
 Tailwind v4 plugs in with a single `@tailwindcss/vite` line (the
@@ -302,14 +402,14 @@ choice.
 
 ## Other Frameworks
 
-Svelte (`@sveltejs/vite-plugin-svelte`) and Solid (`vite-plugin-solid`) use
-their official Vite plugins; list them in the `plugins` array of
-`frontend/vite.config.ts` and everything else follows the exact same pattern
-as React and Vue: the bridge is injected by the CLI, the config is merged by
-Vite, and runtime calls go through `@zturnlibs/ztron-api`. The
-subscription/request cleanup convention applies equally; wrap it for each
-framework's lifecycle following the react-demo `hooks.ts` or the vue-demo
-`composables.ts` pattern.
+Solid (`vite-plugin-solid`) and other frameworks use their official Vite
+plugins; list them in the `plugins` array of `frontend/vite.config.ts` and
+everything else follows the exact same pattern as React, Vue, and Svelte:
+the bridge is injected by the CLI, the config is merged by Vite, and
+runtime calls go through `@zturnlibs/ztron-api`. The subscription/request
+cleanup convention applies equally; wrap it for each framework's lifecycle
+following the react-demo `hooks.ts`, the vue-demo `composables.ts`, or the
+svelte-demo `listeners.ts` pattern.
 
 **Deep dive: [Examples](/start/examples) · [Calling Backend Commands](/guide/ipc) · [CLI Reference](/reference/cli)**
 
