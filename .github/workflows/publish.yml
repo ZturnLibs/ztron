@@ -36,15 +36,15 @@ jobs:
           test -x packages/native-darwin-arm64/native/libs/tjs
           test -x packages/native-darwin-arm64/native/libs/ztron-host
           test -f packages/native-darwin-arm64/native/libs/libwebview.dylib
+          test -f packages/native-darwin-arm64/native/libs/libwebview.0.12.dylib
       - name: pack platform package
         run: |
           cd packages/native-darwin-arm64
-          tgz="$(npm pack --pack-destination /tmp | tail -1)"
-          echo "TGZ=/tmp/$tgz" >> "$GITHUB_ENV"
+          npm pack --pack-destination /tmp
       - uses: actions/upload-artifact@v4
         with:
           name: ztron-darwin-arm64-tgz
-          path: /tmp/ztron-darwin-arm64-*.tgz
+          path: /tmp/zturnlibs-ztron-darwin-arm64-*.tgz
           if-no-files-found: error
 
   publish:
@@ -53,15 +53,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: ztron-darwin-arm64-tgz
-          path: /tmp/native-tgz
-      # leaf-first: the CLI's optionalDependencies point at this package.
-      - name: publish native platform package
-        run: npm publish /tmp/native-tgz/ztron-darwin-arm64-*.tgz --access restricted --tag latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
@@ -71,6 +62,18 @@ jobs:
           cache: pnpm
           registry-url: https://npm.pkg.github.com
           scope: "@zturnlibs"
+      # leaf-first: the CLI's optionalDependencies point at this package.
+      # Must run after setup-node: setup-node writes the scoped .npmrc
+      # (registry + authToken); without it the tarball's publishConfig
+      # pins the publish to GPR regardless of the intended registry.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-darwin-arm64-tgz
+          path: /tmp/native-tgz
+      - name: publish native platform package
+        run: npm publish /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz --access restricted --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: install
         run: pnpm install --frozen-lockfile
       - name: build (workspace)
@@ -120,14 +123,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: ztron-darwin-arm64-tgz
-          path: /tmp/native-tgz
-      - name: publish native platform package
-        run: npm publish /tmp/native-tgz/ztron-darwin-arm64-*.tgz --access public --tag latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
@@ -137,6 +132,18 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
           scope: "@zturnlibs"
+      # leaf-first: the CLI's optionalDependencies point at this package.
+      # Must run after setup-node: setup-node writes the scoped .npmrc
+      # (registry + authToken); without it the tarball's publishConfig
+      # pins the publish to GPR regardless of the intended registry.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-darwin-arm64-tgz
+          path: /tmp/native-tgz
+      - name: publish native platform package
+        run: npm publish /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz --access public --tag latest
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: install
         run: pnpm install --frozen-lockfile
       - name: build (workspace)
