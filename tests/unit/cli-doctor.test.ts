@@ -21,8 +21,45 @@ test("doctor: all pass when chain is discoverable", () => {
   const repo = nativeRepo();
   const r = runDoctor({ cwd: repo, env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") }, platform: "darwin" });
   assert.equal(r.ok, true);
-  assert.equal(r.checks.length, 5);
+  assert.equal(r.checks.length, 7);
   for (const c of r.checks) assert.equal(c.pass, true, `${c.name}: ${c.detail}`);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: missing entry shebang fails (Volta ENOEXEC sentinel)", () => {
+  const repo = nativeRepo();
+  const fakeEntry = join(repo, "fake-entry.js");
+  writeFileSync(fakeEntry, "console.log('hi');\n");
+  const r = runDoctor({
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+    entryPath: fakeEntry,
+  });
+  const byName = Object.fromEntries(r.checks.map((c) => [c.name, c]));
+  assert.equal(byName["cli bin integrity"].pass, false);
+  assert.match(byName["cli bin integrity"].hint, /ztron-cli/);
+  assert.equal(r.ok, false);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: bundled chain version mismatch fails, absence passes", () => {
+  const repo = nativeRepo();
+  const base = {
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+  };
+  const mismatch = runDoctor({ ...base, cliVersion: "1.0.0", bundledVersion: "0.3.1" });
+  const byName = Object.fromEntries(mismatch.checks.map((c) => [c.name, c]));
+  assert.equal(byName["chain version"].pass, false);
+  assert.match(byName["chain version"].hint, /ztron-cli/);
+  assert.equal(mismatch.ok, false);
+
+  const absent = runDoctor({ ...base, cliVersion: "1.0.0" });
+  const byName2 = Object.fromEntries(absent.checks.map((c) => [c.name, c]));
+  assert.equal(byName2["chain version"].pass, true);
+  assert.match(byName2["chain version"].detail, /not installed/);
   rmSync(repo, { recursive: true, force: true });
 });
 

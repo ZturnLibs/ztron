@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * CLI entry — orchestration for `ztron dev` / `ztron build`.
  *
@@ -8,6 +9,7 @@
  */
 import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
   copyFileSync,
@@ -65,6 +67,67 @@ Usage:
 
 const DEFAULT_ENTRY = "./src/main.ts";
 
+/* Version lives in package.json (single source of truth) — never hardcode it here. */
+const { version: CLI_VERSION } = createRequire(import.meta.url)("../package.json") as {
+  version: string;
+};
+
+/** One-line help per subcommand; also the did-you-mean candidate list. */
+const COMMAND_HELP: Record<string, string> = {
+  init: "ztron init [dir] [--template <name>]   Scaffold a new project (templates: vanilla | react-ts | vue-ts | svelte)",
+  doctor: "ztron doctor                          Check node/cli-bin/native chain health (exit 1 on fail)",
+  dev: "ztron dev [--entry <file>]              Bundle + run under the native host + tjs backend",
+  build: "ztron build [--entry <file>]            Produce a standalone executable (.app/dmg on macOS)",
+  check: "ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]  Regression run; exit 0 only on FULL_OK",
+  bench: "ztron bench [--runs n] [--record] [--no-gui] [--json <path>]  Perf bench gated by perf-budget.json",
+  codegen: "ztron codegen                        Typed invoke bindings for your commands",
+  icon: "ztron icon [png] [-o outdir]           Generate iconset/icns from a PNG",
+  info: "ztron info                              Print project/environment info",
+  add: "ztron add <plugin>                      Register a plugin in ztron.conf.json",
+  migrate: "ztron migrate                        Migrate ztron.conf.json to the current schema",
+  signer: "ztron signer ...                     Minisign key utilities for the updater",
+  version: "ztron version                        Print version",
+};
+
+function printHelp(command: string): void {
+  if (command && COMMAND_HELP[command]) {
+    console.log(COMMAND_HELP[command]);
+    return;
+  }
+  console.log(`ztron ${CLI_VERSION}`);
+  console.log(USAGE);
+}
+
+function levenshtein(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const cur: number[] = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      cur[j] = Math.min(
+        prev[j]! + 1,
+        cur[j - 1]! + 1,
+        prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length]!;
+}
+
+/** Nearest known command within edit distance 2, else undefined. */
+function suggestCommand(input: string): string | undefined {
+  let best: string | undefined;
+  let bestDist = Infinity;
+  for (const c of Object.keys(COMMAND_HELP)) {
+    const d = levenshtein(input, c);
+    if (d < bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return bestDist <= 2 ? best : undefined;
+}
+
 interface ProjectConfig {
   $schema?: string;
   entry?: string;
@@ -110,23 +173,32 @@ function parseArgs(argv: string[]): {
   entry: string;
   positional: string;
   template: string;
+  help: boolean;
+  version: boolean;
 } {
-  const command = argv[0] ?? "dev";
+  const command = argv[0] && !argv[0].startsWith("-") ? argv[0] : "";
+  let help = !command; // bare `ztron` → help; launching dev by accident is a dangerous default
+  let version = false;
   let entry = "";
   let positional = "";
   let template = "";
-  for (let i = 1; i < argv.length; i += 1) {
+  for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i] ?? "";
-    if (a === "--entry") {
+    if (a === "--help" || a === "-h") {
+      help = true;
+    } else if (a === "--version" || a === "-v") {
+      version = true;
+    } else if (a === "--entry") {
       entry = argv[i + 1] ?? "";
+      i += 1; // consume the flag value so it cannot become the positional
     } else if (a === "--template") {
       template = argv[i + 1] ?? "";
       i += 1; // consume the flag value so it cannot become the positional
-    } else if (!a.startsWith("-") && !positional) {
+    } else if (i > 0 && !a.startsWith("-") && !positional) {
       positional = a;
     }
   }
-  return { command, entry, positional, template };
+  return { command, entry, positional, template, help, version };
 }
 
 /** Reads `ztron.conf.json` if present. */
@@ -1321,12 +1393,35 @@ async function main(): Promise<void> {
     entry: entryArg,
     positional,
     template,
+    help,
+    version,
   } = parseArgs(process.argv.slice(2));
   const cwd = process.cwd();
 
+  if (version) {
+    console.log(`ztron ${CLI_VERSION}`);
+    return;
+  }
+  if (command && !COMMAND_HELP[command]) {
+    process.stderr.write(`✗ 未知命令 "${command}"\n`);
+    const sug = suggestCommand(command);
+    if (sug) {
+      process.stderr.write(`  最接近的命令: ztron ${sug}\n`);
+    } else {
+      process.stderr.write(`  可用命令: ${Object.keys(COMMAND_HELP).join(", ")}\n`);
+    }
+    process.stderr.write(`  运行 ztron --help 查看全部命令\n`);
+    process.exitCode = 2;
+    return;
+  }
+  if (help || !command) {
+    printHelp(command);
+    return;
+  }
+
   switch (command) {
     case "version": {
-      console.log("ztron 0.3.1");
+      console.log(`ztron ${CLI_VERSION}`);
       break;
     }
     case "init": {
@@ -1412,13 +1507,18 @@ async function main(): Promise<void> {
       break;
     }
     default: {
+      // Unreachable via main(): unknown commands are rejected above with a
+      // did-you-mean hint. Kept as a defensive usage dump with the usage exit code.
       console.error(USAGE);
-      process.exit(1);
+      process.exitCode = 2;
     }
   }
 }
 
 main().catch((err) => {
-  console.error(String(err));
+  console.error(`✗ ${err instanceof Error ? err.message : String(err)}`);
+  if (process.env.ZTRON_DEBUG === "1" && err instanceof Error && err.stack) {
+    console.error(err.stack);
+  }
   process.exit(1);
 });
