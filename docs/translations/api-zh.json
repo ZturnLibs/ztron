@@ -720,6 +720,9 @@
   "core.Channel.id": {
     "summary": "transformCallback 返回的回调 id。"
   },
+  "core.Channel.dispose": {
+    "summary": "客户端主动注销该通道的回调注册（幂等）：注销后到达的后端消息将被静默丢弃。与 end() 的区别：end 由流式语义驱动，dispose 用于组件卸载等需要立即清理的场景。"
+  },
   "core.Resource": {
     "summary": "存储在资源表中、由后端持有的资源。存活于主进程，通过 close() 显式释放。"
   },
