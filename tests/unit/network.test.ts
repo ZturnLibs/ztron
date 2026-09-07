@@ -58,8 +58,14 @@ test(
       (url, init) => {
         seenUrl = url;
         return new Promise<Response>((_resolve, reject) => {
+          // Hold the event loop with a REF'd timer while the fetch hangs:
+          // AbortSignal.timeout uses an unref'd timer internally, so without
+          // this the loop can drain with the promise still pending and
+          // node:test cancels the test ("event loop has already resolved").
+          const keepAlive = setTimeout(() => {}, 10_000);
           init?.signal?.addEventListener("abort", () => {
             aborted = true;
+            clearTimeout(keepAlive);
             reject(new Error("The operation was aborted"));
           });
         });
