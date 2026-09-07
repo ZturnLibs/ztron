@@ -36,11 +36,11 @@ export interface InvokeState<T> {
 
 /**
  * Declarative backend command call: runs once when the composable is
- * created and re-runs when `cmd` changes or when reactive `args` change by
- * value (plain object args run once: the serialized key only changes for
- * reactive args). Late responses are discarded after a re-run or scope
- * disposal. Returns `{ data, error, loading }` refs for three-state
- * rendering.
+ * created and re-runs when reactive `args` change by value (plain object
+ * args run once: the serialized key only changes for reactive args; `cmd`
+ * is a setup-time parameter). Late responses are discarded after a re-run
+ * or scope disposal. Returns `{ data, error, loading }` refs for
+ * three-state rendering.
  */
 export function useInvoke<T>(cmd: string, args?: InvokeArgs): InvokeState<T> {
   // shallowRef: the generic payload must not be deeply unwrapped (ref's
@@ -127,8 +127,10 @@ export interface ChannelStreamState<T> {
 /**
  * Consume a streaming command over a Channel: `start()` creates the channel
  * and invokes `cmd` with `{ ...args, ch }`; channel messages are appended in
- * arrival order. Scope disposal (or a newer run) invalidates the in-flight
- * run, so late channel messages never reach the disposed component.
+ * arrival order. Scope disposal disposes the channel (unregistering its
+ * callback from the bridge registry), and either disposal or a newer run
+ * invalidates the in-flight run, so late channel messages never reach the
+ * disposed component.
  */
 export function useChannelStream<T = unknown>(
   cmd: string,
@@ -139,17 +141,18 @@ export function useChannelStream<T = unknown>(
   const status = ref<StreamStatus>("idle");
   const error = ref<string | null>(null);
   let runId = 0;
+  let channel: Channel<T> | undefined;
 
   function start(): void {
     const id = ++runId;
     messages.value = [];
     error.value = null;
     status.value = "running";
-    const ch = new Channel<T>((msg) => {
+    channel = new Channel<T>((msg) => {
       if (runId !== id) return;
       messages.value = [...messages.value, msg];
     });
-    void invoke<string>(cmd, { ...(args ?? {}), ch } as InvokeArgs).then(
+    void invoke<string>(cmd, { ...(args ?? {}), ch: channel } as InvokeArgs).then(
       () => {
         if (runId === id) status.value = "done";
       },
@@ -161,11 +164,14 @@ export function useChannelStream<T = unknown>(
     );
   }
 
-  // Scope disposal: invalidate any in-flight run so late channel messages
-  // never reach the disposed component.
+  // Scope disposal: invalidate any in-flight run and dispose the channel so
+  // its callback leaves the bridge registry — late channel messages can no
+  // longer reach the disposed component.
   onScopeDispose(
     () => {
       runId += 1;
+      channel?.dispose();
+      channel = undefined;
     },
     true,
   );

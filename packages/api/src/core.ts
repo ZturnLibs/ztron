@@ -83,6 +83,17 @@ export class Channel<T = unknown> {
     internals().unregisterCallback(this.id);
   }
 
+  /**
+   * Client-side `end`: unregisters this channel's callback from the bridge
+   * registry immediately, without waiting for an in-order `end` marker from
+   * the backend. Call it when a stream is abandoned client-side (e.g. the
+   * consuming component unmounted) so late backend messages can no longer
+   * reach the dead callback. Idempotent.
+   */
+  dispose(): void {
+    this.cleanupCallback();
+  }
+
   set onmessage(handler: (response: T) => void) {
     this.#onmessage = handler;
   }

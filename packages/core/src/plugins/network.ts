@@ -5,6 +5,17 @@
  */
 import type { Plugin } from "../plugin.js";
 
+/** Options for {@linkcode networkPlugin}. */
+export interface NetworkPluginOptions {
+  /** Endpoint queried for the public IPv4; must answer a plain-text IP.
+   * Defaults to `https://icanhazip.com`. */
+  publicIpUrl?: string;
+  /** Abort the public-IP fetch after N ms and fall back to null (the
+   * httpPlugin `timeoutMs` pattern) — without a cap an SNI-blocked host
+   * hangs the fetch forever. Defaults to 5000. */
+  publicIpTimeoutMs?: number;
+}
+
 const dec = new TextDecoder();
 
 async function run(cmd: string[]): Promise<string> {
@@ -40,7 +51,9 @@ function isLinux(): boolean {
     .includes("linux");
 }
 
-export function networkPlugin(): Plugin {
+export function networkPlugin(options: NetworkPluginOptions = {}): Plugin {
+  const publicIpUrl = options.publicIpUrl ?? "https://icanhazip.com";
+  const publicIpTimeoutMs = options.publicIpTimeoutMs ?? 5000;
   return {
     name: "network",
     commands: {
@@ -84,7 +97,11 @@ export function networkPlugin(): Plugin {
       },
       async get_public_ip() {
         try {
-          const resp = await fetch("https://icanhazip.com");
+          // Abort-capped: a hanging fetch (e.g. SNI-blocked host) must not
+          // stall the caller forever — the catch below degrades to null.
+          const resp = await fetch(publicIpUrl, {
+            signal: AbortSignal.timeout(publicIpTimeoutMs),
+          });
           const text = (await resp.text()).trim();
           return /^\d{1,3}(\.\d{1,3}){3}$/.test(text) ? text : null;
         } catch {

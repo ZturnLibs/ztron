@@ -400,13 +400,14 @@ test("useChannelStream stops on scope disposal: late messages are not delivered"
     "early message collected",
   );
 
-  // Dispose mid-run, then push a late message and settle the invoke. The
-  // disposal invalidates the run, so neither the message nor the done-status
-  // may reach the disposed scope.
+  // Dispose mid-run: the disposal invalidates the run AND unregisters the
+  // channel callback from the bridge registry, so a late message can no
+  // longer even be delivered (the registry no longer knows the callback id).
   stopScope();
-  assert.doesNotThrow(() => {
-    runCallback(captured!.ch.id, { message: "late", index: 1 });
-  }, "late channel message after disposal must not throw");
+  assert.ok(
+    !callbacks.has(captured!.ch.id),
+    "scope disposal unregistered the channel callback",
+  );
   await new Promise((r) => setTimeout(r, 5));
   release?.("stream finished");
   await nextTick();
@@ -416,6 +417,33 @@ test("useChannelStream stops on scope disposal: late messages are not delivered"
     "late message dropped after disposal",
   );
   assert.equal(s.status.value, "running", "done status never reached the scope");
+});
+
+test("useChannelStream disposal unregisters the channel callback from the bridge registry", async () => {
+  // Regression teeth for the disposal cleanup: the invoke never settles and
+  // the backend never sends the `end` marker, so only the client-side
+  // dispose can remove the callback — a mutant that merely bumps runId (the
+  // recorded leak) leaves it registered and fails here.
+  interface StreamArgs {
+    ch: { id: number };
+  }
+  let captured: StreamArgs | undefined;
+  mockIPC((_cmd, args) => {
+    captured = args as StreamArgs;
+    return new Promise(() => {}); // never settles: no end marker ever
+  });
+
+  const s = runInScope(() => useChannelStream<string>("probe:stream"));
+  s.start();
+  await until(() => captured !== undefined, "channel created");
+  const chId = captured!.ch.id;
+  assert.ok(callbacks.has(chId), "channel callback registered while running");
+
+  stopScope();
+  assert.ok(
+    !callbacks.has(chId),
+    "scope disposal unregistered the channel callback",
+  );
 });
 
 test("useChannelStream restart invalidates the previous run's late messages", async () => {
