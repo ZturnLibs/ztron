@@ -9,7 +9,6 @@
  */
 import { build } from "esbuild";
 import { spawn, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
   copyFileSync,
@@ -44,89 +43,11 @@ import {
   findWebviewLib,
   findBundledNative,
 } from "./native-locate.js";
-
-const USAGE = `ztron — Tauri-style desktop framework on txiki.js + system WebView
-
-Usage:
-  ztron init [dir] [--template <name>]
-                                   Scaffold a new project in [dir] (default .)
-                                   (templates: vanilla | react-ts | vue-ts | svelte)
-  ztron doctor                     Check node/tjs/host/webview chain (exit 1 on fail)
-  ztron dev [--entry <file>]       Bundle + run under the native host + tjs backend
-  ztron build [--entry <file>]     Produce a standalone executable (M4)
-  ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]
-                                   Regression run: parse the app's reported
-                                   checks; exit 0 only on FULL_OK + no FAILs
-                                   (--expect pins required tags, comma-sep)
-  ztron bench [--runs n] [--record] [--no-gui] [--json <path>]
-                                   Perf bench: multi-round spawn of the
-                                   examples/bench app (phase timing, ps RSS
-                                   sampling) gated by perf-budget.json
-  ztron version                    Print version
-`;
+import { CLI_VERSION, COMMAND_HELP, printHelp, suggestCommand, USAGE } from "./usage.js";
+import { renderCompletions } from "./completions.js";
+import { runUpdateCheck } from "./update-notifier.js";
 
 const DEFAULT_ENTRY = "./src/main.ts";
-
-/* Version lives in package.json (single source of truth) — never hardcode it here. */
-const { version: CLI_VERSION } = createRequire(import.meta.url)("../package.json") as {
-  version: string;
-};
-
-/** One-line help per subcommand; also the did-you-mean candidate list. */
-const COMMAND_HELP: Record<string, string> = {
-  init: "ztron init [dir] [--template <name>]   Scaffold a new project (templates: vanilla | react-ts | vue-ts | svelte)",
-  doctor: "ztron doctor                          Check node/cli-bin/native chain health (exit 1 on fail)",
-  dev: "ztron dev [--entry <file>]              Bundle + run under the native host + tjs backend",
-  build: "ztron build [--entry <file>]            Produce a standalone executable (.app/dmg on macOS)",
-  check: "ztron check [--entry <file>] [--timeout <ms>] [--expect TAGS]  Regression run; exit 0 only on FULL_OK",
-  bench: "ztron bench [--runs n] [--record] [--no-gui] [--json <path>]  Perf bench gated by perf-budget.json",
-  codegen: "ztron codegen                        Typed invoke bindings for your commands",
-  icon: "ztron icon [png] [-o outdir]           Generate iconset/icns from a PNG",
-  info: "ztron info                              Print project/environment info",
-  add: "ztron add <plugin>                      Register a plugin in ztron.conf.json",
-  migrate: "ztron migrate                        Migrate ztron.conf.json to the current schema",
-  signer: "ztron signer ...                     Minisign key utilities for the updater",
-  version: "ztron version                        Print version",
-};
-
-function printHelp(command: string): void {
-  if (command && COMMAND_HELP[command]) {
-    console.log(COMMAND_HELP[command]);
-    return;
-  }
-  console.log(`ztron ${CLI_VERSION}`);
-  console.log(USAGE);
-}
-
-function levenshtein(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
-  for (let i = 1; i <= a.length; i += 1) {
-    const cur: number[] = [i];
-    for (let j = 1; j <= b.length; j += 1) {
-      cur[j] = Math.min(
-        prev[j]! + 1,
-        cur[j - 1]! + 1,
-        prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
-      );
-    }
-    prev = cur;
-  }
-  return prev[b.length]!;
-}
-
-/** Nearest known command within edit distance 2, else undefined. */
-function suggestCommand(input: string): string | undefined {
-  let best: string | undefined;
-  let bestDist = Infinity;
-  for (const c of Object.keys(COMMAND_HELP)) {
-    const d = levenshtein(input, c);
-    if (d < bestDist) {
-      bestDist = d;
-      best = c;
-    }
-  }
-  return bestDist <= 2 ? best : undefined;
-}
 
 interface ProjectConfig {
   $schema?: string;
@@ -1430,13 +1351,18 @@ async function main(): Promise<void> {
       break;
     }
     case "doctor": {
+      const asJson = process.argv.slice(3).includes("--json");
       const { runDoctor } = await import("./doctor.js");
       const report = runDoctor({ cwd, env: process.env, platform: process.platform });
-      for (const c of report.checks) {
-        console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
-        if (!c.pass) console.log(`      hint: ${c.hint}`);
+      if (asJson) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        for (const c of report.checks) {
+          console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
+          if (!c.pass) console.log(`      hint: ${c.hint}`);
+        }
+        console.log(report.ok ? "doctor: OK" : "doctor: FAILED");
       }
-      console.log(report.ok ? "doctor: OK" : "doctor: FAILED");
       if (!report.ok) process.exitCode = 1;
       break;
     }
@@ -1483,10 +1409,19 @@ async function main(): Promise<void> {
       break;
     }
     case "info": {
-      (await import("./tools.js")).printInfo(
-        cwd,
-        process.env.ZTRON_TJS ?? "",
-      );
+      (await import("./tools.js")).printInfo(cwd, CLI_VERSION);
+      break;
+    }
+    case "completions": {
+      const script = renderCompletions(positional ?? "");
+      if (!script) {
+        process.stderr.write(
+          `✗ 未知 shell "${positional}" — 支持: bash | zsh | fish | powershell\n`,
+        );
+        process.exitCode = 2;
+        break;
+      }
+      process.stdout.write(script);
       break;
     }
     case "add": {
@@ -1512,6 +1447,12 @@ async function main(): Promise<void> {
       console.error(USAGE);
       process.exitCode = 2;
     }
+  }
+
+  // Update notice: cache-driven (zero latency), refresh is unref'd/best-effort.
+  // Skipped for machine-consumed output (version/completions).
+  if (command !== "version" && command !== "completions") {
+    runUpdateCheck({ cliVersion: CLI_VERSION });
   }
 }
 
