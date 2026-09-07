@@ -11,6 +11,7 @@
   "dependencies": {
     "@zturnlibs/ztron-api": "workspace:*",
     "@zturnlibs/ztron-core": "workspace:*",
+    "@zturnlibs/ztron-react": "workspace:*",
     "@zturnlibs/ztron-runtime-ffi": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
