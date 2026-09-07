@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runDoctor } from "../../packages/cli/dist/doctor.js";
+import { runDoctor, renderDoctor } from "../../packages/cli/dist/doctor.js";
 
 function nativeRepo(): string {
   const root = mkdtempSync(join(tmpdir(), "ztron-doc-"));
@@ -115,4 +115,27 @@ test("doctor: walk-up chain alone satisfies checks without env (bundled layer is
   assert.equal(byName["ztron-host"].pass, true);
   assert.equal(byName["webview library"].pass, true);
   rmSync(repo, { recursive: true, force: true });
+});
+
+test("renderDoctor: grouped card with summary, hints only on failures", () => {
+  const repo = nativeRepo();
+  const empty = mkdtempSync(join(tmpdir(), "ztron-render-"));
+  const healthy = runDoctor({
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+  });
+  const okText = renderDoctor(healthy);
+  for (const group of ["Environment", "Native chain", "CLI", "Platform"]) {
+    assert.ok(okText.includes(group), `missing group ${group}`);
+  }
+  assert.match(okText, /✓ doctor: OK — 7\/7 checks passed/);
+  assert.doesNotMatch(okText, /↳ hint:/);
+
+  const broken = runDoctor({ cwd: empty, env: CLEAN_ENV, platform: "darwin" });
+  const badText = renderDoctor(broken);
+  assert.match(badText, /✗ doctor: FAILED — \d+ of \d+ checks failed/);
+  assert.match(badText, /↳ hint: .*(ztron-cli|build-native\.sh)/);
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(empty, { recursive: true, force: true });
 });
