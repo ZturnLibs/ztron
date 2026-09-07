@@ -10,7 +10,14 @@ export default defineConfig({
   base: "/ztron/docs/",
   lang: "zh",
   title: "Ztron",
-  icon: "/zturnlabs-icon.png",
+  // favicon：与官网同源的 Ztron 蓝色 Z（App 图标同款）；组织 Logo 不再用于产品文档
+  icon: "/favicon-32.png",
+  // 导航栏 Logo：官网首页 Nav 同款渐变 Z（website/src/components/Logo.astro）。
+  // 注意：rspress 1.x 的 logo/logoText 是顶层配置键（core 归一化只读 userConfig.logo），
+  // 写进 themeConfig 会被静默忽略——这正是此前导航栏一直没有 Logo 的原因。
+  logo: "/ztron-logo.svg",
+  // 导航栏字标：logo 存在时主题只渲染 logoText（不再回退到 title），必须显式给出
+  logoText: "Ztron",
   locales: [
     { lang: "zh", label: "中文" },
     { lang: "en", label: "English" },
