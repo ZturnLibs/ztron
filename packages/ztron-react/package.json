@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-react",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Official React hooks for Ztron: useInvoke / useListen / useChannelStream on top of @zturnlibs/ztron-api",
   "type": "module",
   "main": "./dist/index.js",
