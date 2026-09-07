@@ -15,11 +15,6 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      # webview upstream's CMake requires clang-format at configure time
-      # (find_program REQUIRED); the macos-14 runner image ships Xcode CLT
-      # without it, so install the brew formula before building.
-      - name: install clang-format (webview cmake requirement)
-        run: brew install clang-format
       - name: build native chain (txiki.js + webview, cmake)
         run: bash scripts/build-native.sh
       - name: stage artifacts into the platform package
