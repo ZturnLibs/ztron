@@ -22,7 +22,10 @@ export type TemplateFiles = Record<string, string>;
 const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
-declare const tjs: { env: Record<string, string | undefined> };
+declare const tjs: {
+  env: Record<string, string | undefined>;
+  exit: (code: number) => void;
+};
 
 const runtime = new HostRuntime({
   host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
@@ -43,10 +46,21 @@ const html = \`<!doctype html>
 </html>\`;
 
 new AppBuilder(runtime, "com.example.app")
+  .configure({
+    invokeKey: tjs.env.ZTRON_INVOKE_KEY ?? Math.random().toString(36).slice(2),
+  })
   .plugin(fsPlugin({ scope: { allow: ["$TMP/**"] } }))
   .setup((app) => {
     app.command("hello", (args) => {
       const { name } = (args ?? {}) as { name?: string };
+      // Frontend beacon: the scaffolded page invokes \`hello\` on load, so
+      // this line proves the webview executed the bundle end-to-end.
+      // \`ztron check --expect HELLO_OK\` parses it; in check mode the app
+      // then self-exits so the harness gets a deterministic verdict.
+      console.log("HELLO_OK");
+      if (tjs.env.ZTRON_CHECK === "1") {
+        setTimeout(() => tjs.exit(0), 300);
+      }
       return "hello, " + (name ?? "world");
     });
   })

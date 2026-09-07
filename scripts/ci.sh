@@ -144,6 +144,60 @@ run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
+# ---- 6. packaged spike -------------------------------------------------------
+
+# Full packaged-chain e2e: pack the local workspace tarballs, scaffold, build
+# and LAUNCH the .app, then require the frontend's HELLO_OK beacon in the
+# launcher log. This is the only gate that exercises exactly what an npm
+# user gets: the bundled native chain, launcher, staged Resources conf and
+# the IIFE frontend executing inside the webview (0.3.5 shipped a white-
+# window packaged app that every other check passed). Needs a GUI session —
+# headless runners hang at window creation, so ci.yml's macos-spike job
+# downgrades failures of THIS step (grep for its marker).
+step "packaged spike (scaffold → build → launch .app → HELLO_OK)"
+PACK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ztron-pack-spike-XXXXXX")"
+for d in inject core runtime-ffi api cli; do
+  ( cd "$ROOT/packages/$d" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null ) \
+    || fail "pack $d tarball"
+done
+( cd "$PACK_DIR" && ztron init smoke-app >/dev/null ) || fail "smoke init"
+(
+  cd "$PACK_DIR/smoke-app" \
+    && npm install --no-fund --no-audit >/dev/null \
+    && npm install --no-fund --no-audit --no-save "$PACK_DIR"/zturnlibs-ztron-*.tgz >/dev/null
+) || fail "smoke npm install"
+# Force the spike onto the LOCAL native chain when a full build ran
+# (--skip-native may leave native/libs empty — then whatever the published
+# darwin package ships gets tested, which is still a valid gate).
+DARWIN_DIR="$PACK_DIR/smoke-app/node_modules/@zturnlibs/ztron-darwin-arm64"
+mkdir -p "$DARWIN_DIR/native/libs"
+for f in tjs ztron-host libwebview.dylib libwebview.0.12.dylib libwebview.0.12.0.dylib; do
+  [ -f "$ROOT/native/libs/$f" ] && cp "$ROOT/native/libs/$f" "$DARWIN_DIR/native/libs/$f"
+done
+# The spike's CLI runs from the repo workspace, whose `darwin-arm64` link
+# ships WITHOUT native/ — point the locators at the smoke-app's resolved
+# bundled chain explicitly.
+export ZTRON_TJS="$DARWIN_DIR/native/libs/tjs"
+export ZTRON_HOST_BIN="$DARWIN_DIR/native/libs/ztron-host"
+export ZTRON_WEBVIEW_LIB="$DARWIN_DIR/native/libs/libwebview.dylib"
+( cd "$PACK_DIR/smoke-app" && ztron build ) > /tmp/ci-pack-build.log 2>&1 \
+  || { tail -20 /tmp/ci-pack-build.log; fail "packaged build"; }
+( cd "$PACK_DIR/smoke-app/dist" && ./ZtronApp.app/Contents/MacOS/ztron ) \
+  > /tmp/ci-pack-launch.log 2>&1 &
+LAUNCH_PID=$!
+PACK_OK=0
+for _ in $(seq 1 30); do
+  grep -q HELLO_OK /tmp/ci-pack-launch.log && PACK_OK=1 && break
+  sleep 1
+done
+kill "$LAUNCH_PID" 2>/dev/null || true
+pkill -f "ztron-backend" 2>/dev/null || true
+if [ "$PACK_OK" -ne 1 ]; then
+  tail -20 /tmp/ci-pack-launch.log || true
+  fail "packaged spike (HELLO_OK missing — packaged webview did not execute the frontend)"
+fi
+tail -2 /tmp/ci-pack-launch.log
+
 # ---- summary -----------------------------------------------------------------
 
 # Kill any straggler dev servers / backends: the CLI's vite child holds the
@@ -153,5 +207,5 @@ pkill -f "vite" 2>/dev/null || true
 pkill -f "ztron-host" 2>/dev/null || true
 pkill -f "ztron check" 2>/dev/null || true
 
-printf '\n\033[1;32m✓ FULL CI GREEN\033[0m  (native%s · build · units · hello · multiwin)\n' \
+printf '\n\033[1;32m✓ FULL CI GREEN\033[0m  (native%s · build · units · spikes · packaged)\n' \
   "$([[ $SKIP_NATIVE -eq 1 ]] && echo ' [skipped]' || echo '')"
