@@ -5,6 +5,8 @@
 import {
   spawnSync,
 } from "node:child_process";
+import { findTjs, findHostBin, findWebviewLib, findBundledNative } from "./native-locate.js";
+import { bold, dim } from "./ui.js";
 import {
   existsSync,
   mkdirSync,
@@ -89,25 +91,44 @@ export function generateIcons(
 }
 
 /** `ztron info` — environment report (tauri info spirit). */
-export function printInfo(cwd: string, tjsPath: string): void {
-  const lines: Array<[string, string]> = [
-    ["node", process.version],
-    ["platform", `${process.platform} ${process.arch}`],
-    ["cwd", cwd],
+/** Tauri-style environment report: resolves every artifact through the
+ *  full locator chain (env -> walk-up -> bundled), so it reflects what
+ *  `ztron dev`/`build` would actually use — not just monorepo paths. */
+export function printInfo(cwd: string, cliVersion: string): void {
+  const line = (k: string, v: string) => console.log(`  ${k.padEnd(14)} ${v}`);
+  const section = (t: string) => console.log(bold(t));
+
+  section("Environment");
+  line("node", process.version);
+  line("platform", `${process.platform} ${process.arch}`);
+  line("cli", `${cliVersion}`);
+
+  section("Native chain");
+  const items: Array<[string, () => string]> = [
+    ["tjs", () => findTjs()],
+    ["ztron-host", () => findHostBin(cwd)],
+    ["webview", () => findWebviewLib(cwd) ?? ""],
   ];
-  const tjs = tjsPath || "native/txiki.js/build/tjs";
-  lines.push(["tjs", `${tjs} (${existsSync(tjs) ? "found" : "MISSING"})`]);
-  const host = "native/libs/ztron-host";
-  lines.push(["ztron-host", `${host} (${existsSync(host) ? "built" : "missing"})`]);
-  const lib = "native/libs/libwebview.dylib";
-  lines.push(["libwebview", `${lib} (${existsSync(lib) ? "built" : "missing"})`]);
+  for (const [name, locate] of items) {
+    try {
+      const p = locate();
+      if (!p || !existsSync(p)) {
+        line(name, "not found");
+        continue;
+      }
+      const source = findBundledNative(name === "webview" ? "libwebview.dylib" : name)
+        ? "bundled"
+        : "local";
+      line(name, `${p} ${dim(`(${source})`)}`);
+    } catch {
+      line(name, `not found ${dim("(run ztron doctor)")}`);
+    }
+  }
+
+  section("Project");
   const conf = join(cwd, "ztron.conf.json");
-  lines.push(["ztron.conf.json", existsSync(conf) ? "present" : "absent"]);
-  const caps = join(cwd, "capabilities");
-  lines.push(["capabilities/", existsSync(caps) ? "present" : "absent"]);
-  const sips = spawnSync("which", ["sips"], { encoding: "utf8" });
-  lines.push(["sips (icon tooling)", sips.status === 0 ? "available" : "absent"]);
-  for (const [k, v] of lines) console.log(`  ${k.padEnd(20)} ${v}`);
+  line("ztron.conf.json", existsSync(conf) ? "present" : "absent");
+  line("capabilities/", existsSync(join(cwd, "capabilities")) ? "present" : "absent");
 }
 
 /** `ztron add <plugin>` — scaffolds a capability file + prints the wiring. */
