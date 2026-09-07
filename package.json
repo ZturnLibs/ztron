@@ -21,6 +21,11 @@
     "docs:api": "pnpm --dir docs run gen:api"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "@zturnlibs/ztron-api": "workspace:*",
+    "jsdom": "^26.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.2",
+    "vue": "^3.5.0"
   }
 }

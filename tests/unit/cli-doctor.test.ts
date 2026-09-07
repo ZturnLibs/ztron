@@ -19,10 +19,60 @@ const CLEAN_ENV = { PATH: "/nonexistent-ztron-path" } as NodeJS.ProcessEnv;
 
 test("doctor: all pass when chain is discoverable", () => {
   const repo = nativeRepo();
-  const r = runDoctor({ cwd: repo, env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") }, platform: "darwin" });
+  const r = runDoctor({
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+    // Hermetic "chain version": pin both versions so a platform package
+    // linked in the dev workspace (pnpm workspace link leaks its real
+    // version into the auto-detected bundledVersion) cannot flip this
+    // check's expectation. Equal pins keep the check passing by contract.
+    cliVersion: "0.0.0-test",
+    bundledVersion: "0.0.0-test",
+  });
   assert.equal(r.ok, true);
-  assert.equal(r.checks.length, 5);
+  assert.equal(r.checks.length, 7);
   for (const c of r.checks) assert.equal(c.pass, true, `${c.name}: ${c.detail}`);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: missing entry shebang fails (Volta ENOEXEC sentinel)", () => {
+  const repo = nativeRepo();
+  const fakeEntry = join(repo, "fake-entry.js");
+  writeFileSync(fakeEntry, "console.log('hi');\n");
+  const r = runDoctor({
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+    entryPath: fakeEntry,
+  });
+  const byName = Object.fromEntries(r.checks.map((c) => [c.name, c]));
+  assert.equal(byName["cli bin integrity"].pass, false);
+  assert.match(byName["cli bin integrity"].hint, /ztron-cli/);
+  assert.equal(r.ok, false);
+  rmSync(repo, { recursive: true, force: true });
+});
+
+test("doctor: bundled chain version mismatch fails, absence passes", () => {
+  const repo = nativeRepo();
+  const base = {
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+  };
+  const mismatch = runDoctor({ ...base, cliVersion: "1.0.0", bundledVersion: "0.3.1" });
+  const byName = Object.fromEntries(mismatch.checks.map((c) => [c.name, c]));
+  assert.equal(byName["chain version"].pass, false);
+  assert.match(byName["chain version"].hint, /ztron-cli/);
+  assert.equal(mismatch.ok, false);
+
+  // `null` forces "not installed" — hermetic even when the dev workspace has
+  // @zturnlibs/ztron-darwin-arm64 linked (pnpm workspace link would otherwise
+  // leak its 0.3.1 version into this check and flip the expectation).
+  const absent = runDoctor({ ...base, cliVersion: "1.0.0", bundledVersion: null });
+  const byName2 = Object.fromEntries(absent.checks.map((c) => [c.name, c]));
+  assert.equal(byName2["chain version"].pass, true);
+  assert.match(byName2["chain version"].detail, /not installed/);
   rmSync(repo, { recursive: true, force: true });
 });
 

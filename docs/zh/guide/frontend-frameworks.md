@@ -31,6 +31,7 @@ Tailwind CSS 等前端生态的框架与工具链都能直接接入。本文以
 {
   "dependencies": {
     "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -102,8 +103,8 @@ React 19 的 `StrictMode` 在开发期会把 effect 执行两遍
 `clearWatch`）由此有一条硬约定：**unlisten 等清理必须在 cleanup 中返回**，
 否则双挂载会留下重复监听与重复回调。
 
-react-demo 的 `frontend/src/hooks.ts` 给出三个可直接抄走的 hook（也是未来
-`@zturnlibs/ztron-react` 包的种子实现）：
+react-demo 的 `frontend/src/hooks.ts` 给出三个可直接抄走的 hook（已抽取为
+下文的官方包 `@zturnlibs/ztron-react`，demo 侧改为对该包的 re-export）：
 
 ```ts
 // 声明式调用命令：挂载或 args 变化时执行一次，卸载后丢弃结果
@@ -136,6 +137,32 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 // 流式推送：按钮触发 stream.start()，渲染 stream.messages
 const stream = useChannelStream<number>("react-demo:stream");
 ```
+
+> **官方适配包（Official adapter packages）**：React 的 hooks、Vue 的
+> composables 与 Svelte 的监听助手已分别抽取为官方包
+> `@zturnlibs/ztron-react`、`@zturnlibs/ztron-vue`、
+> `@zturnlibs/ztron-svelte`。三者都只依赖 `@zturnlibs/ztron-api`，peer
+> dependency 各自对应所用框架（`react >= 18`、`vue ^3.5`、`svelte ^5`），
+> 三个 demo 也都改为 re-export 接入。每个包一行用法：
+>
+> ```tsx
+> import { useInvoke, useListen, useChannelStream } from "@zturnlibs/ztron-react";
+> const osInfo = useInvoke<OsInfo>("plugin:os|info", {}); // 声明式调用，data/error/loading 三态
+> ```
+>
+> ```ts
+> import { useInvoke } from "@zturnlibs/ztron-vue";
+> const { data, error, loading } = useInvoke<OsInfo>("plugin:os|info", {}); // 同名三件套，ref 三态
+> ```
+>
+> ```ts
+> import { listenOnMount } from "@zturnlibs/ztron-svelte";
+> listenOnMount<number>("demo:tick", (e) => console.log(e.payload)); // 组件内订阅，onDestroy 自动 unlisten
+> ```
+>
+> react 包以 React 19 实测（React 18 亦可）；vue 包的清理统一挂在
+> `onScopeDispose` 上（组件卸载与 `effectScope.stop()` 都会收尾）；svelte
+> 包另提供可独立使用的 `subscribe`（同步返回清理函数，组件外也能用）。
 
 ## Vue 3 接入
 
@@ -194,16 +221,18 @@ react-demo 的「越 root 引用」约束对 Vue 同样成立：运行时用
 参考形状展示。
 
 composables 清理约定：React 的 hooks 清理约定换到 Vue 就是
-**unlisten 挂在 `onUnmounted`/`onScopeDispose` 上收尾**。vue-demo 的
-`frontend/src/composables.ts` 给出三个可直接抄走的 composable（也是未来
-`@zturnlibs/ztron-vue` 包的种子实现）：
+**unlisten 挂在 `onScopeDispose` 上收尾**（组件卸载与 `effectScope.stop()`
+都会触发）。vue-demo 的 `frontend/src/composables.ts` 给出三个可直接抄走的
+composable（已抽取为 `@zturnlibs/ztron-vue`，demo 侧改为对该包的
+re-export）：
 
 ```ts
-// 声明式调用命令：setup 时执行一次，卸载后丢弃结果
+// 声明式调用命令：setup 时执行一次，reactive args 按值变化时重跑，卸载后
+// 丢弃晚到结果
 // 返回 { data, error, loading } 三个 ref（watch 的 onCleanup 作废晚到响应）
 function useInvoke<T>(cmd: string, args?: InvokeArgs): InvokeState<T>;
 
-// 订阅后端事件：onMounted 内 await listen，onUnmounted 时 unlisten；
+// 订阅后端事件：composable 运行时发起 listen，onScopeDispose 时 unlisten；
 // 若卸载先于 listen 兑现，拿到监听后立即注销
 function useListen<T>(event: string, handler: EventCallback<T>): void;
 
@@ -287,16 +316,19 @@ react/vue 的「越 root 引用」约束对 Svelte 同样成立：运行时用
 `invoke<string>("svelte-demo:greet", { name })` 直调，codegen 类型绑定只作
 参考形状展示。
 
-runes 清理约定：React/Vue 的清理约定换到 Svelte 就是**订阅在 `onMount`
+runes 清理约定：React/Vue 的清理约定换到 Svelte 就是**订阅在组件初始化时
 发起、unlisten 在 `onDestroy` 收尾**。svelte-demo 的
-`frontend/src/lib/listeners.ts` 给出可直接抄走的监听助手（也是未来
-`@zturnlibs/ztron-svelte` 包的种子实现；只用生命周期钩子、不涉及 runes，
-所以放普通 `.ts` 模块即可）：
+`frontend/src/lib/listeners.ts` 给出可直接抄走的监听助手（已抽取为
+`@zturnlibs/ztron-svelte`，demo 侧改为对该包的 re-export；只用生命周期
+钩子、不涉及 runes，所以放普通 `.ts` 模块即可）：
 
 ```ts
-// 订阅后端事件：onMount 内 await listen，onDestroy 时 unlisten；
+// 订阅后端事件：组件初始化时发起 listen，onDestroy 时 unlisten；
 // 若卸载先于 listen 兑现，拿到监听后立即注销
 function listenOnMount<T>(event: string, handler: EventCallback<T>): void;
+
+// 无组件上下文时的平替：同步返回清理函数，由调用方负责收尾
+function subscribe<T>(event: string, handler: EventCallback<T>): () => void;
 ```
 
 {#await import} 与 IIFE 内联：Svelte 的懒加载写法是 await 块直接消费动态

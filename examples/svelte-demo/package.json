@@ -12,6 +12,7 @@
     "@zturnlibs/ztron-api": "workspace:*",
     "@zturnlibs/ztron-core": "workspace:*",
     "@zturnlibs/ztron-runtime-ffi": "workspace:*",
+    "@zturnlibs/ztron-svelte": "workspace:*",
     "svelte": "^5.0.0"
   },
   "devDependencies": {

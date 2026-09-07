@@ -35,6 +35,7 @@ frontend dependencies:
 {
   "dependencies": {
     "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -111,7 +112,7 @@ subscription-style APIs (`listen` returns an `UnlistenFn`; geolocation's
 mount leaves duplicate listeners and duplicate callbacks behind.
 
 `frontend/src/hooks.ts` in react-demo provides three hooks you can copy as-is
-(also the seed implementation of a future `@zturnlibs/ztron-react` package):
+(extracted into the official package below; the demo now re-exports it):
 
 ```ts
 // Declarative command call: runs once on mount or when args change;
@@ -146,6 +147,35 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 // Streaming push: a button calls stream.start(), render stream.messages
 const stream = useChannelStream<number>("react-demo:stream");
 ```
+
+> **Official adapter packages**: the React hooks, the Vue composables and
+> the Svelte listener helpers are extracted into the official packages
+> `@zturnlibs/ztron-react`, `@zturnlibs/ztron-vue` and
+> `@zturnlibs/ztron-svelte`. All three depend only on
+> `@zturnlibs/ztron-api`, their peer dependencies match the framework
+> (`react >= 18`, `vue ^3.5`, `svelte ^5`), and all three demos consume
+> them via re-export shims. One-line usage for each package:
+>
+> ```tsx
+> import { useInvoke, useListen, useChannelStream } from "@zturnlibs/ztron-react";
+> const osInfo = useInvoke<OsInfo>("plugin:os|info", {}); // declarative call, data/error/loading
+> ```
+>
+> ```ts
+> import { useInvoke } from "@zturnlibs/ztron-vue";
+> const { data, error, loading } = useInvoke<OsInfo>("plugin:os|info", {}); // same names, ref-based
+> ```
+>
+> ```ts
+> import { listenOnMount } from "@zturnlibs/ztron-svelte";
+> listenOnMount<number>("demo:tick", (e) => console.log(e.payload)); // in-component, auto unlisten at onDestroy
+> ```
+>
+> The react package is tested against React 19 (React 18 works too); the
+> vue package tears everything down in `onScopeDispose` (fires on component
+> unmount and on `effectScope.stop()` alike); the svelte package also ships
+> a standalone `subscribe` (returns the cleanup synchronously, usable
+> outside components).
 
 ## Vue 3 Integration
 
@@ -208,20 +238,22 @@ Vue as well: runtime calls go through `invoke<string>("vue-demo:greet",
 shape.
 
 The composables cleanup convention: React's hooks cleanup rule translates
-to Vue as **the unlisten must be torn down in `onUnmounted` /
-`onScopeDispose`**. `frontend/src/composables.ts` in vue-demo provides three
-composables you can copy as-is (also the seed implementation of a future
-`@zturnlibs/ztron-vue` package):
+to Vue as **the unlisten must be torn down in `onScopeDispose`** (fires on
+component unmount and on `effectScope.stop()` alike).
+`frontend/src/composables.ts` in vue-demo provides three composables you
+can copy as-is (extracted into `@zturnlibs/ztron-vue`; the demo re-exports
+the package):
 
 ```ts
-// Declarative command call: runs once in setup; results are dropped after
-// unmount. Returns three refs { data, error, loading }; the watch's
-// onCleanup invalidates late responses
+// Declarative command call: runs once in setup, re-runs when reactive args
+// change by value; late results are dropped after unmount. Returns three
+// refs { data, error, loading }; the watch's onCleanup invalidates late
+// responses
 function useInvoke<T>(cmd: string, args?: InvokeArgs): InvokeState<T>;
 
-// Backend event subscription: await listen inside onMounted, unlisten in
-// onUnmounted; if unmount lands before listen resolves, the listener is
-// unregistered as soon as it arrives
+// Backend event subscription: listen starts when the composable runs,
+// unlisten is registered on onScopeDispose; if disposal lands before
+// listen resolves, the listener is unregistered as soon as it arrives
 function useListen<T>(event: string, handler: EventCallback<T>): void;
 
 // Channel streaming call: start() creates the channel and invokes; messages
@@ -312,17 +344,21 @@ applies to Svelte as well: runtime calls go through
 bindings shown only as a reference shape.
 
 The runes cleanup convention: React/Vue's cleanup rule translates to Svelte
-as **subscriptions start in `onMount` and the unlisten is torn down in
-`onDestroy`**. `frontend/src/lib/listeners.ts` in svelte-demo provides a
-listener helper you can copy as-is (also the seed implementation of a
-future `@zturnlibs/ztron-svelte` package; it only uses lifecycle hooks and
-no runes, so a plain `.ts` module is enough):
+as **the subscription starts during component initialisation and the
+unlisten is torn down in `onDestroy`**. `frontend/src/lib/listeners.ts` in
+svelte-demo provides a listener helper you can copy as-is (extracted into
+`@zturnlibs/ztron-svelte`; the demo re-exports the package; it only uses
+lifecycle hooks and no runes, so a plain `.ts` module is enough):
 
 ```ts
-// Backend event subscription: await listen inside onMount, unlisten in
-// onDestroy; if unmount lands before listen resolves, the listener is
-// unregistered as soon as it arrives
+// Backend event subscription: listen starts at component initialisation,
+// unlisten runs at onDestroy; if unmount lands before listen resolves, the
+// listener is unregistered as soon as it arrives
 function listenOnMount<T>(event: string, handler: EventCallback<T>): void;
+
+// Standalone alternative without component context: returns the cleanup
+// synchronously, the caller owns tearing it down
+function subscribe<T>(event: string, handler: EventCallback<T>): () => void;
 ```
 
 {#await import} and IIFE inlining: Svelte's lazy-loading idiom is an await

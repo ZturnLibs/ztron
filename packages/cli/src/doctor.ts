@@ -2,9 +2,13 @@
  * `ztron doctor` — one-shot environment check for newcomers.
  * Pure logic here (returns a report); index.ts renders and sets exit code.
  */
-import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findTjs, findHostBin, findWebviewLib, findBundledNative } from "./native-locate.js";
+
+const require = createRequire(import.meta.url);
 
 export interface DoctorCheck {
   name: string;
@@ -24,9 +28,31 @@ export function runDoctor(opts: {
   cwd: string;
   env: NodeJS.ProcessEnv;
   platform: string;
+  /** Injectable for tests; defaults to this dist's own entry file. */
+  entryPath?: string;
+  /** Injectable for tests; defaults to this package's version. */
+  cliVersion?: string;
+  /** Injectable for tests; defaults to the bundled platform package's version.
+   * `null` forces "not installed" (hermetic tests — a dev workspace may have
+   * the platform package linked, which would otherwise leak into the check). */
+  bundledVersion?: string | null;
 }): DoctorReport {
   const { cwd, env, platform } = opts;
   const checks: DoctorCheck[] = [];
+
+  const cliVersion = opts.cliVersion ?? (require("../package.json") as { version: string }).version;
+  const entryPath = opts.entryPath ?? fileURLToPath(new URL("./index.js", import.meta.url));
+  let bundledVersion: string | null | undefined = opts.bundledVersion;
+  if (bundledVersion === undefined) {
+    try {
+      bundledVersion = (
+        require("@zturnlibs/ztron-darwin-arm64/package.json") as { version: string }
+      ).version;
+    } catch {
+      bundledVersion = null;
+    }
+  }
+  const bundledAbsent = bundledVersion === null;
 
   const nodeOk = Number.parseInt(process.versions.node, 10) >= 20;
   checks.push({
@@ -72,8 +98,44 @@ export function runDoctor(opts: {
     hint: CHAIN_HINT,
   });
 
+  /* CLI bin integrity: the installed entry must carry a node shebang. npm's
+     bin-links auto-prepends it, but Volta/pnpm-style linkers install a bare
+     symlink — without the shebang the kernel ENOEXECs and the user's shell
+     interprets the JS as a script (2026-09-07 fork-chain incident). */
+  let shebangOk = false;
+  let shebangDetail = `${entryPath} (missing)`;
+  try {
+    const firstLine = readFileSync(entryPath, "utf8").split("\n")[0] ?? "";
+    shebangOk = firstLine.startsWith("#!");
+    shebangDetail = shebangOk ? `${entryPath} shebang ok` : `${entryPath} missing "#!" first line`;
+  } catch {
+    shebangOk = false;
+  }
+  checks.push({
+    name: "cli bin integrity",
+    pass: shebangOk,
+    detail: shebangDetail,
+    hint: shebangOk ? "" : "reinstall the CLI (`npm i -g @zturnlibs/ztron-cli`)",
+  });
+
+  /* Bundled chain / CLI version alignment: an out-of-sync platform package
+     means the native chain predates the CLI — reinstall realigns them (the
+     optionalDependencies pin is exact). No bundled package (source/dev mode)
+     passes vacuously. */
+  const chainSynced = bundledAbsent || bundledVersion === cliVersion;
+  checks.push({
+    name: "chain version",
+    pass: chainSynced,
+    detail: bundledAbsent
+      ? "bundled chain not installed (source/dev mode)"
+      : `bundled ${bundledVersion} vs cli ${cliVersion}`,
+    hint: chainSynced
+      ? ""
+      : "reinstall the CLI (`npm i -g @zturnlibs/ztron-cli`) to refresh the bundled native chain",
+  });
+
   /* Platform: informational only — it never fails the doctor. Always emitted
-     so the report has a stable shape (5 checks); on the supported dev
+     so the report has a stable shape (7 checks); on the supported dev
      platform it just confirms that, elsewhere it warns the host is a
      skeleton (see ROADMAP.md). */
   checks.push({
