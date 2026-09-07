@@ -31,13 +31,15 @@ fi
       && echo "    applied webview-local.patch" \
       || echo "    webview-local.patch already applied (or not needed)"
   fi
-  # WEBVIEW_ENABLE_CHECKS=OFF: upstream requires clang-format/clang-tidy at
-  # configure time when checks are on (top-level builds default them on).
-  # The chain build doesn't run dev checks, and CLT-only machines + the CI
-  # runner don't ship clang-tidy (2026-09-07 v0.3.2 release failure).
+  # Build only what the chain needs: upstream's top-level defaults enable
+  # amalgamation (requires python3 + clang-format), docs (doxygen), tests,
+  # examples and format/tidy checks (clang-format + clang-tidy, REQUIRED on
+  # CI) — none of which exist on CI runners / CLT-only contributor machines
+  # (2026-09-07 v0.3.2 release failures). Shared library is the deliverable.
   cmake -B build -DCMAKE_BUILD_TYPE=Release \
     -DWEBVIEW_BUILD=ON -DWEBVIEW_BUILD_SHARED_LIBRARY=ON \
-    -DWEBVIEW_ENABLE_CHECKS=OFF \
+    -DWEBVIEW_ENABLE_CHECKS=OFF -DWEBVIEW_BUILD_AMALGAMATION=OFF \
+    -DWEBVIEW_BUILD_DOCS=OFF -DWEBVIEW_BUILD_EXAMPLES=OFF -DWEBVIEW_BUILD_TESTS=OFF \
     ${WEBVIEW_CMAKE_ARGS:-}
   cmake --build build
 )
