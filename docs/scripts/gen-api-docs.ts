@@ -55,6 +55,39 @@ function outputDirFor(locale: ApiDocsLocale): string {
 }
 
 /**
+ * typedoc-plugin-markdown emits bare relative links (`](fs.md)`); rspress
+ * resolves those against the site source root instead of the current page's
+ * directory, producing broken site-absolute URLs (`/ztron/docs/fs.html`
+ * instead of `/ztron/docs/reference/api/fs.html`). Prefixing `./` makes
+ * rspress resolve against the page directory. Idempotent; leaves `./`,
+ * `/`-prefixed and external links untouched.
+ */
+export function normalizeRelativeMarkdown(markdown: string): string {
+  return markdown.replace(
+    /\]\((?!https?:\/\/)(?!\.?\/)([^)\s]+\.md)(#[^)\s]*)?\)/g,
+    (_match: string, target: string, anchor: string) => `](./${target}${anchor ?? ""})`,
+  );
+}
+
+async function normalizeRelativeLinks(outDir: string): Promise<void> {
+  const { readdir, readFile, writeFile } = await import("node:fs/promises");
+  const files = (await readdir(outDir)).filter((f) => f.endsWith(".md"));
+  let patchedCount = 0;
+  for (const file of files) {
+    const filePath = path.join(outDir, file);
+    const original = await readFile(filePath, "utf8");
+    const patched = normalizeRelativeMarkdown(original);
+    if (patched !== original) {
+      await writeFile(filePath, patched);
+      patchedCount += 1;
+    }
+  }
+  console.log(
+    `[gen-api-docs] normalized relative .md links in ${patchedCount}/${files.length} files`,
+  );
+}
+
+/**
  * typedoc renders the project landing page (index.md, a "## Modules"
  * list) plus a separate page for the entry module itself. With
  * `flattenOutputFiles` the entry module page would collide with
@@ -138,6 +171,7 @@ export async function buildApiDocs({
     }
     await app.generateOutputs(reflections);
     await removeEntryModulePage(outDir);
+    await normalizeRelativeLinks(outDir);
 
     const moduleNames = (reflections.children ?? [])
       .map((child) => child.name)
