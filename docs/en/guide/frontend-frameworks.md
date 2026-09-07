@@ -35,6 +35,7 @@ frontend dependencies:
 {
   "dependencies": {
     "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -111,7 +112,7 @@ subscription-style APIs (`listen` returns an `UnlistenFn`; geolocation's
 mount leaves duplicate listeners and duplicate callbacks behind.
 
 `frontend/src/hooks.ts` in react-demo provides three hooks you can copy as-is
-(also the seed implementation of a future `@zturnlibs/ztron-react` package):
+(extracted into the official package below; the demo now re-exports it):
 
 ```ts
 // Declarative command call: runs once on mount or when args change;
@@ -146,6 +147,23 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 // Streaming push: a button calls stream.start(), render stream.messages
 const stream = useChannelStream<number>("react-demo:stream");
 ```
+
+> **Official adapter packages**: the three hooks above are now published as
+> `@zturnlibs/ztron-react` (tested against React 19, peer dependency
+> `react >= 18`, depending only on `@zturnlibs/ztron-api`; React 18 works
+> too). The whole usage fits in five lines:
+>
+> ```tsx
+> import { useChannelStream, useInvoke, useListen } from "@zturnlibs/ztron-react";
+>
+> const osInfo = useInvoke<OsInfo>("plugin:os|info", {}); // declarative call
+> useListen<number>("demo:tick", (e) => console.log(e.payload)); // events
+> const stream = useChannelStream<number>("demo:stream"); // Channel stream
+> stream.start();
+> ```
+>
+> The Vue / Svelte twins (`@zturnlibs/ztron-vue`, `@zturnlibs/ztron-svelte`)
+> follow in the same release train, with API shapes mirroring the React one.
 
 ## Vue 3 Integration
 

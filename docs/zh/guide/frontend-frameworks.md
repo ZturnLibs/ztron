@@ -31,6 +31,7 @@ Tailwind CSS 等前端生态的框架与工具链都能直接接入。本文以
 {
   "dependencies": {
     "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -102,8 +103,8 @@ React 19 的 `StrictMode` 在开发期会把 effect 执行两遍
 `clearWatch`）由此有一条硬约定：**unlisten 等清理必须在 cleanup 中返回**，
 否则双挂载会留下重复监听与重复回调。
 
-react-demo 的 `frontend/src/hooks.ts` 给出三个可直接抄走的 hook（也是未来
-`@zturnlibs/ztron-react` 包的种子实现）：
+react-demo 的 `frontend/src/hooks.ts` 给出三个可直接抄走的 hook（已抽取为
+下文的官方包 `@zturnlibs/ztron-react`，demo 侧改为对该包的 re-export）：
 
 ```ts
 // 声明式调用命令：挂载或 args 变化时执行一次，卸载后丢弃结果
@@ -136,6 +137,22 @@ useListen<{ n: number }>("react-demo:tick", (e) => {
 // 流式推送：按钮触发 stream.start()，渲染 stream.messages
 const stream = useChannelStream<number>("react-demo:stream");
 ```
+
+> **官方 hooks 包（Official adapter packages）**：上面三个 hook 已发布为
+> `@zturnlibs/ztron-react`（以 React 19 实测，peer dependency
+> `react >= 18`，只依赖 `@zturnlibs/ztron-api`；React 18 亦可）。用法五行：
+>
+> ```tsx
+> import { useChannelStream, useInvoke, useListen } from "@zturnlibs/ztron-react";
+>
+> const osInfo = useInvoke<OsInfo>("plugin:os|info", {}); // 声明式调用
+> useListen<number>("demo:tick", (e) => console.log(e.payload)); // 事件订阅
+> const stream = useChannelStream<number>("demo:stream"); // Channel 流
+> stream.start();
+> ```
+>
+> Vue / Svelte 的 twins（`@zturnlibs/ztron-vue`、`@zturnlibs/ztron-svelte`）
+> 将在同一发布列车中跟进，API 形状与 React 版一一对应。
 
 ## Vue 3 接入
 
