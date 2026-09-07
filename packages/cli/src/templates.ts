@@ -77,7 +77,16 @@ const FRONTEND_HTML = `<!doctype html>
 const FRONTEND_MAIN = `import { invoke } from "@zturnlibs/ztron-api";
 
 const status = document.getElementById("status")!;
-status.textContent = String(await invoke("hello", { name: "scaffold" }));
+
+// No top-level await: \`ztron build\` emits the frontend as an IIFE, which
+// rejects TLA (dev's ESM server tolerates it — so this only breaks at build).
+invoke("hello", { name: "scaffold" })
+  .then((msg) => {
+    status.textContent = String(msg);
+  })
+  .catch((err) => {
+    status.textContent = String(err);
+  });
 `;
 
 export function vanillaTemplate(name: string): TemplateFiles {
