@@ -19,7 +19,17 @@ const CLEAN_ENV = { PATH: "/nonexistent-ztron-path" } as NodeJS.ProcessEnv;
 
 test("doctor: all pass when chain is discoverable", () => {
   const repo = nativeRepo();
-  const r = runDoctor({ cwd: repo, env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") }, platform: "darwin" });
+  const r = runDoctor({
+    cwd: repo,
+    env: { ...CLEAN_ENV, ZTRON_TJS: join(repo, "native/libs/tjs") },
+    platform: "darwin",
+    // Hermetic "chain version": pin both versions so a platform package
+    // linked in the dev workspace (pnpm workspace link leaks its real
+    // version into the auto-detected bundledVersion) cannot flip this
+    // check's expectation. Equal pins keep the check passing by contract.
+    cliVersion: "0.0.0-test",
+    bundledVersion: "0.0.0-test",
+  });
   assert.equal(r.ok, true);
   assert.equal(r.checks.length, 7);
   for (const c of r.checks) assert.equal(c.pass, true, `${c.name}: ${c.detail}`);
