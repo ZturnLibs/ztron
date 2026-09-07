@@ -182,6 +182,9 @@ importers:
       '@zturnlibs/ztron-runtime-ffi':
         specifier: workspace:*
         version: link:../../packages/runtime-ffi
+      '@zturnlibs/ztron-svelte':
+        specifier: workspace:*
+        version: link:../../packages/ztron-svelte
       svelte:
         specifier: ^5.0.0
         version: 5.57.0
@@ -341,6 +344,22 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/ztron-svelte:
+    dependencies:
+      '@zturnlibs/ztron-api':
+        specifier: workspace:*
+        version: link:../api
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      svelte:
+        specifier: ^5.0.0
+        version: 5.57.0
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
