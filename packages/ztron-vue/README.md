@@ -28,9 +28,10 @@ stream.start(); // then render stream.messages.value / stream.status.value
 </script>
 ```
 
-`useInvoke` re-runs when `cmd` changes or when reactive `args` change by
-value (pass a `reactive()` object to get reactivity; plain object args run
-once) and discards late responses after a re-run or unmount. `useListen`
+`useInvoke` re-runs when reactive `args` change by value (pass a
+`reactive()` object to get reactivity; plain object args and the `cmd`
+string are setup-time: they run once) and discards late responses after a
+re-run or unmount. `useListen`
 unlistens via `onScopeDispose`, including when the disposal wins the race
 against the pending `listen` promise. `useChannelStream` accumulates
 messages in arrival order; restarting or disposing the scope invalidates

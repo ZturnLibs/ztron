@@ -67,6 +67,7 @@ export type { SingleInstancePluginOptions } from "./single-instance.js";
 export { websocketPlugin } from "./websocket.js";
 export { localIpPlugin } from "./local-ip.js";
 export { networkPlugin } from "./network.js";
+export type { NetworkPluginOptions } from "./network.js";
 export { uploadPlugin } from "./upload.js";
 export type { UploadPluginOptions } from "./upload.js";
 export { persistedScopePlugin } from "./persisted-scope.js";

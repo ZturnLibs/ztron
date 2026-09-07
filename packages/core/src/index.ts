@@ -97,6 +97,7 @@ export type {
   PersistedScopePluginOptions,
   PathPluginOptions,
   LocalhostPluginOptions,
+  NetworkPluginOptions,
 } from "./plugins/index.js";
 export { HttpScope } from "./httpScope.js";
 export type { HttpScopeConfig, HttpScopeEntry } from "./httpScope.js";

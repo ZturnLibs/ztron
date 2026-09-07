@@ -3,8 +3,9 @@
  *
  * Each builder returns a { relativePath -> content } map; initProject writes
  * only the files that do not exist yet. Dependency conventions: `latest` for
- * @zturnlibs/* (npm-publish convention), caret ranges for third-party
- * toolchain. The react-ts, vue-ts and svelte templates codify the
+ * @zturnlibs/* (release-train products), caret ranges for third-party
+ * dependencies (framework majors must not land in new scaffolds unreviewed).
+ * The react-ts, vue-ts and svelte templates codify the
  * pipeline-verified React 19 / Vue 3 / Svelte 5 + Tailwind CSS v4
  * configurations from examples/react-demo (PR #20), examples/vue-demo
  * (PR #23) and examples/svelte-demo, minimized to runnable scaffolds
@@ -368,8 +369,8 @@ export function reactTsTemplate(name: string): TemplateFiles {
           "@zturnlibs/ztron-api": "latest",
           "@zturnlibs/ztron-core": "latest",
           "@zturnlibs/ztron-runtime-ffi": "latest",
-          react: "latest",
-          "react-dom": "latest",
+          react: "^19.0.0",
+          "react-dom": "^19.0.0",
         },
         devDependencies: {
           "@zturnlibs/ztron-cli": "latest",
@@ -533,7 +534,7 @@ export function vueTsTemplate(name: string): TemplateFiles {
           "@zturnlibs/ztron-api": "latest",
           "@zturnlibs/ztron-core": "latest",
           "@zturnlibs/ztron-runtime-ffi": "latest",
-          vue: "latest",
+          vue: "^3.5.0",
         },
         devDependencies: {
           "@zturnlibs/ztron-cli": "latest",
@@ -677,7 +678,7 @@ export function svelteTemplate(name: string): TemplateFiles {
           "@zturnlibs/ztron-api": "latest",
           "@zturnlibs/ztron-core": "latest",
           "@zturnlibs/ztron-runtime-ffi": "latest",
-          svelte: "latest",
+          svelte: "^5.0.0",
         },
         devDependencies: {
           "@zturnlibs/ztron-cli": "latest",

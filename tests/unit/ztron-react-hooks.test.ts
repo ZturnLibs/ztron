@@ -69,6 +69,12 @@ before(() => {
 after(() => {
   callbacks.clear();
   clearMocks();
+  // Remove the jsdom globals so a later non-isolated test file in the same
+  // process never sees this file's DOM environment.
+  delete (globalThis as { window?: unknown }).window;
+  delete (globalThis as { document?: unknown }).document;
+  delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean })
+    .IS_REACT_ACT_ENVIRONMENT;
 });
 
 beforeEach(() => {

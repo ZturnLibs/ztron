@@ -215,9 +215,24 @@ test("listenOnMount requires component-initialisation context (onDestroy binding
   // context Svelte's onDestroy throws; this pins the binding contract that
   // the README documents (call from a .svelte top-level script). The live
   // component behavior is proven by the svelte-demo smoke (SVELTE_DEMO_OK).
-  assert.throws(
-    () => listenOnMount("probe:tick", () => {}),
-    (err: unknown) => err instanceof Error,
-    "onDestroy binding must throw outside component initialisation",
-  );
+  //
+  // The test owns its transport (mockIPC, paired with clearMocks) instead of
+  // leaning on the preceding test's handler surviving clearMocks (the
+  // original-invoke was never captured, so there is nothing to restore), and
+  // the message is asserted so an onDestroy-context error cannot masquerade
+  // as a transport error (or vice versa).
+  mockIPC((cmd) => (cmd === "plugin:event|listen" ? 1 : null));
+  try {
+    listenOnMount("probe:tick", () => {});
+    assert.fail("onDestroy binding must throw outside component initialisation");
+  } catch (err) {
+    assert.ok(err instanceof TypeError, `expected a TypeError, got: ${err}`);
+    assert.match(
+      (err as Error).message,
+      /Cannot read properties of null/,
+      "expected Svelte's onDestroy-context error, not a transport error",
+    );
+  } finally {
+    clearMocks();
+  }
 });

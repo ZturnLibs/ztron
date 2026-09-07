@@ -143,6 +143,7 @@ export function useChannelStream<T = unknown>(
         setStatus("error");
       },
     );
+  // `args` by reference is intentional: a new args object re-creates start().
   }, [cmd, args]);
 
   // Unmount cleanup: invalidate any in-flight run so late channel messages

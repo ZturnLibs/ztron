@@ -104,9 +104,14 @@ test("init --template react-ts writes the React 19 + Tailwind v4 scaffold", () =
   // package.json: react deps + frontend toolchain + typecheck script.
   const pkg = JSON.parse(read(dir, "package.json"));
   assert.equal(pkg.scripts.typecheck, "tsc --noEmit");
-  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi", "react", "react-dom"]) {
+  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi"]) {
     assert.equal(pkg.dependencies[dep], "latest", `dep ${dep}`);
   }
+  // Third-party framework deps are pinned to the verified majors (only
+  // @zturnlibs/* ride `latest`); future framework majors must not land in
+  // new scaffolds unreviewed.
+  assert.equal(pkg.dependencies.react, "^19.0.0");
+  assert.equal(pkg.dependencies["react-dom"], "^19.0.0");
   for (const dep of [
     "@zturnlibs/ztron-cli",
     "vite",
@@ -211,9 +216,12 @@ test("init --template vue-ts writes the Vue 3 + Tailwind v4 scaffold", () => {
   // package.json: vue deps + frontend toolchain + vue-tsc typecheck script.
   const pkg = JSON.parse(read(dir, "package.json"));
   assert.equal(pkg.scripts.typecheck, "vue-tsc --noEmit");
-  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi", "vue"]) {
+  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi"]) {
     assert.equal(pkg.dependencies[dep], "latest", `dep ${dep}`);
   }
+  // Third-party framework dep pinned to the verified major (only
+  // @zturnlibs/* ride `latest`).
+  assert.equal(pkg.dependencies.vue, "^3.5.0");
   for (const dep of [
     "@zturnlibs/ztron-cli",
     "vite",
@@ -324,9 +332,12 @@ test("init --template svelte writes the Svelte 5 + Tailwind v4 scaffold", () => 
     pkg.scripts.typecheck,
     "svelte-check --tsconfig ./tsconfig.json --config ./svelte.config.js",
   );
-  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi", "svelte"]) {
+  for (const dep of ["@zturnlibs/ztron-api", "@zturnlibs/ztron-core", "@zturnlibs/ztron-runtime-ffi"]) {
     assert.equal(pkg.dependencies[dep], "latest", `dep ${dep}`);
   }
+  // Third-party framework dep pinned to the verified major (only
+  // @zturnlibs/* ride `latest`).
+  assert.equal(pkg.dependencies.svelte, "^5.0.0");
   for (const dep of [
     "@zturnlibs/ztron-cli",
     "vite",
