@@ -192,6 +192,113 @@ test("useInvoke resolves data from mockIPC and re-runs when args change", async 
 });
 
 /* ------------------------------------------------------------------ *
+ * useInvoke — stale-response regression (teeth for the `cancelled`
+ * guard): a mutant deleting the guard used to pass; these tests fail.
+ * ------------------------------------------------------------------ */
+
+test("useInvoke discards a late stale response after args change", async () => {
+  // Deferred transport: every invoke is held mid-flight until released, so
+  // the resolution order is under the test's control.
+  const calls: Array<Record<string, unknown>> = [];
+  const resolvers: Array<(v: unknown) => void> = [];
+  mockIPC((cmd, args) => {
+    if (cmd === "probe:greet") {
+      calls.push(args as Record<string, unknown>);
+      return new Promise((resolve) => resolvers.push(resolve));
+    }
+    return null;
+  });
+
+  function Probe({ name }: { name: string }) {
+    const s = useInvoke<string>("probe:greet", { name });
+    return createElement(
+      "div",
+      null,
+      s.error ? `error:${s.error}` : s.loading ? "loading" : `ok:${s.data}`,
+    );
+  }
+
+  // Run 1 ("slow") stays in flight.
+  const container = await renderNode(createElement(Probe, { name: "slow" }));
+  await waitForText(container, "loading");
+  assert.equal(calls.length, 1);
+
+  // Args change: run 1's effect cleanup must set `cancelled`; run 2 is issued.
+  await act(async () => {
+    root!.render(createElement(Probe, { name: "fast" }));
+  });
+  assert.equal(calls.length, 2, "args change issued the second invoke");
+
+  // Run 2 resolves first and owns the state.
+  await act(async () => {
+    resolvers[1]?.("hello fast");
+  });
+  await waitForText(container, "ok:hello fast");
+
+  // Run 1 resolves late: the `cancelled` guard must drop it, or the stale
+  // payload would overwrite the fresh one below.
+  await act(async () => {
+    resolvers[0]?.("STALE");
+  });
+  await act(async () => {});
+  assert.match(
+    container.textContent ?? "",
+    /ok:hello fast/,
+    "fresh run's data still rendered",
+  );
+  assert.doesNotMatch(
+    container.textContent ?? "",
+    /STALE/,
+    "late response of the cancelled run must not reach state",
+  );
+
+  await unmount();
+});
+
+test("useInvoke settles an invocation resolved after unmount without throwing", async () => {
+  // Hygiene variant: unmount while the invoke is in flight, then settle it.
+  // (React 19 also drops updates targeting unmounted fibers, so the hard
+  // teeth for the `cancelled` guard are the args-change test above; this
+  // pins the no-throw / no-render contract of the late settlement.)
+  let release: ((v: unknown) => void) | undefined;
+  mockIPC((cmd) => {
+    if (cmd === "probe:greet") {
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    }
+    return null;
+  });
+
+  let renders = 0;
+  function Probe() {
+    renders += 1;
+    const s = useInvoke<string>("probe:greet", {});
+    return createElement(
+      "div",
+      null,
+      s.error ? `error:${s.error}` : s.loading ? "loading" : `ok:${s.data}`,
+    );
+  }
+
+  const container = await renderNode(createElement(Probe));
+  await waitForText(container, "loading");
+  const rendersBeforeUnmount = renders;
+
+  await unmount();
+  assert.doesNotThrow(() => {
+    release?.("late");
+  }, "settling an in-flight invoke after unmount must not throw");
+  await act(async () => {});
+  assert.equal(
+    renders,
+    rendersBeforeUnmount,
+    "no state writes reached the unmounted component",
+  );
+  assert.equal(container.textContent, "", "nothing rendered after unmount");
+});
+
+/* ------------------------------------------------------------------ *
  * useListen
  * ------------------------------------------------------------------ */
 
