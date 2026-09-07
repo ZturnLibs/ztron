@@ -12,6 +12,7 @@
     "@zturnlibs/ztron-api": "workspace:*",
     "@zturnlibs/ztron-core": "workspace:*",
     "@zturnlibs/ztron-runtime-ffi": "workspace:*",
+    "@zturnlibs/ztron-vue": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

@@ -23,6 +23,9 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.42(typescript@5.9.3)
 
   examples/bench:
     dependencies:
@@ -219,6 +222,9 @@ importers:
       '@zturnlibs/ztron-runtime-ffi':
         specifier: workspace:*
         version: link:../../packages/runtime-ffi
+      '@zturnlibs/ztron-vue':
+        specifier: workspace:*
+        version: link:../../packages/ztron-vue
       vue:
         specifier: ^3.5.0
         version: 3.5.42(typescript@5.9.3)
@@ -338,6 +344,22 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/ztron-vue:
+    dependencies:
+      '@zturnlibs/ztron-api':
+        specifier: workspace:*
+        version: link:../api
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.42(typescript@5.9.3)
 
   website:
     devDependencies:
