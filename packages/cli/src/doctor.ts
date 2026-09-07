@@ -32,24 +32,27 @@ export function runDoctor(opts: {
   entryPath?: string;
   /** Injectable for tests; defaults to this package's version. */
   cliVersion?: string;
-  /** Injectable for tests; defaults to the bundled platform package's version. */
-  bundledVersion?: string;
+  /** Injectable for tests; defaults to the bundled platform package's version.
+   * `null` forces "not installed" (hermetic tests — a dev workspace may have
+   * the platform package linked, which would otherwise leak into the check). */
+  bundledVersion?: string | null;
 }): DoctorReport {
   const { cwd, env, platform } = opts;
   const checks: DoctorCheck[] = [];
 
   const cliVersion = opts.cliVersion ?? (require("../package.json") as { version: string }).version;
   const entryPath = opts.entryPath ?? fileURLToPath(new URL("./index.js", import.meta.url));
-  let bundledVersion = opts.bundledVersion;
+  let bundledVersion: string | null | undefined = opts.bundledVersion;
   if (bundledVersion === undefined) {
     try {
       bundledVersion = (
         require("@zturnlibs/ztron-darwin-arm64/package.json") as { version: string }
       ).version;
     } catch {
-      bundledVersion = undefined;
+      bundledVersion = null;
     }
   }
+  const bundledAbsent = bundledVersion === null;
 
   const nodeOk = Number.parseInt(process.versions.node, 10) >= 20;
   checks.push({
@@ -119,14 +122,13 @@ export function runDoctor(opts: {
      means the native chain predates the CLI — reinstall realigns them (the
      optionalDependencies pin is exact). No bundled package (source/dev mode)
      passes vacuously. */
-  const chainSynced = bundledVersion === undefined || bundledVersion === cliVersion;
+  const chainSynced = bundledAbsent || bundledVersion === cliVersion;
   checks.push({
     name: "chain version",
     pass: chainSynced,
-    detail:
-      bundledVersion === undefined
-        ? "bundled chain not installed (source/dev mode)"
-        : `bundled ${bundledVersion} vs cli ${cliVersion}`,
+    detail: bundledAbsent
+      ? "bundled chain not installed (source/dev mode)"
+      : `bundled ${bundledVersion} vs cli ${cliVersion}`,
     hint: chainSynced
       ? ""
       : "reinstall the CLI (`npm i -g @zturnlibs/ztron-cli`) to refresh the bundled native chain",

@@ -56,7 +56,10 @@ test("doctor: bundled chain version mismatch fails, absence passes", () => {
   assert.match(byName["chain version"].hint, /ztron-cli/);
   assert.equal(mismatch.ok, false);
 
-  const absent = runDoctor({ ...base, cliVersion: "1.0.0" });
+  // `null` forces "not installed" — hermetic even when the dev workspace has
+  // @zturnlibs/ztron-darwin-arm64 linked (pnpm workspace link would otherwise
+  // leak its 0.3.1 version into this check and flip the expectation).
+  const absent = runDoctor({ ...base, cliVersion: "1.0.0", bundledVersion: null });
   const byName2 = Object.fromEntries(absent.checks.map((c) => [c.name, c]));
   assert.equal(byName2["chain version"].pass, true);
   assert.match(byName2["chain version"].detail, /not installed/);
