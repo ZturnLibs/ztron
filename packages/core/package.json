@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-core",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Ztron main-process framework core: IPC, commands, events, state, plugins",
   "type": "module",
   "main": "./dist/index.js",
