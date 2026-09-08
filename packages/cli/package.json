@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-cli",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Ztron CLI: dev/build orchestration",
   "type": "module",
   "main": "./dist/index.js",

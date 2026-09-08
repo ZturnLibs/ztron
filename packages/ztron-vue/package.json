@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-vue",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Official Vue 3 composables for Ztron: useInvoke / useListen / useChannelStream on top of @zturnlibs/ztron-api",
   "type": "module",
   "main": "./dist/index.js",

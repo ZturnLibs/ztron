@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/ztron-svelte",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Official Svelte 5 listeners for Ztron: listenOnMount / subscribe on top of @zturnlibs/ztron-api",
   "type": "module",
   "main": "./dist/index.js",
