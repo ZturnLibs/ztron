@@ -37,6 +37,12 @@ import { ztronVitePlugin } from "./vite-plugin.js";
 import { codegen } from "./codegen.js";
 import { TEMPLATES } from "./templates.js";
 import {
+  finalizeFrontendHtml,
+  findLauncherSource,
+  launcherScript,
+  stageAppResources,
+} from "./packaging.js";
+import {
   findTjs,
   findNativeFile,
   findHostBin,
@@ -49,7 +55,7 @@ import { runUpdateCheck } from "./update-notifier.js";
 
 const DEFAULT_ENTRY = "./src/main.ts";
 
-interface ProjectConfig {
+export interface ProjectConfig {
   $schema?: string;
   entry?: string;
   frontend?: string;
@@ -274,22 +280,8 @@ async function buildFrontend(
   });
   const index = resolve(outDir, "index.html");
   if (existsSync(index)) {
-    let html = readFileSync(index, "utf8");
-    // The bundle is IIFE but vite emits `<script type="module">`; file:// has
-    // a null origin so module scripts fail CORS. Rewrite to classic scripts.
-    html = html.replace(
-      /<script type="module"(?:\s+crossorigin)? src="([^"]+)"><\/script>/g,
-      (_, src: string) => `<script src="${src}"></script>`,
-    );
-    // Inject a Content-Security-Policy meta (configurable via ztron.conf.json).
-    if (!/<meta[^>]+http-equiv="?Content-Security-Policy"?/i.test(html)) {
-      const csp = config.csp ?? DEFAULT_CSP;
-      html = html.replace(
-        /<head>/,
-        `<head><meta http-equiv="Content-Security-Policy" content="${csp}">`,
-      );
-    }
-    writeFileSync(index, html);
+    const html = readFileSync(index, "utf8");
+    writeFileSync(index, finalizeFrontendHtml(html, config.csp ?? DEFAULT_CSP));
   }
   console.log(`[ztron] frontend built: ${index}`);
   return index;
@@ -862,7 +854,8 @@ export async function buildApp(cwd: string, entry: string): Promise<void> {
   }
 
   const outDir = join(cwd, "dist");
-  const appName = (readProjectConfig(cwd).appName ?? "ZtronApp")
+  const conf = readProjectConfig(cwd);
+  const appName = (conf.appName ?? "ZtronApp")
     .replace(/\s+/g, "")
     .replace(/[^\w.-]/g, "");
 
@@ -876,10 +869,14 @@ export async function buildApp(cwd: string, entry: string): Promise<void> {
       lib,
       frontendDist: dirname(frontendIndex),
       tjs,
+      conf,
+      capabilitiesDir: existsSync(resolve(cwd, "capabilities"))
+        ? resolve(cwd, "capabilities")
+        : null,
     });
     /* G13: conf-driven extra targets (nsis/msi/appimage/deb/rpm skeletons),
        Developer-ID sign+notarize chain, and updater artifacts. */
-    await bundleExtraTargets(cwd, { outDir, appName }, readProjectConfig(cwd));
+    await bundleExtraTargets(cwd, { outDir, appName }, conf);
   } else {
     // Cross-platform packaging: same layout for Linux/Windows.
     // Linux: <dist>/<appName>/ ; Windows: <dist>/ZtronApp/.
@@ -906,6 +903,11 @@ interface PackOptions {
   lib: string;
   frontendDist: string;
   tjs: string;
+  /** Project config, staged into Resources so the packaged backend boots
+      with its declared windows (the launcher forwards it as ZTRON_CONF). */
+  conf: ProjectConfig;
+  /** Project capabilities dir (may be null); staged into Resources. */
+  capabilitiesDir: string | null;
 }
 
 /** Builds AppIcon.icns from a PNG via sips + iconutil (macOS only). */
@@ -1094,6 +1096,9 @@ async function packMacApp(o: PackOptions): Promise<void> {
     join(macosDir, "libwebview.0.12.dylib"),
   );
   cpSync(o.frontendDist, join(resDir, "frontend"), { recursive: true });
+  // The backend reads these at boot: without the staged conf the packaged
+  // app silently loses every declared window (host default window instead).
+  stageAppResources(resDir, o.conf, o.capabilitiesDir);
 
   // Build AppIcon.icns from assets/app-icon.png (sips + iconutil) if present.
   const iconPng = fileURLToPath(
@@ -1110,12 +1115,11 @@ async function packMacApp(o: PackOptions): Promise<void> {
   );
   /* Mach-O launcher (signing-friendly: a shell-script CFBundleExecutable
      cannot pass codesign strict validation). Recompiled with the real
-     invoke key baked in; falls back to the shell script when cc is missing. */
+     invoke key baked in; falls back to the shell script when the C source
+     is unavailable or cc fails. */
   const launcherOut = join(macosDir, "ztron");
-  const launcherSrc = fileURLToPath(
-    new URL("../../../native/host/launcher_macos.c", import.meta.url),
-  );
-  if (existsSync(launcherSrc)) {
+  const launcherSrc = findLauncherSource();
+  if (launcherSrc) {
     const cc = spawnSync(
       "cc",
       [
@@ -1135,11 +1139,14 @@ async function packMacApp(o: PackOptions): Promise<void> {
       console.warn(
         `[ztron] launcher compile failed, falling back to sh: ${(cc.stderr ?? "").slice(0, 160)}`,
       );
-      writeFileSync(launcherOut, launcherScript(o.appName, o.invokeKey));
+      writeFileSync(launcherOut, launcherScript(o.invokeKey));
       chmodSync(launcherOut, 0o755);
     }
   } else {
-    writeFileSync(launcherOut, launcherScript(o.appName, o.invokeKey));
+    console.warn(
+      "[ztron] launcher source not found, falling back to sh (ships in the npm tarball as native/host/launcher_macos.c)",
+    );
+    writeFileSync(launcherOut, launcherScript(o.invokeKey));
     chmodSync(launcherOut, 0o755);
   }
 
@@ -1273,38 +1280,6 @@ function appInfoPlist(appName: string): string {
   </array>
 </dict>
 </plist>
-`;
-}
-
-/** Launcher: starts ztron-host, reads its PORT, then runs the backend. */
-function launcherScript(appName: string, invokeKey: string): string {
-  return `#!/bin/sh
-DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_ROOT="$(dirname "$DIR")"
-RES="$APP_ROOT/Resources"
-KEY="${invokeKey}"
-HOST_LOG="$RES/.host.log"
-
-"$DIR/ztron-host" 0 > "$HOST_LOG" 2>&1 &
-HOST_PID=$!
-
-PORT=""
-i=0
-while [ -z "$PORT" ] && [ $i -lt 100 ]; do
-  PORT=$(sed -n 's/^PORT=//p' "$HOST_LOG" | head -1)
-  [ -z "$PORT" ] && { sleep 0.1; i=$((i + 1)); }
-done
-if [ -z "$PORT" ]; then
-  echo "ztron: host failed to start" >&2
-  cat "$HOST_LOG" >&2
-  exit 1
-fi
-
-ZTRON_HOST=127.0.0.1 ZTRON_HOST_PORT="$PORT" ZTRON_INVOKE_KEY="$KEY" \\
-ZTRON_DEV_URL="file://$RES/frontend/index.html" \\
-"$DIR/ztron-backend"
-
-kill "$HOST_PID" 2>/dev/null
 `;
 }
 

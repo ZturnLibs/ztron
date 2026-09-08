@@ -8,8 +8,18 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NATIVE="$ROOT/native"
 
 echo "==> [1/2] building txiki.js (tjs)"
+# Pinned upstream refs — unpinned `--depth 1` master clones drift between
+# builds, and a drifted webview build shipped in 0.3.5 with a libwebview
+# that never executed page scripts (silent white-window packaged apps).
+# Bump a ref ONLY together with scripts/patches/webview-local.patch and a
+# full packaged-app run (scripts/ci.sh packaged spike).
+TJS_REF="c3587a729f1847beadd35ad63fc1bc9eab370b89"
+WEBVIEW_REF="cbbdee44afff22867de9fd88a9fc8350d9bdd399"
+
 if [ ! -d "$NATIVE/txiki.js" ]; then
-  git clone --depth 1 --recursive https://github.com/saghul/txiki.js.git "$NATIVE/txiki.js"
+  git clone --filter=blob:none --no-checkout \
+    https://github.com/saghul/txiki.js.git "$NATIVE/txiki.js"
+  git -C "$NATIVE/txiki.js" checkout "$TJS_REF"
 fi
 (
   cd "$NATIVE/txiki.js"
@@ -20,16 +30,27 @@ fi
 
 echo "==> [2/2] building webview shared library"
 if [ ! -d "$NATIVE/webview" ]; then
-  git clone --depth 1 https://github.com/webview/webview.git "$NATIVE/webview"
+  git clone --filter=blob:none --no-checkout \
+    https://github.com/webview/webview.git "$NATIVE/webview"
+  git -C "$NATIVE/webview" checkout "$WEBVIEW_REF"
 fi
 (
   cd "$NATIVE/webview"
-  # Local patches (scheme handler, deplete deadlock fix) — idempotent apply.
+  # Local patches (scheme handler, deplete deadlock fix) — MANDATORY. A
+  # silent `|| echo` fallback here shipped 0.3.5's broken libwebview, so
+  # patch failure against the pinned ref is fatal, never skipped.
   if [ -f "$ROOT/scripts/patches/webview-local.patch" ]; then
-    git apply --check "$ROOT/scripts/patches/webview-local.patch" 2>/dev/null \
-      && git apply "$ROOT/scripts/patches/webview-local.patch" \
-      && echo "    applied webview-local.patch" \
-      || echo "    webview-local.patch already applied (or not needed)"
+    if git apply --check "$ROOT/scripts/patches/webview-local.patch" 2>/dev/null; then
+      git apply "$ROOT/scripts/patches/webview-local.patch"
+      echo "    applied webview-local.patch"
+    elif grep -q "webview_set_scheme_handler" \
+         "$NATIVE/webview/core/include/webview/api.h"; then
+      echo "    webview-local.patch already applied"
+    else
+      echo "    FATAL: webview-local.patch does not apply to the pinned webview ($WEBVIEW_REF)." >&2
+      echo "    Update scripts/patches/webview-local.patch, or bump WEBVIEW_REF and re-run the packaged spike." >&2
+      exit 1
+    fi
   fi
   # Build only what the chain needs: upstream's top-level defaults enable
   # amalgamation (requires python3 + clang-format), docs (doxygen), tests,

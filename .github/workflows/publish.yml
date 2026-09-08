@@ -199,3 +199,18 @@ jobs:
           npm install --no-fund --no-audit
           ztron build
           test -d dist
+          # Regression guard: 0.3.5 shipped a launcher that exec'd
+          # MacOS/ztron-backend while the backend is staged in Resources —
+          # the packaged app died at launch. Headless runners have no
+          # WindowServer (the window never renders), but the host prints
+          # its PORT before window creation, so the launcher must reach
+          # the backend regardless.
+          ./dist/ZtronApp.app/Contents/MacOS/ztron > /tmp/launch.log 2>&1 &
+          LPID=$!
+          sleep 8
+          if ! kill -0 "$LPID" 2>/dev/null; then
+            echo "launcher exited early:"; cat /tmp/launch.log; exit 1
+          fi
+          pgrep -f ztron-backend >/dev/null || { echo "backend never started"; cat /tmp/launch.log; exit 1; }
+          pkill -f ztron-backend || true
+          pkill -f ztron-host || true

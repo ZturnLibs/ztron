@@ -42,7 +42,11 @@ jobs:
             libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config build-essential cmake
       - name: fetch webview upstream (vendored copy is gitignored)
         run: |
-          git clone --depth 1 https://github.com/webview/webview.git native/webview
+          # Pinned to the known-good ref the vendored build tracks
+          # (scripts/build-native.sh WEBVIEW_REF).
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/webview/webview.git native/webview
+          git -C native/webview checkout cbbdee44afff22867de9fd88a9fc8350d9bdd399
       - name: build webview library (stock upstream)
         run: |
           cmake -B native/webview/build -S native/webview \
@@ -88,7 +92,10 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
       - name: fetch webview upstream (vendored copy is gitignored)
         run: |
-          git clone --depth 1 https://github.com/webview/webview.git native/webview
+          # Pinned to the known-good ref the vendored build tracks
+          # (scripts/build-native.sh WEBVIEW_REF).
+          git clone --filter=blob:none --no-checkout https://github.com/webview/webview.git native/webview
+          git -C native/webview checkout cbbdee44afff22867de9fd88a9fc8350d9bdd399
       - name: build webview library (stock upstream, static)
         shell: cmd
         run: |
@@ -145,14 +152,16 @@ jobs:
           TJS="$(find native/txiki.js/build -name tjs -type f | head -1)"
           echo "tjs at: $TJS"
           echo "ZTRON_TJS=$PWD/$TJS" >> "$GITHUB_ENV"
-      # Vendored webview/ is gitignored; clone stock upstream and apply the
-      # exported local patches (same as scripts/build-native.sh does).
+      # Vendored webview/ is gitignored; clone the PINNED known-good ref and
+      # apply the exported local patches (same as scripts/build-native.sh).
+      # Patch application is fatal here: a silent fallback once shipped a
+      # libwebview whose scripts never executed (0.3.5).
       - name: fetch vendored webview + apply patches
         run: |
-          git clone --depth 1 https://github.com/webview/webview.git native/webview
-          cd native/webview
-          git apply ../../scripts/patches/webview-local.patch || \
-            echo "patch already applied or not needed"
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/webview/webview.git native/webview
+          git -C native/webview checkout cbbdee44afff22867de9fd88a9fc8350d9bdd399
+          git -C native/webview apply ../../scripts/patches/webview-local.patch
       - name: install clang-format (webview build requirement)
         run: brew install clang-format
       - name: full chain (build-native + units + ztron check spikes)
@@ -177,7 +186,7 @@ jobs:
           bash scripts/ci.sh --spike-timeout 90000 > /tmp/ci-chain.log 2>&1
           code=$?
           tail -6 /tmp/ci-chain.log
-          if grep -q "FAILED at: .*ztron check" /tmp/ci-chain.log; then
+          if grep -qE "FAILED at: .*(ztron check|packaged spike)" /tmp/ci-chain.log; then
             echo "::warning::GUI spike failed on headless runner (expected without WindowServer); see ci-chain.log"
           elif [ $code -ne 0 ]; then
             exit $code
