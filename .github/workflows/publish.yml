@@ -12,7 +12,11 @@ permissions:
 jobs:
   native-darwin-arm64:
     name: build prebuilt native chain (macOS arm64)
-    runs-on: macos-14
+    # macos-26 SDK: the macos-14 image's old Xcode miscompiles this exact
+    # webview source into a libwebview that never executes page scripts
+    # (0.3.5/0.3.6 shipped it — white-window packaged apps, byte-identical
+    # d67228b4… builds). Local macOS 26 / clang 21 builds are verified good.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: build native chain (txiki.js + webview, cmake)
