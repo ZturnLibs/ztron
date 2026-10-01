@@ -48,6 +48,7 @@ import {
   findHostBin,
   findWebviewLib,
   findBundledNative,
+  hostBinName,
 } from "./native-locate.js";
 import { CLI_VERSION, COMMAND_HELP, printHelp, suggestCommand, USAGE } from "./usage.js";
 import { renderCompletions } from "./completions.js";
@@ -477,9 +478,9 @@ export async function runApp(
   mode: "dev" | "check" | "bench",
   checkOpts: CheckOptions = { timeoutMs: 120_000, required: [] },
 ): Promise<void> {
-  const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
   const appRoot = dirname(entryPath);
+  const tjs = findTjs(appRoot);
   const buildDir = join(appRoot, ".ztron");
   mkdirSync(buildDir, { recursive: true });
   const bundlePath = join(buildDir, "app.mjs");
@@ -802,8 +803,8 @@ async function initProject(
       : `[ztron] scaffolded a project in ${target} (template: ${templateName})`,
   );
   const hasChain =
-    findNativeFile(target, "ztron-host") !== undefined ||
-    findBundledNative("ztron-host") !== undefined;
+    findNativeFile(target, hostBinName()) !== undefined ||
+    findBundledNative(hostBinName()) !== undefined;
   console.log(`[ztron] next steps:`);
   console.log(`  1. pnpm install && npx ztron doctor`);
   console.log(`  2. npx ztron dev`);
@@ -827,9 +828,9 @@ function basenameOf(p: string): string {
  *      coordinates ztron-host + ztron-backend and passes the invokeKey)
  */
 export async function buildApp(cwd: string, entry: string): Promise<void> {
-  const tjs = findTjs();
   const entryPath = resolve(cwd, entry);
   const appRoot = dirname(entryPath);
+  const tjs = findTjs(appRoot);
   const buildDir = join(appRoot, ".ztron");
   mkdirSync(buildDir, { recursive: true });
   const bundlePath = join(buildDir, "app.mjs");

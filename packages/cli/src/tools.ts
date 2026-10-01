@@ -5,7 +5,7 @@
 import {
   spawnSync,
 } from "node:child_process";
-import { findTjs, findHostBin, findWebviewLib, findBundledNative } from "./native-locate.js";
+import { findTjs, findHostBin, findWebviewLib, findBundledNative, hostBinName, tjsBinName } from "./native-locate.js";
 import { bold, dim } from "./ui.js";
 import {
   existsSync,
@@ -105,7 +105,7 @@ export function printInfo(cwd: string, cliVersion: string): void {
 
   section("Native chain");
   const items: Array<[string, () => string]> = [
-    ["tjs", () => findTjs()],
+    ["tjs", () => findTjs(cwd)],
     ["ztron-host", () => findHostBin(cwd)],
     ["webview", () => findWebviewLib(cwd) ?? ""],
   ];
@@ -116,7 +116,17 @@ export function printInfo(cwd: string, cliVersion: string): void {
         line(name, "not found");
         continue;
       }
-      const source = findBundledNative(name === "webview" ? "libwebview.dylib" : name)
+      const bundledFile =
+        name === "webview"
+          ? process.platform === "win32"
+            ? "webview.dll"
+            : process.platform === "linux"
+              ? "libwebview.so"
+              : "libwebview.dylib"
+          : name === "tjs"
+            ? tjsBinName()
+            : hostBinName();
+      const source = findBundledNative(bundledFile)
         ? "bundled"
         : "local";
       line(name, `${p} ${dim(`(${source})`)}`);

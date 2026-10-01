@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findTjs, findHostBin, findWebviewLib, findBundledNative } from "./native-locate.js";
+import { findTjs, findHostBin, findWebviewLib, findBundledNative, bundledPkgName, hostBinName } from "./native-locate.js";
 import { bold, green, red, yellow } from "./ui.js";
 
 const require = createRequire(import.meta.url);
@@ -51,12 +51,18 @@ export function runDoctor(opts: {
   const entryPath = opts.entryPath ?? fileURLToPath(new URL("./index.js", import.meta.url));
   let bundledVersion: string | null | undefined = opts.bundledVersion;
   if (bundledVersion === undefined) {
-    try {
-      bundledVersion = (
-        require("@zturnlibs/ztron-darwin-arm64/package.json") as { version: string }
-      ).version;
-    } catch {
-      bundledVersion = null;
+    bundledVersion = null;
+    // Platform-mapped package first, legacy darwin package as fallback
+    // (see native-locate.ts findBundledNativeFrom).
+    for (const pkg of [
+      ...new Set([bundledPkgName(platform), "@zturnlibs/ztron-darwin-arm64"]),
+    ]) {
+      try {
+        bundledVersion = (require(`${pkg}/package.json`) as { version: string }).version;
+        break;
+      } catch {
+        // candidate absent — try the next one
+      }
     }
   }
   const bundledAbsent = bundledVersion === null;
@@ -71,7 +77,7 @@ export function runDoctor(opts: {
   });
 
   try {
-    const p = env.ZTRON_TJS ?? findTjs();
+    const p = env.ZTRON_TJS ?? findTjs(cwd, platform);
     const pass = existsSync(resolve(p)) || p === "tjs";
     /* ZTRON_TJS pointing at a missing file is a distinct failure from "no
        chain found" — the fix is correcting the env var, not cloning. */
@@ -86,8 +92,8 @@ export function runDoctor(opts: {
 
   const host = env.ZTRON_HOST_BIN
     ? resolve(env.ZTRON_HOST_BIN)
-    : findHostBin(cwd);
-  const hostBundled = findBundledNative("ztron-host");
+    : findHostBin(cwd, platform);
+  const hostBundled = findBundledNative(hostBinName(platform), platform);
   checks.push({
     name: "ztron-host",
     group: "Native chain",
@@ -96,10 +102,10 @@ export function runDoctor(opts: {
     hint: CHAIN_HINT,
   });
 
-  const lib = findWebviewLib(cwd);
-  const libBundled = findBundledNative(
-    platform === "win32" ? "webview.dll" : platform === "linux" ? "libwebview.so" : "libwebview.dylib",
-  );
+  const lib = findWebviewLib(cwd, platform);
+  const libName =
+    platform === "win32" ? "webview.dll" : platform === "linux" ? "libwebview.so" : "libwebview.dylib";
+  const libBundled = findBundledNative(libName, platform);
   checks.push({
     name: "webview library",
     group: "Native chain",
@@ -147,9 +153,9 @@ export function runDoctor(opts: {
   });
 
   /* Platform: informational only — it never fails the doctor. Always emitted
-     so the report has a stable shape (7 checks); on the supported dev
-     platform it just confirms that, elsewhere it warns the host is a
-     skeleton (see ROADMAP.md). */
+     so the report has a stable shape (7 checks); on a verified platform it
+     just confirms that, elsewhere it warns the host is a skeleton or still in
+     bring-up (see ROADMAP.md). */
   checks.push({
     name: "platform",
     group: "Platform",
@@ -157,7 +163,9 @@ export function runDoctor(opts: {
     detail:
       platform === "darwin"
         ? "darwin — supported dev platform"
-        : `${platform} — host is a skeleton; macOS is the supported dev platform`,
+        : platform === "win32"
+          ? "win32 — WebView2 host (bring-up in progress; see ROADMAP.md)"
+          : `${platform} — host is a skeleton; macOS is the supported dev platform`,
     hint: platform === "darwin" ? "" : "see ROADMAP.md for Windows/Linux status",
   });
 

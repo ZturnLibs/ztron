@@ -10,6 +10,9 @@ import {
   findHostBin,
   findWebviewLib,
   findBundledNativeFrom,
+  bundledPkgName,
+  hostBinName,
+  tjsBinName,
 } from "../../packages/cli/dist/native-locate.js";
 
 function tmpProject(): string {
@@ -49,7 +52,8 @@ test("findHostBin: env wins over walk-up; findWebviewLib picks platform name", (
   const deep = join(root, "proj");
   mkdirSync(join(root, "native", "libs"), { recursive: true });
   mkdirSync(deep, { recursive: true });
-  writeFileSync(join(root, "native", "libs", "ztron-host"), "x");
+  const hostName = hostBinName();
+  writeFileSync(join(root, "native", "libs", hostName), "x");
   const libName =
     process.platform === "darwin"
       ? "libwebview.dylib"
@@ -62,10 +66,34 @@ test("findHostBin: env wins over walk-up; findWebviewLib picks platform name", (
   process.env.ZTRON_HOST_BIN = envHost;
   assert.equal(findHostBin(deep), envHost);
   delete process.env.ZTRON_HOST_BIN;
-  assert.equal(findHostBin(deep), join(root, "native", "libs", "ztron-host"));
+  assert.equal(findHostBin(deep), join(root, "native", "libs", hostName));
   assert.equal(findWebviewLib(deep), join(root, "native", "libs", libName));
   rmSync(root, { recursive: true, force: true });
   rmSync(envHost, { recursive: true, force: true });
+});
+
+test("Windows: binary names carry .exe and the win32-x64 package is primary", () => {
+  assert.equal(hostBinName("win32"), "ztron-host.exe");
+  assert.equal(tjsBinName("win32"), "tjs.exe");
+  assert.equal(hostBinName("darwin"), "ztron-host");
+  assert.equal(bundledPkgName("win32", "x64"), "@zturnlibs/ztron-win32-x64");
+  assert.equal(bundledPkgName("darwin", "arm64"), "@zturnlibs/ztron-darwin-arm64");
+});
+
+test("findBundledNativeFrom resolves the win32-x64 package when asked for win32", () => {
+  const root = tmpProject();
+  const pkg = join(root, "node_modules", "@zturnlibs", "ztron-win32-x64");
+  mkdirSync(join(pkg, "native", "libs"), { recursive: true });
+  writeFileSync(
+    join(pkg, "package.json"),
+    JSON.stringify({ name: "@zturnlibs/ztron-win32-x64", version: "0.0.0-test" }),
+  );
+  writeFileSync(join(pkg, "native", "libs", "ztron-host.exe"), "x");
+  assert.equal(
+    findBundledNativeFrom(root, "ztron-host.exe", "win32", "x64"),
+    join(pkg, "native", "libs", "ztron-host.exe"),
+  );
+  rmSync(root, { recursive: true, force: true });
 });
 
 test("findBundledNativeFrom resolves artifacts from a fake platform package", () => {
