@@ -1274,10 +1274,17 @@ export class App {
       await plugin.setup?.(this);
     }
 
+    /* Create every engine first, load content afterwards: on Windows
+       (WebView2) creating a controller while an earlier engine's navigation
+       is still handshaking silently drops that navigation (observed:
+       Navigate returns S_OK, page stays about:blank). Serializing engine
+       creation before any load avoids the race. */
+    const pending: Array<[WindowConfig, WebviewHandle]> = [];
     for (const cfg of this.config.windows) {
-      // createWindow applies startup states itself now (G10): same ops, one
-      // code path for the run loop and dev/test creation.
-      this.createWindow(cfg);
+      pending.push([cfg, this.#registerWindow(cfg)]);
+    }
+    for (const [cfg, handle] of pending) {
+      this.#loadWindowContent(cfg, handle);
     }
     await Promise.all(
       [...this.#windows.values()].map(({ handle }) => handle.run()),
@@ -1286,6 +1293,13 @@ export class App {
 
   /** Creates a window but does not run the main loop (test/dev use). */
   createWindow(cfg: WindowConfig): WebviewHandle {
+    const handle = this.#registerWindow(cfg);
+    this.#loadWindowContent(cfg, handle);
+    return handle;
+  }
+
+  /** Registers the window: engine creation, startup state, events. */
+  #registerWindow(cfg: WindowConfig): WebviewHandle {
     const handle = this.#adapter.createWindow(cfg);
     this.#windows.set(cfg.label, { handle, events: new EventTarget() });
     this.#applyStartupWindowState(cfg, handle);
@@ -1324,6 +1338,11 @@ export class App {
     this.emit("ztron://window-created", { label: cfg.label });
     this.emit("ztron://webview-created", { label: cfg.label });
 
+    return handle;
+  }
+
+  /** Loads a registered window's initial content (html or url + bootstrap). */
+  #loadWindowContent(cfg: WindowConfig, handle: WebviewHandle): void {
     const bootstrap =
       this.config.initScript ??
       buildInitScript({
@@ -1345,7 +1364,6 @@ export class App {
         : `${url}#ztron-window=${encodeURIComponent(cfg.label)}`;
       handle.loadUrl(withHash);
     }
-    return handle;
   }
 
   /** Applies a WindowConfig's startup booleans/styles to a fresh handle. */
