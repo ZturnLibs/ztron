@@ -155,3 +155,13 @@ Task 6 complete (c83e2c1): ROADMAP 修订(win-NSIS 勾选/stronghold 已实现/�
 Gates: typecheck 0 errors, 全仓 233 tests/232 pass/1 skip/0 fail(基线 219->233, +14), hello spike FULL_OK x3 次全程保持, c++/cc 语法检查过, 4 次独立提交
 遗留(记入 ROADMAP §6): webview 权限 API(382dd6ccc)、appDirectoriesOverride、asyncDispose、Image.fromAppIconResource、206 Partial Content、CLI 命令族、ACL deny 作用域自查
 MERGED: PR #38 (4ef7d0a) - main ci + website deploy BOTH SUCCESS (merge push runs); local+remote branch deleted; main suite re-verified 239/238/1skip/0fail. tauri 2.12 alignment line complete on main.
+
+=== webview permissions run (plan: docs/superpowers/plans/2026-10-03-webview-permissions.md, branch: feat/webview-permissions) ===
+基准: tauri 2.12 382dd6ccc; 事实源本机 SDK WKUIDelegate.h(媒体捕获 selector macOS 12+; 未实现方法 ≡ decisionHandler(Prompt)) + tauri webview_permissions.rs(15 kind Display 逐字; macOS 仅 media capture——连 tauri 也只有 camera/mic)
+T1 complete: core permissions.ts(PermissionKind/Response/Request/WireRequest) + AppOptions/App 公开 onPermissionRequest + AppBuilder 链式 + RuntimeAdapter.permissions PermissionController + MockRuntime fake(deliverPermission/respondLog) + 4 tests; 无 handler 自动回 default, handler 异常也回 default
+T2 complete: host.ts #onLine case permission_request + permissions controller(respond -> {type:permission_response, req_id, response})
+T3 complete: host.c parser response->aux + dispatch permission_response -> zt_permission_respond(m); host_platform.h 声明; win/linux no-op 实现
+T4 complete: host_macos.c — attach_webview_impl + init()(主窗!抓到 attach 只覆盖第二窗的 bug,主窗经 install_window_delegate 补装) 双路 install_permission_bridge_on; class_addMethod(v@:@@@q@) 到引擎 UIDelegate 类(不换 delegate,不动 webview fork); pending 表 cap 64(满则放弃交平台默认); 决策经 webview_dispatch 回主线程调 decisionHandler(Block.h 的 Block_copy/release + ZtBlock invoke ABI); type 映射 1=mic, 0/2=camera; origin toString + perm_label 关联对象
+T5 complete: 三处 plist(dev host/ATS_INFO_PLIST/appInfoPlist)加 NSCamera/NSMicrophoneUsageDescription; ROADMAP §6 勾选 + 平台矩阵
+Gates: 243 tests/242/1skip/0fail(+4), typecheck 0, host 重编过, spike FULL_OK 86 checks 真实退出码 0 x2, cc -Werror 三处
+遗留: win/linux 后端接线(WebView2 PermissionRequested / webkitgtk permission-request 信号 -> 同一 wire);真机 getUserMedia 手动冒烟待用户(打开 devtools 执行 navigator.mediaDevices.getUserMedia({video:true}) 观察 handler/默认提示)

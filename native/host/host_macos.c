@@ -1551,8 +1551,19 @@ static void install_window_delegate_on(void *wnd) {
   OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setDelegate:"), delegate);
 }
 
+static void install_permission_bridge_on(id wk, void *wnd); /* fwd */
+
 static void install_window_delegate(void) {
   install_window_delegate_on(zt_window());
+  /* The MAIN webview never goes through attach_webview (that path is
+     second-window only) — install the permission bridge here too. */
+  {
+    id wk = zt_w
+        ? (id)webview_get_native_handle(
+              zt_w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER)
+        : NULL;
+    if (wk) install_permission_bridge_on(wk, zt_window());
+  }
 }
 
 /* ---- webview permission interception (WKUIDelegate, macOS 12+) -------
