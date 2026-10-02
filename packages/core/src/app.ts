@@ -333,6 +333,7 @@ export class App {
       "plugin:image|rgba",
       "plugin:image|size",
       "plugin:image|from_path",
+      "plugin:image|from_app_icon_resource",
       "plugin:image|destroy",
       "plugin:process|exit",
       "plugin:process|relaunch",
@@ -958,6 +959,8 @@ export class App {
         this.#adapter.image?.fromPath(
           String((args as { path?: string }).path ?? ""),
         ) ?? -1,
+      "plugin:image|from_app_icon_resource": async () =>
+        (await this.#adapter.image?.fromAppIconResource?.()) ?? -1,
       "plugin:image|rgba": async (args) => {
         const id = Number((args as { id?: number }).id);
         const meta = this.#imageMeta.get(id);

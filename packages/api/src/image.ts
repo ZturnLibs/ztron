@@ -46,6 +46,23 @@ export class Image {
     this.rid = rid;
   }
 
+  /**
+   * Loads the app's embedded Windows icon resource (resource id 32512 —
+   * what the NSIS/WiX installers brand). Windows-only: throws elsewhere.
+   */
+  static async fromAppIconResource(): Promise<Image> {
+    const rid = await invoke<number>(
+      "plugin:image|from_app_icon_resource",
+      {},
+    );
+    if (rid < 0) {
+      throw new Error(
+        "image: failed to load app icon resource (Windows-only API)",
+      );
+    }
+    return new Image(rid);
+  }
+
   /** Loads an image from a file path. */
   static async fromPath(path: string): Promise<Image> {
     const rid = await invoke<number>("plugin:image|from_path", { path });

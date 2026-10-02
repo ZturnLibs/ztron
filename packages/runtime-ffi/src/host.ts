@@ -866,6 +866,10 @@ export class HostRuntime implements RuntimeAdapter {
       this.sendRequest("image_from_path", { path }).then((r) =>
         typeof r === "string" ? Number(r) : -1,
       ),
+    fromAppIconResource: () =>
+      this.sendRequest("image_from_app_icon_resource", {}).then((r) =>
+        typeof r === "string" ? Number(r) : -1,
+      ),
     destroy: (id) => {
       this.send({ type: "image_destroy", label: "main", image_id: String(id) });
     },

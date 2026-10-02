@@ -206,6 +206,7 @@ const UNIT_COVERED = new Set([
   "plugin:deep-link|get_last_url",
   "plugin:image|from_bytes",
   "plugin:image|from_path",
+  "plugin:image|from_app_icon_resource",
   "plugin:image|rgba",
   "plugin:image|size",
   "plugin:image|destroy",

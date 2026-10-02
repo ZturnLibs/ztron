@@ -396,6 +396,10 @@ export class MockRuntime implements RuntimeAdapter {
       this.imageLog.push({ kind: "path" });
       return ++this.nextImageId;
     },
+    fromAppIconResource: async () => {
+      this.imageLog.push({ kind: "app-icon" });
+      return ++this.nextImageId;
+    },
     destroy: (id) => {
       this.imageLog.push({ kind: "destroy", id });
     },

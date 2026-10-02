@@ -259,6 +259,7 @@ GpStatus __stdcall GdipBitmapUnlockBits(GpBitmap *bitmap,
 GpStatus __stdcall GdipCreateHBITMAPFromBitmap(GpBitmap *bitmap,
                                                HBITMAP *hbmReturn,
                                                UINT32 background);
+GpStatus __stdcall GdipCreateBitmapFromHICON(HICON hicon, GpBitmap **bitmap);
 GpStatus __stdcall GdipCreateBitmapFromHBITMAP(HBITMAP hbm, HPALETTE hpal,
                                                GpBitmap **bitmap);
 GpStatus __stdcall GdipSaveImageToStream(GpImage *image, IStream *stream,
@@ -1487,6 +1488,23 @@ static int dispatch(Msg *m, webview_t wv) {
       }
       free(bytes);
       reply_image_id(m, bmp); /* -1 on decode failure */
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "image_from_app_icon_resource") == 0) {
+    /* The app icon embedded by the NSIS/WiX chain (resource id 32512 —
+       tauri_utils WINDOWS_APP_ICON_RESOURCE_ID). */
+    if (m->req_id >= 0) {
+      GpBitmap *bmp = NULL;
+      gdiplus_ensure();
+      HICON icon = (HICON)LoadImageW(GetModuleHandleW(NULL),
+                                      MAKEINTRESOURCEW(32512), IMAGE_ICON, 0,
+                                      0, LR_DEFAULTSIZE);
+      if (icon) {
+        GdipCreateBitmapFromHICON(icon, &bmp);
+        DestroyIcon(icon);
+      }
+      reply_image_id(m, bmp); /* -1 when the resource is absent */
     }
     return 1;
   }

@@ -3289,6 +3289,11 @@ static int dispatch(Msg *m, webview_t w) {
     }
     return 1;
   }
+  if (strcmp(m->type, "image_from_app_icon_resource") == 0) {
+    /* Windows-only API (exe icon resource); macOS has no equivalent. */
+    if (m->req_id >= 0) zt_reply_query(m->req_id, "-1");
+    return 1;
+  }
   if (strcmp(m->type, "image_from_path") == 0) {
     if (m->req_id >= 0) {
       id image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
