@@ -87,8 +87,11 @@ export function findBundledNative(
 export function findTjs(
   start?: string,
   platform: string = process.platform,
+  /** Injectable for hermetic callers (doctor tests run with ZTRON_TJS set in
+   * the real environment — the spike CI jobs export it chain-wide). */
+  env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const configured = process.env.ZTRON_TJS;
+  const configured = env.ZTRON_TJS;
   if (configured) {
     return configured;
   }

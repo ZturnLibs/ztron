@@ -77,7 +77,10 @@ export function runDoctor(opts: {
   });
 
   try {
-    const p = env.ZTRON_TJS ?? findTjs(cwd, platform);
+    // Pass the injected env through: findTjs would otherwise consult
+    // process.env directly and a chain-wide ZTRON_TJS (spike CI jobs export
+    // it) would flip this deliberately-missing-chain check to pass.
+    const p = env.ZTRON_TJS ?? findTjs(cwd, platform, env);
     const pass = existsSync(resolve(p)) || p === "tjs";
     /* ZTRON_TJS pointing at a missing file is a distinct failure from "no
        chain found" — the fix is correcting the env var, not cloning. */
