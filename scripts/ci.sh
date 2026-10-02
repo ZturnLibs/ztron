@@ -123,7 +123,9 @@ rm -rf ~/ztron-persisted-spike "${TMPDIR:-/tmp}/ztron_persisted_scope.json" || t
 
 if [[ "$SKIP_NATIVE" -eq 0 ]]; then
   step "native build (webview lib + host + launcher)"
-  bash scripts/build-native.sh || fail "native build"
+  # bounded (30min vs ~5-8min normal): a stuck cmake child must fail the
+  # stage loudly instead of eating the runner's 6h job timeout in silence.
+  run_bounded 1800 bash scripts/build-native.sh || fail "native build"
   # The vendored webview copy carries local patches; make sure they are
   # fully exported so a fresh clone reproduces this exact build.
   ( cd native/webview \
@@ -154,22 +156,29 @@ step "unit tests (node --test)"
 # assert the missing-chain path) and this script exports ZTRON_TJS for the
 # spikes — leaking it would flip those assertions.
 env -u ZTRON_TJS -u ZTRON_HOST_BIN -u ZTRON_WEBVIEW_LIB \
-  npm test >/tmp/ci-unit.log 2>&1 || { tail -30 /tmp/ci-unit.log; fail "unit tests"; }
+  run_bounded 900 npm test >/tmp/ci-unit.log 2>&1 \
+  || { tail -30 /tmp/ci-unit.log; fail "unit tests"; }
 tail -6 /tmp/ci-unit.log
 
 # ---- 4. hello spike ----------------------------------------------------------
 
-# `timeout` (GNU coreutils) is absent on stock macOS runners — the spike's
-# own --timeout already bounds the run; wrap with timeout only when present.
+# `timeout` (GNU coreutils) is absent on stock macOS runners — and there the
+# CLI's internal --timeout is NOT a sufficient backstop: without WindowServer
+# a native window-creation call can block the tjs main thread, so event-loop
+# timers never fire and `ztron check` never exits (dispatch runs
+# 37010369951/37027110592 sat 6h/2.5h in silence). When GNU timeout is
+# missing, run_bounded kills the whole process group instead.
 run_ztron_check() {
   # $1 = example dir, rest = ztron args. GNU timeout guards only when both
   # it and a real bin exist (functions cannot be exec'd by timeout).
   local dir="$1"; shift
+  local bound=$(( SPIKE_TIMEOUT_MS / 1000 + 30 ))
   if [ -n "$ZTRON_BIN" ] && command -v timeout >/dev/null 2>&1; then
-    ( cd "$dir" && ZTRON_TJS="$TJS" timeout $(( SPIKE_TIMEOUT_MS / 1000 + 30 )) \
-        "$ZTRON_BIN" "$@" )
+    ( cd "$dir" && ZTRON_TJS="$TJS" timeout "$bound" "$ZTRON_BIN" "$@" )
+  elif [ -n "$ZTRON_BIN" ]; then
+    ( cd "$dir" && ZTRON_TJS="$TJS" run_bounded "$bound" "$ZTRON_BIN" "$@" )
   else
-    ( cd "$dir" && ZTRON_TJS="$TJS" ztron "$@" )
+    ( cd "$dir" && ZTRON_TJS="$TJS" run_bounded "$bound" ztron "$@" )
   fi
 }
 
