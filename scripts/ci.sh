@@ -155,8 +155,10 @@ step "unit tests (node --test)"
 # Strip the chain locator env vars: the suite is hermetic (doctor tests
 # assert the missing-chain path) and this script exports ZTRON_TJS for the
 # spikes — leaking it would flip those assertions.
-env -u ZTRON_TJS -u ZTRON_HOST_BIN -u ZTRON_WEBVIEW_LIB \
-  run_bounded 900 npm test >/tmp/ci-unit.log 2>&1 \
+# env(1) can only exec binaries — the -u list goes INSIDE run_bounded's
+# command, not in front of it (a function cannot be exec'd).
+run_bounded 900 env -u ZTRON_TJS -u ZTRON_HOST_BIN -u ZTRON_WEBVIEW_LIB \
+  npm test >/tmp/ci-unit.log 2>&1 \
   || { tail -30 /tmp/ci-unit.log; fail "unit tests"; }
 tail -6 /tmp/ci-unit.log
 

@@ -460,8 +460,33 @@ index 1a0a2c6..f369cf3 100755
  } // namespace cocoa_webkit
  } // namespace detail
  
+diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
+index 316a9d5..cedc92c 100644
+--- a/core/include/webview/detail/backends/win32_edge.hh
++++ b/core/include/webview/detail/backends/win32_edge.hh
+@@ -460,6 +460,20 @@ protected:
+     return {};
+   }
+ 
++  // Custom URL scheme serving is implemented for the macOS backend only
++  // (async ztron:// in cocoa_webkit). Win32 frontends load via file:// or
++  // http, and host.c does not register scheme handlers today — but the pure
++  // virtual in engine_base leaves this class abstract without an override,
++  // which failed to compile every win32 engine instantiation.
++  noresult set_scheme_handler_impl(const std::string &scheme,
++                                   const std::string &root_dir) override {
++    (void)scheme;
++    (void)root_dir;
++    return noresult{error_info{
++        WEBVIEW_ERROR_MISSING_DEPENDENCY,
++        "custom scheme handlers are not implemented on win32/WebView2"}};
++  }
++
+   user_script add_user_script_impl(const std::string &js) override {
+     auto wjs = widen_string(js);
+     std::wstring script_id;
 diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
-index 01c8d29..af7cbc9 100644
+index 01c8d29..8165fe6 100644
 --- a/core/include/webview/detail/engine_base.hh
 +++ b/core/include/webview/detail/engine_base.hh
 @@ -137,6 +137,11 @@ window.__webview__.onUnbind(" +
@@ -485,7 +510,7 @@ index 01c8d29..af7cbc9 100644
  
    virtual user_script *add_user_script(const std::string &js) {
      return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
-@@ -324,7 +335,11 @@ protected:
+@@ -324,7 +331,11 @@ protected:
    }
  
    // Runs the event loop until the currently queued events have been processed.
