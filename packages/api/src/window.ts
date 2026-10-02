@@ -4,7 +4,7 @@
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
-import type { Image } from "./image.js";
+import { Image, type JsImage } from "./image.js";
 import {
   normalizePosition,
   normalizeSize,
@@ -267,24 +267,27 @@ export class Window {
   }
 
   /**
-   * Sets the window/dock icon from an {@linkcode Image} (registered host
-   * image). Pass `null` to clear.
+   * Sets the window/dock icon from a {@linkcode JsImage} (registered
+   * {@linkcode Image}, a path string, or raw bytes — normalized first).
+   * Pass `null` to clear.
    */
-  async setIcon(icon: Image | null): Promise<void> {
+  async setIcon(icon: JsImage | null): Promise<void> {
+    const img = icon === null ? null : await normalizeIcon(icon);
     await invoke("plugin:window|set_icon", {
       label: this.label,
-      image_id: icon ? icon.rid : -1,
+      image_id: img ? img.rid : -1,
     });
   }
 
   /**
    * Sets a small titlebar accessory icon (the macOS take on Windows'
-   * overlay/status badge). Pass `null` to clear.
+   * overlay/status badge). Accepts a {@linkcode JsImage}; `null` clears.
    */
-  async setOverlayIcon(icon: Image | null): Promise<void> {
+  async setOverlayIcon(icon: JsImage | null): Promise<void> {
+    const img = icon === null ? null : await normalizeIcon(icon);
     await invoke("plugin:window|set_overlay_icon", {
       label: this.label,
-      image_id: icon ? icon.rid : -1,
+      image_id: img ? img.rid : -1,
     });
   }
 
@@ -1057,6 +1060,18 @@ export function setupDragRegion(
   };
   target.addEventListener("mousedown", onMouseDown);
   return () => target.removeEventListener("mousedown", onMouseDown);
+}
+
+/** Normalizes a {@linkcode JsImage} into a registered {@linkcode Image}
+ *  (rid protocol of `plugin:window|set_icon`). */
+async function normalizeIcon(icon: JsImage): Promise<Image> {
+  if (icon instanceof Image) return icon;
+  if (typeof icon === "string") return Image.fromPath(icon);
+  const bytes =
+    icon instanceof Uint8Array
+      ? icon
+      : new Uint8Array(icon instanceof ArrayBuffer ? icon : icon);
+  return Image.fromBytes(bytes);
 }
 
 /** macOS vibrancy materials (NSVisualEffectMaterial). */

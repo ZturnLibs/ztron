@@ -31,6 +31,9 @@ export type ImageLike =
   | number[]
   | null;
 
+/** Icon-parameter widening (tauri 2.12 `JsImage`): non-null ImageLike. */
+export type JsImage = Exclude<ImageLike, null>;
+
 /**
  * A native image registered in the host. Create with `fromPath`/`fromBytes`
  * (and `fromRGBA` for raw pixels) and pass to `tray.setIcon` / `setIcon`.
