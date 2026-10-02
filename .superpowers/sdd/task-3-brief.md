@@ -1,72 +1,168 @@
-### Task 3: `init` 下一步引导增强
+### Task 3: demos/core.ts（4 卡：关于本应用 / invoke / 事件 / Channel）
 
 **Files:**
-- Modify: `packages/cli/src/index.ts`（`initProject` 函数尾部，约 686-731 行区域）
-- Test: `tests/unit/cli-doctor.test.ts` 追加（或新建 `cli-init-hints.test.ts`）
+- Create: `examples/showcase/frontend/src/demos/core.ts`
+- Modify: `examples/showcase/frontend/src/main.ts`（CATALOG 登记）
 
 **Interfaces:**
-- Consumes: `runDoctor`（Task 2）、`findNativeFile`（Task 1）
-- Produces: `nextSteps(target: string): string[]`（从 index.ts 导出不可行——index.ts 无守卫；改为在 `initProject` 内联调用 doctor 逻辑：向上探测 `native/libs/ztron-host`，探测不到则打印额外提醒。本任务产出为 `initProject` 的行为变化，验证以单测跑 CLI 进程 + 输出断言）
+- Consumes: 共享接口（见计划开头）；后端命令 `showcase:greet/add/echo/emit-ticks/stream`。
+- Produces: `export const coreDemos: Demo[]`（4 项，id: `app.about` / `core.invoke` / `core.events` / `core.channel`）。
 
-- [ ] **Step 1: 写失败测试**
-
-`tests/unit/cli-init-hints.test.ts`：
+- [ ] **Step 1: 写 demos/core.ts（完整文件）**
 
 ```ts
-/** `ztron init` prints next-step guidance incl. native-chain reminder. */
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { invoke, listen, Channel, getName, getVersion, getIdentifier } from "@zturnlibs/ztron-api";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
-const CLI = new URL("../../packages/cli/dist/index.js", import.meta.url).pathname;
+const about: Demo = {
+  id: "app.about",
+  title: "关于本应用",
+  description: "读取应用元数据（名称/版本/标识符），这是最简单的三个 API。",
+  code: `import { getName, getVersion, getIdentifier } from "@zturnlibs/ztron-api";
 
-test("init prints next steps with ZTRON_* hint outside a native repo", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ztron-init-"));
-  const r = spawnSync(process.execPath, [CLI, "init", join(dir, "my-app")], { encoding: "utf8" });
-  assert.equal(r.status, 0);
-  assert.match(r.stdout, /next steps/i);
-  assert.match(r.stdout, /ZTRON_TJS/);
-  assert.match(r.stdout, /ztron dev/);
-  assert.match(r.stdout, /ztron doctor/);
-  rmSync(dir, { recursive: true, force: true });
+const name = await getName();            // "com.ztron.showcase"
+const version = await getVersion();      // "0.1.0"
+const identifier = await getIdentifier();
+console.log(name, version, identifier);`,
+  docPath: "/plugins/app.html",
+  mount(area, out) {
+    area.append(
+      act(out, "读取应用信息", async () => {
+        const [name, version, id] = await Promise.all([
+          getName(),
+          getVersion(),
+          getIdentifier(),
+        ]);
+        out.ok(`name: ${name}\nversion: ${version}\nidentifier: ${id}`);
+      }),
+    );
+  },
+};
+
+const invokeDemo: Demo = {
+  id: "core.invoke",
+  title: "调用后端命令 invoke",
+  description: "前端 invoke 后端命令；配合 ztron codegen 可生成类型安全的命令绑定。",
+  code: `// 后端 src/commands.ts：defineCommand 声明
+export const greet = defineCommand("showcase:greet", {
+  args: {} as { name: string },
+  result: "" as string,
+  handler: (args) => \`hello, \${args.name}\`,
 });
+
+// 前端：直接 invoke
+import { invoke } from "@zturnlibs/ztron-api";
+const msg = await invoke<string>("showcase:greet", { name: "Ztron" });
+
+// 或运行 ztron codegen 后用生成的类型绑定（本示例已生成）
+import { invoke as typed } from "../src/ztron-commands.js";
+const msg2 = await typed("showcase:greet", { name: "Ztron" });`,
+  docPath: "/guide/ipc.html",
+  mount(area, out) {
+    const name = field("你的名字", "世界");
+    area.append(
+      name,
+      act(out, "greet", async () => {
+        out.ok(await invoke("showcase:greet", { name: fieldValue(name) || "世界" }));
+      }),
+      act(out, "add(2, 3)", async () => {
+        out.ok(`2 + 3 = ${await invoke("showcase:add", { a: 2, b: 3 })}`);
+      }),
+    );
+  },
+};
+
+const events: Demo = {
+  id: "core.events",
+  title: "事件 listen / emit",
+  description: "后端 emit 全局事件、前端 listen 订阅；跨进程消息的另一种形态。",
+  code: `import { listen } from "@zturnlibs/ztron-api";
+
+const unlisten = await listen<{ n: number }>("showcase:tick", (e) => {
+  console.log("tick", e.payload.n);
+});
+// 不再需要时取消订阅
+unlisten();`,
+  docPath: "/plugins/event.html",
+  mount(area, out) {
+    area.append(
+      act(out, "订阅并触发 3 次 tick", async () => {
+        let last = 0;
+        const unlisten = await listen<{ n: number }>("showcase:tick", (e) => {
+          last = e.payload.n;
+          out.info(`收到 tick ${e.payload.n}`);
+        });
+        await invoke("showcase:emit-ticks", {});
+        await new Promise((r) => setTimeout(r, 500));
+        unlisten();
+        out.ok(`最后一次 tick = ${last}，已取消订阅`);
+      }),
+    );
+  },
+};
+
+const channel: Demo = {
+  id: "core.channel",
+  title: "Channel 流式数据",
+  description: "Channel 让后端持续向前端推送消息，适合下载进度、日志流等场景。",
+  code: `import { invoke, Channel } from "@zturnlibs/ztron-api";
+
+const channel = new Channel<number>((progress) => {
+  console.log(\`收到 \${progress}/8\`);
+});
+// 后端拿到 ch 后多次 handle.send()，前端逐条收到；handle.end() 结束
+await invoke("showcase:stream", { ch: channel });`,
+  docPath: "/guide/ipc.html",
+  mount(area, out) {
+    area.append(
+      act(out, "开始接收 1..8", async () => {
+        const got: number[] = [];
+        const ch = new Channel<number>((m) => {
+          got.push(m);
+          out.info(`收到 ${m}/8`);
+        });
+        await invoke("showcase:stream", { ch });
+        out.ok(`流结束，共 ${got.length} 条消息：${got.join(",")}`);
+      }),
+    );
+  },
+};
+
+export const coreDemos: Demo[] = [about, invokeDemo, events, channel];
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [ ] **Step 2: CATALOG 登记**
 
-Run: `pnpm --filter @zturnlibs/ztron-cli build; node --experimental-strip-types --test tests/unit/cli-init-hints.test.ts 2>&1 | tail -3`
-Expected: FAIL（stdout 无 `next steps`）
-
-- [ ] **Step 3: 修改 `initProject` 尾部**
-
-`initProject` 末尾（现有两行 console.log 之后）追加：
+`frontend/src/main.ts` 顶部加 import，并把 CATALOG 换成：
 
 ```ts
-  const hasChain = findNativeFile(target, "ztron-host") !== undefined;
-  console.log(`[ztron] next steps:`);
-  console.log(`  1. native chain (once): clone https://github.com/ZturnLibs/ztron && scripts/build-native.sh`);
-  console.log(`  2. export ZTRON_TJS=<repo>/native/libs/tjs ZTRON_HOST_BIN=<repo>/native/libs/ztron-host ZTRON_WEBVIEW_LIB=<repo>/native/libs/libwebview.dylib`);
-  console.log(`  3. pnpm install && npx ztron doctor && npx ztron dev`);
-  if (!hasChain) {
-    console.log(`[ztron] note: no native/libs found above ${target} — run \`ztron doctor\` after step 2.`);
-  }
+import { coreDemos } from "./demos/core";
+
+const CATALOG: { category: string; demos: Demo[] }[] = [
+  { category: "核心", demos: coreDemos },
+];
 ```
 
-（`findNativeFile` 已由 Task 1 的 import 提供；若 index.ts 中该 import 仅此用，保留。）
+- [ ] **Step 3: typecheck**
 
-- [ ] **Step 4: 跑测试确认通过**
+Run: `pnpm --filter @zturnlibs/ztron-example-showcase typecheck`
+Expected: exit 0。
 
-Run: `pnpm --filter @zturnlibs/ztron-cli build && node --experimental-strip-types --test tests/unit/cli-init-hints.test.ts 2>&1 | tail -3 && pnpm test:unit 2>&1 | tail -3`
-Expected: 新测试 PASS；全仓单测绿（基线 +4：locate 3 + doctor 3 + init 1 - 上一任务计数连续累计）
+- [ ] **Step 4: dev 人工点验**
+
+Run: `pnpm --filter @zturnlibs/ztron-example-showcase dev`
+Expected 逐卡：
+1. 关于本应用：点按钮输出 name/version/identifier 三行（绿色）。
+2. invoke：输入「张三」点 greet 输出 `hello, 张三`；add 输出 `2 + 3 = 5`。
+3. 事件：点按钮后依次 info 三行 tick、最后 ok「已取消订阅」。
+4. Channel：点按钮后 info 8 行、ok「共 8 条」。
+每张卡片「文档」按钮能打开对应文档页；代码区「复制」后可在别处粘贴。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/cli/src/index.ts tests/unit/cli-init-hints.test.ts
-git commit -m "feat(cli): init prints next-step guidance + native-chain reminder"
+git add examples/showcase/frontend
+git commit -m "feat(examples): showcase core demos - about/invoke/events/channel"
 ```
 
 ---

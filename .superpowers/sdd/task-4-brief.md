@@ -1,70 +1,165 @@
-### Task 4: publish workflow 增发 npmjs 公共源
+### Task 4: demos/window.ts（3 卡：窗口控制 / 多窗口 / 事件与显示器）
 
 **Files:**
-- Modify: `.github/workflows/publish.yml`
+- Create: `examples/showcase/frontend/src/demos/window.ts`
+- Modify: `examples/showcase/frontend/src/main.ts`
 
 **Interfaces:**
-- Produces: `publish-npm` job（与现有 `publish` job 并列，独立失败互不影响）；发布顺序沿用 leaf-first：`inject core runtime-ffi api cli driver`
+- Consumes: 共享接口；`Window`/`WebviewWindow`/`getAllWindows`/`availableMonitors`/`currentMonitor`。
+- Produces: `export const windowDemos: Demo[]`（3 项）。
 
-- [ ] **Step 1: 追加 job（文件末尾）**
+- [ ] **Step 1: 写 demos/window.ts（完整文件）**
 
-```yaml
-  publish-npm:
-    name: publish @zturnlibs/ztron-* to npmjs (public)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-          scope: "@zturnlibs"
-      - name: install
-        run: pnpm install --frozen-lockfile
-      - name: build (workspace)
-        run: pnpm run build
-      - name: publish (leaf-first, public scoped)
-        run: |
-          for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
-            echo "--- publishing $d"
-            (cd "$d" && pnpm publish --no-git-checks --access public) || exit 1
-          done
+```ts
+import {
+  Window,
+  WebviewWindow,
+  getAllWindows,
+  availableMonitors,
+  currentMonitor,
+} from "@zturnlibs/ztron-api";
+import { act, type Demo } from "../demo-ui";
+
+const winControl: Demo = {
+  id: "window.control",
+  title: "窗口控制",
+  description: "Window 是操控当前窗口的句柄：标题、位置、置顶、全屏等。",
+  code: `import { Window } from "@zturnlibs/ztron-api";
+
+const win = Window.getCurrent();
+await win.setTitle("新标题");
+await win.center();
+await win.setAlwaysOnTop(true);   // 置顶
+await win.setAlwaysOnTop(false);
+await win.setFullscreen(true);    // 全屏（Esc 退出）
+const title = await win.getTitle();`,
+  docPath: "/plugins/window.html",
+  mount(area, out) {
+    const win = Window.getCurrent();
+    area.append(
+      act(out, "改标题", async () => {
+        await win.setTitle(`Ztron @ ${new Date().toLocaleTimeString()}`);
+        out.ok("标题已更新（看窗口标题栏）");
+      }),
+      act(out, "居中", async () => {
+        await win.center();
+        out.ok("窗口已居中");
+      }),
+      act(out, "置顶 1.2 秒", async () => {
+        await win.setAlwaysOnTop(true);
+        await new Promise((r) => setTimeout(r, 1200));
+        await win.setAlwaysOnTop(false);
+        out.ok("已置顶并取消");
+      }),
+      act(out, "全屏切换", async () => {
+        const fs = await win.isFullscreen();
+        await win.setFullscreen(!fs);
+        out.ok(fs ? "已退出全屏" : "已进入全屏");
+      }),
+    );
+  },
+};
+
+const multiwin: Demo = {
+  id: "window.multi",
+  title: "多窗口 WebviewWindow",
+  description: "运行时创建第二个原生窗口，操控它，然后销毁。label 是窗口路由主键。",
+  code: `import { WebviewWindow, getAllWindows } from "@zturnlibs/ztron-api";
+
+const second = new WebviewWindow("tools", {
+  title: "第二个窗口",
+  width: 360,
+  height: 240,
+  html: "<p>我是运行时创建的窗口</p>",
+});
+await second.create();
+await second.setTitle("改过的标题");
+const all = await getAllWindows();   // label 列表
+await second.destroy();`,
+  docPath: "/plugins/webview-window.html",
+  mount(area, out) {
+    area.append(
+      act(out, "创建第二个窗口（2.5 秒后销毁）", async () => {
+        const second = new WebviewWindow("showcase-second", {
+          title: "第二个窗口",
+          width: 360,
+          height: 240,
+          html: '<p style="font-family:system-ui;padding:16px">我是运行时创建的窗口</p>',
+        });
+        await second.create();
+        await second.setTitle("第二个窗口（已改题）");
+        const all = await getAllWindows();
+        out.info(`当前窗口：${all.map((w) => w.label).join("、")}`);
+        await new Promise((r) => setTimeout(r, 2500));
+        await second.destroy();
+        out.ok("第二个窗口已销毁");
+      }),
+    );
+  },
+};
+
+const monitors: Demo = {
+  id: "window.monitors",
+  title: "窗口事件与显示器",
+  description: "监听窗口移动事件；枚举显示器（名称/缩放/工作区）。",
+  code: `import { Window, availableMonitors, currentMonitor } from "@zturnlibs/ztron-api";
+
+const win = Window.getCurrent();
+const un = win.onMoved(() => console.log("窗口移动了"));
+
+const monitors = await availableMonitors();
+const cur = await currentMonitor();
+console.log(monitors.map((m) => \`\${m.name} @\${m.scaleFactor}x\`));
+un();`,
+  docPath: "/plugins/dpi.html",
+  mount(area, out) {
+    const win = Window.getCurrent();
+    area.append(
+      act(out, "监听移动（8 秒，拖动窗口试试）", async () => {
+        let times = 0;
+        const un = win.onMoved(() => {
+          times++;
+          out.info(`移动事件 x${times}`);
+        });
+        out.info("监听已挂上，拖动窗口标题栏");
+        await new Promise((r) => setTimeout(r, 8000));
+        un();
+        out.ok(times > 0 ? `共捕获 ${times} 次移动` : "没等到移动事件（可再试一次）");
+      }),
+      act(out, "枚举显示器", async () => {
+        const list = await availableMonitors();
+        const cur = await currentMonitor();
+        const lines = list.map(
+          (m) =>
+            `${cur && m.name === cur.name ? ">" : " "} ${m.name} @${m.scaleFactor}x work=${m.workArea.width}x${m.workArea.height}`,
+        );
+        out.ok(lines.join("\n"));
+      }),
+    );
+  },
+};
+
+export const windowDemos: Demo[] = [winControl, multiwin, monitors];
 ```
 
-（与 GitHub Packages job 的差异仅：registry-url、不设 NODE_AUTH_TOKEN 之外的额外 token——setup-node 的 `scope` + `registry-url` 会写入 .npmrc，token 来自 secret `NPM_TOKEN`，由 setup-node 自动读取环境变量 `NODE_AUTH_TOKEN`——需在 publish 步骤注入：把 publish 步骤改为 `env: NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` 前缀，即：
+- [ ] **Step 2: CATALOG 登记**
 
-```yaml
-      - name: publish (leaf-first, public scoped)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          for d in packages/inject packages/core packages/runtime-ffi packages/api packages/cli packages/driver; do
-            echo "--- publishing $d"
-            (cd "$d" && pnpm publish --no-git-checks --access public) || exit 1
-          done
+```ts
+import { windowDemos } from "./demos/window";
+// CATALOG 追加：
+  { category: "窗口", demos: windowDemos },
 ```
 
-）
+- [ ] **Step 3: typecheck** — Run: `pnpm --filter @zturnlibs/ztron-example-showcase typecheck`；Expected: exit 0。
 
-- [ ] **Step 2: YAML 校验**
+- [ ] **Step 4: dev 人工点验** — 改标题看标题栏；居中；置顶后其他窗口压不住它；全屏进出；第二个窗口出现/改题/消失；拖动主窗口时 info 行数增加；显示器列表与「关于本机」一致。
 
-Run: `ruby -ryaml -e "YAML.safe_load(File.read('.github/workflows/publish.yml')); puts 'yaml ok'"`
-Expected: `yaml ok`
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .github/workflows/publish.yml
-git commit -m "ci(publish): npmjs public registry channel (NPM_TOKEN; independent of GitHub Packages)"
+git add examples/showcase/frontend
+git commit -m "feat(examples): showcase window demos - control/multiwin/monitors"
 ```
-
-- [ ] **Step 4: 提醒用户（控制器职责，非提交）**
-
-控制器在任务完成报告里提醒用户：到 npmjs.com 创建 `@zturnlibs` scope + automation token，配到仓库 Settings → Secrets → Actions → `NPM_TOKEN`；下个 `v*` tag 起双通道发布。
 
 ---
 

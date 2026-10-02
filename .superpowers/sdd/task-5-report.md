@@ -1,52 +1,42 @@
-# Task 5 Report: docs start/ — intro.md & install.md rewrite (zh/en)
+# Task 5 Report: demos/fs.ts（3 卡：读写 / 目录与路径 / watch）
 
-**Status:** COMPLETE
-**Commit:** `3521a87` — `docs(start): tauri-style intro + prerequisites/install journey (zh/en)` (branch `feat/onboarding`)
-**Files changed:** `docs/zh/start/intro.md`, `docs/zh/start/install.md`, `docs/en/start/intro.md`, `docs/en/start/install.md` (4 files, +82/−92)
+**Status: DONE**
 
 ## What was done
 
-### Step 1+2: zh rewrites (verbatim from brief)
-- `docs/zh/start/intro.md` — replaced the long architecture/ASCII/status-page intro with the brief's compact Tauri-style pitch: what Ztron is (~2MB txiki.js + system WebView, pure TS rewrite), one-sentence architecture, Tauri API alignment pointing to `/start/quick-start` and `/guide/tauri-migration`, closing `**下一步：[前置条件与安装](/start/install)**`.
-- `docs/zh/start/install.md` — replaced monorepo-centric install with the brief's 4-step journey: prerequisites table (Apple Silicon verified / Node ≥ 20 / pnpm 9 / Xcode CLT; Windows/Linux host-skeleton-only note folded into the macOS row per brief), `npm i -g @zturnlibs/ztron-cli` + GitHub Packages fallback blockquote, one-time native chain build cloning to `~/ztron` producing `native/libs/{tjs,ztron-host,libwebview.dylib}`, three `ZTRON_*` export lines for `~/.zshrc`, `ztron doctor` health check ("五行全 PASS、输出 `doctor: OK`"), closing link to `/start/quick-start`.
+Executed the brief (`/Users/zyj/Zturn/Ztron/.superpowers/sdd/task-5-brief.md`) Steps 1-5 in order on branch `feat/showcase`. (This file previously held an old journey's Task 5 report; overwritten per report contract.)
 
-### Step 3: en mirrors
-- `docs/en/start/intro.md` ("Introduction") and `docs/en/start/install.md` ("Prerequisites & Installation") mirror zh section-by-section: identical heading levels (intro: 1 H1; install: 5 H1s: Prerequisites + Steps 1–4), identical 4 fenced bash blocks with identical command content, identical absolute link targets (`/start/quick-start`, `/guide/tauri-migration`, `/start/install`, `/start/quick-start` — diff-verified identical between locales). Prose translated; commands/package names/paths (`@zturnlibs/ztron-cli`, `native/libs/…`, `ZTRON_TJS` etc.) untranslated. Table row per brief: `macOS | Apple Silicon (verified)`; doctor output: `doctor: OK`. No `适用版本` line (matching the brief's zh content).
+### Step 1: Created `examples/showcase/frontend/src/demos/fs.ts`
+- Content copied **verbatim** from the brief's Step 1 code block (verified via `diff` against the extracted brief block → `VERBATIM_MATCH`).
+- Exports `fsDemos: Demo[]` with 3 cards: `fs.rw`（文件读写）, `fs.path`（目录列表与路径）, `fs.watch`（文件监听 watch）.
+- Pre-checked API surface against `/Users/zyj/Zturn/Ztron/packages/api/src/fs.ts` and `packages/api/src/path.ts`: `fs.writeText/readText/writeFile/readFile/readDir/watch` and `path.tempDir/homeDir/appDataDir/join` all exist; `DirEntry` = `{ name, isDirectory, isFile }`; `watch` returns `Promise<() => Promise<void>>` (unwatch); `WatchEvent` = `{ type: "modify" | "rename", path }`. All match the brief's usage.
 
-### Step 4: gates — both pass (EXIT=0)
-- `pnpm --dir docs run check:locales:deploy` → `[check-locales] OK — zh/en trees match, no placeholders`
-- `pnpm --dir docs run build` → `success Pages rendered in 107 ms.`
-- Extra structural parity check (not enforced by the script): headings/fences/absolute-link counts match zh↔en for both pages, and link-target lists are byte-identical.
+### Step 2: CATALOG registration in `examples/showcase/frontend/src/main.ts`
+- Import added next to existing demo imports: `import { fsDemos } from "./demos/fs";`
+- Entry appended after the 窗口 entry: `{ category: "文件", demos: fsDemos },`
 
-## Environment notes / concerns
+### Step 3: typecheck
+- `pnpm --filter @zturnlibs/ztron-example-showcase typecheck` → `tsc -p tsconfig.json --noEmit`, **exit 0**. (Hard gate passed.)
 
-- The worktree had no `docs/node_modules`. `docs` is a standalone package (own `pnpm-lock.yaml`, NOT listed in root `pnpm-workspace.yaml`), so a plain install walks up to the monorepo root. Fixed with `pnpm install --frozen-lockfile --ignore-workspace` inside `docs/` — lockfile unmodified (git-verified), `node_modules/` is gitignored via `docs/.gitignore`. Note for future tasks in fresh worktrees: run the docs install with `--ignore-workspace`.
-- pnpm warns `Ignored build scripts: core-js@3.42.0` — harmless (funding postinstall), build succeeds.
-- Pre-existing `.superpowers/sdd/*` modifications in the working tree were left untouched and are not part of this commit. (This file previously held an old journey's Task 5 report; overwritten per report contract.)
-- Interface contract with quick-start preserved: install's export paths use `~/ztron/native/libs/…` form consistent with `<repo>/native/libs/…`; intro links into `/start/quick-start`; install's "下一步" links `/start/quick-start`. quick-start.md itself was not modified (per brief scope).
-- Note: quick-start still calls the CLI via `node packages/cli/dist/index.js` while install now installs the global `ztron` binary; a later task may want to reconcile (out of Task 5 scope).
+### Step 4: dev run (bounded)
+- `cd examples/showcase && ZTRON_TJS=/Users/zyj/Zturn/Ztron/native/txiki.js/build/tjs timeout 75 pnpm dev 2>&1 | head -50`
+- Native chain booted fully: vite dev server on 127.0.0.1:5173, backend via tjs on a dynamic port, ztron-host started, `[showcase] backend connected`, and the success signal appeared:
+  `[showcase] frontend reported: "SHOWCASE_OK:10"` (4 core + 3 window + 3 fs = 10 cards; confirms the new 文件 category's 3 cards are registered and included in the smoke-report count).
+- Trailing `ELIFECYCLE Command failed` is expected — that is `timeout 75` killing the intentionally blocking dev process.
+- Per-card click expectations (three green outputs; Chinese text round-trip without mojibake; watch card captures modify on repeated runs): **deferred to interactive pass** — needs a human at the real native window; the automated bounded run cannot click GUI buttons.
 
----
+### Step 5: Commit
+- `git add examples/showcase/frontend && git commit -m "feat(examples): showcase fs demos - rw/dirs/watch"`
+- Commit: `5ac945e` on `feat/showcase` (2 files changed, 105 insertions; only `examples/showcase/frontend` staged — no unrelated files).
 
-## Fix wave (review finding: fact-baseline error, Important)
+## Self-review against the brief
+- fs.ts verbatim: pass (diff clean).
+- CATALOG pattern matches existing entries; import placement matches the brief's Step 2 pattern: pass.
+- Typecheck exit 0: pass.
+- SHOWCASE_OK:10 success signal observed: pass.
+- Conventional commit message exactly as specified: pass.
+- No files written under `/Users/zyj/Zturn/tauri` (read-only reference respected): pass.
+- No new unit tests (per task constraints): n/a.
 
-**Status:** FIXED
-**Finding:** Task 5 docs (`docs/{zh,en}/start/install.md`), `packages/cli/src/index.ts` step-2 init hint, and `tests/unit/cli-doctor.test.ts` all assume `scripts/build-native.sh` produces `native/libs/tjs`. Reality: the script left tjs at `native/txiki.js/build/tjs` and never copied it into `native/libs/`.
-
-**Adjudicated direction (controller decision):** make the implementation match the three consumers — add the tjs copy to `scripts/build-native.sh` so `native/libs/` is the single artifacts directory.
-
-**Change (`scripts/build-native.sh`, +5/−2):**
-- Added platform-independent copy step immediately before the final echo, guarded to preserve `set -euo pipefail` semantics: `[ -f "$NATIVE/txiki.js/build/tjs" ] && cp "$NATIVE/txiki.js/build/tjs" "$NATIVE/libs/"`.
-- Final echo updated to `tjs: $NATIVE/libs/tjs` (host part unchanged) so the message matches reality.
-- Header comment updated: tjs artifact now listed as `native/libs/tjs (built in native/txiki.js/build/tjs)`.
-- Docs, doctor fixture, and init hints deliberately untouched — they already assume `native/libs/tjs` and become correct with this change.
-
-**Verification (this is a shell script — no unit test suite covers it; `bash -n` + tmpdir semantic check used instead; full unit suite not run since no TS changes):**
-- `bash -n scripts/build-native.sh` → `SYNTAX OK` (exit 0).
-- Tmpdir semantic check replicating the exact `set -euo pipefail` + guard + cp + echo shape with `NATIVE=tmp/native`:
-  - tjs present → `==> done. tjs: …/native/libs/tjs, host: …/native/libs/ztron-host`, exit=0, `native/libs/tjs` created with expected content.
-  - tjs missing → copy skipped, script does NOT abort (POSIX `set -e` ignores failures of non-final AND-OR-list commands), echo still runs, exit=0 — partial builds are not broken; a missing tjs build simply means no `libs/tjs` copy.
-  - Re-run safety: plain `cp` overwrites, no stale-artifact guard needed.
-- Full `ztron doctor` / `ztron init` flows unaffected (no TS changes).
-
-**Commit:** see `fix(build): copy tjs into native/libs (single artifacts dir; aligns docs/init/doctor fixture)` on `feat/onboarding`.
+## Concerns
+- None blocking. Only open item: human interactive verification of the 3 fs cards' button clicks in the native window (deferred to interactive pass, as instructed).

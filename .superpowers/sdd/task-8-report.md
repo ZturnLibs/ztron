@@ -1,44 +1,44 @@
-# Task 8 Report: CI docs job
+# Task 8 Report: demos/menu-tray.ts（3 卡：应用菜单 / 托盘 / 全局快捷键）
 
-**Status:** DONE
-**Branch:** feat/docs (worktree /Users/zyj/Zturn/Ztron/.worktrees/docs)
-**Commit:** bd0fb74 `ci: docs job - locale parity, script tests, site build`
+**Status: DONE**
 
 ## What was done
 
-1. Read brief `/Users/zyj/Zturn/Ztron/.superpowers/sdd/task-8-brief.md`.
-2. Confirmed `.github/workflows/ci.yml` on feat/docs had no existing `docs:` job
-   (jobs were: unit, native-linux, native-windows, macos-spike) — not BLOCKED.
-3. Appended the exact `docs:` job from the brief (verbatim) at the end of the
-   file, at the same 2-space indent level as the existing jobs:
-   - `name: docs (parity + build)`, `runs-on: ubuntu-latest`
-   - `defaults.run.working-directory: docs`
-   - actions/checkout@v4, pnpm/action-setup@v4 (version 9.15.4),
-     actions/setup-node@v4 (node 22) — matches existing job conventions
-   - steps: `pnpm install --frozen-lockfile`, `pnpm test`,
-     `pnpm run check:locales`, `pnpm run build`
-4. Scoped git: `git -C <worktree> add .github/workflows/ci.yml` only.
+1. **Step 1 — Created `examples/showcase/frontend/src/demos/menu-tray.ts`**
+   - Written verbatim from the brief (verified: `diff` of the brief's code block
+     against the file → identical, `VERBATIM_MATCH`).
+   - Exports `menuTrayDemos: Demo[]` with 3 cards:
+     - `menu.app` 应用菜单 — `setAppMenu` + `setItemAccelerator("quit", "CmdOrCtrl+Q")` + `setItemChecked("zoom", ...)` toggle.
+     - `menu.tray` 系统托盘 TrayIcon — `TrayIcon.create({ title: "Z", tooltip })`, `setIconAsTemplate(true)`, 5s dwell, `destroy()`.
+     - `menu.shortcut` 全局快捷键 — `registerShortcut("showcase-demo", "Cmd+Shift+J")`, `isRegistered`, `onShortcut` handler with 10s window, then `unregisterShortcut` + unlisten.
+   - API imports (`setAppMenu`, `Menu`, `TrayIcon`, `registerShortcut`, `unregisterShortcut`, `isRegistered`, `onShortcut`) all confirmed present in `packages/api/src/index.ts` (lines 127–253).
 
-## Verification
+2. **Step 2 — CATALOG registration in `examples/showcase/frontend/src/main.ts`**
+   - Import `import { menuTrayDemos } from "./demos/menu-tray";` added next to the existing demo imports (after `netDemos`).
+   - Entry `{ category: "菜单与托盘", demos: menuTrayDemos },` appended after the 网络 entry.
 
-- YAML syntax: python3 PyYAML unavailable in this env (ModuleNotFoundError);
-  fell back to ruby per brief — `YAML.load_file` → `yaml ok`, jobs parse as:
-  `unit, native-linux, native-windows, macos-spike, docs`.
-- Prerequisites confirmed: `docs/package.json` exposes `test`
-  (`node --experimental-strip-types --test scripts/*.test.ts`), `check:locales`
-  (`node --experimental-strip-types scripts/check-locales.ts`), `build`
-  (`rspress build`); `docs/pnpm-lock.yaml` exists (frozen-lockfile install
-  inside working-directory docs/ is intended per task context).
-- `git diff --cached` before commit: single file `.github/workflows/ci.yml`,
-  23 insertions, only the docs-job hunk appended after macos-spike.
-- `git show --stat HEAD`: 1 file changed, 23 insertions(+); `git status --short`
-  clean afterwards.
-- No build attempted locally (macOS 26 rspress native-module deadlock, per
-  task constraints). Real gate effect verifies on push (Task 10).
+3. **Step 3 — Typecheck (hard gate)**
+   - `pnpm --filter @zturnlibs/ztron-example-showcase typecheck` → **exit 0**.
 
-## Notes
+4. **Step 4 — Bounded dev run**
+   - Command: `ZTRON_TJS=.../native/txiki.js/build/tjs timeout 75 pnpm dev` in `examples/showcase`.
+   - Native chain booted fully: vite dev server on 127.0.0.1:5173, backend via tjs on port 51712, host connected.
+   - Success signal observed: `[showcase] frontend reported: "SHOWCASE_OK:20"` (17 existing + 3 menu-tray cards). The trailing `ELIFECYCLE ... exit code 1` is just the `timeout 75` kill — expected.
 
-- Main checkout `/Users/zyj/Zturn/Ztron` (branch main) untouched; tauri
-  reference dir untouched.
-- Job ordering note: `docs` job has no `needs:` — it runs in parallel with the
-  other jobs, which matches the brief (independent docs gate).
+5. **Step 5 — Commit**
+   - `5d308ed` — `feat(examples): showcase menu-tray demos - appmenu/tray/global-shortcut`
+   - Only `examples/showcase/frontend` staged (2 files changed, 130 insertions). Branch: `feat/showcase`.
+
+## Deferred to interactive pass (GUI needs a human)
+
+Per-card native interaction checks could not be automated in the bounded run:
+
+- 应用菜单：菜单栏出现 New Window / View（含 Zoom 勾选、Small/Large 单选、分隔线）/ Quit；Cmd+Shift+Q 加速键生效（按下会退出应用，属预期，重跑 dev 即可）；Zoom 勾选切换后打开 View 菜单核对。
+- 托盘：菜单栏右上角 Z 图标出现，5 秒后消失。
+- 全局快捷键：切到其他应用按 Cmd+Shift+J，10 秒窗口内出现 `触发：showcase-demo` info 行。
+
+## Concerns
+
+- None blocking. Note: the verbatim brief imports `Menu` in `menu-tray.ts` without using it; typecheck passes (no `noUnusedLocals` enforcement in the frontend tsconfig), and the brief mandated verbatim contents, so it was kept as-is.
+- Housekeeping note: `task-8-report.md` previously held stale content from an unrelated earlier run ("CI docs job" on feat/docs); it was overwritten with this report per task instructions.
+- Constraint honored: `/Users/zyj/Zturn/tauri` untouched (read-only reference). No app-menu quit interaction performed during the dev run.

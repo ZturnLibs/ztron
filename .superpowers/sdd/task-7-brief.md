@@ -1,51 +1,137 @@
-### Task 7: `examples.md` 微调 + 端到端验收 + PR
+### Task 7: demos/net.ts（3 卡：fetch / fetchStream / websocket）
 
 **Files:**
-- Modify: `docs/zh/start/examples.md`, `docs/en/start/examples.md`（仅开头定位句 + 结尾链接）
+- Create: `examples/showcase/frontend/src/demos/net.ts`
+- Modify: `examples/showcase/frontend/src/main.ts`
 
 **Interfaces:**
-- Consumes: Task 2 doctor、Task 6 教程页
+- Consumes: 共享接口；`http`/`fetchStream`/`websocket`；后端 `showcase:echo-port`（Task 1 已建，含 /stream 端点）。
+- Produces: `export const netDemos: Demo[]`（3 项）。
 
-- [ ] **Step 1: 微调 examples（zh/en）**
+- [ ] **Step 1: 写 demos/net.ts（完整文件）**
 
-`docs/zh/start/examples.md` 顶部加一句：
+```ts
+import { http, fetchStream, websocket, invoke } from "@zturnlibs/ztron-api";
+import { act, extractError, type Demo } from "../demo-ui";
 
-```markdown
-> `examples/` 属于框架仓库（贡献者/开发者视角）。普通应用开发请从[快速开始](/start/quick-start)的 `ztron init` 路径进入。
+const fetchDemo: Demo = {
+  id: "net.fetch",
+  title: "HTTP 请求 fetch",
+  description: "经后端代理的 fetch，受 scope 白名单约束（已放行 api.github.com 与 localhost）；越界域名直接被拒。",
+  code: `import { http } from "@zturnlibs/ztron-api";
+
+const resp = await http.fetch("https://api.github.com/zen");
+console.log(resp.status, resp.ok, resp.body);
+
+// scope 未放行的域名会抛错（见本卡片第二个按钮）
+await http.fetch("https://evil.example.com/steal");`,
+  docPath: "/plugins/http.html",
+  mount(area, out) {
+    area.append(
+      act(out, "GET api.github.com/zen", async () => {
+        const resp = await http.fetch("https://api.github.com/zen");
+        out.ok(`status ${resp.status}\n${resp.body}`);
+      }),
+      act(out, "越界域名（scope 拒绝演示）", async () => {
+        try {
+          await http.fetch("https://evil.example.com/steal");
+          out.ok("竟然放行了？请检查 http scope 配置");
+        } catch (e) {
+          out.ok(`符合预期被拒绝：${extractError(e).slice(0, 80)}`);
+        }
+      }),
+    );
+  },
+};
+
+const streamDemo: Demo = {
+  id: "net.stream",
+  title: "流式下载 fetchStream",
+  description: "响应头先返回，body 以 chunk 持续推送（ReadableStream），适合大文件与进度条。",
+  code: `import { fetchStream } from "@zturnlibs/ztron-api";
+
+const resp = await fetchStream(url);   // 头部先到
+const reader = resp.body.getReader();
+for (;;) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  console.log("收到 chunk", value.length, "字节");
+}`,
+  docPath: "/plugins/http.html",
+  mount(area, out) {
+    area.append(
+      act(out, "流式读取本地 /stream", async () => {
+        const port = await invoke<number>("showcase:echo-port", {});
+        const t0 = Date.now();
+        const resp = await fetchStream(`http://localhost:${port}/stream`);
+        const headMs = Date.now() - t0;
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let chunks = 0;
+        let text = "";
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks++;
+          text += dec.decode(value);
+        }
+        out.ok(
+          `头部 ${headMs}ms 到达，body 分 ${chunks} 段、共 ${Date.now() - t0}ms 读尽：\n${text}`,
+        );
+      }),
+    );
+  },
+};
+
+const wsDemo: Demo = {
+  id: "net.websocket",
+  title: "WebSocket",
+  description: "经后端托管的 WebSocket（连接/发消息/收消息/断开）；用公共回声服务器演示往返，需外网。",
+  code: `import { websocket } from "@zturnlibs/ztron-api";
+
+const { id } = await websocket.connect("wss://ws.postman-echo.com/raw");
+websocket.onMessage((e) => console.log("收到：", e.message));
+await websocket.sendMessage(id, "hello ztron");
+await websocket.disconnect(id);`,
+  docPath: "/plugins/websocket.html",
+  mount(area, out) {
+    area.append(
+      act(out, "连接回声服务器并收发", async () => {
+        const echoed = new Promise<string>((resolve) => {
+          void websocket.onMessage((e) => resolve(e.message));
+        });
+        const { id } = await websocket.connect("wss://ws.postman-echo.com/raw");
+        await websocket.sendMessage(id, "hello ztron");
+        const msg = await Promise.race([
+          echoed,
+          new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+        ]);
+        await websocket.disconnect(id);
+        if (msg && msg.includes("hello ztron")) {
+          out.ok(`往返成功：${msg}`);
+        } else {
+          out.fail(`8 秒内未收到回声（需外网）：${msg}`);
+        }
+      }),
+    );
+  },
+};
+
+export const netDemos: Demo[] = [fetchDemo, streamDemo, wsDemo];
 ```
 
-结尾追加：
+- [ ] **Step 2: CATALOG 登记** — `{ category: "网络", demos: netDemos },`
 
-```markdown
-**深入：[架构](/guide/architecture) · [IPC](/guide/ipc) · [安全 ACL](/guide/security) · [API 参考](/en/reference/api/) · [命令参考](/reference/commands)**
-```
+- [ ] **Step 3: typecheck** — Expected: exit 0。
 
-en 版对应英译。
+- [ ] **Step 4: dev 人工点验** — fetch 输出 GitHub zen 格言（离线时红色报错属网络问题）；stream 输出 8 段 chunk 序列且头耗时应明显小于总耗时；websocket 打印回声（离线红色属预期）。
 
-- [ ] **Step 2: 端到端验收（spec §7）**
-
-1. 干净目录 init → dev → build（Task 6 Step 3 已覆盖，复核 exit 0）
-2. `ztron doctor` 三态：仓库根全绿 exit 0；`PATH=/nonexistent cd /tmp && node <cli>/index.js doctor` → tjs/host/webview FAIL + hint + exit 1
-3. 门禁 + 全仓：`pnpm --dir docs run check:locales:deploy && pnpm test 2>&1 | tail -3` → 门禁 OK、126+ pass / 0 fail
-4. 检查 `npm view @zturnlibs/ztron-cli` ——若用户已配 `NPM_TOKEN` 并打 tag 发布则可见；未发布则在 PR 描述标注"npmjs 通道待 token"
-
-- [ ] **Step 3: 双语门禁 + 构建最终复核**
-
-Run: `pnpm --dir docs run check:locales:deploy && pnpm --dir docs run build 2>&1 | tail -1`
-Expected: OK + 构建成功
-
-- [ ] **Step 4: Commit + 推分支 + PR**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add docs/zh/start/examples.md docs/en/start/examples.md
-git commit -m "docs(start): examples positioning + deep-dive links (zh/en)"
-git push -u origin feat/onboarding
-gh pr create --base main --head feat/onboarding --title "feat: tauri-style onboarding (npmjs channel, ztron doctor, start/ journey)" --body "Spec: docs/superpowers/specs/2026-09-03-onboarding-journey-design.md. W1 publish-npm job (needs NPM_TOKEN secret), W2 ztron doctor + init guidance, W3 start/ journey rewrite (zh/en). Acceptance: clean-dir init->dev->build, doctor 3-state, locale gate, full tests."
+git add examples/showcase/frontend
+git commit -m "feat(examples): showcase net demos - fetch/stream/websocket"
 ```
-
-- [ ] **Step 5: 合并后线上验证**
-
-合并 main 后等 website.yml 绿，验证 `https://zturnlibs.github.io/ztron/docs/start/quick-start.html` 与 `/zh/` 对应页 200 且为新内容（grep `ztron init my-app`）。
 
 ---
 

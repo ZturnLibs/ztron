@@ -1,132 +1,172 @@
-### Task 6: docs start/ — `quick-start.md` 重写（zh/en，核心教程页）
+### Task 6: demos/dialogs.ts（4 卡：文件对话框 / 消息对话框 / 通知 / 剪贴板）
 
 **Files:**
-- Modify: `docs/zh/start/quick-start.md`, `docs/en/start/quick-start.md`
+- Create: `examples/showcase/frontend/src/demos/dialogs.ts`
+- Modify: `examples/showcase/frontend/src/main.ts`
 
 **Interfaces:**
-- Consumes: install 页的环境变量与 CLI（`ztron init/dev/codegen/build/doctor`）；`defineCommand`/`invoke` 事实源（`examples/hello/src/commands.ts` 的 `defineCommand("my:greet", { args: {} as { name: string }, result: "" as string, handler })` 模式）
-- Produces: 教程代码片段——Task 7 验收时逐条实测
+- Consumes: 共享接口；`open`/`save`/`message`/`ask`/`confirm`/`sendNotification`/`isPermissionGranted`/`requestPermission`/剪贴板五函数。
+- Produces: `export const dialogDemos: Demo[]`（4 项）。
 
-- [ ] **Step 1: 重写 `docs/zh/start/quick-start.md`**
-
-`````markdown
----
-title: 快速开始
----
-
-# Try Ztron（3 行）
-
-前置：完成[前置条件与安装](/start/install)（`ztron doctor` 全绿）。
-
-```bash
-ztron init my-app && cd my-app
-pnpm install
-ztron dev
-```
-
-原生窗口出现「Hello Ztron」即成功。`dev` = Vite 构建前端 → 拉起原生窗口 →
-启动 tjs 后端；前端改动即时热重载。
-
-# 第一个应用
-
-## 项目结构
-
-```
-my-app/
-├── ztron.conf.json      # 窗口声明 + 入口（entry: src/main.ts）
-├── src/main.ts          # 后端：连接 host、注册命令
-└── frontend/            # 前端：普通 Vite 页面
-    ├── index.html
-    └── src/main.ts
-```
-
-## 改前端
-
-编辑 `frontend/index.html`，把 `<h1>Hello Ztron</h1>` 改成
-`<h1>我的第一个 Ztron 应用</h1>` 并加一个按钮：
-
-```html
-<h1>我的第一个 Ztron 应用</h1>
-<button id="greet">打招呼</button>
-<p id="out"></p>
-```
-
-保存后窗口内即时生效（Vite HMR）。
-
-## 加一个 TypeScript 命令（后端 → 前端）
-
-命令定义在后端（`src/main.ts` 旁新建 `src/commands.ts`）：
+- [ ] **Step 1: 写 demos/dialogs.ts（完整文件）**
 
 ```ts
-import { defineCommand } from "@zturnlibs/ztron-core";
+import {
+  open,
+  save,
+  message,
+  ask,
+  confirm,
+  sendNotification,
+  isPermissionGranted,
+  requestPermission,
+  writeClipboardText,
+  readClipboardText,
+  writeClipboardHtml,
+  readClipboardHtml,
+  clearClipboard,
+} from "@zturnlibs/ztron-api";
+import { act, field, fieldValue, type Demo } from "../demo-ui";
 
-export const greet = defineCommand("my:greet", {
-  args: {} as { name: string },
-  result: "" as string,
-  handler: (args) => `你好, ${args.name}`,
+const fileDialogs: Demo = {
+  id: "dialog.file",
+  title: "文件对话框 open / save",
+  description: "原生打开/保存对话框；返回所选路径，取消返回 null。",
+  code: `import { open, save } from "@zturnlibs/ztron-api";
+
+const file = await open({
+  title: "选择一个文件",
+  filters: ["txt", "md", "json"],   // 扩展名过滤
 });
-```
+if (file) console.log("选中：", file);
 
-在 `src/main.ts` 注册（AppBuilder 链上，`init` 模板已内置 registerCommand
-调用处——把 `greet` 加入其 imports 与注册列表即可）：
-
-```ts
-import { greet } from "./commands.js";
-```
-
-生成类型化前端绑定并安装 API 包：
-
-```bash
-ztron codegen
-pnpm i @zturnlibs/ztron-api
-```
-
-前端调用（`frontend/src/main.ts`）：
-
-```ts
-import { invoke } from "@zturnlibs/ztron-api";
-
-document.getElementById("greet")!.onclick = async () => {
-  document.getElementById("out")!.textContent = await invoke("my:greet", { name: "Ztron" });
+const target = await save({ title: "保存到哪里" });`,
+  docPath: "/plugins/dialog.html",
+  mount(area, out) {
+    area.append(
+      act(out, "打开文件", async () => {
+        const file = await open({ title: "选择一个文件", filters: ["txt", "md", "json"] });
+        out.ok(file ? `选中：${file}` : "已取消");
+      }),
+      act(out, "保存对话框", async () => {
+        const target = await save({ title: "保存到哪里" });
+        out.ok(target ? `目标：${target}` : "已取消");
+      }),
+    );
+  },
 };
+
+const msgDialogs: Demo = {
+  id: "dialog.message",
+  title: "消息对话框 message / ask / confirm",
+  description: "系统级提示框：message 纯提示；ask/confirm 带按钮，返回布尔值。",
+  code: `import { message, ask, confirm } from "@zturnlibs/ztron-api";
+
+await message({ title: "提示", message: "Hello Ztron", kind: "info" });
+const yes = await ask({ title: "确认", message: "继续吗？" });
+const ok = await confirm({ title: "确认", message: "保存修改？" });`,
+  docPath: "/plugins/dialog.html",
+  mount(area, out) {
+    area.append(
+      act(out, "message(info)", async () => {
+        await message({ title: "Ztron Showcase", message: "这是一个原生消息框", kind: "info" });
+        out.ok("message 已关闭");
+      }),
+      act(out, "ask", async () => {
+        const yes = await ask({ title: "确认", message: "Ztron 好用吗？" });
+        out.ok(`你选择了：${yes ? "是" : "否"}`);
+      }),
+      act(out, "confirm", async () => {
+        const ok = await confirm({ title: "确认", message: "保存这份草稿？" });
+        out.ok(`confirm 返回：${ok}`);
+      }),
+    );
+  },
+};
+
+const notif: Demo = {
+  id: "dialog.notification",
+  title: "系统通知",
+  description: "先查/请求通知权限再发送（未授权时 send 会静默失败）。",
+  code: `import {
+  sendNotification, isPermissionGranted, requestPermission,
+} from "@zturnlibs/ztron-api";
+
+let granted = await isPermissionGranted();
+if (!granted) granted = await requestPermission();
+if (granted) {
+  await sendNotification({ title: "Ztron", body: "来自 showcase 的通知" });
+}`,
+  docPath: "/plugins/notification.html",
+  mount(area, out) {
+    area.append(
+      act(out, "发一条通知", async () => {
+        let granted = await isPermissionGranted();
+        if (!granted) granted = await requestPermission();
+        if (!granted) {
+          out.fail("通知权限未授予（dev 裸二进制常见，打包 .app 后可授权）");
+          return;
+        }
+        await sendNotification({ title: "Ztron Showcase", body: "这是一条系统通知" });
+        out.ok("通知已发出（看屏幕右上角）");
+      }),
+    );
+  },
+};
+
+const clipboardDemo: Demo = {
+  id: "dialog.clipboard",
+  title: "剪贴板",
+  description: "读写文本与 HTML，支持清除；写完可去任意应用粘贴验证。",
+  code: `import {
+  writeClipboardText, readClipboardText,
+  writeClipboardHtml, readClipboardHtml, clearClipboard,
+} from "@zturnlibs/ztron-api";
+
+await writeClipboardText("来自 Ztron");
+const text = await readClipboardText();
+
+await writeClipboardHtml("<b>加粗</b>");
+const html = await readClipboardHtml();
+await clearClipboard();`,
+  docPath: "/plugins/clipboard.html",
+  mount(area, out) {
+    const text = field("要写的文本", "来自 Ztron Showcase");
+    area.append(
+      text,
+      act(out, "写文本", async () => {
+        await writeClipboardText(fieldValue(text));
+        out.ok("已写入剪贴板，去别处粘贴试试");
+      }),
+      act(out, "读文本", async () => {
+        out.ok(`剪贴板：${(await readClipboardText()) ?? "(空)"}`);
+      }),
+      act(out, "HTML 往返", async () => {
+        await writeClipboardHtml("<b>ztron-html</b>");
+        out.ok(`读回 HTML：${await readClipboardHtml()}`);
+      }),
+      act(out, "清除", async () => {
+        await clearClipboard();
+        out.ok("已清除");
+      }),
+    );
+  },
+};
+
+export const dialogDemos: Demo[] = [fileDialogs, msgDialogs, notif, clipboardDemo];
 ```
 
-点按钮 → 显示「你好, Ztron」。这条链（后端命令 → codegen → 前端 invoke）
-就是 Ztron 应用的全部骨架。
+- [ ] **Step 2: CATALOG 登记** — `{ category: "对话框与通知", demos: dialogDemos },`
 
-## 打包
+- [ ] **Step 3: typecheck** — Expected: exit 0。
 
-```bash
-ztron build
-```
-
-产出独立 `.app`（ad-hoc 签名）。分发前可在
-`ztron.conf.json` 修改 `identifier` 与窗口声明。
-
-**下一步：[示例](/start/examples) · [架构](/guide/architecture) · [命令参考](/reference/commands)**
-`````
-
-- [ ] **Step 2: 写 `docs/en/start/quick-start.md`（英文镜像）**
-
-结构与 zh 逐段对应；代码块逐字相同；链接同样指向 `/start/examples`、`/guide/architecture`、`/reference/commands`。
-
-- [ ] **Step 3: 教程片段逐条实测（本任务核心步骤）**
-
-在干净 tmpdir 按教程执行（worktree 仓库根提供原生链 + env 指向 worktree 的 `native/libs`；若 worktree 无原生链，用主仓库路径）：
-
-Run: `cd $(mktemp -d) && ztron init my-app && cd my-app && pnpm install && ZTRON_DEV_URL= node ../../… `（实际以 `ztron dev --entry src/main.ts` 冒烟；无 GUI 断言窗口则以 `ztron build` exit 0 + `ztron check` 于 hello 为替代验证）
-Expected: init/codegen/build 全部 exit 0；教程中代码片段与脚手架实际内容一致（若 `init` 模板与教程有出入——如模板未内置 registerCommand 调用处——**以实现为准修正教程文本**，并在报告记录）
-
-- [ ] **Step 4: 双语门禁 + 构建**
-
-Run: `pnpm --dir docs run check:locales:deploy && pnpm --dir docs run build 2>&1 | tail -2`
-Expected: 门禁 OK、构建成功
+- [ ] **Step 4: dev 人工点验** — 四卡逐个点：对话框真弹出、ask/confirm 返回随点击变化；通知出现在系统通知中心（权限被拒时红色提示属预期）；剪贴板与备忘录互贴成功。
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/zh/start/quick-start.md docs/en/start/quick-start.md
-git commit -m "docs(start): first-app tutorial (try 3-liner, structure, first TS command, package)"
+git add examples/showcase/frontend
+git commit -m "feat(examples): showcase dialog demos - open-save/message-ask-confirm/notification/clipboard"
 ```
 
 ---
