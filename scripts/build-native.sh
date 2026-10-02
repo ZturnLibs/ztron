@@ -133,8 +133,11 @@ case "$(uname -s)" in
     BUILD_CMD="$NATIVE/.build-host-windows.cmd"
     {
       echo '@echo off'
-      echo "call \"$VSDIR\\VC\\Auxiliary\\Build\\vcvars64.bat\" >nul || exit /b 1"
-      echo "cl -nologo /D_CRT_SECURE_NO_WARNINGS \"$(cygpath -w "$NATIVE/host/host.c")\" \"$(cygpath -w "$NATIVE/host/host_windows.c")\" /I \"$(cygpath -w "$NATIVE/webview/core/include")\" /link \"$(cygpath -w "$NATIVE/libs/webview.lib")\" user32.lib shell32.lib comdlg32.lib ws2_32.lib gdi32.lib advapi32.lib comctl32.lib /OUT:\"$(cygpath -w "$NATIVE/libs/ztron-host.exe")\" || exit /b 1"
+      # NOTE: do NOT redirect this call to >nul — vcvars64 resolves internal
+      # helper paths via its own console output on some toolchains and fails
+      # with "path not found" when stdout is nul (observed: VSBT 17.14).
+      echo "call \"$VSDIR\\VC\\Auxiliary\\Build\\vcvars64.bat\" || exit /b 1"
+      echo "cl -nologo /D_CRT_SECURE_NO_WARNINGS \"$(cygpath -w "$NATIVE/host/host.c")\" \"$(cygpath -w "$NATIVE/host/host_windows.c")\" /I \"$(cygpath -w "$NATIVE/webview/core/include")\" /link \"$(cygpath -w "$NATIVE/libs/webview.lib")\" user32.lib shell32.lib comdlg32.lib ws2_32.lib gdi32.lib advapi32.lib comctl32.lib ole32.lib uuid.lib shcore.lib gdiplus.lib /OUT:\"$(cygpath -w "$NATIVE/libs/ztron-host.exe")\" || exit /b 1"
     } > "$BUILD_CMD"
     cmd //c "$(cygpath -w "$BUILD_CMD")"
     RC=$?
