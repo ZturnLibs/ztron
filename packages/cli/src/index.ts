@@ -422,6 +422,10 @@ const ATS_INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
     <key>NSAllowsLocalNetworking</key>
     <true/>
   </dict>
+  <key>NSCameraUsageDescription</key>
+  <string>This app requests camera access from web content.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>This app requests microphone access from web content.</string>
 </dict>
 </plist>
 `;
@@ -1430,6 +1434,10 @@ function appInfoPlist(appName: string): string {
   <string>6.0</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
+  <key>NSCameraUsageDescription</key>
+  <string>This app requests camera access from web content.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>This app requests microphone access from web content.</string>
   <key>CFBundleURLTypes</key>
   <array>
     <dict>

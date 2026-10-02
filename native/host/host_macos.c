@@ -1551,8 +1551,140 @@ static void install_window_delegate_on(void *wnd) {
   OBJC_MSG(void(*)(id, SEL, id), wnd, sel_registerName("setDelegate:"), delegate);
 }
 
+static void install_permission_bridge_on(id wk, void *wnd); /* fwd */
+
 static void install_window_delegate(void) {
   install_window_delegate_on(zt_window());
+  /* The MAIN webview never goes through attach_webview (that path is
+     second-window only) — install the permission bridge here too. */
+  {
+    id wk = zt_w
+        ? (id)webview_get_native_handle(
+              zt_w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER)
+        : NULL;
+    if (wk) install_permission_bridge_on(wk, zt_window());
+  }
+}
+
+/* ---- webview permission interception (WKUIDelegate, macOS 12+) -------
+ * The engine sets its own WKUIDelegate; instead of replacing it (which
+ * would drop the lib's open-panel handling), the permission selector is
+ * added to the delegate's CLASS at attach time. tauri 382dd6ccc alignment:
+ * without a backend handler core answers "default", which the SDK header
+ * defines as identical to leaving the method unimplemented (Prompt). */
+
+#include <Block.h> /* Block_copy / Block_release (libSystem runtime) */
+
+/* ObjC block literal ABI (Block_private.h layout; invoke is slot 2). */
+typedef struct {
+  void *isa;
+  int flags;
+  int reserved;
+  void (*invoke)(void *, long);
+} ZtBlock;
+
+#define MAX_PERM 64
+static struct {
+  void *block; /* retained decisionHandler */
+  int id;
+} g_perm_pending[MAX_PERM];
+static int g_perm_next_id = 1;
+
+/* IMP: webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:
+   type:decisionHandler: — WKMediaCaptureType camera=0 mic=1 both=2 (both
+   reports as "camera", the dominant capability). */
+static void zt_perm_capture_cb(id self, SEL _cmd, id webview, id origin,
+                               id frame, long type, id decision) {
+  (void)self;
+  (void)_cmd;
+  (void)frame;
+  const char *kind = type == 1 ? "microphone" : "camera";
+  char url[256];
+  url[0] = '\0';
+  if (origin) {
+    id str = OBJC_MSG(id(*)(id, SEL), origin, sel_registerName("toString"));
+    if (str) {
+      const char *u = (const char *)OBJC_MSG(const char *(*)(id, SEL), str,
+                                             sel_registerName("UTF8String"));
+      if (u) snprintf(url, sizeof(url), "%s", u);
+    }
+  }
+  const char *label = "main";
+  id lbl = objc_getAssociatedObject(webview, "perm_label");
+  if (lbl) {
+    const char *l = (const char *)OBJC_MSG(const char *(*)(id, SEL), lbl,
+                                           sel_registerName("UTF8String"));
+    if (l && l[0]) label = l;
+  }
+  int slot = -1;
+  for (int i = 0; i < MAX_PERM; i++) {
+    if (!g_perm_pending[i].block) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0 || !decision) return; /* saturated: leave to platform default */
+  g_perm_pending[slot].block = Block_copy(decision);
+  g_perm_pending[slot].id = g_perm_next_id++;
+  char esc[512];
+  zt_json_escape(url, esc, sizeof(esc));
+  char buf[1024];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"permission_request\",\"id\":%d,\"kind\":\"%s\","
+           "\"url\":\"%s\",\"label\":\"%s\"}",
+           g_perm_pending[slot].id, kind, esc, label);
+  zt_send_line(buf);
+}
+
+/* Routes a backend decision to the pending decisionHandler (stdin thread):
+ * hop to the GUI thread via webview_dispatch, then invoke + release. */
+typedef struct {
+  void *block;
+  long decision;
+} ZtPermReply;
+
+static void zt_perm_reply_on_main(webview_t w, void *arg) {
+  (void)w;
+  ZtPermReply *r = (ZtPermReply *)arg;
+  ((ZtBlock *)r->block)->invoke(r->block, r->decision);
+  Block_release(r->block);
+  free(r);
+}
+
+void zt_permission_respond(Msg *m) {
+  long decision = 0; /* default -> WKPermissionDecisionPrompt */
+  if (strcmp(m->aux, "allow") == 0) decision = 1;
+  else if (strcmp(m->aux, "deny") == 0) decision = 2;
+  for (int i = 0; i < MAX_PERM; i++) {
+    if (g_perm_pending[i].block && g_perm_pending[i].id == m->req_id) {
+      ZtPermReply *r = (ZtPermReply *)malloc(sizeof(*r));
+      if (!r) return; /* dropped: request stays pending (documented) */
+      r->block = g_perm_pending[i].block;
+      r->decision = decision;
+      g_perm_pending[i].block = NULL; /* claim before dispatch */
+      webview_dispatch(zt_w, zt_perm_reply_on_main, r);
+      return;
+    }
+  }
+  /* Unknown id (already answered / saturated out): ignore. */
+}
+
+/* Adds the media-capture permission selector to the engine's UIDelegate
+   class and labels the webview for request routing. Idempotent per class. */
+static void install_permission_bridge_on(id wk, void *wnd) {
+  if (!wk || !wnd) return;
+  objc_setAssociatedObject(wk, "perm_label",
+                           zt_nsstring(zt_label_for_window(wnd)),
+                           OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  id delegate = OBJC_MSG(id(*)(id, SEL), wk, sel_registerName("UIDelegate"));
+  if (!delegate) return;
+  Class cls = object_getClass(delegate);
+  if (!cls) return;
+  SEL sel = sel_registerName(
+      "webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:"
+      "type:decisionHandler:");
+  if (class_getInstanceMethod(cls, sel)) return;
+  class_addMethod(cls, sel, (IMP)zt_perm_capture_cb, "v@:@@@q@");
 }
 
 /* Attaches platform handlers to a runtime-created webview (multi-window). */
@@ -1574,6 +1706,9 @@ static int attach_webview_impl(webview_t w) {
                    w, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER)
              : NULL;
     if (wk) install_drop_target_on(wk, wnd);
+    /* Permission interception: every webview gets the bridge; core decides
+       (auto-"default" without a user handler = unimplemented semantics). */
+    if (wk) install_permission_bridge_on(wk, wnd);
   }
   return 1;
 }

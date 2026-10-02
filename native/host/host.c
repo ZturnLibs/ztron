@@ -399,8 +399,12 @@ static int zt_handle_backend_line(char *line) {
   zt_json_str(line, "color", m->aux, sizeof(m->aux)); /* effects tint (hex) */
   zt_json_str(line, "fallback", m->str, sizeof(m->str)); /* effects fallback material */
   m->num_val = zt_json_int(line, "interactive", m->num_val); /* Liquid Glass */
+  zt_json_str(line, "response", m->aux, sizeof(m->aux)); /* permission decision */
 
-  if (strcmp(m->type, "quit") == 0) {
+  if (strcmp(m->type, "permission_response") == 0) {
+    /* Webview permission decision from the backend (app-global, no window). */
+    zt_permission_respond(m);
+  } else if (strcmp(m->type, "quit") == 0) {
     webview_dispatch(zt_webview(m->win_label), on_gui, m);
     return 0;
   }

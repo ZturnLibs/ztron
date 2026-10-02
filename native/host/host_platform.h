@@ -76,6 +76,9 @@ extern int zt_json_int(const char *json, const char *key, int def);
 
 /* JSON escaping helpers (implemented in each platform file). */
 void zt_reply_query(int req_id, const char *json_value);
+/* Routes a backend permission decision to the pending webview request
+   (macOS decisionHandler bridge; no-op where the backend never fires). */
+void zt_permission_respond(Msg *m);
 void zt_reply_string(int req_id, const char *s);
 void zt_reply_null(int req_id);
 

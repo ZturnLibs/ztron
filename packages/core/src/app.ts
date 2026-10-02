@@ -81,6 +81,10 @@ export interface AppOptions {
   adapter: RuntimeAdapter;
   plugins?: Plugin[];
   setup?: (app: App) => void | Promise<void>;
+  /** Initial webview-permission handler (see {@linkcode App.onPermissionRequest}). */
+  onPermissionRequest?: (
+    req: import("./permissions.js").PermissionRequest,
+  ) => void | Promise<void>;
 }
 
 /**
@@ -114,6 +118,10 @@ export class App {
   #eventManager: EventManager;
   #setup?: (app: App) => void | Promise<void>;
   #invokeKey: string;
+  /** Webview permission handler (tauri on_permission_request). */
+  #permissionHandler?: (
+    req: import("./permissions.js").PermissionRequest,
+  ) => void | Promise<void>;
   /** RGBA pixels + dims for images registered through `fromRGBA` (id→meta);
       powers `plugin:image|rgba` / `plugin:image|size`. */
   #imageMeta = new Map<number, { rgbaB64: string; width: number; height: number }>();
@@ -141,6 +149,28 @@ export class App {
     });
     this.#adapter.deepLink?.onEvent((url) => {
       this.emit("ztron://deep-link", { url });
+    });
+    this.#permissionHandler = options.onPermissionRequest;
+    /* Host permission requests: deliver to the user handler (async ok);
+     * with no handler, answer "default" immediately — identical to the
+     * WKUIDelegate unimplemented-method semantics (Prompt). */
+    this.#adapter.permissions?.onPermissionRequest((wire) => {
+      const respond = (response: import("./permissions.js").PermissionResponse) =>
+        this.#adapter.permissions?.respond(wire.id, response);
+      const req = {
+        kind: wire.kind,
+        url: wire.url,
+        label: wire.label,
+        respond,
+      } as import("./permissions.js").PermissionRequest;
+      if (!this.#permissionHandler) {
+        respond("default");
+        return;
+      }
+      void Promise.resolve(this.#permissionHandler!(req)).catch(() => {
+        /* handler error must not leave the request pending forever */
+        respond("default");
+      });
     });
 
     this.registerBuiltinCommands();
@@ -1289,6 +1319,21 @@ export class App {
     this.#eventManager.emit(event, payload, target);
   }
 
+  /**
+   * Intercepts webview permission requests (camera/microphone on macOS;
+   * broader on WebView2 once its backend wiring lands). The handler receives
+   * a {@linkcode import("./permissions.js").PermissionRequest} and must call
+   * its `respond` exactly once — unanswered requests stay pending in the
+   * webview, and handler errors fall back to "default" (platform behavior).
+   */
+  onPermissionRequest(
+    handler: (
+      req: import("./permissions.js").PermissionRequest,
+    ) => void | Promise<void>,
+  ): void {
+    this.#permissionHandler = handler;
+  }
+
   /** Boots the configured windows and blocks on the main loop. */
   async run(): Promise<void> {
     await this.#setup?.(this);
@@ -1508,6 +1553,14 @@ export class AppBuilder {
 
   setup(fn: (app: App) => void | Promise<void>): this {
     this.#options.setup = fn;
+    return this;
+  }
+
+  /** Seeds the webview-permission handler (tauri builder API shape). */
+  onPermissionRequest(
+    fn: (req: import("./permissions.js").PermissionRequest) => void | Promise<void>,
+  ): this {
+    this.#options.onPermissionRequest = fn;
     return this;
   }
 
