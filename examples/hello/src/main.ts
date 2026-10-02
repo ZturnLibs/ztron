@@ -54,6 +54,35 @@ const inlineHtml = `<!doctype html>
 
 const done = new Set<string>();
 
+// 1d. Self-hosted WS echo for the websocket spike (deterministic: the old
+// wss://ws.postman-echo.com round trip broke behind proxies/GFW; the
+// loopback path exercises the same websocketPlugin → tjs WebSocket client
+// → serve-upgrade chain without leaving the machine).
+let wsEchoPort = 0;
+let wsEchoServer: { close(): void } | null = null;
+void (async () => {
+  try {
+    const server = await tjs.serve({
+      port: 0,
+      listenIp: "127.0.0.1",
+      fetch: (req, ctx) => {
+        if (req.headers.get("upgrade")?.toLowerCase() === "websocket") {
+          ctx.server.upgrade(req);
+          return;
+        }
+        return new Response("websocket upgrade required", { status: 426 });
+      },
+      websocket: {
+        message: (ws, data) => ws.sendText(data),
+      },
+    });
+    wsEchoPort = server.port;
+    wsEchoServer = server;
+  } catch {
+    /* the websocket check reports the connect failure */
+  }
+})();
+
 // P21: fresh log-file state for every dev run so the spike's rotation
 // checks are deterministic (keepOne leaves at most `.log` + `.log.old`).
 // The dir must match the log plugin's file target: both resolve it through
@@ -224,6 +253,8 @@ new AppBuilder(runtime, "com.ztron.hello")
       }
     })();
     app.command("m3:echo-port", () => echoPort);
+    // Frontend fetches the self-hosted WS echo endpoint through this.
+    app.command("m3:ws-echo-url", () => `ws://127.0.0.1:${wsEchoPort}/echo`);
     // Write a tiny 1x1 PNG for the tray-icon spike (host loads it via NSImage).
     void (async () => {
       try {
@@ -393,6 +424,7 @@ new AppBuilder(runtime, "com.ztron.hello")
            exits once the host run loop stops (otherwise EXIT hangs on the
            listening socket). */
         echoServer?.close();
+        wsEchoServer?.close();
         /* Stop the near-HMR reload poller so the tjs event loop drains. */
         if (reloadTimer) clearInterval(reloadTimer);
         ctx.webview.terminate();

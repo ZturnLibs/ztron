@@ -11,10 +11,6 @@
 import { AppBuilder } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
-declare const tjs: {
-  env: Record<string, string | undefined>;
-};
-
 const runtime = new HostRuntime({
   host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
   port: Number(tjs.env.ZTRON_HOST_PORT),
@@ -39,22 +35,57 @@ await sleep(400);
 void (async () => {
   try {
     const root = `$sys-${Date.now()}`;
+    const isDarwin = tjs.platform === "darwin";
     runtime.menu.createMenu({ id: "probe", items: [] });
-    runtime.menu.createDefaultMenu?.(root);
+    // darwin: NSApp default menu (App/Edit/Window/Help role submenus).
+    // Windows has no NSApp default-menu concept (no menu_create_default in
+    // host_windows.c) — build an equivalent tree explicitly, then drive the
+    // SAME structured snapshot + removeAt-tombstone surface below.
+    if (isDarwin) {
+      runtime.menu.createDefaultMenu?.(root);
+    } else {
+      runtime.menu.createMenu({ id: root, items: [] });
+      const edit = `${root}.edit`;
+      const win = `${root}.window`;
+      runtime.menu.createMenu({ id: edit, items: [] });
+      runtime.menu.createMenu({ id: win, items: [] });
+      runtime.menu.addSubmenu?.(root, edit, "Edit");
+      runtime.menu.addItem(root, {
+        id: `${root}.sep`,
+        text: "",
+        separator: true,
+      });
+      runtime.menu.addItem(root, {
+        id: `${root}.check`,
+        text: "Check",
+        type: "check",
+        checked: true,
+      });
+      runtime.menu.addSubmenu?.(root, win, "Window");
+      runtime.menu.addItem(edit, { id: `${edit}.copy`, text: "Copy" });
+    }
     const snap1 = (await runtime.menu.items?.(root)) ?? [];
     const withSub = snap1.filter((x) => x.hasSubmenu).length;
-    if (snap1.length < 4 || withSub < 4) {
+    if (snap1.length < 4 || withSub < (isDarwin ? 4 : 2)) {
       console.log(`MENU_V2_FAIL:${snap1.length}:${withSub}`);
     } else {
-      runtime.menu.setItemIcon?.(`${root}.edit`, `${root}.edit.copy`, "Copy");
+      if (isDarwin) {
+        runtime.menu.setItemIcon?.(
+          `${root}.edit`,
+          `${root}.edit.copy`,
+          "Copy",
+        );
+      }
       const preRemove =
         ((await runtime.menu.items?.(`${root}.edit`)) ?? []).length;
       runtime.menu.removeItemAt?.(`${root}.edit`, 0);
       const postRemove =
         ((await runtime.menu.items?.(`${root}.edit`)) ?? []).length;
-      runtime.menu.setAsWindowsMenuForNSApp?.(`${root}.window`);
-      runtime.menu.setAsHelpMenuForNSApp?.(`${root}.window`);
-      runtime.menu.setAsWindowMenu?.(root, "main");
+      if (isDarwin) {
+        runtime.menu.setAsWindowsMenuForNSApp?.(`${root}.window`);
+        runtime.menu.setAsHelpMenuForNSApp?.(`${root}.window`);
+        runtime.menu.setAsWindowMenu?.(root, "main");
+      }
       if (postRemove === preRemove - 1) {
         console.log(
           `MENU_V2_OK:${snap1.length}:${withSub}:${preRemove}:${postRemove}`,

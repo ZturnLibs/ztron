@@ -125,12 +125,15 @@ async function main(): Promise<void> {
     const hasProcess = await invoke<boolean>("m3:has-process", {});
     if (hasProcess) report("PROCESS_OK");
 
-    // 1d. websocket (public echo server round trip)
+    // 1d. websocket (self-hosted echo round trip — the backend spins up a
+    // tjs.serve WS endpoint so the check is deterministic offline/behind
+    // proxies; the public postman-echo hop broke in those environments)
     try {
+      const wsUrl = await invoke<string>("m3:ws-echo-url", {});
       const echo = new Promise<string>((resolve) => {
         void websocket.onMessage((e) => resolve(e.message));
       });
-      const { id } = await websocket.connect("wss://ws.postman-echo.com/raw");
+      const { id } = await websocket.connect(wsUrl);
       await websocket.sendMessage(id, "ws-echo-test");
       const echoed = await Promise.race([
         echo,
