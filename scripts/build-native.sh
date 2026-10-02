@@ -24,11 +24,26 @@ fi
 (
   cd "$NATIVE/txiki.js"
   git submodule update --init --recursive
-  # BUILD_WITH_FFI=OFF: the tjs:ffi module needs libffi, which on Windows
-  # only comes via vcpkg (unofficial-libffi) — ztron never invokes ffi, so
-  # pulling a vcpkg toolchain into the M0 chain is not worth it.
-  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF \
-    -DBUILD_WITH_FFI=OFF
+  # BUILD_WITH_FFI must stay ON (txiki default): @zturnlibs/ztron-runtime-ffi
+  # drives the webview through tjs:ffi — an ffi-less tjs kills every app at
+  # startup. On Windows libffi comes from vcpkg: its `libffi` port exports
+  # the `unofficial-libffi` config txiki's CMakeLists requires.
+  VCPKG_ARGS=""
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+      VCPKG_DIR="${VCPKG_ROOT:-/c/vcpkg}"
+      if [ ! -f "$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake" ]; then
+        echo "FATAL: tjs requires libffi (tjs:ffi). Install vcpkg and run:" >&2
+        echo "  git clone https://github.com/microsoft/vcpkg C:/vcpkg && C:/vcpkg/bootstrap-vcpkg.bat" >&2
+        echo "  C:/vcpkg/vcpkg install libffi:x64-windows" >&2
+        echo "(or point VCPKG_ROOT at an existing checkout)" >&2
+        exit 1
+      fi
+      VCPKG_ARGS="-DCMAKE_TOOLCHAIN_FILE=$(cygpath -w "$VCPKG_DIR/scripts/buildsystems/vcpkg.cmake") -DVCPKG_TARGET_TRIPLET=x64-windows"
+      ;;
+  esac
+  # shellcheck disable=SC2086 — VCPKG_ARGS is intentionally word-split
+  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF $VCPKG_ARGS
   # --config Release: no-op on single-config generators, required on MSVC
   # multi-config (Visual Studio generator) where the binary lands in
   # build/Release/ rather than build/.
@@ -69,7 +84,10 @@ fi
     -DWEBVIEW_ENABLE_CHECKS=OFF -DWEBVIEW_BUILD_AMALGAMATION=OFF \
     -DWEBVIEW_BUILD_DOCS=OFF -DWEBVIEW_BUILD_EXAMPLES=OFF -DWEBVIEW_BUILD_TESTS=OFF \
     ${WEBVIEW_CMAKE_ARGS:-}
-  cmake --build build
+  # --config Release matters on MSVC multi-config generators: without it the
+  # default Debug is built (webviewd.dll) and the Release dll the case below
+  # copies is left stale. No-op on single-config generators.
+  cmake --build build --config Release
 )
 
 mkdir -p "$NATIVE/libs"
@@ -169,5 +187,10 @@ for tjs_bin in \
     break
   fi
 done
+
+# Windows tjs links libffi dynamically (vcpkg): ship the DLL beside the exe
+# or the runtime cannot load at all.
+FFI_DLL="${VCPKG_ROOT:-/c/vcpkg}/installed/x64-windows/bin/ffi-8.dll"
+[ -f "$FFI_DLL" ] && cp "$FFI_DLL" "$NATIVE/libs/"
 
 echo "==> done. tjs: $NATIVE/libs/tjs, host: $NATIVE/libs/ztron-host"
