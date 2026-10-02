@@ -100,7 +100,7 @@ jobs:
         run: |
           rm -rf /tmp/tgz && mkdir -p /tmp/tgz
           : > /tmp/tgz/order.txt
-          for d in packages/inject packages/core packages/runtime-ffi packages/api packages/ztron-react packages/ztron-vue packages/ztron-svelte packages/cli packages/driver; do
+          for d in packages/inject packages/tjs-types packages/core packages/runtime-ffi packages/api packages/ztron-react packages/ztron-vue packages/ztron-svelte packages/cli packages/driver; do
             echo "--- packing $d"
             tgz=$(
               cd "$d" || exit 1
@@ -159,7 +159,7 @@ jobs:
         run: |
           rm -rf /tmp/tgz && mkdir -p /tmp/tgz
           : > /tmp/tgz/order.txt
-          for d in packages/inject packages/core packages/runtime-ffi packages/api packages/ztron-react packages/ztron-vue packages/ztron-svelte packages/cli packages/driver; do
+          for d in packages/inject packages/tjs-types packages/core packages/runtime-ffi packages/api packages/ztron-react packages/ztron-vue packages/ztron-svelte packages/cli packages/driver; do
             echo "--- packing $d"
             tgz=$(
               cd "$d" || exit 1
