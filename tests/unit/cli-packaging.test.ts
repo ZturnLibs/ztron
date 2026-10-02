@@ -32,6 +32,8 @@ import { fileURLToPath } from "node:url";
 import {
   finalizeFrontendHtml,
   findLauncherSource,
+  findWindowsLauncherSource,
+  launcherCmdScript,
   launcherScript,
   stageAppResources,
 } from "../../packages/cli/dist/packaging.js";
@@ -147,6 +149,51 @@ test("shipped launcher source stays in sync with native/host", () => {
 test("findLauncherSource resolves inside the repo workspace", () => {
   const found = findLauncherSource();
   assert.ok(found && existsSync(found));
+});
+
+// ---- win32 launcher -------------------------------------------------------
+
+test("windows launcher cmd fallback: cleanup is PID-scoped (no image-wide taskkill)", () => {
+  const cmd = launcherCmdScript("test-key");
+  assert.ok(cmd.includes("ztron-host.exe"));
+  assert.ok(cmd.includes("test-key"));
+  // Regression pin: `taskkill /f /im ztron-host.exe` takes down EVERY ztron
+  // app on the machine — installs share the exe image name (a real app
+  // running from %LOCALAPPDATA% while a dev build exits would be killed).
+  assert.ok(!/taskkill\s+\/f\s+\/im/i.test(cmd));
+  // The host is spawned via Start-Process -PassThru so the kill targets the
+  // PID we started, and the failure path cleans the host up too.
+  assert.match(cmd, /Start-Process[^\n]*-PassThru/);
+  assert.match(cmd, /taskkill \/f \/pid %HOST_PID%/);
+});
+
+test("findWindowsLauncherSource resolves inside the repo workspace", () => {
+  const found = findWindowsLauncherSource();
+  assert.ok(found && existsSync(found));
+});
+
+test("shipped windows launcher source stays in sync with native/host", () => {
+  const vendored = readFileSync(
+    join(REPO_ROOT, "native/host/launcher_windows.c"),
+    "utf8",
+  );
+  const shipped = readFileSync(
+    join(REPO_ROOT, "packages/cli/native/host/launcher_windows.c"),
+    "utf8",
+  );
+  assert.equal(shipped, vendored, "windows launcher copies drifted — re-sync");
+});
+
+test("windows launcher percent-encodes the file:// URL (CJK/space install dirs)", () => {
+  const src = readFileSync(
+    join(REPO_ROOT, "native/host/launcher_windows.c"),
+    "utf8",
+  );
+  // An unencoded path only loaded because WebView2 is lenient; the encoder
+  // makes spaces/CJK/%/# dirs first-class. Also pins the PORT scanner that
+  // reads to EOF (a 512-byte chunked scan could split "PORT=" across reads).
+  assert.ok(src.includes("url_encode_utf8"));
+  assert.ok(src.includes("PORT scan") || src.includes("ONE buffer"));
 });
 
 // ---- Bug: packaged app must carry conf + capabilities -------------------
