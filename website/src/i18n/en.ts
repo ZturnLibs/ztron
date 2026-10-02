@@ -63,10 +63,10 @@ export const en = {
   },
   statusm: {
     heading: 'Where it runs today',
-    sub: 'macOS is fully verified; the Windows dev chain works (spikes green) — packaging and Linux are next.',
+    sub: 'macOS is fully verified; the Windows dev chain and NSIS packaging work (spikes green, installer verified locally) — Linux is next.',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev pipeline · .app + .dmg · ad-hoc signing · updater' },
-      { platform: 'Windows', status: 'wip', note: 'dev chain working: window/menu/tray/clipboard host surface complete, spikes green — prebuilt chain & packaging pending' },
+      { platform: 'Windows', status: 'wip', note: 'dev chain + NSIS packaging working: spikes green, flat dir & installer verified end-to-end locally — prebuilt chain pending' },
       { platform: 'Linux', status: 'wip', note: 'host skeleton (GTK + WebKitGTK) — compile & packaging pending' },
     ],
     checks: '85 deterministic end-to-end checks pass on every run — `ztron check` gates CI.',

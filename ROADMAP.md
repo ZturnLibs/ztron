@@ -21,7 +21,7 @@
 | 配置              | tauri.conf.json schema + CSP + capabilities                                | 手写 TS                             | 中   | tauri-utils        | CLI          |
 | 打包              | 7 格式+签名+updater+图标                                                   | macOS .app+签名+updater+图标        | 大   | tauri-bundler      | CLI+平台脚本 |
 | 测试              | tauri-driver/WebDriver + mock runtime                                      | MockRuntime + 三层覆盖率            | 中   | tauri-driver       | CLI+core     |
-| 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 开发链已打通(打包待接入) | 很大 | -                  | C+core       |
+| 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 开发链+NSIS 打包已打通(预编译链待发布) | 很大 | -                  | C+core       |
 
 ## 2. 关键架构决策
 
@@ -73,7 +73,7 @@
 - [x] macOS ad-hoc 签名 + versioned dylib 打包修复 + 图标
 - [x] host 跨平台重构(core + host_platform.{macos,windows,linux})已交付
 - [x] Windows 编译验证(0.3.8:vcpkg libffi 工具链;hello/multiwin/menuprobe spike 本机全绿 `FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`)
-- [ ] Windows NSIS 打包 + CI 矩阵接入(Windows runner)
+- [x] Windows NSIS 打包 + CI 矩阵接入(0.3.9:launcher 编译 + flat 目录 + NSIS 安装包本机端到端;windows-spike 全链门禁含 packaged e2e,dispatch 触发)
 - [ ] Linux 编译验证 + AppImage 打包(需目标平台)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 

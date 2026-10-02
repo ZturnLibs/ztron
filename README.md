@@ -103,7 +103,7 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 | 平台 | 状态 |
 | --- | --- |
 | macOS（Apple Silicon） | ✅ 完整验证（Intel 未验证，可尝试） |
-| Windows（WebView2） | 🚧 开发链已打通：窗口/菜单/托盘/剪贴板宿主面完成，hello/multiwin/menuprobe spike 本机全绿（`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`）；预编译原生链与打包链待接入（本地开发需 vcpkg + MSVC，见下方参与开发） |
+| Windows（WebView2） | 🚧 开发链 + NSIS 打包已打通：窗口/菜单/托盘/剪贴板宿主面完成，hello/multiwin/menuprobe spike 全绿（`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`），`ztron build` 产出 flat 目录 + NSIS 安装包（本机端到端验证，含 CJK 安装路径）；windows-spike CI 全链门禁（dispatch 触发）；预编译原生链待发布（本地开发需 vcpkg + MSVC，见下方参与开发） |
 | Linux（WebKitGTK） | 🚧 host 骨架已就位，打包链待接入 |
 | Mobile（Android/iOS） | 📋 规划中 |
 
