@@ -45,13 +45,38 @@ function platform(): "macos" | "linux" | "windows" {
   return "windows";
 }
 
+/** Platform directory conventions (all paths; separators per-platform). */
+export interface PlatformDirs {
+  appDataDir: string;
+  appConfigDir: string;
+  appCacheDir: string;
+  appLocalDataDir: string;
+  appLogDir: string;
+  baselineDir: string;
+  dataDir: string;
+  configDir: string;
+  cacheDir: string;
+  fontDir: string;
+  desktopDir: string;
+  documentDir: string;
+  downloadDir: string;
+  pictureDir: string;
+  audioDir: string;
+  videoDir: string;
+  publicDir: string;
+  templateDir: string;
+  runtimeDir: string;
+  executableDir: string;
+  resourceDir: string;
+}
+
 /** Platform directory conventions (macOS primary; Linux/Windows best-effort).
  * Exported for sibling plugins (e.g. the log plugin's file target resolves
  * `appLogDir` the same way the path plugin reports it). */
 export function platformDirs(
   platform: "macos" | "linux" | "windows",
   appId: string,
-): Record<string, string> {
+): PlatformDirs {
   const home = tjs.homeDir;
   const exeDir = tjs.exePath
     ? tjs.exePath.slice(0, tjs.exePath.lastIndexOf("/"))

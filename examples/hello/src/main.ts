@@ -27,6 +27,8 @@ import {
   uploadPlugin,
   persistedScopePlugin,
   loadCapabilities,
+  platformDirs,
+  detectPlatform,
 } from "@zturnlibs/ztron-core";
 import { greet, add, echo } from "./commands.js";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
@@ -54,8 +56,11 @@ const done = new Set<string>();
 
 // P21: fresh log-file state for every dev run so the spike's rotation
 // checks are deterministic (keepOne leaves at most `.log` + `.log.old`).
+// The dir must match the log plugin's file target: both resolve it through
+// platformDirs (cross-platform; the old hardcoded ~/Library/Logs path only
+// existed on macOS and ENOENT'd the whole log chain on Windows).
+const spikeLogDir = platformDirs(detectPlatform(), "com.ztron.hello").appLogDir;
 try {
-  const spikeLogDir = `${tjs.homeDir}/Library/Logs/com.ztron.hello`;
   const stale = await tjs.readDir(spikeLogDir);
   for (const e of stale) {
     if (e.name.endsWith(".log") || e.name.includes(".log.")) {
@@ -288,8 +293,9 @@ new AppBuilder(runtime, "com.ztron.hello")
       // Trusted backend check (log files are outside the fs scope by design;
       // the log plugin itself owns that directory). Reads sizes of the
       // current file + keepOne backup after the frontend's pressure loop.
+      // Same platformDirs-derived dir as the log plugin's file target.
       try {
-        const dir = `${tjs.homeDir}/Library/Logs/com.ztron.hello`;
+        const dir = spikeLogDir;
         const curStat = await tjs.stat(`${dir}/com.ztron.hello.log`);
         let oldLen = -1;
         try {

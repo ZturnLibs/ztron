@@ -36,6 +36,8 @@ export {
   parseArgv,
   fsPlugin,
   pathPlugin,
+  platformDirs,
+  detectPlatform,
   httpPlugin,
   osPlugin,
   storePlugin,

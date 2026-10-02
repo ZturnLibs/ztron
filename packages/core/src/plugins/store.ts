@@ -36,8 +36,16 @@ export function storePlugin(options: StorePluginOptions = {}): Plugin {
 
   const stores = new Map<string, StoreRecord>();
 
+  /** Absolute paths (POSIX `/`, UNC `//`, Windows `C:\`) join nothing. */
+  function isAbs(path: string): boolean {
+    const n = path.replace(/\\/g, "/");
+    return n.startsWith("/") || /^[a-zA-Z]:\//.test(n);
+  }
+
   function absPath(path: string): string {
-    return path.startsWith("/") ? path : `${baseDir}/${path}`;
+    // Windows: `${tmpdir}/x.json` arrives with a drive letter — joining it
+    // onto baseDir produced a garbage path and ENOENT on every write.
+    return isAbs(path) ? path : `${baseDir}/${path}`;
   }
 
   async function readFromDisk(path: string): Promise<StoreData> {
