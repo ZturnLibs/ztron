@@ -14,6 +14,7 @@
 # Usage:
 #   bash scripts/ci.sh                 # full chain
 #   bash scripts/ci.sh --skip-native   # reuse existing native build
+#   bash scripts/ci.sh --skip-packaged # skip the darwin-only .app e2e (non-mac hosts)
 #   bash scripts/ci.sh --spike-timeout 150000
 #
 # Environment:
@@ -25,10 +26,12 @@ ROOT="$(cd "$(dirname "$BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 SKIP_NATIVE=0
+SKIP_PACKAGED=0
 SPIKE_TIMEOUT_MS=120000
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-native) SKIP_NATIVE=1 ;;
+    --skip-packaged) SKIP_PACKAGED=1 ;;
     --spike-timeout) SPIKE_TIMEOUT_MS="$2"; shift ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
@@ -37,6 +40,14 @@ done
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[1;31m✗ FAILED at: %s\033[0m\n' "$*" >&2; exit 1; }
+
+# Kill straggler ztron processes on Windows (Git Bash has no pkill). Needed
+# at BOTH ends: a surviving ztron-host.exe keeps webview.dll locked and the
+# next native build's `cp` fails with "Device or resource busy".
+win_sweep() {
+  command -v taskkill >/dev/null 2>&1 || return 0
+  taskkill //F //IM tjs.exe //IM ztron-host.exe >/dev/null 2>&1 || true
+}
 
 # ---- 0. preflight ------------------------------------------------------------
 
@@ -49,9 +60,12 @@ fi
 echo "tjs: $TJS"
 
 # Stale state from previous runs would poison persisted-scope / rotation
-# determinism; wipe the known artifacts.
+# determinism (and a stale host keeps webview.dll locked on Windows); wipe
+# the known artifacts. (TMPDIR is set on macOS shells but often unset
+# elsewhere — `set -u` would abort without the fallback.)
 pkill -9 -f ztron-host 2>/dev/null || true
-rm -rf ~/ztron-persisted-spike "${TMPDIR}ztron_persisted_scope.json" || true
+win_sweep
+rm -rf ~/ztron-persisted-spike "${TMPDIR:-/tmp}/ztron_persisted_scope.json" || true
 
 # ---- 1. native ---------------------------------------------------------------
 
@@ -75,12 +89,16 @@ fi
 # ---- 2. TypeScript build -----------------------------------------------------
 
 step "workspace build (core/api/cli/runtime-ffi/inject + examples)"
-npm run build >/dev/null || fail "npm run build"
+npm run build >/tmp/ci-build.log 2>&1 || { tail -30 /tmp/ci-build.log; fail "npm run build"; }
 
 # ---- 3. unit tests -----------------------------------------------------------
 
 step "unit tests (node --test)"
-npm test >/tmp/ci-unit.log 2>&1 || { tail -30 /tmp/ci-unit.log; fail "unit tests"; }
+# Strip the chain locator env vars: the suite is hermetic (doctor tests
+# assert the missing-chain path) and this script exports ZTRON_TJS for the
+# spikes — leaking it would flip those assertions.
+env -u ZTRON_TJS -u ZTRON_HOST_BIN -u ZTRON_WEBVIEW_LIB \
+  npm test >/tmp/ci-unit.log 2>&1 || { tail -30 /tmp/ci-unit.log; fail "unit tests"; }
 tail -6 /tmp/ci-unit.log
 
 # ---- 4. hello spike ----------------------------------------------------------
@@ -144,7 +162,7 @@ run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
-# ---- 6. packaged spike -------------------------------------------------------
+# ---- 6. packaged spike (darwin .app e2e; skippable on other hosts) -----------
 
 # Full packaged-chain e2e: pack the local workspace tarballs, scaffold, build
 # and LAUNCH the .app, then require the frontend's HELLO_OK beacon in the
@@ -154,6 +172,9 @@ tail -2 /tmp/ci-multiwin.log
 # window packaged app that every other check passed). Needs a GUI session —
 # headless runners hang at window creation, so ci.yml's macos-spike job
 # downgrades failures of THIS step (grep for its marker).
+if [[ "$SKIP_PACKAGED" -eq 1 ]]; then
+  step "packaged spike: SKIPPED (--skip-packaged; darwin .app e2e)"
+else
 step "packaged spike (scaffold → build → launch .app → HELLO_OK)"
 PACK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ztron-pack-spike-XXXXXX")"
 for d in inject core runtime-ffi api cli; do
@@ -197,6 +218,7 @@ if [ "$PACK_OK" -ne 1 ]; then
   fail "packaged spike (HELLO_OK missing — packaged webview did not execute the frontend)"
 fi
 tail -2 /tmp/ci-pack-launch.log
+fi
 
 # ---- summary -----------------------------------------------------------------
 
@@ -206,6 +228,16 @@ tail -2 /tmp/ci-pack-launch.log
 pkill -f "vite" 2>/dev/null || true
 pkill -f "ztron-host" 2>/dev/null || true
 pkill -f "ztron check" 2>/dev/null || true
+# Git Bash has no pkill — sweep the spawned processes instead (same straggler
+# problem, otherwise the CI step never "finishes"). tjs/ztron-host are
+# ztron-specific image names; vite runs as a bare node.exe child, so kill
+# only node processes whose command line mentions vite (never blanket-kill
+# node.exe — an interactive parent may itself be node).
+win_sweep
+if command -v taskkill >/dev/null 2>&1; then
+  powershell -NoProfile -Command 'Get-CimInstance Win32_Process | Where-Object { $_.Name -eq "node.exe" -and $_.CommandLine -match "vite" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }' >/dev/null 2>&1 || true
+fi
 
-printf '\n\033[1;32m✓ FULL CI GREEN\033[0m  (native%s · build · units · spikes · packaged)\n' \
-  "$([[ $SKIP_NATIVE -eq 1 ]] && echo ' [skipped]' || echo '')"
+printf '\n\033[1;32m✓ FULL CI GREEN\033[0m  (native%s · build · units · spikes%s)\n' \
+  "$([[ $SKIP_NATIVE -eq 1 ]] && echo ' [skipped]' || echo '')" \
+  "$([[ $SKIP_PACKAGED -eq 1 ]] && echo '' || echo ' · packaged')"
