@@ -154,3 +154,4 @@ Task 5 complete (be0c5d4): JsImage — image.JsImage=Exclude<ImageLike,null> 导
 Task 6 complete (c83e2c1): ROADMAP 修订(win-NSIS 勾选/stronghold 已实现/插件 31/spike 86/打包差距大->中/新增 §6 2.12 对齐账本) + api-zh 6 条(含 WebviewWindow 继承成员与 Effects.interactive 属性条目、LiquidGlassClear 补 JSDoc 后转正); 严格门禁 585/585 全覆盖; docs build + sidebar 216/218(设计内) 绿
 Gates: typecheck 0 errors, 全仓 233 tests/232 pass/1 skip/0 fail(基线 219->233, +14), hello spike FULL_OK x3 次全程保持, c++/cc 语法检查过, 4 次独立提交
 遗留(记入 ROADMAP §6): webview 权限 API(382dd6ccc)、appDirectoriesOverride、asyncDispose、Image.fromAppIconResource、206 Partial Content、CLI 命令族、ACL deny 作用域自查
+MERGED: PR #38 (4ef7d0a) - main ci + website deploy BOTH SUCCESS (merge push runs); local+remote branch deleted; main suite re-verified 239/238/1skip/0fail. tauri 2.12 alignment line complete on main.
