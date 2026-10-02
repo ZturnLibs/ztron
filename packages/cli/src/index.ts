@@ -1296,6 +1296,7 @@ async function packWindowsApp(o: PackOptions): Promise<void> {
         identifier: o.conf.identifier ?? "com.ztron.app",
         productName: o.conf.productName ?? o.appName,
         version: o.conf.version ?? "0.1.0",
+        icons: (o.conf.bundle as { icon?: string[] } | undefined)?.icon,
       },
       appDir,
       launcherName,

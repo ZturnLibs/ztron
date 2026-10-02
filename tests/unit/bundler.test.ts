@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   packNsis,
+  packNsisDir,
   packMsi,
   packAppImage,
   packDeb,
@@ -47,6 +48,49 @@ test("nsis emits a complete installer script skeleton", () => {
   assert.ok(nsi.includes('File /r "extra-assets/"'));
   assert.equal(r.built, false);
   assert.ok(r.reason?.includes("makensis"));
+});
+
+test("nsisDir emits flat-layout installer script; .ico in icons becomes MUI + shortcut icon", () => {
+  const dir = tmp();
+  const appDir = join(dir, "app");
+  mkdirSync(appDir, { recursive: true });
+  const icoSrc = join(dir, "app.ico");
+  writeFileSync(icoSrc, "ico-bytes");
+  const r = packNsisDir(dir, { ...CFG, icons: [icoSrc] }, appDir, "ztron-launcher.exe");
+  assert.equal(r.type, "nsis");
+  const nsi = readFileSync(join(dir, "nsis", "DemoApp.nsi"), "utf8");
+  assert.ok(nsi.includes("!define MUI_ICON"));
+  assert.ok(nsi.includes("!define MUI_UNICON"));
+  assert.ok(nsi.includes('File "' + join(dir, "nsis", "app.ico") + '"'));
+  assert.ok(
+    nsi.includes(
+      'CreateShortcut "$SMPROGRAMS\\DemoApp.lnk" "$INSTDIR\\ztron-launcher.exe" "" "$INSTDIR\\app.ico" 0',
+    ),
+  );
+  assert.ok(nsi.includes('WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ztron.demo" "DisplayIcon" "$INSTDIR\\app.ico"'));
+  // the .ico is staged next to the .nsi so makensis can compile it in
+  assert.ok(existsSync(join(dir, "nsis", "app.ico")));
+  assert.equal(r.built, false);
+  assert.ok(r.reason?.includes("makensis"));
+});
+
+test("nsisDir without .ico stays icon-less (shortcut has no icon arg)", () => {
+  const dir = tmp();
+  const appDir = join(dir, "app");
+  mkdirSync(appDir, { recursive: true });
+  const pngSrc = join(dir, "icon.png");
+  writeFileSync(pngSrc, "png");
+  const r = packNsisDir(dir, { ...CFG, icons: [pngSrc] }, appDir, "ztron-launcher.exe");
+  const nsi = readFileSync(join(dir, "nsis", "DemoApp.nsi"), "utf8");
+  assert.ok(!nsi.includes("MUI_ICON"));
+  assert.ok(
+    nsi.includes(
+      'CreateShortcut "$SMPROGRAMS\\DemoApp.lnk" "$INSTDIR\\ztron-launcher.exe"',
+    ),
+  );
+  assert.ok(!nsi.includes('"$INSTDIR\\icon.png" 0'));
+  assert.ok(nsi.includes('WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ztron.demo" "DisplayIcon" "$INSTDIR\\ztron-launcher.exe"'));
+  assert.equal(r.built, false);
 });
 
 test("msi emits a WiX source skeleton", () => {
