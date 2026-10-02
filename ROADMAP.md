@@ -151,9 +151,9 @@
 未对齐(按优先级):
 
 - [x] webview 权限请求 API(`on_permission_request` + 15 种 PermissionKind,tauri 382dd6ccc)——2026-10-03 落地:core `onPermissionRequest`(App/AppOptions/AppBuilder)+ PermissionController(wire:permission_request/permission_response);macOS 经 `class_addMethod` 给引擎 UIDelegate 动态加媒体捕获方法(macOS 12+,摄像头/麦克风,kind 映射与 tauri Display 逐字),decisionHandler 经 Block ABI + webview_dispatch 回主线程;无 handler 自动回 "default"(≡未实现方法的官方语义);win/linux 协议就绪、后端接线待 WebView2/webkitgtk 事件桥(与 tauri 的 macOS 非 media-capture kinds 同样"平台后端未支持")
-- [ ] `appDirectoriesOverride` 配置(便携应用目录覆盖,tauri 7dbfc1fe5)
-- [ ] Resource `Symbol.asyncDispose` / `await using`(tauri be019795a)
-- [ ] `Image.fromAppIconResource`(Windows,tauri d203f74a2)、`activateIgnoringOtherApps`(macOS,tauri 21ec647cf)
+- [x] `appDirectoriesOverride` 配置(便携应用目录覆盖,tauri 7dbfc1fe5)——2026-10-03:ztron.conf.json `app > appDirectoriesOverride`(Root/per-dir + $VARIABLE 白名单),path 插件命令期解析(resolveAppDirs)
+- [x] Resource `Symbol.asyncDispose` / `await using`(tauri be019795a)——2026-10-03 落地,Node 22+ 原生支持
+- [x] `Image.fromAppIconResource`(Windows exe 资源 32512,tauri d203f74a2)与 `App.activateIgnoringOtherApps()`(macOS NSApp,tauri 21ec647cf;偏差:运行时方法替代 Builder 构建期选项)——2026-10-03 落地
 - [ ] asset 协议 Range/`206 Partial Content`(tauri f9ed1a3fd)
 - [ ] `tauri add --tag/--rev`、`remove`/`permission`/`capability` CLI 命令族
 - [ ] ACL deny 按 capability 执行上下文作用域(tauri 0349b6fb8)——需对照自查 ztron ACL 语义
