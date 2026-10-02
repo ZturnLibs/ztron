@@ -40,7 +40,7 @@ index 8ee1d94..169bf24 100644
    using namespace webview::detail;
    return api_filter([=] { return cast_to_webview(w)->terminate(); });
 diff --git a/core/include/webview/detail/backends/cocoa_webkit.hh b/core/include/webview/detail/backends/cocoa_webkit.hh
-index 1a0a2c6..01b2f5f 100755
+index 1a0a2c6..f369cf3 100755
 --- a/core/include/webview/detail/backends/cocoa_webkit.hh
 +++ b/core/include/webview/detail/backends/cocoa_webkit.hh
 @@ -53,7 +53,9 @@
@@ -53,7 +53,7 @@ index 1a0a2c6..01b2f5f 100755
  
  #include <objc/objc-runtime.h>
  
-@@ -86,6 +88,35 @@ namespace cocoa_webkit {
+@@ -86,6 +88,77 @@ namespace cocoa_webkit {
  using namespace cocoa;
  using namespace webkit;
  
@@ -86,10 +86,52 @@ index 1a0a2c6..01b2f5f 100755
 +}
 +} // namespace ztron_engine_liveness
 +
++// ---- Ztron local fix (async scheme handler) -------------------------------
++// WKURLSchemeTask used to be served with a synchronous dataWithContentsOfFile
++// on the main thread — a large/slow asset froze the whole run loop (every
++// window stalls). Reads now run on a global concurrent queue and results are
++// delivered back on the main queue. stopURLSchemeTask flips an atomic
++// cancelled flag: delivering didReceive* on a stopped task raises
++// NSInternalInconsistencyException, and the delivery block owns the single
++// task release so stop/deliver never race.
++namespace ztron_scheme_tasks {
++struct entry {
++  id task;
++  std::atomic<bool> cancelled{false};
++};
++inline std::mutex &mutex() {
++  static std::mutex m;
++  return m;
++}
++inline std::unordered_set<std::shared_ptr<entry>> &pending() {
++  static std::unordered_set<std::shared_ptr<entry>> s;
++  return s;
++}
++inline void add(const std::shared_ptr<entry> &e) {
++  std::lock_guard<std::mutex> lk(mutex());
++  pending().insert(e);
++}
++inline void cancel(id task) {
++  std::lock_guard<std::mutex> lk(mutex());
++  auto &s = pending();
++  for (auto it = s.begin(); it != s.end(); ++it) {
++    if ((*it)->task == task) {
++      (*it)->cancelled = true;
++      s.erase(it);
++      return;
++    }
++  }
++}
++inline void delivered(const std::shared_ptr<entry> &e) {
++  std::lock_guard<std::mutex> lk(mutex());
++  pending().erase(e);
++}
++} // namespace ztron_scheme_tasks
++
  class cocoa_wkwebview_engine : public engine_base {
  public:
    cocoa_wkwebview_engine(bool debug, void *window)
-@@ -102,12 +133,32 @@ public:
+@@ -102,12 +175,32 @@ public:
  
    virtual ~cocoa_wkwebview_engine() {
      objc::autoreleasepool arp;
@@ -122,7 +164,7 @@ index 1a0a2c6..01b2f5f 100755
          objc::release(m_webview);
          m_webview = nullptr;
        }
-@@ -177,6 +228,28 @@ protected:
+@@ -177,6 +270,28 @@ protected:
      return {};
    }
  
@@ -151,7 +193,7 @@ index 1a0a2c6..01b2f5f 100755
    noresult dispatch_impl(std::function<void()> f) override {
      dispatch_async_f(dispatch_get_main_queue(), new dispatch_fn_t(f),
                       (dispatch_function_t)([](void *arg) {
-@@ -311,6 +384,13 @@ private:
+@@ -311,6 +426,13 @@ private:
            cls, objc::selector("userContentController:didReceiveScriptMessage:"),
            (IMP)(+[](id self, SEL, id, id msg) {
              auto w = get_associated_webview(self);
@@ -165,7 +207,7 @@ index 1a0a2c6..01b2f5f 100755
              w->on_message(
                  NSString_get_UTF8String(WKScriptMessage_get_body(msg)));
            }),
-@@ -444,11 +524,57 @@ private:
+@@ -444,11 +566,57 @@ private:
      m_window = nullptr;
      dispatch([this] { on_window_destroyed(); });
    }
@@ -223,7 +265,7 @@ index 1a0a2c6..01b2f5f 100755
      m_manager = WKWebViewConfiguration_get_userContentController(config);
  
      auto preferences = WKWebViewConfiguration_get_preferences(config);
-@@ -503,11 +629,12 @@ private:
+@@ -503,11 +671,12 @@ private:
        WKWebView_set_inspectable(m_webview, true);
      }
  
@@ -239,7 +281,7 @@ index 1a0a2c6..01b2f5f 100755
  
      add_init_script("function(message) {\n\
    return window.webkit.messageHandlers.__webview__.postMessage(message);\n\
-@@ -611,9 +738,111 @@ private:
+@@ -611,9 +780,178 @@ private:
    id m_widget{};
    id m_webview{};
    id m_manager{};
@@ -254,8 +296,10 @@ index 1a0a2c6..01b2f5f 100755
 +
 +inline void cocoa_wkwebview_engine::scheme_stop(id /*self*/, SEL /*cmd*/,
 +                                                id /*webview*/,
-+                                                id /*task*/) noexcept {
-+  // No incremental streaming: nothing to cancel.
++                                                id task) noexcept {
++  // Cancel (do not release): the main-queue delivery block owns the single
++  // release, so a stop racing a delivery only skips the didReceive* calls.
++  ztron_scheme_tasks::cancel(task);
 +}
 +
 +inline void cocoa_wkwebview_engine::scheme_start(id /*self*/, SEL /*cmd*/,
@@ -306,11 +350,6 @@ index 1a0a2c6..01b2f5f 100755
 +      full = scheme_root + "/" + path;
 +    }
 +
-+    // dataWithContentsOfFile: returns +0 (autoreleased); do not init.
-+    id data = objc::msg_send<id>(
-+        objc::get_class("NSData"), objc::selector("dataWithContentsOfFile:"),
-+        NSString_stringWithUTF8String(full.c_str()));
-+
 +    // Minimal MIME detection so WKWebView parses HTML/CSS/JS.
 +    std::string mime = "application/octet-stream";
 +    if (path.rfind(".html") != std::string::npos ||
@@ -325,23 +364,93 @@ index 1a0a2c6..01b2f5f 100755
 +    } else if (path.rfind(".svg") != std::string::npos) {
 +      mime = "image/svg+xml";
 +    }
-+    id headers = objc::msg_send<id>(objc::get_class("NSMutableDictionary"),
-+                                    objc::selector("dictionary"));
-+    objc::msg_send<void>(
-+        headers, objc::selector("setObject:forKey:"),
-+        NSString_stringWithUTF8String(mime.c_str()),
-+        NSString_stringWithUTF8String("Content-Type"));
-+    id response = objc::msg_send<id>(
-+        objc::msg_send<id>(objc::get_class("NSHTTPURLResponse"),
-+                           objc::selector("alloc")),
-+        objc::selector("initWithURL:statusCode:HTTPVersion:headerFields:"), url,
-+        static_cast<long>(data ? 200 : 404),
-+        NSString_stringWithUTF8String("HTTP/1.1"), headers);
-+    objc::msg_send<void>(task, objc::selector("didReceiveResponse:"), response);
-+    if (data) {
-+      objc::msg_send<void>(task, objc::selector("didReceiveData:"), data);
-+    }
-+    objc::msg_send<void>(task, objc::selector("didFinish"));
++
++    // Serve asynchronously: read on a global queue, deliver on the main
++    // queue (WKURLSchemeTask callbacks are main-thread). Parsing above is
++    // cheap string work; the disk read is the part that must not block.
++    auto entry = std::make_shared<ztron_scheme_tasks::entry>();
++    entry->task = objc::retain(task);
++    ztron_scheme_tasks::add(entry);
++    std::string full_copy = full;
++    std::string mime_copy = mime;
++    dispatch_async_f(
++        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
++        new dispatch_fn_t([entry, full_copy, mime_copy]() {
++          objc::autoreleasepool arp2;
++          // dataWithContentsOfFile: returns +0 (autoreleased by arp2);
++          // retain to hand it across the pool/queue boundary.
++          id data = objc::msg_send<id>(
++              objc::get_class("NSData"),
++              objc::selector("dataWithContentsOfFile:"),
++              NSString_stringWithUTF8String(full_copy.c_str()));
++          if (data) {
++            data = objc::retain(data);
++          }
++          dispatch_async_f(dispatch_get_main_queue(),
++                           new dispatch_fn_t([entry, data, mime_copy]() {
++                             objc::autoreleasepool arp3;
++                             ztron_scheme_tasks::delivered(entry);
++                             if (!entry->cancelled) {
++                               try {
++                                 id request = objc::msg_send<id>(
++                                     entry->task,
++                                     objc::selector("request"));
++                               id url = objc::msg_send<id>(
++                                   request, objc::selector("URL"));
++                               id headers = objc::msg_send<id>(
++                                   objc::get_class("NSMutableDictionary"),
++                                   objc::selector("dictionary"));
++                               objc::msg_send<void>(
++                                   headers,
++                                   objc::selector("setObject:forKey:"),
++                                   NSString_stringWithUTF8String(
++                                       mime_copy.c_str()),
++                                   NSString_stringWithUTF8String(
++                                       "Content-Type"));
++                               id response = objc::msg_send<id>(
++                                   objc::msg_send<id>(
++                                       objc::get_class("NSHTTPURLResponse"),
++                                       objc::selector("alloc")),
++                                   objc::selector(
++                                       "initWithURL:statusCode:HTTPVersion:"
++                                       "headerFields:"),
++                                   url,
++                                   static_cast<long>(data ? 200 : 404),
++                                   NSString_stringWithUTF8String("HTTP/1.1"),
++                                   headers);
++                               objc::msg_send<void>(
++                                   entry->task,
++                                   objc::selector("didReceiveResponse:"),
++                                   response);
++                               if (data) {
++                                 objc::msg_send<void>(
++                                     entry->task,
++                                     objc::selector("didReceiveData:"),
++                                     data);
++                               }
++                               objc::msg_send<void>(entry->task,
++                                                    objc::selector("didFinish"));
++                               } catch (...) {
++                                 // Never throw into ObjC.
++                               }
++                             }
++                             objc::release(entry->task);
++                             if (data) {
++                               objc::release(data);
++                             }
++                           }),
++                           (dispatch_function_t)([](void *arg) {
++                             auto f =
++                                 static_cast<dispatch_fn_t *>(arg);
++                             (*f)();
++                             delete f;
++                           }));
++        }),
++        (dispatch_function_t)([](void *arg) {
++          auto f = static_cast<dispatch_fn_t *>(arg);
++          (*f)();
++          delete f;
++        }));
 +  } catch (const std::exception &e) {
 +  } catch (...) {
 +    // Never throw into ObjC.
@@ -367,16 +476,12 @@ index 01c8d29..8165fe6 100644
    noresult set_size(int width, int height, webview_hint_t hints) {
      auto res = set_size_impl(width, height, hints);
      m_is_size_set = true;
-@@ -165,6 +170,12 @@ protected:
+@@ -165,6 +170,8 @@ protected:
                                   webview_hint_t hints) = 0;
    virtual noresult set_html_impl(const std::string &html) = 0;
    virtual noresult eval_impl(const std::string &js) = 0;
-+  // Default: backends without custom-scheme support (Windows WebView2 TODO)
-+  // fail loudly instead of staying abstract — keeps every backend compilable.
 +  virtual noresult set_scheme_handler_impl(const std::string &scheme,
-+                                           const std::string &root_dir) {
-+    return error_info{WEBVIEW_ERROR_INVALID_STATE, "custom scheme handlers are not supported by this backend"};
-+  }
++                                           const std::string &root_dir) = 0;
  
    virtual user_script *add_user_script(const std::string &js) {
      return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
