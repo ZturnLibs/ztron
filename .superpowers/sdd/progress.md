@@ -143,3 +143,14 @@ Follow-up sweep COMPLETE (PR #34 + #35). Tests 170 -> 185. All review-recorded m
 
 === api links fix run (branch: fix/api-links, PR #36 MERGED, deploy 34116605171 success) ===
 ROOT CAUSE: typedoc-plugin-markdown emits bare relative links (x.md); rspress resolves them at site source root -> /ztron/docs/window.html (404) instead of /ztron/docs/reference/api/window.html. FIX: normalizeRelativeMarkdown() post-pass in gen-api-docs.ts (bare x.md -> ./x.md, idempotent, skips ./ /-prefixed + external), applied per-locale in buildApiDocs; 46/46 files normalized. Verified: docs suite 14/14, docs:build clean, live page links now reference/api/* 200. False-positive note: /ztron/docs/index.html in dialog/image/path pages is the legit docs-home breadcrumb.
+
+=== tauri 2.12 alignment run (plan: docs/superpowers/plans/2026-10-03-tauri-2.12-alignment.md, branch: feat/align-tauri-2.12) ===
+基准: tauri dev 872428fe9(2026-07-28) -> 30da1fd6e(2026-09-30, 2.12.1); 174 commits 全量走查(含 revert 项排除), 参考仓库已 ff 更新且工作树保持干净
+Task 1 complete (e74992e): dev server Host/Origin 校验 — vite-plugin isLocalHostname + 403 非本机 Host + 外来 Origin 不设 ACAO + allowedHosts 钉住(tauri cc9d522c6); +7 tests
+Task 2 complete (758637d): ztron:// scheme handler 异步化 — 确认同病(主线程同步 dataWithContentsOfFile), 修复=后台队列读+主队列投递+stop 取消跟踪(投递块独占 release); 落地经 webview-local.patch(433->538 行, 干净 worktree apply-check 过); Windows 侧与 wry 同构无需改; spike FULL_OK 86 checks 真实退出码 0; 审计报告 .superpowers/sdd/task-t212-scheme-audit.md
+Task 3 complete (9573410): Liquid Glass — Effect.LiquidGlassRegular/Clear + Effects.interactive; core 传 color/interactive/fallback(不再丢 color); Msg+num_val + parser color/interactive/fallback; host NSGlassEffectView(Style Regular=0/Clear=1, setInteractive respondsToSelector 探测, sRGB tint, cornerRadius) + <26 回退普通材质 + clear 双清; 探针证实本机 macOS 26.2 运行时类可用/三 setter 在/setInteractive 无(符合 26 预期); spike FULL_OK 保持
+Task 4 complete (a3b2256): setFullscreenOnMonitor — api+coreAllowed+handler+WindowStateOp+windowStateXY(runtime/ffi/adapter/mock); macOS NSScreen frame.origin 精确匹配->setFrame:display:->toggleFullScreen(arch ABI 正确处理); win/linux 别名普通全屏(诚实降级); surface manifest+coverage ledger+routing 断言同步; +1 routing test
+Task 5 complete (be0c5d4): JsImage — image.JsImage=Exclude<ImageLike,null> 导出; window setIcon/setOverlayIcon 接受 path/bytes/Image(null 清除), normalizeIcon 经 fromPath/fromBytes 归一 rid; tray 为路径协议不放宽(记录偏差); +4 tests
+Task 6 complete (c83e2c1): ROADMAP 修订(win-NSIS 勾选/stronghold 已实现/插件 31/spike 86/打包差距大->中/新增 §6 2.12 对齐账本) + api-zh 6 条(含 WebviewWindow 继承成员与 Effects.interactive 属性条目、LiquidGlassClear 补 JSDoc 后转正); 严格门禁 585/585 全覆盖; docs build + sidebar 216/218(设计内) 绿
+Gates: typecheck 0 errors, 全仓 233 tests/232 pass/1 skip/0 fail(基线 219->233, +14), hello spike FULL_OK x3 次全程保持, c++/cc 语法检查过, 4 次独立提交
+遗留(记入 ROADMAP §6): webview 权限 API(382dd6ccc)、appDirectoriesOverride、asyncDispose、Image.fromAppIconResource、206 Partial Content、CLI 命令族、ACL deny 作用域自查
