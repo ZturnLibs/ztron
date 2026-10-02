@@ -38,3 +38,6 @@ dist/
 
 # bench run output (the committed baseline is perf-budget.json)
 bench-results.json
+
+# playwright MCP session artifacts (console logs / page snapshots)
+.playwright-mcp/
