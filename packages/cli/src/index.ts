@@ -231,7 +231,14 @@ async function startFrontendDevServer(
   const server = await createServer({
     root,
     logLevel: "silent",
-    server: { host: "127.0.0.1", port: 0, hmr: true } as never,
+    server: {
+      host: "127.0.0.1",
+      port: 0,
+      hmr: true,
+      /* DNS-rebinding guard; Vite >=5.4 defaults to localhost-only, pin it
+         in case the project brings an older Vite. */
+      allowedHosts: ["localhost", "127.0.0.1", "[::1]"],
+    } as never,
     plugins: [ztronVitePlugin(invokeKey)],
   });
   await server.listen();
