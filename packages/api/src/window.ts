@@ -577,6 +577,22 @@ export class Window {
     });
   }
 
+  /**
+   * Fullscreens onto the monitor containing `position` (screen-space
+   * coordinates, as from {@linkcode Monitor.position}). macOS matches the
+   * NSScreen, moves the window onto it, then enters fullscreen; Windows and
+   * Linux currently fall back to plain fullscreen.
+   */
+  async setFullscreenOnMonitor(position: {
+    x: number;
+    y: number;
+  }): Promise<void> {
+    await invoke("plugin:window|set_fullscreen_on_monitor", {
+      label: this.label,
+      position,
+    });
+  }
+
   async isFullscreen(): Promise<boolean> {
     return invoke<boolean>("plugin:window|is_fullscreen", {
       label: this.label,

@@ -38,3 +38,18 @@ test("setEffects passes liquid glass + interactive + color through", async () =>
   assert.equal(value.color, "#334455");
   assert.equal(value.radius, 12);
 });
+
+test("setFullscreenOnMonitor invokes with monitor position (tauri 2.12)", async () => {
+  const calls: { cmd: string; args: { label: string; position: { x: number; y: number } } }[] = [];
+  mockIPC((cmd, args) => {
+    calls.push({
+      cmd,
+      args: args as { label: string; position: { x: number; y: number } },
+    });
+  });
+  await Window.getCurrent().setFullscreenOnMonitor({ x: -1920, y: 0 });
+  clearMocks();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]!.cmd, "plugin:window|set_fullscreen_on_monitor");
+  assert.deepEqual(calls[0]!.args.position, { x: -1920, y: 0 });
+});

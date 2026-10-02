@@ -362,6 +362,17 @@ export class HostWebviewHandle implements WebviewHandle {
     return true;
   }
 
+  windowStateXY(op: WindowStateOp, pos: { x: number; y: number }): boolean {
+    this.#rt.send({
+      type: op,
+      label: this.label,
+      value: true,
+      x: Math.trunc(pos.x),
+      y: Math.trunc(pos.y),
+    });
+    return true;
+  }
+
   onWindowEvent(cb: (event: WindowEvent) => void): void {
     this.#onWindowEvent = cb;
   }

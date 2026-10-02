@@ -202,6 +202,13 @@ export class FfiWebviewHandle implements WebviewHandle {
     return op.startsWith("is_") ? false : true;
   }
 
+  windowStateXY(
+    _op: import("@zturnlibs/ztron-core").WindowStateOp,
+    _pos: { x: number; y: number },
+  ): boolean {
+    return true;
+  }
+
   onWindowEvent(): void {
     /* no-op (host adapter provides window events) */
   }

@@ -96,7 +96,9 @@ static void handle_window_op(Msg *m) {
   } else if (strcmp(m->type, "is_fullscreen") == 0) {
     GdkWindow *gdk = gtk_widget_get_window(GTK_WIDGET(w));
     if (gdk) result = gdk_window_get_state(gdk) & GDK_WINDOW_STATE_FULLSCREEN;
-  } else if (strcmp(m->type, "set_fullscreen") == 0) {
+  } else if (strcmp(m->type, "set_fullscreen") == 0 ||
+             strcmp(m->type, "set_fullscreen_on_monitor") == 0) {
+    /* Monitor targeting pending (GdkMonitor match); fullscreen for now. */
     if (m->bool_val) gtk_window_fullscreen(w);
     else gtk_window_unfullscreen(w);
   } else if (strcmp(m->type, "set_always_on_top") == 0) {

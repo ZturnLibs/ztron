@@ -31,7 +31,7 @@ export class MockWebviewHandle implements WebviewHandle {
   sizeLog: Array<{ w: number; h: number }> = [];
   positionLog: Array<{ x: number; y: number }> = [];
   boundsLog: Array<{ x: number; y: number; w: number; h: number }> = [];
-  windowStateLog: Array<{ op: WindowStateOp; value?: boolean }> = [];
+  windowStateLog: Array<{ op: WindowStateOp; value?: boolean; pos?: { x: number; y: number } }> = [];
   /** Return values for `is_*` window-state queries. */
   windowStateValues: Partial<Record<WindowStateOp, boolean>> = {};
   windowEventLog: WindowEvent[] = [];
@@ -271,6 +271,11 @@ export class MockWebviewHandle implements WebviewHandle {
     if (op.startsWith("is_")) {
       return this.windowStateValues[op] ?? false;
     }
+    return true;
+  }
+
+  windowStateXY(op: WindowStateOp, pos: { x: number; y: number }): boolean {
+    this.windowStateLog.push({ op, value: true, pos });
     return true;
   }
 

@@ -47,6 +47,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:window|is_maximized",
   "plugin:window|is_minimized",
   "plugin:window|set_fullscreen",
+  "plugin:window|set_fullscreen_on_monitor",
   "plugin:window|is_fullscreen",
   "plugin:window|set_always_on_top",
   "plugin:window|center",

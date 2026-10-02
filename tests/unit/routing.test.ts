@@ -68,6 +68,15 @@ test("window commands route to the handle", async () => {
   }
   assert.deepEqual(w.opacityLog, [0.5]);
 
+  await mock.main.invoke("plugin:window|set_fullscreen_on_monitor", {
+    position: { x: -1920, y: 0 },
+  });
+  assert.deepEqual(w.windowStateLog.at(-1), {
+    op: "set_fullscreen_on_monitor",
+    value: true,
+    pos: { x: -1920, y: 0 },
+  });
+
   await mock.main.invoke("plugin:window|set_position", { x: 10, y: 20 });
   assert.deepEqual(w.positionLog.at(-1), { x: 10, y: 20 });
   await mock.main.invoke("plugin:window|set_cursor", { cursor: "pointer" });

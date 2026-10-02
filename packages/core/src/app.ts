@@ -206,6 +206,7 @@ export class App {
       "plugin:window|is_maximized",
       "plugin:window|is_minimized",
       "plugin:window|set_fullscreen",
+      "plugin:window|set_fullscreen_on_monitor",
       "plugin:window|is_fullscreen",
       "plugin:window|set_always_on_top",
       "plugin:window|center",
@@ -556,6 +557,13 @@ export class App {
           "set_fullscreen",
           Boolean((args as { fullscreen?: boolean }).fullscreen),
         );
+      },
+      "plugin:window|set_fullscreen_on_monitor": (args, ctx) => {
+        const { position } = args as { position?: { x: number; y: number } };
+        ctx.webview.windowStateXY("set_fullscreen_on_monitor", position ?? {
+          x: 0,
+          y: 0,
+        });
       },
       "plugin:window|is_fullscreen": async (_args, ctx) =>
         ctx.webview.windowState("is_fullscreen"),

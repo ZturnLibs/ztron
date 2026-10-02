@@ -1029,6 +1029,38 @@ static void handle_window_op(Msg *m, webview_t w) {
     if (((int)m->bool_val) != cur) {
       wnd_void(wnd, "toggleFullScreen:");
     }
+  } else if (strcmp(m->type, "set_fullscreen_on_monitor") == 0) {
+    /* Match the NSScreen whose frame.origin == (x, y) — monitor positions
+       are unique per screen and availableMonitors serializes the same
+       frame, so api-side positions match directly. Move the window onto
+       the screen first (toggleFullScreen enters on the screen the window
+       is mostly on), then enter fullscreen when not already in one. */
+    id screens = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSScreen"),
+                          sel_registerName("screens"));
+    unsigned long n =
+        screens
+            ? OBJC_MSG(unsigned long (*)(id, SEL), screens,
+                       sel_registerName("count"))
+            : 0;
+    for (unsigned long i = 0; i < n; i++) {
+      id sc = OBJC_MSG(id(*)(id, SEL, unsigned long), screens,
+                       sel_registerName("objectAtIndex:"), i);
+      ZtRect f;
+#if defined(__aarch64__)
+      f = ((ZtRect(*)(id, SEL))objc_msgSend)(sc, sel_registerName("frame"));
+#else
+      ((void(*)(id, SEL, ZtRect *))objc_msgSend_stret)(
+          sc, sel_registerName("frame"), &f);
+#endif
+      if ((int)f.x == m->x && (int)f.y == m->y) {
+        ((void(*)(id, SEL, ZtRect, BOOL))objc_msgSend)(
+            wnd, sel_registerName("setFrame:display:"), f, YES);
+        break;
+      }
+    }
+    if ((wnd_style_mask(wnd) & NS_FULLSCREEN_MASK) == 0) {
+      wnd_void(wnd, "toggleFullScreen:");
+    }
   } else if (strcmp(m->type, "set_always_on_top") == 0) {
     OBJC_MSG(void(*)(id, SEL, long), wnd, sel_registerName("setLevel:"),
              m->bool_val ? 1 : NS_NORMAL_LEVEL);
