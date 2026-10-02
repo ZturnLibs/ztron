@@ -280,9 +280,15 @@ static void on_gui(webview_t w, void *arg) {
   w = target;
   if (getenv("ZT_TRACE"))
     fprintf(stderr, "[zt] on_gui %s label=%s\n", m->type, m->win_label);
-  /* Defer content ops while an engine is being created (see guard above):
-     takes ownership of m, so return without freeing. */
-  if (g_creating_webview && zt_is_content_op(m)) {
+  /* Defer ALL label-routed ops while an engine is being created (see guard
+     above): webview_create() pumps the loop, so the messages behind
+     create_window would run mid-creation — before the registry knows the
+     label — and fall back to the MAIN window (an early set_always_on_top
+     for the new window landed on main and stuck there). Content ops were
+     the original race; the window-state ops had the same one.
+     Takes ownership of m, so return without freeing. */
+  if (g_creating_webview && m->win_label[0] &&
+      strcmp(m->win_label, "main") != 0) {
     if (getenv("ZT_TRACE"))
       fprintf(stderr, "[zt]   defer %s label=%s (engine creation in flight)\n",
               m->type, m->win_label);
