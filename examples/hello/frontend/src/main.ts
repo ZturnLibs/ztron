@@ -113,10 +113,19 @@ async function main(): Promise<void> {
     // 1b. app metadata
     const appName = await getName();
     const appVersion = await getVersion();
-    if (appName === "com.ztron.hello" && appVersion === "0.1.0") {
-      report("APP_OK:" + appName + "@" + appVersion);
-    }
     const appInfo = await getConfig();
+    // Name/version must agree with the staged conf — compare against the
+    // conf itself, not a literal (the "0.1.0" literal went stale at a
+    // release bump and silently skipped this anchor; a skipped check must
+    // be loud or the FULL_OK count drifts unnoticed).
+    if (appName === appInfo.identifier && appVersion === appInfo.version) {
+      report("APP_OK:" + appName + "@" + appVersion);
+    } else {
+      report(
+        "APP_META_FAIL:" +
+          JSON.stringify({ appName, appVersion, conf: appInfo.identifier, v: appInfo.version }).slice(0, 90),
+      );
+    }
     if (appInfo.identifier === "com.ztron.hello" && !("invokeKey" in appInfo)) {
       report("APP_CONFIG_OK:" + appInfo.identifier);
     }
@@ -302,10 +311,12 @@ async function main(): Promise<void> {
       }
     }
 
-    // 5. path
+    // 5. path (Windows joins with backslashes — normalize before comparing;
+    // the literal "/a/b/c" silently skipped this anchor on win32)
     const joined = await path.join("/a", "b", "c");
     el("path").textContent = joined;
-    if (joined === "/a/b/c") report("PATH_OK");
+    if (joined.replace(/\\/g, "/") === "/a/b/c") report("PATH_OK");
+    else report("PATH_JOIN_FAIL:" + joined);
 
     // 5a. path special dirs
     const [home, temp] = await Promise.all([path.homeDir(), path.tempDir()]);
