@@ -439,6 +439,18 @@ export class HostRuntime implements RuntimeAdapter {
   };
 
   /** System tray controller (implements `RuntimeAdapter.tray`). */
+  #permissionSink?: (wire: import("@zturnlibs/ztron-core").PermissionWireRequest) => void;
+  /** Webview permission interception: wire requests arrive from the host
+   *  line pump; responses ride the regular send channel. */
+  readonly permissions: import("@zturnlibs/ztron-core").PermissionController = {
+    onPermissionRequest: (cb) => {
+      this.#permissionSink = cb;
+    },
+    respond: (id, response) => {
+      this.send({ type: "permission_response", req_id: id, response });
+    },
+  };
+
   readonly tray: TrayController = {
     apply: (op, payload) => {
       switch (op) {
@@ -936,6 +948,15 @@ export class HostRuntime implements RuntimeAdapter {
         const label = String(msg.label ?? "main");
         const handle = this.#handles.get(label);
         handle?.handleRequest(String(msg.id), msg.req);
+        break;
+      }
+      case "permission_request": {
+        this.#permissionSink?.({
+          id: Number(msg.id ?? 0),
+          kind: String(msg.kind ?? "other") as import("@zturnlibs/ztron-core").PermissionKind,
+          url: String(msg.url ?? ""),
+          label: String(msg.label ?? "main"),
+        });
         break;
       }
       case "window_event": {
