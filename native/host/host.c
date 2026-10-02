@@ -237,12 +237,6 @@ typedef struct ZtDeferred { Msg msg; struct ZtDeferred *next; } ZtDeferred;
 static ZtDeferred *g_deferred_head = NULL;
 static ZtDeferred *g_deferred_tail = NULL;
 
-static int zt_is_content_op(const Msg *m) {
-  return strcmp(m->type, "eval") == 0 ||
-         strcmp(m->type, "set_html") == 0 ||
-         strcmp(m->type, "navigate") == 0;
-}
-
 /* Copies m into a deferred node; takes over the caller's reference (the
    caller must not touch m after this and must not free it). */
 static void zt_defer_msg(Msg *m) {
