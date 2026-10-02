@@ -206,6 +206,7 @@ export class App {
       "plugin:window|is_maximized",
       "plugin:window|is_minimized",
       "plugin:window|set_fullscreen",
+      "plugin:window|set_fullscreen_on_monitor",
       "plugin:window|is_fullscreen",
       "plugin:window|set_always_on_top",
       "plugin:window|center",
@@ -496,24 +497,38 @@ export class App {
         ctx.webview.setOverlayIcon(Number(image_id ?? -1));
       },
       "plugin:window|set_effects": (args, ctx) => {
-        /* Tauri Effects shape: {effects: Effect[], state?, radius?, color?}.
-         * Conflicting materials: the first wins (documented Tauri rule);
-         * Windows-only effects (blur/acrylic/tabbed) are dropped when the
-         * macOS-supported list comes back empty. */
-        const { effects, state, radius } = args as {
+        /* Tauri Effects shape: {effects: Effect[], state?, radius?, color?,
+         * interactive?}. Conflicting materials: the first wins (documented
+         * Tauri rule); Windows-only effects (blur/acrylic/tabbed) are dropped
+         * when the macOS-supported list comes back empty. Liquid Glass names
+         * (macOS 26+) ride first — the host falls back to `fallback` on
+         * older systems (tauri 2.12 4a5065653 semantics). */
+        const { effects, state, radius, color, interactive } = args as {
           effects?: string[];
           state?: number;
           radius?: number;
+          color?: string | null;
+          interactive?: boolean;
         };
-        const macos = (effects ?? []).filter(
-          (e) =>
-            !["blur", "acrylic", "tabbed", "mica", "tabbedDark", "tabbedLight"].includes(e),
+        const WINDOWS_ONLY = [
+          "blur", "acrylic", "tabbed", "mica", "tabbedDark", "tabbedLight",
+        ] as const;
+        const GLASS = ["liquidGlassRegular", "liquidGlassClear"] as const;
+        const glass = (effects ?? []).find((e) =>
+          (GLASS as readonly string[]).includes(e),
         );
-        const material = macos[0] ?? effects?.[0] ?? "";
+        const ordinary = (effects ?? []).filter(
+          (e) =>
+            !(WINDOWS_ONLY as readonly string[]).includes(e) &&
+            !(GLASS as readonly string[]).includes(e),
+        );
         ctx.webview.windowState("set_effects", false, {
-          material,
+          material: glass ?? ordinary[0] ?? "",
           state: typeof state === "number" ? state : -1,
           radius: typeof radius === "number" ? radius : 0,
+          color: typeof color === "string" ? color : "",
+          interactive: interactive === true ? 1 : 0,
+          fallback: ordinary[0] ?? "",
         });
       },
       "plugin:window|clear_effects": (_args, ctx) => {
@@ -542,6 +557,13 @@ export class App {
           "set_fullscreen",
           Boolean((args as { fullscreen?: boolean }).fullscreen),
         );
+      },
+      "plugin:window|set_fullscreen_on_monitor": (args, ctx) => {
+        const { position } = args as { position?: { x: number; y: number } };
+        ctx.webview.windowStateXY("set_fullscreen_on_monitor", position ?? {
+          x: 0,
+          y: 0,
+        });
       },
       "plugin:window|is_fullscreen": async (_args, ctx) =>
         ctx.webview.windowState("is_fullscreen"),

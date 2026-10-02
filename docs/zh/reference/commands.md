@@ -48,7 +48,7 @@
 | `plugin:process\|exit` | `process` | [`process`](./api/process) |
 | `plugin:process\|relaunch` | `process` | [`process`](./api/process) |
 
-## plugin:window（85 条）
+## plugin:window（86 条）
 
 | 命令 | 权限归属（group） | API 模块 |
 | --- | --- | --- |
@@ -63,6 +63,7 @@
 | `plugin:window\|is_maximized` | `window` | [`window`](./api/window) |
 | `plugin:window\|is_minimized` | `window` | [`window`](./api/window) |
 | `plugin:window\|set_fullscreen` | `window` | [`window`](./api/window) |
+| `plugin:window\|set_fullscreen_on_monitor` | `window` | [`window`](./api/window) |
 | `plugin:window\|is_fullscreen` | `window` | [`window`](./api/window) |
 | `plugin:window\|set_always_on_top` | `window` | [`window`](./api/window) |
 | `plugin:window\|center` | `window` | [`window`](./api/window) |

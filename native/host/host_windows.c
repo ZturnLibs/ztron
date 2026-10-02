@@ -441,7 +441,9 @@ static void handle_window_op(Msg *m, webview_t wv) {
     result = wr.left == mi.rcMonitor.left && wr.top == mi.rcMonitor.top &&
              wr.right == mi.rcMonitor.right && wr.bottom == mi.rcMonitor.bottom;
   } else if (strcmp(m->type, "set_fullscreen") == 0 ||
+             strcmp(m->type, "set_fullscreen_on_monitor") == 0 ||
              strcmp(m->type, "set_simple_fullscreen") == 0) {
+    /* Monitor targeting pending (HMONITOR match); fullscreen for now. */
     apply_fullscreen(w, m->bool_val);
   } else if (strcmp(m->type, "maximize") == 0) {
     ShowWindow(w, SW_MAXIMIZE);

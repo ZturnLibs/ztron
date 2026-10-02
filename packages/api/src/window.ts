@@ -4,7 +4,7 @@
  */
 import { invoke } from "./core.js";
 import { listen } from "./event.js";
-import type { Image } from "./image.js";
+import { Image, type JsImage } from "./image.js";
 import {
   normalizePosition,
   normalizeSize,
@@ -267,24 +267,27 @@ export class Window {
   }
 
   /**
-   * Sets the window/dock icon from an {@linkcode Image} (registered host
-   * image). Pass `null` to clear.
+   * Sets the window/dock icon from a {@linkcode JsImage} (registered
+   * {@linkcode Image}, a path string, or raw bytes — normalized first).
+   * Pass `null` to clear.
    */
-  async setIcon(icon: Image | null): Promise<void> {
+  async setIcon(icon: JsImage | null): Promise<void> {
+    const img = icon === null ? null : await normalizeIcon(icon);
     await invoke("plugin:window|set_icon", {
       label: this.label,
-      image_id: icon ? icon.rid : -1,
+      image_id: img ? img.rid : -1,
     });
   }
 
   /**
    * Sets a small titlebar accessory icon (the macOS take on Windows'
-   * overlay/status badge). Pass `null` to clear.
+   * overlay/status badge). Accepts a {@linkcode JsImage}; `null` clears.
    */
-  async setOverlayIcon(icon: Image | null): Promise<void> {
+  async setOverlayIcon(icon: JsImage | null): Promise<void> {
+    const img = icon === null ? null : await normalizeIcon(icon);
     await invoke("plugin:window|set_overlay_icon", {
       label: this.label,
-      image_id: icon ? icon.rid : -1,
+      image_id: img ? img.rid : -1,
     });
   }
 
@@ -574,6 +577,22 @@ export class Window {
     await invoke("plugin:window|set_fullscreen", {
       label: this.label,
       fullscreen,
+    });
+  }
+
+  /**
+   * Fullscreens onto the monitor containing `position` (screen-space
+   * coordinates, as from {@linkcode Monitor.position}). macOS matches the
+   * NSScreen, moves the window onto it, then enters fullscreen; Windows and
+   * Linux currently fall back to plain fullscreen.
+   */
+  async setFullscreenOnMonitor(position: {
+    x: number;
+    y: number;
+  }): Promise<void> {
+    await invoke("plugin:window|set_fullscreen_on_monitor", {
+      label: this.label,
+      position,
     });
   }
 
@@ -1043,6 +1062,18 @@ export function setupDragRegion(
   return () => target.removeEventListener("mousedown", onMouseDown);
 }
 
+/** Normalizes a {@linkcode JsImage} into a registered {@linkcode Image}
+ *  (rid protocol of `plugin:window|set_icon`). */
+async function normalizeIcon(icon: JsImage): Promise<Image> {
+  if (icon instanceof Image) return icon;
+  if (typeof icon === "string") return Image.fromPath(icon);
+  const bytes =
+    icon instanceof Uint8Array
+      ? icon
+      : new Uint8Array(icon instanceof ArrayBuffer ? icon : icon);
+  return Image.fromBytes(bytes);
+}
+
 /** macOS vibrancy materials (NSVisualEffectMaterial). */
 export enum Effect {
   AppearanceBased = "appearanceBased",
@@ -1067,6 +1098,11 @@ export enum Effect {
   Mica = "mica",
   TabbedDark = "tabbedDark",
   TabbedLight = "tabbedLight",
+  /** macOS 26+ Liquid Glass (`NSGlassEffectView`; on older systems the host
+   *  falls back to the first ordinary material in the same effects list). */
+  LiquidGlassRegular = "liquidGlassRegular",
+  /** macOS 26+ Liquid Glass, clear variant (`NSGlassEffectViewStyleClear`). */
+  LiquidGlassClear = "liquidGlassClear",
 }
 
 /** Effect active state (macOS only). */
@@ -1082,6 +1118,8 @@ export interface Effects {
   state?: EffectState;
   radius?: number;
   color?: string | null;
+  /** Liquid Glass interactivity (macOS 27+; ignored elsewhere). */
+  interactive?: boolean;
 }
 
 /**

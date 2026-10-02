@@ -325,7 +325,14 @@ export class HostWebviewHandle implements WebviewHandle {
   windowState(
     op: WindowStateOp,
     value?: boolean,
-    effect?: { material?: string; state?: number; radius?: number },
+    effect?: {
+      material?: string;
+      state?: number;
+      radius?: number;
+      color?: string;
+      interactive?: number;
+      fallback?: string;
+    },
   ): boolean | Promise<boolean> | { x: number; y: number } | null {
     /* Query ops: boolean probes plus the inner-position geometry query.
        sendQuery coerces to boolean, so geometry rides the raw request. */
@@ -342,8 +349,26 @@ export class HostWebviewHandle implements WebviewHandle {
       label: this.label,
       value: Boolean(value),
       ...(effect?.material
-        ? { text: effect.material, state: effect.state ?? -1, radius: effect.radius ?? 0 }
+        ? {
+            text: effect.material,
+            state: effect.state ?? -1,
+            radius: effect.radius ?? 0,
+            color: effect.color ?? "",
+            interactive: effect.interactive ?? 0,
+            fallback: effect.fallback ?? "",
+          }
         : {}),
+    });
+    return true;
+  }
+
+  windowStateXY(op: WindowStateOp, pos: { x: number; y: number }): boolean {
+    this.#rt.send({
+      type: op,
+      label: this.label,
+      value: true,
+      x: Math.trunc(pos.x),
+      y: Math.trunc(pos.y),
     });
     return true;
   }

@@ -96,6 +96,7 @@ export type WindowStateOp =
   | "is_maximized"
   | "is_minimized"
   | "set_fullscreen"
+  | "set_fullscreen_on_monitor"
   | "is_fullscreen"
   | "set_always_on_top"
   | "set_always_on_bottom"
@@ -255,8 +256,23 @@ export interface WebviewHandle {
   windowState(
     op: WindowStateOp,
     value?: boolean,
-    effect?: { material?: string; state?: number; radius?: number },
+    effect?: {
+      material?: string;
+      state?: number;
+      radius?: number;
+      /** Liquid Glass tint (hex, e.g. #RRGGBB); empty string = none. */
+      color?: string;
+      /** Liquid Glass interactivity (macOS 27+): 1/0. */
+      interactive?: number;
+      /** Ordinary material used when Liquid Glass is unavailable. */
+      fallback?: string;
+    },
   ): boolean | Promise<boolean> | { x: number; y: number } | null;
+  /**
+   * Applies a window state operation carrying a screen position (e.g.
+   * `set_fullscreen_on_monitor`): the host matches the monitor at (x, y).
+   */
+  windowStateXY(op: WindowStateOp, pos: { x: number; y: number }): boolean;
   /** Registers a handler for native window events. */
   onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
   /**
