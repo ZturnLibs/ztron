@@ -150,7 +150,7 @@
 
 未对齐(按优先级):
 
-- [ ] webview 权限请求 API(`on_permission_request` + 15 种 PermissionKind,tauri 382dd6ccc)——host 三平台原生 delegate,独立大项
+- [x] webview 权限请求 API(`on_permission_request` + 15 种 PermissionKind,tauri 382dd6ccc)——2026-10-03 落地:core `onPermissionRequest`(App/AppOptions/AppBuilder)+ PermissionController(wire:permission_request/permission_response);macOS 经 `class_addMethod` 给引擎 UIDelegate 动态加媒体捕获方法(macOS 12+,摄像头/麦克风,kind 映射与 tauri Display 逐字),decisionHandler 经 Block ABI + webview_dispatch 回主线程;无 handler 自动回 "default"(≡未实现方法的官方语义);win/linux 协议就绪、后端接线待 WebView2/webkitgtk 事件桥(与 tauri 的 macOS 非 media-capture kinds 同样"平台后端未支持")
 - [ ] `appDirectoriesOverride` 配置(便携应用目录覆盖,tauri 7dbfc1fe5)
 - [ ] Resource `Symbol.asyncDispose` / `await using`(tauri be019795a)
 - [ ] `Image.fromAppIconResource`(Windows,tauri d203f74a2)、`activateIgnoringOtherApps`(macOS,tauri 21ec647cf)

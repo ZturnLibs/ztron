@@ -6,6 +6,10 @@
   <string>com.ztron.host</string>
   <key>CFBundleName</key>
   <string>Ztron Host</string>
+  <key>NSCameraUsageDescription</key>
+  <string>This app requests camera access from web content.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>This app requests microphone access from web content.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>

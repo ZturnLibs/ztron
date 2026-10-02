@@ -18,6 +18,11 @@
 
 #include "host_platform.h"
 
+/* Permission interception is macOS-only for now (WebView2/webkitgtk event
+   wiring pending); the shared host.c still routes here, so drop silently. */
+void zt_permission_respond(Msg *m) { (void)m; }
+
+
 /* ---- JSON reply helpers ---- */
 
 void zt_reply_query(int req_id, const char *json_value) {
