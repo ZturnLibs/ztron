@@ -641,9 +641,19 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
   return DefSubclassProc(h, msg, wp, lp);
 }
 
-static void tray_create(const char *title) {
+static void tray_create(const char *title, const char *tid);
+static void tray_remove_by_id(const char *tid);
+static void tray_get_by_id(const char *tid, int req_id);
+
+/* Single-instance tray (Shell_NotifyIconW holds one icon): the id of the
+   live icon backs getById / remove_by_id, mirroring the darwin registry's
+   query surface without a full multi-icon registry. */
+static char g_tray_id[64] = "";
+
+static void tray_create(const char *title, const char *tid) {
   HWND w = zt_hwnd();
   if (!w) return;
+  snprintf(g_tray_id, sizeof(g_tray_id), "%s", tid ? tid : "");
   g_tray_hwnd = w;
   memset(&g_nid, 0, sizeof(g_nid));
   g_nid.cbSize = sizeof(g_nid);
@@ -688,6 +698,22 @@ static void tray_set_icon_id(int image_id) {
 static void tray_destroy(void) {
   if (g_tray_hwnd) Shell_NotifyIconW(NIM_DELETE, &g_nid);
   g_tray_hwnd = NULL;
+  g_tray_id[0] = '\0';
+}
+
+static void tray_remove_by_id(const char *tid) {
+  if (g_tray_hwnd && tid && strcmp(tid, g_tray_id) == 0) {
+    Shell_NotifyIconW(NIM_DELETE, &g_nid);
+    g_tray_hwnd = NULL;
+    g_tray_id[0] = '\0';
+  }
+}
+
+static void tray_get_by_id(const char *tid, int req_id) {
+  if (req_id >= 0) {
+    int found = g_tray_hwnd && tid && strcmp(tid, g_tray_id) == 0;
+    zt_reply_query(req_id, found ? "true" : "false");
+  }
 }
 
 /* ---- menu (Win32 HMENU, registry-backed multi-menu) ----
@@ -1620,7 +1646,9 @@ static int dispatch(Msg *m, webview_t wv) {
       zt_reply_query(m->req_id, found ? "true" : "false");
     return 1;
   }
-  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id); return 1; }
+  if (strcmp(m->type, "tray_create") == 0) { tray_create(m->id, m->win_label); return 1; }
+  if (strcmp(m->type, "tray_get_by_id") == 0) { tray_get_by_id(m->win_label, m->req_id); return 1; }
+  if (strcmp(m->type, "tray_remove_by_id") == 0) { tray_remove_by_id(m->win_label); return 1; }
   if (strcmp(m->type, "tray_set_title") == 0) { tray_set_title(m->id); return 1; }
   if (strcmp(m->type, "tray_set_tooltip") == 0) { tray_set_tooltip(m->str2); return 1; }
   if (strcmp(m->type, "tray_set_icon") == 0) {
@@ -1715,8 +1743,7 @@ static int dispatch(Msg *m, webview_t wv) {
   }
   if (strcmp(m->type, "tray_set_show_menu_on_left_click") == 0 ||
       strcmp(m->type, "tray_set_visible") == 0 ||
-      strcmp(m->type, "tray_set_icon_template") == 0 ||
-      strcmp(m->type, "tray_remove_by_id") == 0) { return 1; } /* accepted no-ops */
+      strcmp(m->type, "tray_set_icon_template") == 0) { return 1; } /* accepted no-ops */
 
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
