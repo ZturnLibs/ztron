@@ -40,6 +40,8 @@ export interface AppConfig {
   appName?: string;
   version?: string;  /** The `__ZTRON_INVOKE_KEY__` used to authenticate IPC messages. */
   invokeKey: string;
+  /** Overrides the app_* path dirs (portable apps; tauri appDirectoriesOverride). */
+  appDirectoriesOverride?: import("./plugins/path.js").AppDirectoriesOverride;
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
   withGlobalTauri?: boolean;
@@ -1592,6 +1594,8 @@ export class AppBuilder {
     if (conf.mainBinaryName)
       this.#config.mainBinaryName = conf.mainBinaryName;
     if (conf.version) this.#config.version = conf.version;
+    if (conf.app?.appDirectoriesOverride !== undefined)
+      this.#config.appDirectoriesOverride = conf.app.appDirectoriesOverride;
 
     // F1: structured blocks (legacy top-level csp/capabilities stay live).
     const sec = conf.app?.security ?? {};
@@ -1683,6 +1687,15 @@ export interface ProjectConfigFile {
       };
       freezePrototype?: boolean;
     };
+    /** Overrides the app_* dir path APIs: a portable root or per-dir map
+     * (paths may start with $HOME/$DATA/… variables; tauri 7dbfc1fe5). */
+    appDirectoriesOverride?: string | {
+      config?: string;
+      data?: string;
+      localData?: string;
+      cache?: string;
+      log?: string;
+    };
   };
   bundle?: {
     active?: boolean;
@@ -1736,6 +1749,23 @@ export function validateProjectConfig(
       typeof conf.app.withGlobalTauri !== "boolean"
     )
       throw new Error("ztron.conf.json: app.withGlobalTauri must be boolean");
+    const ov = (conf.app as { appDirectoriesOverride?: unknown }).appDirectoriesOverride;
+    if (ov !== undefined) {
+      const ok =
+        typeof ov === "string" ||
+        (typeof ov === "object" &&
+          ov !== null &&
+          Object.entries(ov).every(
+            ([k, v]) =>
+              ["config", "data", "localData", "cache", "log"].includes(k) &&
+              typeof v === "string",
+          ));
+      if (!ok)
+        throw new Error(
+          "ztron.conf.json: app.appDirectoriesOverride must be a string or " +
+            "an object of {config,data,localData,cache,log} string paths",
+        );
+    }
   }
   if (conf.bundle && typeof conf.bundle !== "object")
     throw new Error("ztron.conf.json: bundle must be an object");
