@@ -14,6 +14,26 @@ export interface PathScopeConfig {
   deny?: string[];
 }
 
+/**
+ * Windows path conventions apply unless the platform says otherwise
+ * (mirrors the path plugin's `detectPlatform` default-to-windows rule).
+ * Only consulted for separator/case normalization, never under Node tests,
+ * where the tjs stub pins `navigator.platform` to a macOS value.
+ */
+function windowsPaths(): boolean {
+  const p = (
+    (globalThis as { navigator?: { platform?: string } }).navigator?.platform ??
+    ""
+  ).toLowerCase();
+  return !p.includes("mac") && !p.includes("linux");
+}
+
+/** On Windows `\` is a separator; normalize to `/` so the prefix
+ * comparisons below work. POSIX paths pass through untouched. */
+function normalizeSep(p: string): string {
+  return windowsPaths() ? p.replace(/\\/g, "/") : p;
+}
+
 /** Expands `$VAR` placeholders supported by the framework. */
 function expandVars(input: string): string {
   return input.replace(/\$(HOME|TMP|CWD)\b/g, (m, v: string) => {
@@ -44,13 +64,13 @@ export class PathScope {
   #denyRoots: Promise<string[]> | null = null;
 
   constructor(config: PathScopeConfig) {
-    this.#allow = config.allow.map((p) => expandVars(p));
-    this.#deny = (config.deny ?? []).map((p) => expandVars(p));
+    this.#allow = config.allow.map((p) => normalizeSep(expandVars(p)));
+    this.#deny = (config.deny ?? []).map((p) => normalizeSep(expandVars(p)));
   }
 
   /** Expands vars + makes the path absolute (no canonicalization). */
   resolve(input: string): string {
-    return resolveAbs(expandVars(input));
+    return resolveAbs(normalizeSep(expandVars(input)));
   }
 
   /**
@@ -84,7 +104,7 @@ export class PathScope {
 
   /** Adds an allow pattern at runtime (invalidates cached roots). */
   addAllow(pattern: string): void {
-    this.#allow.push(expandVars(pattern));
+    this.#allow.push(normalizeSep(expandVars(pattern)));
     this.#allowRoots = null;
   }
 
@@ -114,18 +134,28 @@ export class PathScope {
 }
 
 function resolveAbs(p: string): string {
-  return p.startsWith("/") ? p : pathJoin(tjs.cwd, p);
+  return isAbs(p) ? p : pathJoin(normalizeSep(tjs.cwd), p);
+}
+
+/** POSIX `/`, UNC `//` and Windows `C:/` (post-normalization) are absolute. */
+function isAbs(p: string): boolean {
+  return p.startsWith("/") || /^[a-zA-Z]:\//.test(p);
 }
 
 /** Canonicalizes the parent directory so non-existent children still resolve. */
 async function canonicalize(p: string): Promise<string> {
   const dir = dirName(p);
   const base = baseName(p);
-  const realDir = await tjs.realPath(dir);
+  const realDir = normalizeSep(await tjs.realPath(dir));
   return dir === "/" ? pathJoin(realDir, base) : pathJoin(realDir, base);
 }
 
 function within(canon: string, root: string): boolean {
+  // Windows paths are case-insensitive (C:\ == c:\); fold before comparing.
+  if (windowsPaths()) {
+    canon = canon.toLowerCase();
+    root = root.toLowerCase();
+  }
   return canon === root || canon.startsWith(root + "/");
 }
 
