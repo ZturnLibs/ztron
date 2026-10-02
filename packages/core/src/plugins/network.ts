@@ -51,6 +51,14 @@ function isLinux(): boolean {
     .includes("linux");
 }
 
+function isWindows(): boolean {
+  const p = (
+    (globalThis as { navigator?: { platform?: string } }).navigator?.platform ??
+    ""
+  ).toLowerCase();
+  return !p.includes("mac") && !p.includes("linux");
+}
+
 export function networkPlugin(options: NetworkPluginOptions = {}): Plugin {
   const publicIpUrl = options.publicIpUrl ?? "https://icanhazip.com";
   const publicIpTimeoutMs = options.publicIpTimeoutMs ?? 5000;
@@ -75,6 +83,20 @@ export function networkPlugin(options: NetworkPluginOptions = {}): Plugin {
             "-c",
             "hostname -I 2>/dev/null | awk '{print $1}'",
           ]);
+        } else if (isWindows()) {
+          // Locale-neutral (see local-ip plugin): Get-NetIPAddress returns
+          // objects, unlike locale-dependent `ipconfig` text.
+          ip = await run([
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-NetIPAddress -AddressFamily IPv4 | " +
+              "Where-Object { $_.IPAddress -ne '127.0.0.1' -and " +
+              "$_.IPAddress -notlike '169.254.*' } | " +
+              "Sort-Object InterfaceMetric | " +
+              "Select-Object -First 1 -ExpandProperty IPAddress)",
+          ]);
         }
         return /^\d{1,3}(\.\d{1,3}){3}$/.test(ip) ? ip : null;
       },
@@ -91,6 +113,18 @@ export function networkPlugin(options: NetworkPluginOptions = {}): Plugin {
             "sh",
             "-c",
             "ip -6 addr show scope global 2>/dev/null | grep inet6 | head -1 | awk '{print $2}' | cut -d/ -f1",
+          ]);
+        } else if (isWindows()) {
+          ip = await run([
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-NetIPAddress -AddressFamily IPv6 | " +
+              "Where-Object { $_.IPAddress -ne '::1' -and " +
+              "$_.IPAddress -notlike 'fe80::*' } | " +
+              "Sort-Object InterfaceMetric | " +
+              "Select-Object -First 1 -ExpandProperty IPAddress)",
           ]);
         }
         return ip.includes(":") ? ip : null;

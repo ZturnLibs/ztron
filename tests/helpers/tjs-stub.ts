@@ -155,7 +155,11 @@ class TjsStub {
   ): {
     stdout: ReadableStream<Uint8Array> | null;
     stderr: ReadableStream<Uint8Array> | null;
-    wait(): Promise<{ exitStatus: number | null }>;
+    wait(): Promise<{
+      exited: boolean;
+      exit_status: number;
+      term_signal: number | null;
+    }>;
     kill(): void;
   } {
     const [prog, ...args] = cmd;
@@ -170,6 +174,13 @@ class TjsStub {
       text = (m?.[1] ?? "").trim() + "\n";
     } else if (prog === "ipconfig") {
       text = "192.168.0.134\n";
+    } else if (prog === "powershell") {
+      // Get-NetIPAddress probes: the PS script is the last arg; which
+      // address family it asks for decides the canned answer.
+      const script = args[args.length - 1] ?? "";
+      text = script.includes("AddressFamily IPv6")
+        ? "2409:8d02::1\n"
+        : "192.168.0.44\n";
     } else if (prog === "hostname") {
       text = "192.168.0.134\n";
     } else if (prog === "ifconfig") {
@@ -187,7 +198,7 @@ class TjsStub {
     return {
       stdout: opts.stdout === "ignore" ? null : stream,
       stderr: null,
-      wait: async () => ({ exitStatus: 0 }),
+      wait: async () => ({ exited: true, exit_status: 0, term_signal: null }),
       kill: () => {},
     };
   }

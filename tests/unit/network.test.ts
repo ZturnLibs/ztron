@@ -7,9 +7,44 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { networkPlugin } from "../../packages/core/dist/index.js";
+import {
+  networkPlugin,
+  localIpPlugin,
+} from "../../packages/core/dist/index.js";
+import { installTjs } from "../helpers/tjs-stub.ts";
 
 const CTX = { label: "main", app: {} } as never;
+
+/** Pins navigator.platform for the duration of fn (installTjs resets it). */
+function withPlatform(
+  platform: string,
+  fn: () => Promise<void>,
+): Promise<void> {
+  Object.defineProperty(globalThis.navigator, "platform", {
+    value: platform,
+    configurable: true,
+  });
+  return fn().finally(() => {
+    installTjs(); // resets navigator.platform to the macOS default
+  });
+}
+
+test("network: local IPv4/IPv6 on Windows via Get-NetIPAddress", async () => {
+  installTjs(); // spawn stub answers the powershell probes
+  await withPlatform("Win32", async () => {
+    const net = networkPlugin();
+    assert.equal(
+      await net.commands!.get_local_ipv4!({}, CTX),
+      "192.168.0.44",
+    );
+    assert.equal(
+      await net.commands!.get_local_ipv6!({}, CTX),
+      "2409:8d02::1",
+    );
+    const localIp = localIpPlugin();
+    assert.equal(await localIp.commands!.get!({}, CTX), "192.168.0.44");
+  });
+});
 
 /** Runs fn() with globalThis.fetch stubbed (restored afterwards). */
 async function withStubbedFetch(

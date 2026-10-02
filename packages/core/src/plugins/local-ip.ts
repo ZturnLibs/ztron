@@ -48,6 +48,22 @@ export function localIpPlugin(): Plugin {
             "-c",
             "hostname -I 2>/dev/null | awk '{print $1}'",
           ]);
+        } else {
+          // Windows: `ipconfig` text output is locale-dependent; the
+          // Get-NetIPAddress cmdlet returns objects, so filtering by
+          // property value stays language-neutral (Sort-Object picks the
+          // lowest-metric routable interface).
+          ip = await run([
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "(Get-NetIPAddress -AddressFamily IPv4 | " +
+              "Where-Object { $_.IPAddress -ne '127.0.0.1' -and " +
+              "$_.IPAddress -notlike '169.254.*' } | " +
+              "Sort-Object InterfaceMetric | " +
+              "Select-Object -First 1 -ExpandProperty IPAddress)",
+          ]);
         }
         // Validate IPv4; return null when unknown.
         return /^\d{1,3}(\.\d{1,3}){3}$/.test(ip) ? ip : null;
