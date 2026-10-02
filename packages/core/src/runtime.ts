@@ -559,11 +559,23 @@ export interface ApplicationController {
   setDockVisibility(visible: boolean): void;
 }
 
+/** Webview permission interception (tauri on_permission_request). */
+export interface PermissionController {
+  /** Registers the sink for host-emitted permission requests. */
+  onPermissionRequest(
+    cb: (wire: import("./permissions.js").PermissionWireRequest) => void,
+  ): void;
+  /** Hands the decision back to the pending webview request. */
+  respond(id: number, response: import("./permissions.js").PermissionResponse): void;
+}
+
 /** A factory for creating windows on the current platform. */
 export interface RuntimeAdapter {
   createWindow(config: WindowConfig): WebviewHandle;
   /** Optional whole-app visibility support (app show/hide/Dock). */
   application?: ApplicationController;
+  /** Optional webview permission interception. */
+  permissions?: PermissionController;
   /** Optional system tray support. */
   tray?: TrayController;
   /** Optional application menu support. */

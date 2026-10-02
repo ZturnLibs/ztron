@@ -137,6 +137,13 @@ export {
   DECLARED_UNSUPPORTED_WINDOW_FIELDS,
   UPSTREAM_WINDOW_FIELDS,
 } from "./runtime.js";
+export type {
+  PermissionKind,
+  PermissionResponse,
+  PermissionRequest,
+  PermissionWireRequest,
+} from "./permissions.js";
+export type { PermissionController } from "./runtime.js";
 export { StateManager } from "./state.js";
 export {
   PermissionRegistry,

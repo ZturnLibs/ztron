@@ -362,6 +362,28 @@ export class MockRuntime implements RuntimeAdapter {
     getLastUrl: () => null,
   };
 
+  /** Routed permission decisions (for assertions). */
+  permissionRespondLog: Array<{
+    id: number;
+    response: import("../permissions.js").PermissionResponse;
+  }> = [];
+  #permissionSink?: (wire: import("../permissions.js").PermissionWireRequest) => void;
+  /** Fake host-side permission controller: deliver() simulates a wire
+   *  request from the host; responses land in permissionRespondLog. */
+  readonly permissions: import("../runtime.js").PermissionController = {
+    onPermissionRequest: (cb) => {
+      this.#permissionSink = cb;
+    },
+    respond: (id, response) => {
+      this.permissionRespondLog.push({ id, response });
+    },
+  };
+
+  /** Test helper: emits a permission request as the host would. */
+  deliverPermission(wire: import("../permissions.js").PermissionWireRequest): void {
+    this.#permissionSink?.(wire);
+  }
+
   exitLog: number[] = [];
   /** Monotonic image-id source (mirrors real registries issuing fresh rids). */
   private nextImageId = 0;  imageLog: Array<{ kind: string; id?: number }> = [];
