@@ -3364,6 +3364,13 @@ static int dispatch(Msg *m, webview_t w) {
              (id)0);
     return 1;
   }
+  if (strcmp(m->type, "app_activate_ignoring") == 0) {
+    /* Tauri Builder::activate_ignoring_other_apps: activate even when
+       another app is frontmost (macOS-only concept; peers no-op). */
+    OBJC_MSG(void (*)(id, SEL, BOOL), zt_nsapp(),
+             sel_registerName("activateIgnoringOtherApps:"), (BOOL)1);
+    return 1;
+  }
   if (strcmp(m->type, "app_show") == 0) {
     /* Upstream AppHandle::show: unhide the app, then activate it. */
     id app = zt_nsapp();

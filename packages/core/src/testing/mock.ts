@@ -412,6 +412,9 @@ export class MockRuntime implements RuntimeAdapter {
     setDockVisibility: (visible) => {
       this.appLifecycleLog.push({ kind: "dock", visible });
     },
+    activateIgnoringOtherApps: () => {
+      this.appLifecycleLog.push({ kind: "activate-ignoring" });
+    },
   };
   relaunchCount = 0;
 

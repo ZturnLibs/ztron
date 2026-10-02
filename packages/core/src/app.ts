@@ -319,6 +319,7 @@ export class App {
       "plugin:app|identifier",
       "plugin:app|show",
       "plugin:app|hide",
+      "plugin:app|activate_ignoring_other_apps",
       "plugin:app|set_dock_visibility",
       "plugin:app|bundle_type",
       "plugin:app|supports_multiple_windows",
@@ -883,6 +884,9 @@ export class App {
       "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
       "plugin:app|tauri_version": () => "2.0.0",
       "plugin:app|identifier": (_args, ctx) => ctx.app.config.identifier,
+      "plugin:app|activate_ignoring_other_apps": () => {
+        this.#adapter.application?.activateIgnoringOtherApps();
+      },
       "plugin:app|show": () => {
         this.#adapter.application?.show();
       },
@@ -1334,6 +1338,16 @@ export class App {
     ) => void | Promise<void>,
   ): void {
     this.#permissionHandler = handler;
+  }
+
+  /**
+   * Activates the app even when another app is active (macOS; no-op
+   * elsewhere). Tauri exposes this as a Builder launch option — the runtime
+   * method is the ztron-shaped equivalent (call it from `setup` for
+   * launch-time activation).
+   */
+  activateIgnoringOtherApps(): void {
+    this.#adapter.application?.activateIgnoringOtherApps();
   }
 
   /** Boots the configured windows and blocks on the main loop. */

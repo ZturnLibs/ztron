@@ -20,6 +20,7 @@ export const COMMANDS: readonly string[] = [
   "plugin:app|identifier",
   "plugin:app|show",
   "plugin:app|hide",
+  "plugin:app|activate_ignoring_other_apps",
   "plugin:app|set_dock_visibility",
   "plugin:app|bundle_type",
   "plugin:app|supports_multiple_windows",

@@ -557,6 +557,9 @@ export interface ApplicationController {
   hide(): void;
   /** Toggles the Dock icon (macOS activation policy Regular/Accessory). */
   setDockVisibility(visible: boolean): void;
+  /** Activates the app even if another app is active (macOS; no-op
+   *  elsewhere). Tauri Builder::activate_ignoring_other_apps. */
+  activateIgnoringOtherApps(): void;
 }
 
 /** Webview permission interception (tauri on_permission_request). */
