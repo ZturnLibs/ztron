@@ -183,9 +183,12 @@ jobs:
         # not fail the job; local runs remain the source of truth for GUI.
         run: |
           set +e
-          bash scripts/ci.sh --spike-timeout 90000 > /tmp/ci-chain.log 2>&1
-          code=$?
-          tail -6 /tmp/ci-chain.log
+          # tee: the chain used to run in total silence (file redirect only) —
+          # a toolchain hang gave a 2.5h output-less step (run 37027110592).
+          # Streaming every ci.sh step marker makes the live log diagnosable;
+          # PIPESTATUS[0] keeps ci.sh's exit code (tee's would mask it).
+          bash scripts/ci.sh --spike-timeout 90000 2>&1 | tee /tmp/ci-chain.log
+          code="${PIPESTATUS[0]}"
           if grep -qE "FAILED at: .*(ztron check|packaged spike)" /tmp/ci-chain.log; then
             echo "::warning::GUI spike failed on headless runner (expected without WindowServer); see ci-chain.log"
           elif [ $code -ne 0 ]; then

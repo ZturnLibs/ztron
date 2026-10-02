@@ -41,7 +41,46 @@ while [[ $# -gt 0 ]]; do
 done
 
 step() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
-fail() { printf '\n\033[1;31m✗ FAILED at: %s\033[0m\n' "$*" >&2; exit 1; }
+# Print the marker, then sweep the children a failed stage may have left:
+# a surviving vite/ztron child holds the job step's inherited stdio open and
+# keeps the CI step "running" after ci.sh is gone (observed on macos
+# runners). Patterns are specific — never matches this script's own cmdline.
+fail() {
+  printf '\n\033[1;31m✗ FAILED at: %s\033[0m\n' "$*" >&2
+  pkill -f vite 2>/dev/null || true
+  pkill -f ztron-host 2>/dev/null || true
+  pkill -f ztron-backend 2>/dev/null || true
+  pkill -f "ztron check" 2>/dev/null || true
+  exit 1
+}
+
+# Portable bounded-run (macOS runners lack GNU timeout): run "$@" in its own
+# process group; if it outlives $1 seconds, kill the GROUP — node/esbuild
+# grandchildren survive a bare parent kill and then hold the CI step's stdio
+# ("running" forever, observed on macos runners: 2.5h of silent step-10 with
+# node+esbuild orphans). Bounds the unbounded toolchain stages only; the
+# spikes carry their own internal timers.
+run_bounded() {
+  local secs="$1"; shift
+  set -m
+  "$@" &
+  local pid=$!
+  local i=0
+  while kill -0 "$pid" 2>/dev/null && [ "$i" -lt "$secs" ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  set +m
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM -- "-$pid" 2>/dev/null || true
+    sleep 2
+    kill -KILL -- "-$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    printf 'ztron-ci: exceeded %ss, killed process group: %s\n' "$secs" "$*" >&2
+    return 124
+  fi
+  wait "$pid"
+}
 
 # Kill straggler ztron processes on Windows (Git Bash has no pkill). Needed
 # at BOTH ends: a surviving ztron-host.exe keeps webview.dll locked and the
@@ -102,7 +141,11 @@ fi
 # ---- 2. TypeScript build -----------------------------------------------------
 
 step "workspace build (core/api/cli/runtime-ffi/inject + examples)"
-npm run build >/tmp/ci-build.log 2>&1 || { tail -30 /tmp/ci-build.log; fail "npm run build"; }
+# bounded: an esbuild/vite hang here once stalled a macos runner step for
+# 2.5h in total silence (run 37027110592) — with the bound the step fails
+# visibly in ≤15min with the log tail instead.
+run_bounded 900 npm run build >/tmp/ci-build.log 2>&1 \
+  || { tail -30 /tmp/ci-build.log; fail "npm run build"; }
 
 # ---- 3. unit tests -----------------------------------------------------------
 
@@ -193,11 +236,14 @@ for d in inject core runtime-ffi api cli; do
     || fail "pack $d tarball"
 done
 ( cd "$PACK_DIR" && ztron init smoke-app >/dev/null ) || fail "smoke init"
-(
+# bounded: the npm install is the one long network-bound stage on the
+# packaged path — hang it and the whole step goes dark (see run_bounded).
+smoke_install() {
   cd "$PACK_DIR/smoke-app" \
     && npm install --no-fund --no-audit >/dev/null \
     && npm install --no-fund --no-audit --no-save "$PACK_DIR"/zturnlibs-ztron-*.tgz >/dev/null
-) || fail "smoke npm install"
+}
+run_bounded 900 smoke_install || fail "smoke npm install"
 # Force the spike onto the LOCAL native chain when a full build ran
 # (--skip-native may leave native/libs empty — then whatever the published
 # darwin package ships gets tested, which is still a valid gate).
@@ -212,7 +258,8 @@ done
 export ZTRON_TJS="$DARWIN_DIR/native/libs/tjs"
 export ZTRON_HOST_BIN="$DARWIN_DIR/native/libs/ztron-host"
 export ZTRON_WEBVIEW_LIB="$DARWIN_DIR/native/libs/libwebview.dylib"
-( cd "$PACK_DIR/smoke-app" && ztron build ) > /tmp/ci-pack-build.log 2>&1 \
+pack_build() { cd "$PACK_DIR/smoke-app" && ztron build; }
+run_bounded 900 pack_build > /tmp/ci-pack-build.log 2>&1 \
   || { tail -20 /tmp/ci-pack-build.log; fail "packaged build"; }
 ( cd "$PACK_DIR/smoke-app/dist" && ./ZtronApp.app/Contents/MacOS/ztron ) \
   > /tmp/ci-pack-launch.log 2>&1 &
