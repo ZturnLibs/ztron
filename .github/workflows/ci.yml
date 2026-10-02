@@ -199,7 +199,7 @@ jobs:
   # flakiness profile is known; flip to a push trigger afterwards.
   windows-spike:
     if: github.event_name == 'workflow_dispatch'
-    name: windows full chain (native + check)
+    name: windows full chain (native + check + packaged)
     runs-on: windows-latest
     env:
       VCPKG_ROOT: /c/vcpkg
@@ -258,7 +258,10 @@ jobs:
           # runtime; runner images do not guarantee it. Idempotent.
           curl.exe -L -o MicrosoftEdgeWebview2Setup.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
           ./MicrosoftEdgeWebview2Setup.exe /silent /install
-      - name: full chain (build-native + units + ztron check spikes)
+      - name: install NSIS (packaged-spike installer gate)
+        shell: pwsh
+        run: choco install nsis --no-progress -y
+      - name: full chain (build-native + units + spikes + packaged e2e)
         shell: bash
         env:
           WEBVIEW_CMAKE_ARGS: >-
@@ -266,7 +269,7 @@ jobs:
             -DWEBVIEW_BUILD_DOCS=OFF
             -DWEBVIEW_BUILD_TESTS=OFF
             -DWEBVIEW_BUILD_AMALGAMATION=OFF
-        run: bash scripts/ci.sh --skip-packaged --spike-timeout 150000
+        run: bash scripts/ci.sh --spike-timeout 150000
 
   docs:
     name: docs (parity + build)
