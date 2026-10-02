@@ -15,7 +15,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2",
-    "@zturnlibs/ztron-cli": "workspace:*"
+    "@zturnlibs/tjs-types": "workspace:*",
+    "@zturnlibs/ztron-cli": "workspace:*",
+    "typescript": "^5.7.2"
   }
 }

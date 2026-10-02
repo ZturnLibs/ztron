@@ -61,8 +61,10 @@ const done = new Set<string>();
 // existed on macOS and ENOENT'd the whole log chain on Windows).
 const spikeLogDir = platformDirs(detectPlatform(), "com.ztron.hello").appLogDir;
 try {
+  // tjs.readDir returns a DirHandle: async-iterable, not an array (the old
+  // hand-rolled tjs-extra.d.ts claimed an array and hid this bug).
   const stale = await tjs.readDir(spikeLogDir);
-  for (const e of stale) {
+  for await (const e of stale) {
     if (e.name.endsWith(".log") || e.name.includes(".log.")) {
       await tjs.remove(`${spikeLogDir}/${e.name}`);
     }

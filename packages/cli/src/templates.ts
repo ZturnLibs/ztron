@@ -15,17 +15,21 @@
 
 export type TemplateFiles = Record<string, string>;
 
+/* One-line activator for the full `tjs` runtime types (@zturnlibs/tjs-types).
+ * Vanilla deliberately ships no tsconfig.json (asserted by tests), so the
+ * reference lives in a project d.ts: TS picks up every project .ts file in
+ * inferred projects, giving IDE + tsc the real txiki API everywhere.
+ * Frontend templates activate it through their tsconfig `types` array. */
+const TJS_TYPES_DTS = `/// <reference types="@zturnlibs/tjs-types" />
+/// <reference types="@zturnlibs/tjs-types/web" />
+`;
+
 /* ------------------------------------------------------------------ *
  * vanilla — the original scaffold (inline-html fallback + "hello").
  * ------------------------------------------------------------------ */
 
 const MAIN_TEMPLATE = `import { AppBuilder, fsPlugin } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
-
-declare const tjs: {
-  env: Record<string, string | undefined>;
-  exit: (code: number) => void;
-};
 
 const runtime = new HostRuntime({
   host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
@@ -122,12 +126,14 @@ export function vanillaTemplate(name: string): TemplateFiles {
           "@zturnlibs/ztron-runtime-ffi": "latest",
         },
         devDependencies: {
+          "@zturnlibs/tjs-types": "latest",
           "@zturnlibs/ztron-cli": "latest",
         },
       },
       null,
       2,
     ),
+    "src/tjs.d.ts": TJS_TYPES_DTS,
     "ztron.conf.json": JSON.stringify(
       {
         entry: "src/main.ts",
@@ -155,8 +161,6 @@ const REACT_MAIN_TEMPLATE = `import {
   loadCapabilities,
 } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
-
-declare const tjs: { env: Record<string, string | undefined> };
 
 const runtime = new HostRuntime({
   host: tjs.env.ZTRON_HOST ?? "127.0.0.1",
@@ -349,7 +353,7 @@ const TS_CONFIG_NO_JSX = JSON.stringify(
       module: "ESNext",
       moduleResolution: "Bundler",
       lib: ["ES2022", "DOM", "DOM.Iterable"],
-      types: ["node"],
+      types: ["node", "@zturnlibs/tjs-types"],
       strict: true,
       noUncheckedIndexedAccess: true,
       esModuleInterop: true,
@@ -387,6 +391,7 @@ export function reactTsTemplate(name: string): TemplateFiles {
           "react-dom": "^19.0.0",
         },
         devDependencies: {
+          "@zturnlibs/tjs-types": "latest",
           "@zturnlibs/ztron-cli": "latest",
           vite: "^6.0.0",
           "@vitejs/plugin-react": "^4.3.0",
@@ -410,7 +415,7 @@ export function reactTsTemplate(name: string): TemplateFiles {
           module: "ESNext",
           moduleResolution: "Bundler",
           lib: ["ES2022", "DOM", "DOM.Iterable"],
-          types: ["node"],
+          types: ["node", "@zturnlibs/tjs-types"],
           strict: true,
           noUncheckedIndexedAccess: true,
           jsx: "react-jsx",
@@ -551,6 +556,7 @@ export function vueTsTemplate(name: string): TemplateFiles {
           vue: "^3.5.0",
         },
         devDependencies: {
+          "@zturnlibs/tjs-types": "latest",
           "@zturnlibs/ztron-cli": "latest",
           vite: "^6.0.0",
           "@vitejs/plugin-vue": "^6.0.0",
@@ -695,6 +701,7 @@ export function svelteTemplate(name: string): TemplateFiles {
           svelte: "^5.0.0",
         },
         devDependencies: {
+          "@zturnlibs/tjs-types": "latest",
           "@zturnlibs/ztron-cli": "latest",
           vite: "^6.0.0",
           "@sveltejs/vite-plugin-svelte": "^5.0.0",

@@ -39,6 +39,7 @@ test("init default scaffolds the vanilla template (unchanged)", () => {
     "package.json",
     "ztron.conf.json",
     "src/main.ts",
+    "src/tjs.d.ts",
     "frontend/index.html",
     "frontend/src/main.ts",
   ]) {
@@ -49,6 +50,10 @@ test("init default scaffolds the vanilla template (unchanged)", () => {
   assert.equal(pkg.dependencies["@zturnlibs/ztron-api"], "latest");
   assert.equal(pkg.dependencies.react, undefined);
   assert.equal(pkg.devDependencies.vite, undefined);
+  // Full tjs types via @zturnlibs/tjs-types, activated by the scaffold d.ts
+  // (vanilla has no tsconfig.json by design).
+  assert.equal(pkg.devDependencies["@zturnlibs/tjs-types"], "latest");
+  assert.match(read(dir, "src/tjs.d.ts"), /@zturnlibs\/tjs-types/);
   assert.ok(existsSync(join(dir, "src/main.ts")));
   const conf = JSON.parse(read(dir, "ztron.conf.json"));
   assert.equal(conf.windows[0].width, 800);
@@ -113,6 +118,7 @@ test("init --template react-ts writes the React 19 + Tailwind v4 scaffold", () =
   assert.equal(pkg.dependencies.react, "^19.0.0");
   assert.equal(pkg.dependencies["react-dom"], "^19.0.0");
   for (const dep of [
+    "@zturnlibs/tjs-types",
     "@zturnlibs/ztron-cli",
     "vite",
     "@vitejs/plugin-react",
@@ -135,6 +141,7 @@ test("init --template react-ts writes the React 19 + Tailwind v4 scaffold", () =
   assert.equal(ts.compilerOptions.noEmit, true);
   assert.equal(ts.compilerOptions.strict, true);
   assert.deepEqual(ts.compilerOptions.lib, ["ES2022", "DOM", "DOM.Iterable"]);
+  assert.deepEqual(ts.compilerOptions.types, ["node", "@zturnlibs/tjs-types"]);
   assert.deepEqual(ts.include, ["src", "frontend/src"]);
 
   // ztron.conf.json: frontend-driven window (url "frontend").
@@ -223,6 +230,7 @@ test("init --template vue-ts writes the Vue 3 + Tailwind v4 scaffold", () => {
   // @zturnlibs/* ride `latest`).
   assert.equal(pkg.dependencies.vue, "^3.5.0");
   for (const dep of [
+    "@zturnlibs/tjs-types",
     "@zturnlibs/ztron-cli",
     "vite",
     "@vitejs/plugin-vue",
@@ -244,6 +252,7 @@ test("init --template vue-ts writes the Vue 3 + Tailwind v4 scaffold", () => {
   assert.equal(ts.compilerOptions.noEmit, true);
   assert.equal(ts.compilerOptions.strict, true);
   assert.deepEqual(ts.compilerOptions.lib, ["ES2022", "DOM", "DOM.Iterable"]);
+  assert.deepEqual(ts.compilerOptions.types, ["node", "@zturnlibs/tjs-types"]);
   assert.deepEqual(ts.include, ["src", "frontend/src"]);
 
   // ztron.conf.json: frontend-driven window (url "frontend").
@@ -339,6 +348,7 @@ test("init --template svelte writes the Svelte 5 + Tailwind v4 scaffold", () => 
   // @zturnlibs/* ride `latest`).
   assert.equal(pkg.dependencies.svelte, "^5.0.0");
   for (const dep of [
+    "@zturnlibs/tjs-types",
     "@zturnlibs/ztron-cli",
     "vite",
     "@sveltejs/vite-plugin-svelte",
@@ -361,6 +371,7 @@ test("init --template svelte writes the Svelte 5 + Tailwind v4 scaffold", () => 
   assert.equal(ts.compilerOptions.noEmit, true);
   assert.equal(ts.compilerOptions.strict, true);
   assert.deepEqual(ts.compilerOptions.lib, ["ES2022", "DOM", "DOM.Iterable"]);
+  assert.deepEqual(ts.compilerOptions.types, ["node", "@zturnlibs/tjs-types"]);
   assert.deepEqual(ts.include, ["src", "frontend/src"]);
 
   // ztron.conf.json: frontend-driven window (url "frontend").

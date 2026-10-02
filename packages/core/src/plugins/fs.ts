@@ -294,10 +294,15 @@ export function fsPlugin(options: FsPluginOptions): Plugin {
       async truncate(args) {
         const { path, length } = args as { path: string; length: number };
         const canon = await scope.check(path);
-        if (!tjs.truncate) {
-          throw new Error("fs: truncate unsupported on this tjs runtime");
+        /* tjs has no path-level truncate — go through a file handle
+           (tjs.truncate(path, len) from the old hand-rolled types never
+           existed in the runtime). */
+        const f = await tjs.open(canon, "r+");
+        try {
+          await f.truncate(Number(length));
+        } finally {
+          await f.close();
         }
-        await tjs.truncate(canon, Number(length));
         return { truncated: true };
       },
       async lstat(args) {

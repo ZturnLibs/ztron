@@ -1,0 +1,41 @@
+{
+  "name": "@zturnlibs/tjs-types",
+  "version": "0.3.7",
+  "description": "TypeScript types for the txiki.js (tjs) runtime, synced from the txiki.js checkout ztron builds against, plus ambient additions for pure-ES2022 consumers",
+  "type": "module",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.d.ts"
+    },
+    "./web": {
+      "types": "./src/web-globals.d.ts",
+      "default": "./src/web-globals.d.ts"
+    }
+  },
+  "files": [
+    "src",
+    "web.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZturnLibs/ztron.git",
+    "directory": "packages/tjs-types"
+  },
+  "bugs": {
+    "url": "https://github.com/ZturnLibs/ztron/issues"
+  },
+  "homepage": "https://github.com/ZturnLibs/ztron#readme",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}

@@ -236,7 +236,23 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
         const { cid, signal } = args as { cid: string; signal?: number };
         const proc = procs.get(cid);
         if (!proc) throw new Error(`no such command: ${cid}`);
-        proc.kill(signal ?? 15 /* SIGTERM */);
+        /* tjs.kill only accepts signal *names* (the runtime strcmps the
+           string via tjs_getsignum); the IPC surface carries POSIX signums,
+           so translate — the old `kill(sig?: number)` types lied. */
+        const SIGNAL_NAMES: Record<number, tjs.Signal> = {
+          1: "SIGHUP",
+          2: "SIGINT",
+          3: "SIGQUIT",
+          6: "SIGABRT",
+          9: "SIGKILL",
+          15: "SIGTERM",
+        };
+        const name =
+          signal === undefined ? "SIGTERM" : SIGNAL_NAMES[signal];
+        if (!name) {
+          throw new Error(`shell: unsupported signal number: ${signal}`);
+        }
+        proc.kill(name);
         return { killed: true };
       },
     },

@@ -139,13 +139,26 @@ class TjsStub {
     return normalize(p);
   }
 
-  async truncate(p: string, len: number): Promise<void> {
+  /** Real tjs has no path-level truncate — truncation goes through a file
+      handle (FileHandle.truncate), so that's what the stub models. */
+  async open(
+    p: string,
+    _flags?: string,
+  ): Promise<{
+    truncate(len: number): Promise<void>;
+    close(): Promise<void>;
+  }> {
     const f = this.#files.get(normalize(p));
     if (!f) throw makeEnoent(p);
-    const next = len < f.data.length ? f.data.slice(0, len) : f.data;
-    const grown = new Uint8Array(len);
-    grown.set(next);
-    f.data = grown;
+    return {
+      truncate: async (len: number) => {
+        const next = len < f.data.length ? f.data.slice(0, len) : f.data;
+        const grown = new Uint8Array(len);
+        grown.set(next);
+        f.data = grown;
+      },
+      close: async () => {},
+    };
   }
 
   /** Fake command runner: `sh -c 'echo ...'` and `echo` echo their args. */

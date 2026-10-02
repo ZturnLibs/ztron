@@ -27,7 +27,7 @@ export async function loadCapabilitiesFromDir(
 ): Promise<CapabilityFile[]> {
   const iter = await tjs.readDir(dir);
   const names: string[] = [];
-  for await (const entry of iter as unknown as AsyncIterable<DirEntry>) {
+  for await (const entry of iter as unknown as AsyncIterable<tjs.DirEnt>) {
     if (entry.isFile && entry.name.endsWith(".json")) {
       names.push(entry.name);
     }
