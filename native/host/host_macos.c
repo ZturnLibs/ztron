@@ -862,10 +862,77 @@ static int effect_material(const char *name) {
   return -1; /* includes blur/acrylic/tabbed (Windows-only) */
 }
 
+/* ---- Liquid Glass (macOS 26+): NSGlassEffectView ---- */
+
+static void window_clear_effects(webview_t w); /* fwd: re-apply needs it */
+
+/* Applies a Liquid Glass view behind the webview; returns 0 when the class
+   is unavailable (macOS < 26) so the caller falls back to vibrancy.
+   NSGlassEffectViewStyle: Regular = 0, Clear = 1 (SDK header). Interactive
+   glass is a macOS 27 property — probed, never assumed. */
+static int window_apply_liquid_glass(void *wnd, const char *name,
+                                     const char *color_hex, double radius,
+                                     int interactive) {
+  Class cls = objc_getClass("NSGlassEffectView");
+  if (!cls) return 0; /* macOS < 26 */
+  id content = OBJC_MSG(id(*)(id, SEL), (id)wnd,
+                        sel_registerName("contentView"));
+  if (!content) return 0;
+  id v = OBJC_MSG(id(*)(id, SEL), (id)cls, sel_registerName("new"));
+  ZtRect b = ((ZtRect(*)(id, SEL))objc_msgSend)(
+      content, sel_registerName("bounds"));
+  ((void(*)(id, SEL, ZtRect))objc_msgSend)(v, sel_registerName("setFrame:"), b);
+  OBJC_MSG(void(*)(id, SEL, long), v, sel_registerName("setStyle:"),
+           (long)(strcmp(name, "liquidGlassClear") == 0 ? 1 : 0));
+  if (interactive &&
+      ((BOOL(*)(id, SEL, SEL))objc_msgSend)(
+          v, sel_registerName("respondsToSelector:"),
+          sel_registerName("setInteractive:"))) {
+    OBJC_MSG(void(*)(id, SEL, BOOL), v, sel_registerName("setInteractive:"),
+             (BOOL)YES);
+  }
+  if (color_hex && color_hex[0]) {
+    /* #RRGGBB (leading '#' optional) -> sRGB tint. */
+    unsigned r = 0, g = 0, b2 = 0;
+    const char *hex = color_hex[0] == '#' ? color_hex + 1 : color_hex;
+    if (strlen(hex) == 6 && sscanf(hex, "%02x%02x%02x", &r, &g, &b2) == 3) {
+      id color = ((id(*)(id, SEL, double, double, double, double))
+                      objc_msgSend)(
+          (id)objc_getClass("NSColor"),
+          sel_registerName("colorWithSRGBRed:green:blue:alpha:"), r / 255.0,
+          g / 255.0, b2 / 255.0, 1.0);
+      OBJC_MSG(void(*)(id, SEL, id), v, sel_registerName("setTintColor:"),
+               color);
+    }
+  }
+  if (radius > 0) {
+    ((void(*)(id, SEL, double))objc_msgSend)(
+        v, sel_registerName("setCornerRadius:"), radius);
+  }
+  ((void(*)(id, SEL, id, unsigned long, id))objc_msgSend)(
+      content, sel_registerName("addSubview:positioned:relativeTo:"), v,
+      2UL /* NSWindowBelow */, (id)0);
+  return 1;
+}
+
 /* Applies (or updates) a vibrancy material behind the webview; state:
-   0=active 1=inactive -1=follows-window. Reuses the existing effect view. */
+   0=active 1=inactive -1=follows-window. Reuses the existing effect view.
+   A liquidGlass* name routes to NSGlassEffectView first; below macOS 26
+   the ordinary `fallback` material is used instead. */
 static void window_set_effects(webview_t w, const char *name, int state,
-                                double radius) {
+                                double radius, const char *color,
+                                int interactive, const char *fallback) {
+  if (strcmp(name, "liquidGlassRegular") == 0 ||
+      strcmp(name, "liquidGlassClear") == 0) {
+    /* Re-apply semantics: drop any previous effect view first. */
+    window_clear_effects(w);
+    void *wnd = zt_window_of(w);
+    if (wnd &&
+        window_apply_liquid_glass(wnd, name, color, radius, interactive))
+      return;
+    name = (fallback && fallback[0]) ? fallback : ""; /* macOS <= 25 */
+  }
+  if (!name[0]) return; /* glass unsupported and no fallback material */
   void *wnd = zt_window_of(w);
   if (!wnd) return;
   id content = OBJC_MSG(id(*)(id, SEL), (id)wnd,
@@ -923,11 +990,14 @@ static void window_clear_effects(webview_t w) {
   if (!content) return;
   id subs = OBJC_MSG(id(*)(id, SEL), content, sel_registerName("subviews"));
   if (!subs) return;
+  Class vibrancy = objc_getClass("NSVisualEffectView");
+  Class glass = objc_getClass("NSGlassEffectView");
   for (long i = (long)OBJC_MSG(unsigned long (*)(id, SEL), subs,
                                sel_registerName("count")) - 1; i >= 0; i--) {
     id v = OBJC_MSG(id(*)(id, SEL, unsigned long), subs,
                     sel_registerName("objectAtIndex:"), (unsigned long)i);
-    if (v && object_getClass(v) == objc_getClass("NSVisualEffectView")) {
+    if (v && (object_getClass(v) == vibrancy ||
+              (glass && object_getClass(v) == glass))) {
       OBJC_MSG(void(*)(id, SEL), v, sel_registerName("removeFromSuperview"));
     }
   }
@@ -1076,7 +1146,8 @@ static void handle_window_op(Msg *m, webview_t w) {
     window_set_overlay_icon(m->id[0] ? atoi(m->id) : -1);
   } else if (strcmp(m->type, "window_set_effects") == 0) {
     /* material rides in `text`(str2), state in status, radius in opacity_val. */
-    window_set_effects(w, m->str2, m->status, m->opacity_val);
+    window_set_effects(w, m->str2, m->status, m->opacity_val, m->aux,
+                       m->num_val, m->str);
   } else if (strcmp(m->type, "window_clear_effects") == 0) {
     window_clear_effects(w);
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {

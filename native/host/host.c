@@ -396,6 +396,9 @@ static int zt_handle_backend_line(char *line) {
   m->status = zt_json_int(line, "status", 0);
   m->status = zt_json_int(line, "state", m->status); /* effect state */
   m->status = zt_json_bool(line, "enabled", m->status);
+  zt_json_str(line, "color", m->aux, sizeof(m->aux)); /* effects tint (hex) */
+  zt_json_str(line, "fallback", m->str, sizeof(m->str)); /* effects fallback material */
+  m->num_val = zt_json_int(line, "interactive", m->num_val); /* Liquid Glass */
 
   if (strcmp(m->type, "quit") == 0) {
     webview_dispatch(zt_webview(m->win_label), on_gui, m);

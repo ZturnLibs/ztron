@@ -44,6 +44,7 @@ typedef struct Msg_ {
 
   int kind;    /* dialog kind: 0=info 1=warning 2=error */
   double opacity_val; /* window opacity 0.0..1.0 */
+  int num_val; /* generic numeric payload (effects: Liquid Glass interactive) */
 } Msg;
 
 /* ---- shared runtime state (defined in host.c) ---- */

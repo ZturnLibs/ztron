@@ -1067,6 +1067,10 @@ export enum Effect {
   Mica = "mica",
   TabbedDark = "tabbedDark",
   TabbedLight = "tabbedLight",
+  /** macOS 26+ Liquid Glass (`NSGlassEffectView`; on older systems the host
+   *  falls back to the first ordinary material in the same effects list). */
+  LiquidGlassRegular = "liquidGlassRegular",
+  LiquidGlassClear = "liquidGlassClear",
 }
 
 /** Effect active state (macOS only). */
@@ -1082,6 +1086,8 @@ export interface Effects {
   state?: EffectState;
   radius?: number;
   color?: string | null;
+  /** Liquid Glass interactivity (macOS 27+; ignored elsewhere). */
+  interactive?: boolean;
 }
 
 /**

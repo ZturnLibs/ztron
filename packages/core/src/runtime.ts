@@ -255,7 +255,17 @@ export interface WebviewHandle {
   windowState(
     op: WindowStateOp,
     value?: boolean,
-    effect?: { material?: string; state?: number; radius?: number },
+    effect?: {
+      material?: string;
+      state?: number;
+      radius?: number;
+      /** Liquid Glass tint (hex, e.g. #RRGGBB); empty string = none. */
+      color?: string;
+      /** Liquid Glass interactivity (macOS 27+): 1/0. */
+      interactive?: number;
+      /** Ordinary material used when Liquid Glass is unavailable. */
+      fallback?: string;
+    },
   ): boolean | Promise<boolean> | { x: number; y: number } | null;
   /** Registers a handler for native window events. */
   onWindowEvent(cb: (event: WindowEvent, payload?: unknown) => void): void;
