@@ -94,7 +94,7 @@ declare const tjs: {
     stdin: WritableStream<Uint8Array> | null;
     stdout: ReadableStream<Uint8Array> | null;
     stderr: ReadableStream<Uint8Array> | null;
-    wait(): Promise<{ exitStatus: number | null }>; 
+    wait(): Promise<{ exited: boolean; exit_status: number; term_signal: number | null }>; 
     kill(sig?: number): void;
   };
   serve(options: {

@@ -105,7 +105,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           proc.wait(),
         ]);
         return {
-          code: status.exitStatus ?? 0,
+          code: status.exit_status ?? 0,
           stdout,
           stderr,
         } satisfies ExecResult;
@@ -170,7 +170,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           pump(proc.stderr, "ztron://shell-error"),
           proc.wait(),
         ]);
-        return { code: status.exitStatus ?? 0 };
+        return { code: status.exit_status ?? 0 };
       },
       /* Long-lived command instances: spawn returns a cid; write/kill target
          it. The registry lives in the plugin closure (auto-reaped on exit). */
@@ -218,7 +218,7 @@ export function shellPlugin(options: ShellPluginOptions = {}): Plugin {
           procs.delete(cid);
           ctx.app.emit("ztron://shell-terminated", {
             cid,
-            code: status.exitStatus ?? 0,
+            code: status.exit_status ?? 0,
           });
         });
         return { cid };

@@ -126,7 +126,7 @@ async function runReg(
     }
   }
   const status = await proc.wait();
-  return { code: status.exitStatus ?? -1, stdout: out };
+  return { code: status.exit_status ?? -1, stdout: out };
 }
 
 export function autostartPlugin(options: AutostartPluginOptions = {}): Plugin {
