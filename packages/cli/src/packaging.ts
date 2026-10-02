@@ -107,6 +107,59 @@ export function findLauncherSource(): string | null {
   return null;
 }
 
+/** Same two-copy convention as findLauncherSource, for the Windows launcher. */
+export function findWindowsLauncherSource(): string | null {
+  const packageLocal = fileURLToPath(
+    new URL("../native/host/launcher_windows.c", import.meta.url),
+  );
+  if (existsSync(packageLocal)) return packageLocal;
+  const repoRoot = fileURLToPath(
+    new URL("../../../native/host/launcher_windows.c", import.meta.url),
+  );
+  if (existsSync(repoRoot)) return repoRoot;
+  return null;
+}
+
+/**
+ * Last-resort Windows launcher when MSVC is unavailable on the packaging
+ * machine: a generated .cmd doing the same host→PORT→backend dance in
+ * batch. Ships alongside the app as ztron-launcher.cmd (NSIS shortcuts
+ * point at whichever launcher exists). Best-effort — the compiled exe is
+ * the real launcher (no console flash, reliable host cleanup).
+ */
+export function launcherCmdScript(invokeKey: string): string {
+  return `@echo off
+setlocal EnableDelayedExpansion
+set "DIR=%~dp0"
+set "LOG=%DIR%.host.log"
+start "" /b "%DIR%ztron-host.exe" 0 > "%LOG%" 2>&1
+set "PORT="
+for /l %%i in (1,1,100) do (
+  if not defined PORT (
+    for /f "usebackq tokens=1,* delims==" %%a in (\`type "%LOG%" 2^>nul\`) do (
+      if /i "%%a"=="PORT" set "PORT=%%b"
+    )
+    if not defined PORT ping -n 1 -w 100 127.0.0.1 >nul
+  )
+)
+if not defined PORT (
+  echo ztron: host failed to start ^(see %LOG%^)
+  exit /b 1
+)
+set "ZTRON_HOST=127.0.0.1"
+set "ZTRON_HOST_PORT=!PORT!"
+set "ZTRON_INVOKE_KEY=${invokeKey}"
+set "ZTRON_DEV_URL=file:///%DIR:\\=/%/frontend/index.html"
+if exist "%DIR%ztron.conf.json" (
+  set "ZTRON_CONF="
+  for /f "usebackq delims=" %%z in ("%DIR%ztron.conf.json") do set "ZTRON_CONF=!ZTRON_CONF!%%z"
+)
+if exist "%DIR%capabilities\\" set "ZTRON_CAPABILITIES_DIR=%DIR%capabilities"
+"%DIR%ztron-backend.exe"
+taskkill /f /im ztron-host.exe >nul 2>&1
+`;
+}
+
 /**
  * Stages the backend's boot inputs into the bundle's Resources: the
  * project config (windows/identifier/…) and the capabilities directory.

@@ -28,6 +28,7 @@ import { tmpdir } from "node:os";
 import {
   bundleAll,
   macSignAndNotarize,
+  packNsisDir,
   packUpdaterArtifacts,
   type PackageType,
 } from "./bundler.js";
@@ -39,6 +40,8 @@ import { TEMPLATES } from "./templates.js";
 import {
   finalizeFrontendHtml,
   findLauncherSource,
+  findWindowsLauncherSource,
+  launcherCmdScript,
   launcherScript,
   stageAppResources,
 } from "./packaging.js";
@@ -878,6 +881,21 @@ export async function buildApp(cwd: string, entry: string): Promise<void> {
     /* G13: conf-driven extra targets (nsis/msi/appimage/deb/rpm skeletons),
        Developer-ID sign+notarize chain, and updater artifacts. */
     await bundleExtraTargets(cwd, { outDir, appName }, conf);
+  } else if (process.platform === "win32") {
+    await packWindowsApp({
+      outDir,
+      appName,
+      invokeKey,
+      backendBundle: bundlePath,
+      hostBin,
+      lib,
+      frontendDist: dirname(frontendIndex),
+      tjs,
+      conf,
+      capabilitiesDir: existsSync(resolve(cwd, "capabilities"))
+        ? resolve(cwd, "capabilities")
+        : null,
+    });
   } else {
     // Cross-platform packaging: same layout for Linux/Windows.
     // Linux: <dist>/<appName>/ ; Windows: <dist>/ZtronApp/.
@@ -1202,6 +1220,142 @@ async function packMacApp(o: PackOptions): Promise<void> {
      drag-to-install distribution artifact. */
   if (process.env.ZTRON_NO_DMG !== "1") {
     await packDmg(o.outDir, o.appName);
+  }
+}
+
+/**
+ * Windows bundle: a flat <dist>/<appName>/ directory — launcher, host,
+ * tjs-compiled backend, webview/ffi DLLs, frontend and staged conf/
+ * capabilities all side by side (the host resolves webview.dll and the
+ * backend resolves ffi-8.dll from its own directory, so no layout split
+ * like macOS Contents/Resources). conf.bundle.targets "nsis" turns the
+ * directory into a per-user installer via packNsisDir.
+ */
+async function packWindowsApp(o: PackOptions): Promise<void> {
+  const appDir = join(o.outDir, o.appName);
+  rmSync(appDir, { recursive: true, force: true });
+  mkdirSync(appDir, { recursive: true });
+
+  // backend: bundle -> standalone exe (ffi-8.dll must sit beside it)
+  const backendBin = join(appDir, "ztron-backend.exe");
+  const compiled = spawnSync(o.tjs, ["compile", o.backendBundle, backendBin], {
+    encoding: "utf8",
+  });
+  if (compiled.status !== 0) {
+    throw new Error(`tjs compile failed: ${compiled.stderr}`);
+  }
+
+  copyFileSync(o.hostBin, join(appDir, "ztron-host.exe"));
+  if (o.lib) copyFileSync(o.lib, join(appDir, basenameOf(o.lib)));
+  // tjs (and its compile output) is dynamically linked against libffi
+  const ffi = join(dirname(o.tjs), "ffi-8.dll");
+  if (existsSync(ffi)) {
+    copyFileSync(ffi, join(appDir, "ffi-8.dll"));
+  } else {
+    console.warn(
+      "[ztron] ffi-8.dll not found next to tjs — ztron-backend.exe will fail to start",
+    );
+  }
+
+  cpSync(o.frontendDist, join(appDir, "frontend"), { recursive: true });
+  stageAppResources(appDir, o.conf, o.capabilitiesDir);
+
+  // launcher: MSVC-compiled GUI-subsystem exe (no console flash); the
+  // .cmd fallback keeps the bundle bootable on machines without MSVC.
+  const launcherSrc = findWindowsLauncherSource();
+  let launcherName = "ztron-launcher.cmd";
+  const compiledOk =
+    launcherSrc !== null &&
+    compileWindowsLauncher(
+      launcherSrc,
+      o.invokeKey,
+      join(appDir, "ztron-launcher.exe"),
+    );
+  if (compiledOk) {
+    launcherName = "ztron-launcher.exe";
+  } else {
+    console.warn(
+      "[ztron] launcher compile unavailable — falling back to ztron-launcher.cmd",
+    );
+    writeFileSync(join(appDir, "ztron-launcher.cmd"), launcherCmdScript(o.invokeKey));
+  }
+
+  console.log(`[ztron] packaged: ${appDir}`);
+
+  const raw = (o.conf.bundle as { targets?: string | string[] } | undefined)
+    ?.targets;
+  const targets = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(",").map((t) => t.trim())
+      : [];
+  if (targets.includes("nsis")) {
+    const r = packNsisDir(
+      o.outDir,
+      {
+        identifier: o.conf.identifier ?? "com.ztron.app",
+        productName: o.conf.productName ?? o.appName,
+        version: o.conf.version ?? "0.1.0",
+      },
+      appDir,
+      launcherName,
+    );
+    console.log(
+      `[ztron] bundle nsis: ${r.built ? r.path : `skeleton -> ${r.path} (${r.reason})`}`,
+    );
+  }
+}
+
+/** vcvars64 + cl for the Windows launcher; false when MSVC is absent. */
+function compileWindowsLauncher(
+  src: string,
+  invokeKey: string,
+  out: string,
+): boolean {
+  const vswhere =
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe";
+  if (!existsSync(vswhere)) return false;
+  const vs = spawnSync(
+    vswhere,
+    [
+      "-latest",
+      "-products",
+      "*",
+      "-requires",
+      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+      "-property",
+      "installationPath",
+    ],
+    { encoding: "utf8" },
+  );
+  const vsRoot = vs.stdout.trim().split(/\r?\n/)[0];
+  if (!vsRoot) return false;
+  const vcvars = join(vsRoot, "VC", "Auxiliary", "Build", "vcvars64.bat");
+  if (!existsSync(vcvars)) return false;
+  /* The command goes through a temp .cmd batch file: `cmd /s /c "<line>"`
+     strips the line's first and last quote, mangling quoted paths. A batch
+     file parses quotes normally — no escaping games. */
+  const batch = `${out}.build.cmd`;
+  writeFileSync(
+    batch,
+    `@echo off\r
+call "${vcvars}" >nul 2>&1\r
+cl /nologo /O2 /W4 /utf-8 /DZTRON_INVOKE_KEY=\\"${invokeKey}\\" "${src}" /Fe:"${out}" /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup user32.lib\r
+`,
+  );
+  try {
+    const r = spawnSync("cmd.exe", ["/d", "/c", batch], {
+      encoding: "utf8",
+      cwd: dirname(out),
+    });
+    /* cl drops <src-stem>.obj into cwd (= appDir) — don't ship it */
+    rmSync(
+      join(dirname(out), `${basenameOf(src).replace(/\.c$/i, "")}.obj`),
+      { force: true },
+    );
+    return r.status === 0 && existsSync(out);
+  } finally {
+    rmSync(batch, { force: true });
   }
 }
 
