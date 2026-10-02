@@ -54,11 +54,12 @@ If anything looks off, run `ztron doctor`; full install instructions live in the
 | Declarative windows | Declare startup windows (size/position/transparent/decorations…) in `ztron.conf.json`, dual-layer schema validation |
 | Full-module HMR | Vite dev server + the `ztron://` custom protocol (WKURLSchemeHandler), module-level hot replacement |
 | Typed commands | `ztron codegen` emits typed invoke bindings; the frontend/backend contract never drifts |
+| Full tjs typings | [`@zturnlibs/tjs-types`](./packages/tjs-types/): the backend `tjs.*` global ships with complete TS types (synced from the official txiki.js types of the exact runtime ztron builds, plus additions); a separate entry covers the frontend's pure-ES2022 environment |
 | ACL capabilities | Declare the permission surface in capability files; fs/http are constrained by PathScope/HttpScope |
 | Multi-window | `WebviewWindow` runtime create/destroy, label routing, window registry |
 | Full system API surface | tray/menu/dialog/clipboard/notification/global-shortcut/deep-link/fs.watch/drag & drop… |
 | Production packaging | `tjs compile` standalone executable + .app/dmg + ad-hoc/Developer ID signing + auto-update |
-| Three-layer testing | surface/unit/integration with `ztron check` exit-code regression (86 deterministic checks) |
+| Three-layer testing | surface/unit/integration with `ztron check` exit-code regression (85 deterministic checks + `FULL_OK`) |
 
 ## Architecture
 
@@ -102,7 +103,7 @@ For a deep dive see [DESIGN.md](./DESIGN.md) (architecture decisions, technical 
 | Platform | Status |
 | --- | --- |
 | macOS (Apple Silicon) | ✅ fully verified (Intel unverified, may work) |
-| Windows (WebView2) | 🚧 host skeleton in place, packaging chain pending |
+| Windows (WebView2) | 🚧 dev chain working: window/menu/tray/clipboard host surface complete, hello/multiwin/menuprobe spikes fully green locally (`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`); prebuilt native chain & packaging pending (local dev needs vcpkg + MSVC, see Contributing) |
 | Linux (WebKitGTK) | 🚧 host skeleton in place, packaging chain pending |
 | Mobile (Android/iOS) | 📋 planned |
 
@@ -110,12 +111,12 @@ For a deep dive see [DESIGN.md](./DESIGN.md) (architecture decisions, technical 
 
 ```bash
 pnpm install                                        # workspace deps
-scripts/build-native.sh                             # build the native chain (macOS, once)
+scripts/build-native.sh                             # build the native chain (macOS once; Windows needs vcpkg install libffi:x64-windows + VS Build Tools first, the script guides you)
 pnpm --filter @zturnlibs/ztron-example-hello dev    # run an example inside the monorepo
-pnpm test                                           # 150 tests (surface/unit/core layers)
+pnpm test                                           # 217 tests (surface/unit/core layers)
 ```
 
-The three layers target 100% coverage of features + API: surface pins the registered commands and API exports to the manifest; unit routes every command through MockRuntime; integration drives the real host + WebView (`ztron check` — 86 deterministic checks, exit-code regressable). Design notes in [tests/README.md](./tests/README.md).
+The three layers target 100% coverage of features + API: surface pins the registered commands and API exports to the manifest; unit routes every command through MockRuntime; integration drives the real host + WebView (`ztron check` — 85 deterministic checks + the `FULL_OK` sentinel, exit-code regressable). Design notes in [tests/README.md](./tests/README.md).
 
 Performance baseline (cold/warm start, invoke P50/P95, channel throughput, window create, RSS):
 

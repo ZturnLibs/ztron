@@ -31,11 +31,11 @@ export const en = {
     sub: 'Built for the web-skilled — the whole stack, from native host bindings to the frontend API, is TypeScript.',
     items: [
       { icon: 'runtime', title: 'Featherweight runtime', body: 'txiki.js (~2 MB) replaces Node and Electron bundles. Your app ships small and starts fast.' },
-      { icon: 'ts', title: 'Full-stack TypeScript', body: 'Core, plugin layer, CLI and frontend API are all TypeScript — typed commands via `ztron codegen`.' },
+      { icon: 'ts', title: 'Full-stack TypeScript', body: 'Core, plugin layer, CLI and frontend API are all TypeScript — typed commands via `ztron codegen`, full types for the backend `tjs` global (@zturnlibs/tjs-types).' },
       { icon: 'plugins', title: '25 official plugins', body: 'store, http, sql, shell, updater, notification, clipboard and more — Tauri-parity APIs.' },
       { icon: 'acl', title: 'Least-privilege ACL', body: 'Capabilities gate every IPC call; PathScope, HttpScope and CSP are enforced by default.' },
       { icon: 'native', title: 'Native integration', body: 'Tray, menu bar, dialogs, notifications, global shortcuts, drag & drop and multi-window — via the native host.' },
-      { icon: 'tests', title: 'Three-layer testing', body: 'Surface, unit and integration suites plus a MockRuntime — 86 deterministic checks stay green.' },
+      { icon: 'tests', title: 'Three-layer testing', body: 'Surface, unit and integration suites plus a MockRuntime — 85 deterministic checks + the FULL_OK sentinel stay green.' },
     ],
   },
   arch: {
@@ -63,13 +63,13 @@ export const en = {
   },
   statusm: {
     heading: 'Where it runs today',
-    sub: 'macOS is fully verified; Windows and Linux hosts are scaffolded and next.',
+    sub: 'macOS is fully verified; the Windows dev chain works (spikes green) — packaging and Linux are next.',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev pipeline · .app + .dmg · ad-hoc signing · updater' },
-      { platform: 'Windows', status: 'wip', note: 'host skeleton (WebView2) — compile & packaging pending' },
+      { platform: 'Windows', status: 'wip', note: 'dev chain working: window/menu/tray/clipboard host surface complete, spikes green — prebuilt chain & packaging pending' },
       { platform: 'Linux', status: 'wip', note: 'host skeleton (GTK + WebKitGTK) — compile & packaging pending' },
     ],
-    checks: '86 deterministic end-to-end checks pass on every run — `ztron check` gates CI.',
+    checks: '85 deterministic end-to-end checks pass on every run — `ztron check` gates CI.',
     more: 'See the full capability matrix in ROADMAP.md',
     moreLabel: 'ROADMAP.md ↗',
   },

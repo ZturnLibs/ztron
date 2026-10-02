@@ -31,11 +31,11 @@ export const zh = {
     sub: '为 Web 开发者而生——从原生 host 绑定到前端 API，整条技术栈都是 TypeScript。',
     items: [
       { icon: 'runtime', title: '轻量运行时', body: 'txiki.js（约 2MB）取代 Node 与 Electron 捆绑：应用体积小、启动快。' },
-      { icon: 'ts', title: '全栈 TypeScript', body: '核心、插件层、CLI 与前端 API 全部是 TypeScript，`ztron codegen` 生成类型化命令。' },
+      { icon: 'ts', title: '全栈 TypeScript', body: '核心、插件层、CLI 与前端 API 全部是 TypeScript，`ztron codegen` 生成类型化命令，后端 tjs 全局自带完整类型（@zturnlibs/tjs-types）。' },
       { icon: 'plugins', title: '25 个官方插件', body: 'store、http、sql、shell、updater、notification、clipboard……与 Tauri 对齐的 API。' },
       { icon: 'acl', title: '最小权限 ACL', body: 'Capabilities 为每次 IPC 把关；PathScope、HttpScope 与 CSP 默认强制。' },
       { icon: 'native', title: '原生系统集成', body: '托盘、菜单栏、对话框、通知、全局快捷键、文件拖放与多窗口——经由原生 host。' },
-      { icon: 'tests', title: '三层测试', body: 'surface + unit + integration 与 MockRuntime：86 项确定性检查保持全绿。' },
+      { icon: 'tests', title: '三层测试', body: 'surface + unit + integration 与 MockRuntime：85 项确定性检查 + FULL_OK 哨兵保持全绿。' },
     ],
   },
   arch: {
@@ -63,13 +63,13 @@ export const zh = {
   },
   statusm: {
     heading: '当前支持的平台',
-    sub: 'macOS 已完整验证；Windows 与 Linux host 已就位骨架，是下一步。',
+    sub: 'macOS 已完整验证；Windows 开发链已打通（spike 全绿），打包链与 Linux 是下一步。',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev 管线 · .app + .dmg · ad-hoc 签名 · 更新器' },
-      { platform: 'Windows', status: 'wip', note: 'host 骨架（WebView2）——编译与打包待完成' },
+      { platform: 'Windows', status: 'wip', note: '开发链打通：窗口/菜单/托盘/剪贴板宿主面完成，spike 全绿——预编译链与打包待完成' },
       { platform: 'Linux', status: 'wip', note: 'host 骨架（GTK + WebKitGTK）——编译与打包待完成' },
     ],
-    checks: '每次运行通过 86 项端到端确定性检查——`ztron check` 是 CI 的门禁。',
+    checks: '每次运行通过 85 项端到端确定性检查——`ztron check` 是 CI 的门禁。',
     more: '完整能力矩阵见 ROADMAP.md',
     moreLabel: 'ROADMAP.md ↗',
   },

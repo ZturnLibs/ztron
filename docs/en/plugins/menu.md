@@ -117,4 +117,15 @@ Clicks arrive via `onMenuEvent` (`ztron://menu`, payload
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/menu).
 
-Applicable version: `ztron 0.3.1`
+## Platform Notes
+
+- **macOS**: full capability set, including `create_default` (the NSApp
+  default menu) and the Window/Help role mounts
+  (`setAsWindowsMenuForNSApp` / `setAsHelpMenuForNSApp`).
+- **Windows**: menu construction (submenus/predefined/icon items), the
+  structured `items()` snapshot, `removeAt`, item enabled/title/checked, and
+  `setAsAppMenu` are all implemented; `create_default` and the NSApp roles are
+  darwin-only (no such concept on Windows) — build an equivalent menu tree
+  explicitly. Verification anchor `MENU_V2_OK` (menuprobe, both platforms).
+
+Applicable version: `ztron 0.3.8`

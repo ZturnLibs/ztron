@@ -10,7 +10,7 @@ The repo's `examples/` directory contains eight runnable examples, all directly 
 | --- | --- | --- | --- |
 | hello | `@zturnlibs/ztron-example-hello` | a full drill of invoke/events/Channel/fs/path and other APIs (85 checks) | `pnpm --filter @zturnlibs/ztron-example-hello dev` |
 | multiwin | `@zturnlibs/ztron-example-multiwin` | multi-window: conf declaration + runtime WebviewWindow create/destroy | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
-| menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu capability probing | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
+| menuprobe | `@zturnlibs/ztron-example-menuprobe` | menu/tray capability probing (cross-platform) | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | automated perf measurement sequence (invoke/Channel/window) | `node packages/cli/dist/index.js bench --runs 3` |
 | showcase | `@zturnlibs/ztron-example-showcase` | beginner-friendly interactive demo: 34 feature cards + code snippets + doc links | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 | react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 verification example (calling Ztron APIs the React way) | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
@@ -19,7 +19,7 @@ The repo's `examples/` directory contains eight runnable examples, all directly 
 
 ## hello
 
-A full drill of `@zturnlibs/ztron-api` — invoke, events, Channel streams, fs/path/http/os, and other APIs — with 85 built-in deterministic checks; combined with `ztron check` it serves as the regression baseline for the whole framework (`FULL_OK`, exit 0). Its `ztron.conf.json` also demonstrates declarative multi-window (`windows[]`, with both window sources: the `url: "frontend"` placeholder and inline `html`). Source: `examples/hello/` (config `ztron.conf.json`, main process `src/main.ts`, commands `src/commands.ts`, frontend `frontend/src/main.ts`).
+A full drill of `@zturnlibs/ztron-api` — invoke, events, Channel streams, fs/path/http/os, and other APIs — with 85 built-in deterministic checks; combined with `ztron check` it serves as the regression baseline for the whole framework (`FULL_OK`, exit 0). The websocket check uses a backend self-hosted echo service (`tjs.serve` + `server.upgrade`, `WEBSOCKET_OK`), deterministically passing offline and behind proxies. Its `ztron.conf.json` also demonstrates declarative multi-window (`windows[]`, with both window sources: the `url: "frontend"` placeholder and inline `html`). Source: `examples/hello/` (config `ztron.conf.json`, main process `src/main.ts`, commands `src/commands.ts`, frontend `frontend/src/main.ts`).
 
 ## multiwin
 
@@ -27,7 +27,15 @@ Demonstrates the two ways of doing multi-window: statically declaring in `ztron.
 
 ## menuprobe
 
-A menu capability probing example, covering menu construction and dynamic manipulation capabilities. Source: `examples/menuprobe/`.
+A menu and tray capability probing example (backend-only, no frontend
+dependency). The menu surface branches by platform: macOS builds the NSApp
+default menu and mounts the Window/Help roles, Windows builds an equivalent
+menu tree explicitly, and both drive the same structured `items()` snapshot +
+`removeItemAt` tombstone assertions (`MENU_V2_OK`); it also covers the
+multi-instance tray surface (create → `getById` → remove, `TRAY_V2_OK`), a
+local `tjs.serve` round trip (`LOCALHOST_OK`), the inner position query
+(`INNER_POS_OK`), and an image decode readback (`IMG_READBACK_OK`). Source:
+`examples/menuprobe/`.
 
 ## bench
 
@@ -66,4 +74,4 @@ Each example depends on workspace packages inside the monorepo; complete [Instal
 
 **Deep dive: [Architecture](/guide/architecture) · [IPC](/guide/ipc) · [Security ACL](/guide/security) · [CLI Command Reference](/reference/cli)**
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.8`

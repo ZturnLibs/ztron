@@ -1,6 +1,6 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P30 全部可在本机验证的项(spike 86 项确定性 FULL_OK/EXIT 0,
+> Ztron 已完成 M0–M4 + P0–P30 全部可在本机验证的项(spike 85 项确定性 + FULL_OK 哨兵/EXIT 0,
 > 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
@@ -21,7 +21,7 @@
 | 配置              | tauri.conf.json schema + CSP + capabilities                                | 手写 TS                             | 中   | tauri-utils        | CLI          |
 | 打包              | 7 格式+签名+updater+图标                                                   | macOS .app+签名+updater+图标        | 大   | tauri-bundler      | CLI+平台脚本 |
 | 测试              | tauri-driver/WebDriver + mock runtime                                      | MockRuntime + 三层覆盖率            | 中   | tauri-driver       | CLI+core     |
-| 平台              | Win/Linux/Android/iOS                                                      | macOS                               | 很大 | -                  | C+core       |
+| 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 开发链已打通(打包待接入) | 很大 | -                  | C+core       |
 
 ## 2. 关键架构决策
 
@@ -72,7 +72,9 @@
 - [x] updater 插件(manifest + sha256,`UPDATER_OK`)
 - [x] macOS ad-hoc 签名 + versioned dylib 打包修复 + 图标
 - [x] host 跨平台重构(core + host_platform.{macos,windows,linux})已交付
-- [ ] Windows/Linux 编译验证 + NSIS/AppImage 打包(需目标平台)
+- [x] Windows 编译验证(0.3.8:vcpkg libffi 工具链;hello/multiwin/menuprobe spike 本机全绿 `FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`)
+- [ ] Windows NSIS 打包 + CI 矩阵接入(Windows runner)
+- [ ] Linux 编译验证 + AppImage 打包(需目标平台)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 
 ### P6 多窗口(✅ 全部落地)
@@ -110,7 +112,7 @@
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
 | 协议     | ztron:// 自定义 scheme · convertFileSrc · 资产隔离                                                                                                                                                                                                             |
 | 多窗口   | host webview 注册表 + GUI 线程 label 重解析 · WebviewWindow api · 运行时建窗/ops/destroy · per-window 事件+preventClose                                                                                                                                               |
-| 测试     | 三层框架(75 单测 + 86 spike,`ztron check` 可退出码化回归,100% 覆盖账本)                                                                                                                                                                                                                     |
+| 测试     | 三层框架(217 项自动化测试 + 85 项 spike 端到端,`ztron check` 可退出码化回归,100% 覆盖账本)                                                                                                                                                                                                     |
 
 ### 5.2 部分完成(🟡)与补全计划(本机可做)
 

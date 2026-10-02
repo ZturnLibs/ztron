@@ -54,6 +54,7 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 | 声明式窗口 | `ztron.conf.json` 里声明启动窗口（尺寸/位置/透明/装饰…），双层数据校验 |
 | 全模块 HMR | Vite dev server + `ztron://` 自定义协议（WKURLSchemeHandler），模块级热替换 |
 | 类型安全命令 | `ztron codegen` 生成 typed invoke 绑定，前后端契约不漂移 |
+| tjs 全量类型 | [`@zturnlibs/tjs-types`](./packages/tjs-types/)：后端 `tjs.*` 全局随装即有完整 TS 类型（同步自所构建的 txiki.js 官方类型 + 增补），前端纯 ES2022 环境类型独立入口 |
 | ACL 能力权限 | capability 文件声明权限面；fs/http 全部 PathScope/HttpScope 收敛 |
 | 多窗口 | `WebviewWindow` 运行时创建/销毁、label 路由、窗口注册表 |
 | 系统 API 全家桶 | tray/menu/dialog/clipboard/notification/global-shortcut/deep-link/fs.watch/拖放… |
@@ -102,7 +103,7 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 | 平台 | 状态 |
 | --- | --- |
 | macOS（Apple Silicon） | ✅ 完整验证（Intel 未验证，可尝试） |
-| Windows（WebView2） | 🚧 host 骨架已就位，打包链待接入 |
+| Windows（WebView2） | 🚧 开发链已打通：窗口/菜单/托盘/剪贴板宿主面完成，hello/multiwin/menuprobe spike 本机全绿（`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`）；预编译原生链与打包链待接入（本地开发需 vcpkg + MSVC，见下方参与开发） |
 | Linux（WebKitGTK） | 🚧 host 骨架已就位，打包链待接入 |
 | Mobile（Android/iOS） | 📋 规划中 |
 
@@ -110,12 +111,12 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 
 ```bash
 pnpm install                                        # 工作区依赖
-scripts/build-native.sh                             # 编译原生链（macOS，一次性）
+scripts/build-native.sh                             # 编译原生链（macOS 一次性；Windows 需先 vcpkg install libffi:x64-windows + VS Build Tools，脚本自动引导）
 pnpm --filter @zturnlibs/ztron-example-hello dev    # 在 monorepo 内跑示例
-pnpm test                                           # 150 项测试（surface/unit/core 三层）
+pnpm test                                           # 217 项测试（surface/unit/core 三层）
 ```
 
-三层测试面向"特性 + API 100% 覆盖"：surface 保证框架注册的命令与 API 导出面零偏差；unit 经 MockRuntime 全量路由；integration 驱动真实 host + WebView（`ztron check` 86 项确定性检查，exit code 可回归）。设计详见 [tests/README.md](./tests/README.md)。
+三层测试面向"特性 + API 100% 覆盖"：surface 保证框架注册的命令与 API 导出面零偏差；unit 经 MockRuntime 全量路由；integration 驱动真实 host + WebView（`ztron check` 85 项确定性检查 + `FULL_OK` 哨兵，exit code 可回归）。设计详见 [tests/README.md](./tests/README.md)。
 
 性能基线（冷/热启动、invoke P50/P95、Channel 吞吐、窗口创建、RSS）：
 

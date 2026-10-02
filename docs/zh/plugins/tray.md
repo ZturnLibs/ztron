@@ -96,4 +96,9 @@ report("TRAY_MENU_OK");
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/tray)。
 
-适用版本：`ztron 0.3.1`
+## 平台说明
+
+- **macOS**：完整多实例托盘（每个 id 一个 NSStatusItem），`getById` / `removeById` 查询注册表。
+- **Windows**：0.3.8 起实现 `getById` / `removeById`（单实例 id 注册表：当前图标记录其 id，按 id 匹配应答与销毁）。验证锚点 `TRAY_V2_OK`（menuprobe）。
+
+适用版本：`ztron 0.3.8`

@@ -107,4 +107,12 @@ can provide it).
 Full list in the [Commands Reference](/reference/commands) and the
 [API symbol reference](/reference/api/tray).
 
-Applicable version: `ztron 0.3.1`
+## Platform Notes
+
+- **macOS**: full multi-instance tray (one NSStatusItem per id); `getById` /
+  `removeById` query the registry.
+- **Windows**: `getById` / `removeById` implemented since 0.3.8 (single-
+  instance id registry: the live icon records its id; queries and removals
+  match against it). Verification anchor `TRAY_V2_OK` (menuprobe).
+
+Applicable version: `ztron 0.3.8`

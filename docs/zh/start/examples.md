@@ -10,7 +10,7 @@ title: 示例
 | --- | --- | --- | --- |
 | hello | `@zturnlibs/ztron-example-hello` | invoke/事件/Channel/fs/path 等 API 全面演练（85 检查） | `pnpm --filter @zturnlibs/ztron-example-hello dev` |
 | multiwin | `@zturnlibs/ztron-example-multiwin` | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
-| menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单能力探测 | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
+| menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单/托盘能力探测（跨平台） | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | 性能基准测量序列（invoke/Channel/窗口） | `node packages/cli/dist/index.js bench --runs 3` |
 | showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：34 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 | react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 验证示例（React 写法调用 Ztron API） | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
@@ -19,7 +19,7 @@ title: 示例
 
 ## hello
 
-对 `@zturnlibs/ztron-api` 的 invoke、事件、Channel 流、fs/path/http/os 等 API 做全面演练，内置 85 项确定性检查；配合 `ztron check` 可作为整框架的回归基线（`FULL_OK`，exit 0）。其 `ztron.conf.json` 同时演示了声明式多窗口（`windows[]`，含 `url: "frontend"` 占位与内联 `html` 两种窗口来源）。源码：`examples/hello/`（配置 `ztron.conf.json`、主进程 `src/main.ts`、命令 `src/commands.ts`、前端 `frontend/src/main.ts`）。
+对 `@zturnlibs/ztron-api` 的 invoke、事件、Channel 流、fs/path/http/os 等 API 做全面演练，内置 85 项确定性检查；配合 `ztron check` 可作为整框架的回归基线（`FULL_OK`，exit 0）。其中 websocket 检查使用后端自托管的回声服务（`tjs.serve` + `server.upgrade`，`WEBSOCKET_OK`），离线与代理环境都确定性通过。其 `ztron.conf.json` 同时演示了声明式多窗口（`windows[]`，含 `url: "frontend"` 占位与内联 `html` 两种窗口来源）。源码：`examples/hello/`（配置 `ztron.conf.json`、主进程 `src/main.ts`、命令 `src/commands.ts`、前端 `frontend/src/main.ts`）。
 
 ## multiwin
 
@@ -27,7 +27,7 @@ title: 示例
 
 ## menuprobe
 
-菜单能力探测示例，覆盖菜单构建与动态操作等能力。源码：`examples/menuprobe/`。
+菜单与托盘能力探测示例（backend-only，不依赖前端）。菜单面按平台分支：macOS 构建 NSApp 默认菜单并挂 Window/Help 角色，Windows 显式构建等价菜单树，两侧驱动同一套结构化 `items()` 快照 + `removeItemAt` 墓碑断言（`MENU_V2_OK`）；另覆盖托盘多实例面（创建 → `getById` → 移除，`TRAY_V2_OK`）、本地 `tjs.serve` 往返（`LOCALHOST_OK`）、窗口内坐标查询（`INNER_POS_OK`）与图片解码回读（`IMG_READBACK_OK`）。源码：`examples/menuprobe/`。
 
 ## bench
 
@@ -63,4 +63,4 @@ HMR、IIFE 打包与 IPC 全链路；冒烟锚点 `SVELTE_DEMO_OK`。接入方�
 
 **深入：[架构](/guide/architecture) · [IPC](/guide/ipc) · [安全 ACL](/guide/security) · [CLI 命令参考](/reference/cli)**
 
-适用版本：`ztron 0.3.0`
+适用版本：`ztron 0.3.8`

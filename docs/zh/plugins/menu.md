@@ -110,4 +110,9 @@ await dyn.remove("d1");
 
 完整清单见[命令参考](/reference/commands)与 [API 符号参考](/reference/api/menu)。
 
-适用版本：`ztron 0.3.1`
+## 平台说明
+
+- **macOS**：全量能力，含 `create_default`（NSApp 默认菜单）与 Window/Help 角色挂载（`setAsWindowsMenuForNSApp` / `setAsHelpMenuForNSApp`）。
+- **Windows**：菜单构建（含子菜单/预定义条目/图标条目）、结构化 `items()` 快照、`removeAt`、条目启用/标题/勾选与 `setAsAppMenu` 均已实现；`create_default` 与 NSApp 角色为 darwin 专属（Windows 无此概念），可显式构建等价菜单树。验证锚点 `MENU_V2_OK`（menuprobe，双平台）。
+
+适用版本：`ztron 0.3.8`

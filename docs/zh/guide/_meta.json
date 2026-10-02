@@ -1,1 +1,14 @@
-["architecture", "ipc", "frontend-frameworks", "events", "window", "config", "security", "bundling", "signing-updater", "debugging", "tauri-migration"]
+[
+  "architecture",
+  "ipc",
+  "tjs-types",
+  "frontend-frameworks",
+  "events",
+  "window",
+  "config",
+  "security",
+  "bundling",
+  "signing-updater",
+  "debugging",
+  "tauri-migration"
+]
