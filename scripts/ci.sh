@@ -8,13 +8,15 @@
 #   3. unit tests      (node --test, ledger-enforced)
 #   4. hello spike     (ztron check: 86 deterministic checks -> exit code)
 #   5. multiwin spike  (ztron check --expect: window lifecycle + stress)
+#   6. packaged spike  (platform e2e: darwin .app / win32 flat app + NSIS)
 #
 # Any step failing aborts with a clear marker. Exit 0 = whole chain green.
 #
 # Usage:
 #   bash scripts/ci.sh                 # full chain
 #   bash scripts/ci.sh --skip-native   # reuse existing native build
-#   bash scripts/ci.sh --skip-packaged # skip the darwin-only .app e2e (non-mac hosts)
+#   bash scripts/ci.sh --skip-packaged # skip the packaged e2e (also auto-
+#                                      #   skipped on platforms without one)
 #   bash scripts/ci.sh --spike-timeout 150000
 #
 # Environment:
@@ -44,9 +46,20 @@ fail() { printf '\n\033[1;31m✗ FAILED at: %s\033[0m\n' "$*" >&2; exit 1; }
 # Kill straggler ztron processes on Windows (Git Bash has no pkill). Needed
 # at BOTH ends: a surviving ztron-host.exe keeps webview.dll locked and the
 # next native build's `cp` fails with "Device or resource busy".
+# PID/path-scoped, never image-wide: ztron apps share the exe image names
+# across installs (a real app under %LOCALAPPDATA% must never be swept).
 win_sweep() {
-  command -v taskkill >/dev/null 2>&1 || return 0
-  taskkill //F //IM tjs.exe //IM ztron-host.exe >/dev/null 2>&1 || true
+  command -v powershell >/dev/null 2>&1 || return 0
+  ZTRON_SWEEP_ROOT="$(cygpath -w "$ROOT" 2>/dev/null || echo "$ROOT")" \
+  ZTRON_SWEEP_TMP="$(cygpath -w "${TMPDIR:-/tmp}" 2>/dev/null || echo "${TMPDIR:-/tmp}")" \
+  powershell -NoProfile -Command '
+    $roots = @($env:ZTRON_SWEEP_ROOT, $env:ZTRON_SWEEP_TMP) | Where-Object { $_ }
+    Get-CimInstance Win32_Process | Where-Object {
+      $p = $_
+      ($_.Name -in @("tjs.exe","ztron-host.exe","ztron-backend.exe","ztron-launcher.exe")) -and
+      ($roots | Where-Object { $p.ExecutablePath -like "$_*" })
+    } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+  ' >/dev/null 2>&1 || true
 }
 
 # ---- 0. preflight ------------------------------------------------------------
@@ -162,19 +175,17 @@ run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
-# ---- 6. packaged spike (darwin .app e2e; skippable on other hosts) -----------
+# ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
-# Full packaged-chain e2e: pack the local workspace tarballs, scaffold, build
-# and LAUNCH the .app, then require the frontend's HELLO_OK beacon in the
-# launcher log. This is the only gate that exercises exactly what an npm
-# user gets: the bundled native chain, launcher, staged Resources conf and
-# the IIFE frontend executing inside the webview (0.3.5 shipped a white-
-# window packaged app that every other check passed). Needs a GUI session —
-# headless runners hang at window creation, so ci.yml's macos-spike job
-# downgrades failures of THIS step (grep for its marker).
-if [[ "$SKIP_PACKAGED" -eq 1 ]]; then
-  step "packaged spike: SKIPPED (--skip-packaged; darwin .app e2e)"
-else
+# Full packaged-chain e2e per platform: exercise exactly what an end user
+# gets — the packaged native chain, launcher, staged conf and the IIFE
+# frontend executing inside the webview (0.3.5 shipped a white-window
+# packaged app that every other check passed). Needs a GUI session: headless
+# macOS runners hang at window creation, so ci.yml's macos-spike job
+# downgrades failures of THIS step (grep for its marker); windows runners
+# have an interactive desktop, so windows-spike treats failures as fatal.
+
+darwin_packaged_spike() {
 step "packaged spike (scaffold → build → launch .app → HELLO_OK)"
 PACK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ztron-pack-spike-XXXXXX")"
 for d in inject core runtime-ffi api cli; do
@@ -218,6 +229,108 @@ if [ "$PACK_OK" -ne 1 ]; then
   fail "packaged spike (HELLO_OK missing — packaged webview did not execute the frontend)"
 fi
 tail -2 /tmp/ci-pack-launch.log
+}
+
+# Windows counterpart: build the flat app (exercises the MSVC launcher
+# compile), verify the payload, drive host+backend directly for the FULL_OK
+# beacon, then prove the compiled launcher drives the same payload to
+# self-exit, and build the NSIS installer when makensis is on PATH.
+# The invoke key comes from the built frontend itself — a mismatched env
+# key makes the backend reject every invoke silently (zero reports).
+win_packaged_spike() {
+local APP_DIR="$ROOT/examples/hello"
+local DIST="$APP_DIR/dist/ZtronApp"
+step "packaged spike (win32): ztron build -> flat app"
+rm -rf "$DIST"
+run_ztron_check "$APP_DIR" build > /tmp/ci-win-pack-build.log 2>&1 \
+  || { tail -20 /tmp/ci-win-pack-build.log; fail "packaged build (win32)"; }
+for f in ztron-launcher.exe ztron-host.exe ztron-backend.exe webview.dll \
+         ffi-8.dll frontend/index.html ztron.conf.json capabilities; do
+  [ -e "$DIST/$f" ] || fail "packaged payload missing $f (win32)"
+done
+
+local KEY
+KEY=$(sed -n 's/.*var __KEY__ = "\([^"]*\)".*/\1/p' "$DIST/frontend/index.html" | head -1)
+[ -n "$KEY" ] || fail "invoke key not found in packaged frontend (win32)"
+
+step "packaged spike (win32): host+backend -> FULL_OK beacon"
+"$DIST/ztron-host.exe" 0 > "$DIST/.ci-host.log" 2>&1 &
+local HP=$!
+local PORT=""
+for _ in $(seq 1 50); do
+  PORT=$(sed -n 's/^PORT=//p' "$DIST/.ci-host.log" | head -1)
+  [ -n "$PORT" ] && break
+  sleep 0.2
+done
+if [ -z "$PORT" ]; then
+  cat "$DIST/.ci-host.log"
+  fail "packaged host failed to bind (win32)"
+fi
+(
+  cd "$DIST" \
+    && ZTRON_HOST=127.0.0.1 ZTRON_HOST_PORT="$PORT" ZTRON_INVOKE_KEY="$KEY" \
+       ZTRON_DEV_URL="file:///$(cygpath -m "$DIST")/frontend/index.html" \
+       ZTRON_CONF="$(cat "$DIST/ztron.conf.json")" \
+       ZTRON_CAPABILITIES_DIR="$(cygpath -w "$DIST/capabilities")" \
+       ./ztron-backend.exe > "$DIST/.ci-backend.log" 2>&1
+) &
+local BP=$!
+local OK=0
+for _ in $(seq 1 90); do
+  grep -q "SPIKE_RESULT: FULL_OK" "$DIST/.ci-backend.log" 2>/dev/null && OK=1 && break
+  sleep 1
+done
+kill "$BP" "$HP" 2>/dev/null || true
+win_sweep
+if [ "$OK" -ne 1 ]; then
+  tail -10 "$DIST/.ci-backend.log" 2>/dev/null || true
+  fail "packaged spike (win32): FULL_OK beacon missing"
+fi
+
+step "packaged spike (win32): launcher drives the payload to self-exit"
+( cd "$DIST" && ./ztron-launcher.exe ) &
+local LP=$!
+local DONE=0
+for _ in $(seq 1 90); do
+  kill -0 "$LP" 2>/dev/null || { DONE=1; break; }
+  sleep 1
+done
+if [ "$DONE" -ne 1 ]; then
+  kill -9 "$LP" 2>/dev/null || true
+  win_sweep
+  fail "packaged spike (win32): launcher did not self-exit (FULL_OK path)"
+fi
+wait "$LP" || fail "packaged spike (win32): launcher exited nonzero"
+rm -f "$DIST/.ci-host.log" "$DIST/.ci-backend.log" "$DIST/.host.log"
+
+if { [ -n "${ZTRON_MAKENSIS:-}" ] && [ -f "${ZTRON_MAKENSIS:-}" ]; } || \
+   { command -v where >/dev/null 2>&1 && where makensis >/dev/null 2>&1; }; then
+  step "packaged spike (win32): NSIS installer"
+  local CONF="$APP_DIR/ztron.conf.json"
+  cp "$CONF" "$CONF.bak"
+  node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));c.bundle={targets:['nsis']};fs.writeFileSync(process.argv[1],JSON.stringify(c,null,2)+'\n')" "$CONF"
+  if run_ztron_check "$APP_DIR" build > /tmp/ci-win-nsis-build.log 2>&1; then
+    ls "$APP_DIR"/dist/nsis/*_setup.exe >/dev/null 2>&1 \
+      || { mv "$CONF.bak" "$CONF"; fail "NSIS setup.exe missing (win32)"; }
+  else
+    tail -15 /tmp/ci-win-nsis-build.log
+    mv "$CONF.bak" "$CONF"
+    fail "NSIS build (win32)"
+  fi
+  mv "$CONF.bak" "$CONF"
+else
+  step "packaged spike (win32): NSIS SKIPPED (no makensis on PATH / ZTRON_MAKENSIS)"
+fi
+}
+
+if [[ "$SKIP_PACKAGED" -eq 1 ]]; then
+  step "packaged spike: SKIPPED (--skip-packaged)"
+else
+  case "$(uname -s)" in
+    Darwin) darwin_packaged_spike ;;
+    MINGW*|MSYS*|CYGWIN*) win_packaged_spike ;;
+    *) step "packaged spike: SKIPPED (no packaged e2e for $(uname -s))" ;;
+  esac
 fi
 
 # ---- summary -----------------------------------------------------------------

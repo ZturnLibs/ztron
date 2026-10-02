@@ -461,7 +461,7 @@ index 1a0a2c6..f369cf3 100755
  } // namespace detail
  
 diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
-index 01c8d29..8165fe6 100644
+index 01c8d29..af7cbc9 100644
 --- a/core/include/webview/detail/engine_base.hh
 +++ b/core/include/webview/detail/engine_base.hh
 @@ -137,6 +137,11 @@ window.__webview__.onUnbind(" +
@@ -485,7 +485,7 @@ index 01c8d29..8165fe6 100644
  
    virtual user_script *add_user_script(const std::string &js) {
      return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
-@@ -324,7 +331,11 @@ protected:
+@@ -324,7 +335,11 @@ protected:
    }
  
    // Runs the event loop until the currently queued events have been processed.

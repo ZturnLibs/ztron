@@ -126,13 +126,22 @@ export function findWindowsLauncherSource(): string | null {
  * batch. Ships alongside the app as ztron-launcher.cmd (NSIS shortcuts
  * point at whichever launcher exists). Best-effort — the compiled exe is
  * the real launcher (no console flash, reliable host cleanup).
+ *
+ * The host is spawned via Start-Process -PassThru so the cleanup kill is
+ * PID-scoped: `taskkill /im ztron-host.exe` would take down every ztron
+ * app on the machine (same image name across installs).
  */
 export function launcherCmdScript(invokeKey: string): string {
   return `@echo off
 setlocal EnableDelayedExpansion
 set "DIR=%~dp0"
 set "LOG=%DIR%.host.log"
-start "" /b "%DIR%ztron-host.exe" 0 > "%LOG%" 2>&1
+set "HOST_PID="
+for /f %%p in ('powershell -NoProfile -Command "(Start-Process -FilePath '%DIR%ztron-host.exe' -ArgumentList '0' -RedirectStandardOutput '%LOG%' -WindowStyle Hidden -PassThru).Id"') do set "HOST_PID=%%p"
+if not defined HOST_PID (
+  echo ztron: failed to start ztron-host.exe
+  exit /b 1
+)
 set "PORT="
 for /l %%i in (1,1,100) do (
   if not defined PORT (
@@ -144,6 +153,7 @@ for /l %%i in (1,1,100) do (
 )
 if not defined PORT (
   echo ztron: host failed to start ^(see %LOG%^)
+  taskkill /f /pid %HOST_PID% >nul 2>&1
   exit /b 1
 )
 set "ZTRON_HOST=127.0.0.1"
@@ -156,7 +166,7 @@ if exist "%DIR%ztron.conf.json" (
 )
 if exist "%DIR%capabilities\\" set "ZTRON_CAPABILITIES_DIR=%DIR%capabilities"
 "%DIR%ztron-backend.exe"
-taskkill /f /im ztron-host.exe >nul 2>&1
+taskkill /f /pid %HOST_PID% >nul 2>&1
 `;
 }
 

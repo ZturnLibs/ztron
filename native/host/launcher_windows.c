@@ -42,32 +42,72 @@ static wchar_t *to_wide(const char *s) {
   return w;
 }
 
+/** Wide -> malloc'd UTF-8, or NULL. */
+static char *to_utf8(const wchar_t *w) {
+  int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+  if (n <= 0) return NULL;
+  char *s = malloc((size_t)n);
+  if (s) WideCharToMultiByte(CP_UTF8, 0, w, -1, s, n, NULL, NULL);
+  return s;
+}
+
 /**
- * Scan the host log for the first "PORT=<n>" line; returns 1 if found.
- * Raw CreateFileW+ReadFile with FILE_SHARE_WRITE — the host keeps its write
- * handle open for the process lifetime, and CRT _wfopen (ccs=UTF-8) fails to
- * open under that share mode, so the port would never be seen.
+ * Percent-encode a UTF-8 path for a file:// URL: RFC 3986 unreserved bytes
+ * and '/' pass through, everything else (spaces, '#', '%', CJK lead/continuation
+ * bytes) becomes %XX. CJK/space install dirs are first-class here — an
+ * unencoded path only worked because WebView2 is lenient.
+ */
+static void url_encode_utf8(const char *s, wchar_t *out, size_t cap) {
+  static const wchar_t hex[] = L"0123456789ABCDEF";
+  size_t o = 0;
+  for (const unsigned char *p = (const unsigned char *)s; *p && o + 3 < cap;
+       p++) {
+    unsigned char c = *p;
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+        (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ||
+        c == '~' || c == '/') {
+      out[o++] = (wchar_t)c;
+    } else {
+      out[o++] = L'%';
+      out[o++] = hex[c >> 4];
+      out[o++] = hex[c & 0xF];
+    }
+  }
+  out[o] = L'\0';
+}
+
+/**
+ * Scan the host log for the "PORT=<n>" line; returns 1 when the full
+ * number is seen. The snapshot is read to current EOF into ONE buffer —
+ * a chunked scan could split "PORT=" (or the digits) across ReadFile
+ * boundaries and miss or mangle the port. A digit run reaching EOF is
+ * rejected (the write may still be landing); the caller re-polls.
+ * Raw CreateFileW+ReadFile with FILE_SHARE_WRITE — the host keeps its
+ * write handle open for the process lifetime, and CRT _wfopen (ccs=UTF-8)
+ * fails to open under that share mode, so the port would never be seen.
  */
 static int find_port_in_log(const wchar_t *log_path, wchar_t *port, DWORD cap) {
   HANDLE h = CreateFileW(log_path, GENERIC_READ,
                          FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (h == INVALID_HANDLE_VALUE) return 0;
-  char buf[512];
-  DWORD rd = 0;
-  int found = 0;
-  while (!found && ReadFile(h, buf, sizeof(buf), &rd, NULL) && rd > 0) {
-    for (DWORD i = 0; i + 5 <= rd && !found; i++) {
-      if (memcmp(buf + i, "PORT=", 5) != 0) continue;
-      DWORD j = i + 5, n = 0;
-      while (j < rd && buf[j] >= '0' && buf[j] <= '9' && n + 1 < cap)
-        port[n++] = (wchar_t)buf[j++];
-      port[n] = L'\0';
-      found = port[0] != L'\0';
-    }
+  static char buf[65536]; /* the log is tiny; one thread, one poll at a time */
+  DWORD rd = 0, total = 0;
+  while (total < sizeof(buf) &&
+         ReadFile(h, buf + total, sizeof(buf) - total, &rd, NULL) && rd > 0) {
+    total += rd;
   }
   CloseHandle(h);
-  return found;
+  for (DWORD i = 0; i + 5 <= total; i++) {
+    if (memcmp(buf + i, "PORT=", 5) != 0) continue;
+    DWORD j = i + 5, n = 0;
+    while (j < total && buf[j] >= '0' && buf[j] <= '9' && n + 1 < cap)
+      port[n++] = (wchar_t)buf[j++];
+    if (j >= total) continue; /* digits ran to EOF — incomplete, re-poll */
+    port[n] = L'\0';
+    if (port[0] != L'\0') return 1;
+  }
+  return 0;
 }
 
 /** Spawn `path` with `args`; stdout/stderr -> `log` when non-NULL. */
@@ -103,24 +143,35 @@ int main(void) {
   *slash = L'\0'; /* dir = install directory */
 
   wchar_t host_log[ZT_MAX_PATH], host_bin[ZT_MAX_PATH], backend[ZT_MAX_PATH];
-  wchar_t url[ZT_MAX_PATH + 32], conf_path[ZT_MAX_PATH], caps_path[ZT_MAX_PATH];
+  wchar_t url[ZT_MAX_PATH * 3 + 64], conf_path[ZT_MAX_PATH],
+      caps_path[ZT_MAX_PATH];
   _snwprintf_s(host_log, ZT_MAX_PATH, _TRUNCATE, L"%s\\.host.log", dir);
   _snwprintf_s(host_bin, ZT_MAX_PATH, _TRUNCATE, L"%s\\ztron-host.exe", dir);
   _snwprintf_s(backend, ZT_MAX_PATH, _TRUNCATE, L"%s\\ztron-backend.exe", dir);
-  /* file:/// + forward-slashed dir — canonical local-file URL */
+  /* file:/// + percent-encoded forward-slashed dir — canonical local-file
+     URL (worst case every UTF-8 byte becomes %XX, hence the x3 buffer) */
   {
     wchar_t fwd[ZT_MAX_PATH];
+    wchar_t enc[ZT_MAX_PATH * 3 + 1];
     _snwprintf_s(fwd, ZT_MAX_PATH, _TRUNCATE, L"%s", dir);
     for (wchar_t *c = fwd; *c; c++)
       if (*c == L'\\') *c = L'/';
-    _snwprintf_s(url, ZT_MAX_PATH + 32, _TRUNCATE, L"file:///%s/frontend/index.html", fwd);
+    char *dir8 = to_utf8(fwd);
+    if (dir8) {
+      url_encode_utf8(dir8, enc, sizeof(enc) / sizeof(enc[0]));
+      free(dir8);
+    } else {
+      _snwprintf_s(enc, ZT_MAX_PATH, _TRUNCATE, L"%s", fwd); /* degenerate */
+    }
+    _snwprintf_s(url, ZT_MAX_PATH * 3 + 64, _TRUNCATE,
+                 L"file:///%s/frontend/index.html", enc);
   }
   _snwprintf_s(conf_path, ZT_MAX_PATH, _TRUNCATE, L"%s\\ztron.conf.json", dir);
   _snwprintf_s(caps_path, ZT_MAX_PATH, _TRUNCATE, L"%s\\capabilities", dir);
   host_log[ZT_MAX_PATH - 1] = L'\0';
   host_bin[ZT_MAX_PATH - 1] = L'\0';
   backend[ZT_MAX_PATH - 1] = L'\0';
-  url[ZT_MAX_PATH + 31] = L'\0';
+  url[ZT_MAX_PATH * 3 + 63] = L'\0';
   conf_path[ZT_MAX_PATH - 1] = L'\0';
   caps_path[ZT_MAX_PATH - 1] = L'\0';
 

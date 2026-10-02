@@ -63,10 +63,10 @@ export const zh = {
   },
   statusm: {
     heading: '当前支持的平台',
-    sub: 'macOS 已完整验证；Windows 开发链已打通（spike 全绿），打包链与 Linux 是下一步。',
+    sub: 'macOS 已完整验证；Windows 开发链与 NSIS 打包已打通（spike 全绿、安装包本机验证），Linux 是下一步。',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev 管线 · .app + .dmg · ad-hoc 签名 · 更新器' },
-      { platform: 'Windows', status: 'wip', note: '开发链打通：窗口/菜单/托盘/剪贴板宿主面完成，spike 全绿——预编译链与打包待完成' },
+      { platform: 'Windows', status: 'wip', note: '开发链 + NSIS 打包打通：spike 全绿、flat 目录/安装包本机端到端验证——预编译链待发布' },
       { platform: 'Linux', status: 'wip', note: 'host 骨架（GTK + WebKitGTK）——编译与打包待完成' },
     ],
     checks: '每次运行通过 85 项端到端确定性检查——`ztron check` 是 CI 的门禁。',

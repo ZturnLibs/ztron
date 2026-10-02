@@ -10,6 +10,7 @@ import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  findMakensis,
   packNsis,
   packNsisDir,
   packMsi,
@@ -54,8 +55,27 @@ test("nsisDir emits flat-layout installer script; .ico in icons becomes MUI + sh
   const dir = tmp();
   const appDir = join(dir, "app");
   mkdirSync(appDir, { recursive: true });
+  // when makensis is discoverable the .nsi really compiles — `File /r
+  // appDir\*.*` aborts on an empty dir, so give it a payload file
+  writeFileSync(join(appDir, "payload.bin"), "x");
   const icoSrc = join(dir, "app.ico");
-  writeFileSync(icoSrc, "ico-bytes");
+  // minimal VALID 16x16 32bpp .ico — makensis compiles MUI_ICON into the exe
+  // resource, so text-stub bytes would make the build branch fail
+  const ico = Buffer.alloc(1150);
+  ico.writeUInt16LE(1, 2); // type: icon
+  ico.writeUInt16LE(1, 4); // 1 image
+  ico.writeUInt8(16, 6); // width
+  ico.writeUInt8(16, 7); // height
+  ico.writeUInt16LE(1, 10); // planes
+  ico.writeUInt16LE(32, 12); // bpp
+  ico.writeUInt32LE(1150 - 22, 14); // bytes in resource
+  ico.writeUInt32LE(22, 18); // image offset
+  ico.writeUInt32LE(40, 22); // BITMAPINFOHEADER size
+  ico.writeInt32LE(16, 26); // width
+  ico.writeInt32LE(32, 30); // height (XOR + AND)
+  ico.writeUInt16LE(1, 34); // planes
+  ico.writeUInt16LE(32, 36); // bpp
+  writeFileSync(icoSrc, ico);
   const r = packNsisDir(dir, { ...CFG, icons: [icoSrc] }, appDir, "ztron-launcher.exe");
   assert.equal(r.type, "nsis");
   const nsi = readFileSync(join(dir, "nsis", "DemoApp.nsi"), "utf8");
@@ -70,14 +90,24 @@ test("nsisDir emits flat-layout installer script; .ico in icons becomes MUI + sh
   assert.ok(nsi.includes('WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ztron.demo" "DisplayIcon" "$INSTDIR\\app.ico"'));
   // the .ico is staged next to the .nsi so makensis can compile it in
   assert.ok(existsSync(join(dir, "nsis", "app.ico")));
-  assert.equal(r.built, false);
-  assert.ok(r.reason?.includes("makensis"));
+  // Availability-tolerant: on hosts with makensis discoverable (windows-spike
+  // runners install NSIS; devs may have it or ZTRON_MAKENSIS) packNsisDir
+  // really builds — the content pins above are the contract, the built flag
+  // only reports the toolchain.
+  if (findMakensis() === null) {
+    assert.equal(r.built, false);
+    assert.ok(r.reason?.includes("makensis"));
+  } else {
+    assert.equal(r.built, true);
+    assert.ok(existsSync(r.path));
+  }
 });
 
 test("nsisDir without .ico stays icon-less (shortcut has no icon arg)", () => {
   const dir = tmp();
   const appDir = join(dir, "app");
   mkdirSync(appDir, { recursive: true });
+  writeFileSync(join(appDir, "payload.bin"), "x"); // makensis aborts on an empty appDir
   const pngSrc = join(dir, "icon.png");
   writeFileSync(pngSrc, "png");
   const r = packNsisDir(dir, { ...CFG, icons: [pngSrc] }, appDir, "ztron-launcher.exe");
@@ -90,7 +120,40 @@ test("nsisDir without .ico stays icon-less (shortcut has no icon arg)", () => {
   );
   assert.ok(!nsi.includes('"$INSTDIR\\icon.png" 0'));
   assert.ok(nsi.includes('WriteRegStr HKCU "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ztron.demo" "DisplayIcon" "$INSTDIR\\ztron-launcher.exe"'));
-  assert.equal(r.built, false);
+  if (findMakensis() === null) {
+    assert.equal(r.built, false);
+  } else {
+    assert.equal(r.built, true);
+    assert.ok(existsSync(r.path));
+  }
+});
+
+test("findMakensis: ZTRON_MAKENSIS override wins (portable installs)", () => {
+  const fake = join(tmp(), "makensis.exe");
+  writeFileSync(fake, "stub");
+  const prev = process.env.ZTRON_MAKENSIS;
+  process.env.ZTRON_MAKENSIS = fake;
+  try {
+    assert.equal(findMakensis(), fake);
+  } finally {
+    if (prev === undefined) delete process.env.ZTRON_MAKENSIS;
+    else process.env.ZTRON_MAKENSIS = prev;
+  }
+});
+
+test("findMakensis: a nonexistent ZTRON_MAKENSIS falls through to discovery", () => {
+  const prev = process.env.ZTRON_MAKENSIS;
+  process.env.ZTRON_MAKENSIS = join(tmpdir(), "ztron-no-such-makensis");
+  try {
+    const found = findMakensis();
+    // discovery is machine-dependent: null (tool absent) or a real path —
+    // both acceptable; the override contract is only about the existing-env
+    // case above.
+    if (found !== null) assert.ok(existsSync(found));
+  } finally {
+    if (prev === undefined) delete process.env.ZTRON_MAKENSIS;
+    else process.env.ZTRON_MAKENSIS = prev;
+  }
 });
 
 test("msi emits a WiX source skeleton", () => {
