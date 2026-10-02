@@ -23,6 +23,9 @@ pnpm-debug.log*
 native/txiki.js/
 native/webview/
 native/libs/
+# cl intermediates from the ztron-host batch build (anchored to native/host)
+native/host/*.obj
+native/.build-host-windows.cmd
 examples/**/native/
 .ztron/
 

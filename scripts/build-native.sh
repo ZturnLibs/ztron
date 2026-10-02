@@ -24,7 +24,11 @@ fi
 (
   cd "$NATIVE/txiki.js"
   git submodule update --init --recursive
-  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF
+  # BUILD_WITH_FFI=OFF: the tjs:ffi module needs libffi, which on Windows
+  # only comes via vcpkg (unofficial-libffi) — ztron never invokes ffi, so
+  # pulling a vcpkg toolchain into the M0 chain is not worth it.
+  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_WITH_WASM=OFF \
+    -DBUILD_WITH_FFI=OFF
   # --config Release: no-op on single-config generators, required on MSVC
   # multi-config (Visual Studio generator) where the binary lands in
   # build/Release/ rather than build/.
@@ -133,6 +137,10 @@ case "$(uname -s)" in
     BUILD_CMD="$NATIVE/.build-host-windows.cmd"
     {
       echo '@echo off'
+      # Anchor to native/host so cl drops its .obj files beside the sources
+      # (cl always writes them to the CWD — without this they land in
+      # whatever directory the batch was invoked from, e.g. the repo root).
+      echo 'cd /d "%~dp0host" || exit /b 1'
       # NOTE: do NOT redirect this call to >nul — vcvars64 resolves internal
       # helper paths via its own console output on some toolchains and fails
       # with "path not found" when stdout is nul (observed: VSBT 17.14).
