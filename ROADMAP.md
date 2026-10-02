@@ -1,6 +1,6 @@
 # Ztron ROADMAP — 能力差距与翻译路径
 
-> Ztron 已完成 M0–M4 + P0–P30 全部可在本机验证的项(spike 85 项确定性 + FULL_OK 哨兵/EXIT 0,
+> Ztron 已完成 M0–M4 + P0–P30 全部可在本机验证的项(spike 86 项确定性 + FULL_OK 哨兵/EXIT 0,
 > 另有 WIN_EVENT_OK/WIN_QUERY2_OK 尽力而为检查)。剩余项均需目标平台或属深水区。
 > 本文件规划 Tauri v2 其余能力的翻译顺序与方式。参考源:`tauri-apps/tauri`。
 
@@ -19,7 +19,7 @@
 | 前端 API          | @tauri-apps/api 全量                                                       | invoke/event/channel/window/fs/path | 中   | packages/api       | api TS       |
 | 插件生态          | ~30 官方插件                                                               | 25 插件                             | 小   | plugins/*          | core+api TS  |
 | 配置              | tauri.conf.json schema + CSP + capabilities                                | 手写 TS                             | 中   | tauri-utils        | CLI          |
-| 打包              | 7 格式+签名+updater+图标                                                   | macOS .app+签名+updater+图标        | 大   | tauri-bundler      | CLI+平台脚本 |
+| 打包              | 7 格式+签名+updater+图标                                                   | macOS .app/.dmg/签名/公证/updater/图标;Windows 目录+NSIS+updater;Linux 骨架 | 中   | tauri-bundler      | CLI+平台脚本 |
 | 测试              | tauri-driver/WebDriver + mock runtime                                      | MockRuntime + 三层覆盖率            | 中   | tauri-driver       | CLI+core     |
 | 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 开发链已打通(打包待接入) | 很大 | -                  | C+core       |
 
@@ -73,8 +73,8 @@
 - [x] macOS ad-hoc 签名 + versioned dylib 打包修复 + 图标
 - [x] host 跨平台重构(core + host_platform.{macos,windows,linux})已交付
 - [x] Windows 编译验证(0.3.8:vcpkg libffi 工具链;hello/multiwin/menuprobe spike 本机全绿 `FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`)
-- [ ] Windows NSIS 打包 + CI 矩阵接入(Windows runner)
-- [ ] Linux 编译验证 + AppImage 打包(需目标平台)
+- [x] Windows NSIS 打包 + CI 矩阵接入(0.3.8/0.3.9:NSIS 整目录安装器 + bundle.icon 的 .ico 贯通安装向导/快捷方式/卸载列表 + windows-latest full-chain job;遗留:msi 仅 WiX 骨架、无 Authenticode 签名)
+- [ ] Linux 编译验证 + AppImage 打包(需目标平台;打包骨架已在 bundler.ts)
 - [ ] 移动端(Android WebView / iOS WKWebView)远期
 
 ### P6 多窗口(✅ 全部落地)
@@ -99,14 +99,14 @@
 ## 5. 现状对比(2026-08)与补全计划
 
 > 完整对比结论见 `tests/README.md` 与 §「对比」。
-> 概括:**macOS 桌面可验证面基本翻译完成**(核心 API + 25 插件 + 窗口全能力 + 安全 + 打包 + 三层测试 + 自定义协议/HMR + 多窗口架构);剩余为深水区/平台绑定/偏门子集。
+> 概括:**macOS 桌面可验证面基本翻译完成**(核心 API + 31 插件 + 窗口全能力 + 安全 + 打包 + 三层测试 + 自定义协议/HMR + 多窗口架构);剩余为深水区/平台绑定/偏门子集。
 
 ### 5.1 已对齐(✅)
 
 | 维度     | 覆盖                                                                                                                                                                                                                                                           |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | core api | invoke/transformCallback/Channel/Resource/event/process/app/os/path/window/webview/clipboard/http/shell/dialog/tray/updater/menu/WebviewWindow                                                                                                                         |
-| 插件(25) | store·fs·http·shell(+stream+Command 类)·os·log·sql·clipboard·positioner·window-state·notification·global-shortcut·single-instance·deep-link·updater·autostart·websocket·local-ip·network·upload·persisted-scope·menu·tray·dialog·app/process                   |
+| 插件(31,含 5 个移动端 fail-closed 占位 + crypto/minisign/semver 工具库) | store·fs·http·shell(+stream+Command 类)·os·log·sql·clipboard·positioner·window-state·notification·global-shortcut·single-instance·deep-link·updater·autostart·websocket·local-ip·network·upload·persisted-scope·menu·tray·dialog·app/process                   |
 | 窗口     | min/max/fullscreen/alwaysOnTop/alwaysOnBottom/decorations/isDecorated/opacity/transparent/drag/resize-drag/position/size/min-max-size+constraints/focus/isFocused/visible/resizable/cursor/ignore-cursor/theme/scaleFactor/title/close/center/preventClose/destroy/setBounds/setShadow/zoom/enabled/minimizable/maximizable/closable+is*/skipTaskbar/contentProtected/requestUserAttention/progress-bar/badge/background-color/titlebar-style + 事件 + is*/outer* 查询 |
 | 安全     | ACL capabilities/deny/覆盖 · PathScope/HttpScope · CSP · IPC key                                                                                                                                                                                               |
 | 打包     | macOS .app · ad-hoc 签名 · 图标 · updater · versioned dylib · 完整 HMR(Vite dev server)                                                                                                                                                                        |
@@ -131,8 +131,29 @@
 
 | 项                                                                                        | 原因                                     |
 | ----------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Win/Linux 编译 + NSIS/AppImage/dmg                                                        | 需目标平台                               |
-| 移动端 + 移动/硬件插件(barcode/biometric/haptics/nfc/bluetooth/authenticator/geolocation) | 整个构建链未启动                         |
-| stronghold / fps / server 插件                                                            | 需原生绑定/偏门                          |
+| Linux 编译 + AppImage/deb/rpm 验证                                                        | 需目标平台(打包骨架已就绪)              |
+| Windows msi(WiX 完整实现)+ Authenticode 签名                                              | 骨架已有,工具链待接入                   |
+| 移动端 + 移动/硬件插件运行时(barcode/biometric/haptics/nfc/geolocation 的 API 面与命令注册已就位,桌面 fail-closed) | 整个构建链未启动                         |
+| fps / server 插件                                                                            | 需原生绑定/偏门                          |
 | tauri-driver/WebDriver 集成测试                                                           | 未实现(用 MockRuntime+spike 替代)        |
 | IPC 二进制通道(原记 MessagePack)                                                         | ✅ 已纠偏并对齐(DESIGN §91)             |
+
+## 6. Tauri 2.12 对齐状态(2026-10-03,基准 tauri 2.12.1 / 30da1fd6e)
+
+已对齐(feat/align-tauri-2.12):
+
+- [x] dev server Host/Origin 校验(DNS-rebinding 防护 + 跨站 ACAO 收紧,tauri cc9d522c6)
+- [x] `ztron://` scheme handler 异步化(后台读 + 主队列投递 + stop 取消跟踪,tauri 127aa176b;Windows 侧与 wry 同构无需改)
+- [x] Liquid Glass 窗口特效(`NSGlassEffectView`,macOS 26+,低版本回退普通材质;`Effects.color/interactive` 贯通,tauri 4a5065653)
+- [x] `Window.setFullscreenOnMonitor`(macOS NSScreen 匹配+移窗+全屏;win/linux 暂降级普通全屏,tauri 6edc2f4d4)
+- [x] `JsImage` 图标参数放宽(window setIcon/setOverlayIcon 接受路径/字节;tray 为路径协议不放宽,tauri 990f77eb2)
+
+未对齐(按优先级):
+
+- [ ] webview 权限请求 API(`on_permission_request` + 15 种 PermissionKind,tauri 382dd6ccc)——host 三平台原生 delegate,独立大项
+- [ ] `appDirectoriesOverride` 配置(便携应用目录覆盖,tauri 7dbfc1fe5)
+- [ ] Resource `Symbol.asyncDispose` / `await using`(tauri be019795a)
+- [ ] `Image.fromAppIconResource`(Windows,tauri d203f74a2)、`activateIgnoringOtherApps`(macOS,tauri 21ec647cf)
+- [ ] asset 协议 Range/`206 Partial Content`(tauri f9ed1a3fd)
+- [ ] `tauri add --tag/--rev`、`remove`/`permission`/`capability` CLI 命令族
+- [ ] ACL deny 按 capability 执行上下文作用域(tauri 0349b6fb8)——需对照自查 ztron ACL 语义

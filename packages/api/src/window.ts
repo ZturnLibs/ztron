@@ -1101,6 +1101,7 @@ export enum Effect {
   /** macOS 26+ Liquid Glass (`NSGlassEffectView`; on older systems the host
    *  falls back to the first ordinary material in the same effects list). */
   LiquidGlassRegular = "liquidGlassRegular",
+  /** macOS 26+ Liquid Glass, clear variant (`NSGlassEffectViewStyleClear`). */
   LiquidGlassClear = "liquidGlassClear",
 }
 

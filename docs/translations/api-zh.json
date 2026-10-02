@@ -184,7 +184,7 @@
     "summary": "切换窗口能否取得键盘焦点。"
   },
   "window.Window.setIcon": {
-    "summary": "以注册的 host 图像（Image）设置窗口/dock 图标。传 null 清除。"
+    "summary": "设置窗口/dock 图标，接受 JsImage（Image、路径或字节，先归一化）。传 null 清除。"
   },
   "window.Window.setIgnoreCursorEvents": {
     "summary": "切换窗口是否忽略鼠标/光标事件。"
@@ -205,7 +205,7 @@
     "summary": "设置窗口不透明度，0.0（全透明）到 1.0（不透明）。"
   },
   "window.Window.setOverlayIcon": {
-    "summary": "设置标题栏配件小图标（macOS 版的 Windows overlay/状态徽标）。传 null 清除。"
+    "summary": "设置标题栏右侧小图标（macOS 对应 Windows 的覆盖/状态徽标），接受 JsImage。传 null 清除。"
   },
   "window.Window.setPosition": {
     "summary": "移动窗口。接受纯数字、LogicalPosition/PhysicalPosition 或普通 { x, y } 对象。"
@@ -1767,5 +1767,27 @@
   },
   "deep-link.deepLink.__type.onDeepLink.__type": {
     "summary": "订阅应用运行期间打开的深链 URL；handler 收到完整的 `ztron://…` URL。"
+  },
+  "window.Window.setFullscreenOnMonitor": {
+    "summary": "将窗口全屏到包含指定坐标的显示器上。",
+    "params": {
+      "position": "显示器坐标（来自 Monitor.position）。macOS 匹配 NSScreen 后移窗并进入全屏；Windows/Linux 暂降级为普通全屏。"
+    },
+    "returns": "Promise<void>。"
+  },
+  "window.Effect.LiquidGlassRegular": {
+    "summary": "macOS 26+ 液态玻璃（常规，NSGlassEffectView）。旧系统回退到同列表中的普通材质。"
+  },
+  "window.Effect.LiquidGlassClear": {
+    "summary": "macOS 26+ 液态玻璃（通透，NSGlassEffectView）。旧系统回退到同列表中的普通材质。"
+  },
+  "image.JsImage": {
+    "summary": "图标类参数的宽类型：Image、路径字符串或字节数组（Uint8Array/ArrayBuffer/number[]），经 Image 归一化后以 rid 传给宿主。"
+  },
+  "webview-window.WebviewWindow.setFullscreenOnMonitor": {
+    "summary": "将 WebviewWindow 全屏到包含指定坐标的显示器上(继承自 Window)。"
+  },
+  "window.Effects.interactive": {
+    "summary": "液态玻璃交互性(macOS 27+;其他平台忽略)。"
   }
 }
