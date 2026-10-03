@@ -159,6 +159,12 @@ export class Resource {
   async close(): Promise<void> {
     return invoke("plugin:resources|close", { rid: this.rid });
   }
+
+  /** `await using` support (ECMAScript Explicit Resource Management,
+   *  tauri 2.12 be019795a): disposes via the same path as close(). */
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
+  }
 }
 
 /** Whether the current context is a Ztron WebView. */

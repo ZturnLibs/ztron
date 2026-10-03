@@ -11,7 +11,7 @@ Source: `tests/helpers/manifest.ts` — mirrors the runtime registration surface
 | `plugin:event\|emit` | `event` | [`event`](./api/event) |
 | `plugin:event\|emit_to` | `event` | [`event`](./api/event) |
 
-## plugin:app (13 commands)
+## plugin:app (14 commands)
 
 | Command | Permission owner (group) | API module |
 | --- | --- | --- |
@@ -22,6 +22,7 @@ Source: `tests/helpers/manifest.ts` — mirrors the runtime registration surface
 | `plugin:app\|identifier` | `app` | [`app`](./api/app) |
 | `plugin:app\|show` | `app` | [`app`](./api/app) |
 | `plugin:app\|hide` | `app` | [`app`](./api/app) |
+| `plugin:app\|activate_ignoring_other_apps` | `app` | [`app`](./api/app) |
 | `plugin:app\|set_dock_visibility` | `app` | [`app`](./api/app) |
 | `plugin:app\|bundle_type` | `app` | [`app`](./api/app) |
 | `plugin:app\|supports_multiple_windows` | `app` | [`app`](./api/app) |
@@ -231,12 +232,13 @@ Source: `tests/helpers/manifest.ts` — mirrors the runtime registration surface
 | --- | --- | --- |
 | `plugin:deep-link\|get_last_url` | `deep-link` | [`deep-link`](./api/deep-link) |
 
-## plugin:image (5 commands)
+## plugin:image (6 commands)
 
 | Command | Permission owner (group) | API module |
 | --- | --- | --- |
 | `plugin:image\|from_bytes` | `image` | [`image`](./api/image) |
 | `plugin:image\|from_path` | `image` | [`image`](./api/image) |
+| `plugin:image\|from_app_icon_resource` | `image` | [`image`](./api/image) |
 | `plugin:image\|rgba` | `image` | [`image`](./api/image) |
 | `plugin:image\|size` | `image` | [`image`](./api/image) |
 | `plugin:image\|destroy` | `image` | [`image`](./api/image) |

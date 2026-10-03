@@ -40,6 +40,8 @@ export interface AppConfig {
   appName?: string;
   version?: string;  /** The `__ZTRON_INVOKE_KEY__` used to authenticate IPC messages. */
   invokeKey: string;
+  /** Overrides the app_* path dirs (portable apps; tauri appDirectoriesOverride). */
+  appDirectoriesOverride?: import("./plugins/path.js").AppDirectoriesOverride;
   windows: WindowConfig[];
   /** Inject the full internals on `window` (like `withGlobalTauri`). */
   withGlobalTauri?: boolean;
@@ -317,6 +319,7 @@ export class App {
       "plugin:app|identifier",
       "plugin:app|show",
       "plugin:app|hide",
+      "plugin:app|activate_ignoring_other_apps",
       "plugin:app|set_dock_visibility",
       "plugin:app|bundle_type",
       "plugin:app|supports_multiple_windows",
@@ -330,6 +333,7 @@ export class App {
       "plugin:image|rgba",
       "plugin:image|size",
       "plugin:image|from_path",
+      "plugin:image|from_app_icon_resource",
       "plugin:image|destroy",
       "plugin:process|exit",
       "plugin:process|relaunch",
@@ -881,6 +885,9 @@ export class App {
       "plugin:app|version": (_args, ctx) => ctx.app.config.version ?? "0.1.0",
       "plugin:app|tauri_version": () => "2.0.0",
       "plugin:app|identifier": (_args, ctx) => ctx.app.config.identifier,
+      "plugin:app|activate_ignoring_other_apps": () => {
+        this.#adapter.application?.activateIgnoringOtherApps();
+      },
       "plugin:app|show": () => {
         this.#adapter.application?.show();
       },
@@ -952,6 +959,8 @@ export class App {
         this.#adapter.image?.fromPath(
           String((args as { path?: string }).path ?? ""),
         ) ?? -1,
+      "plugin:image|from_app_icon_resource": async () =>
+        (await this.#adapter.image?.fromAppIconResource?.()) ?? -1,
       "plugin:image|rgba": async (args) => {
         const id = Number((args as { id?: number }).id);
         const meta = this.#imageMeta.get(id);
@@ -1334,6 +1343,16 @@ export class App {
     this.#permissionHandler = handler;
   }
 
+  /**
+   * Activates the app even when another app is active (macOS; no-op
+   * elsewhere). Tauri exposes this as a Builder launch option — the runtime
+   * method is the ztron-shaped equivalent (call it from `setup` for
+   * launch-time activation).
+   */
+  activateIgnoringOtherApps(): void {
+    this.#adapter.application?.activateIgnoringOtherApps();
+  }
+
   /** Boots the configured windows and blocks on the main loop. */
   async run(): Promise<void> {
     await this.#setup?.(this);
@@ -1592,6 +1611,8 @@ export class AppBuilder {
     if (conf.mainBinaryName)
       this.#config.mainBinaryName = conf.mainBinaryName;
     if (conf.version) this.#config.version = conf.version;
+    if (conf.app?.appDirectoriesOverride !== undefined)
+      this.#config.appDirectoriesOverride = conf.app.appDirectoriesOverride;
 
     // F1: structured blocks (legacy top-level csp/capabilities stay live).
     const sec = conf.app?.security ?? {};
@@ -1683,6 +1704,15 @@ export interface ProjectConfigFile {
       };
       freezePrototype?: boolean;
     };
+    /** Overrides the app_* dir path APIs: a portable root or per-dir map
+     * (paths may start with $HOME/$DATA/… variables; tauri 7dbfc1fe5). */
+    appDirectoriesOverride?: string | {
+      config?: string;
+      data?: string;
+      localData?: string;
+      cache?: string;
+      log?: string;
+    };
   };
   bundle?: {
     active?: boolean;
@@ -1736,6 +1766,23 @@ export function validateProjectConfig(
       typeof conf.app.withGlobalTauri !== "boolean"
     )
       throw new Error("ztron.conf.json: app.withGlobalTauri must be boolean");
+    const ov = (conf.app as { appDirectoriesOverride?: unknown }).appDirectoriesOverride;
+    if (ov !== undefined) {
+      const ok =
+        typeof ov === "string" ||
+        (typeof ov === "object" &&
+          ov !== null &&
+          Object.entries(ov).every(
+            ([k, v]) =>
+              ["config", "data", "localData", "cache", "log"].includes(k) &&
+              typeof v === "string",
+          ));
+      if (!ok)
+        throw new Error(
+          "ztron.conf.json: app.appDirectoriesOverride must be a string or " +
+            "an object of {config,data,localData,cache,log} string paths",
+        );
+    }
   }
   if (conf.bundle && typeof conf.bundle !== "object")
     throw new Error("ztron.conf.json: bundle must be an object");
