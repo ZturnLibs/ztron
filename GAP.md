@@ -128,6 +128,54 @@
 
 ---
 
+# H. Windows ↔ macOS 平台内差距（2026-10-03 全量盘点，基线 @efd42a5）
+
+> GAP A–G 记 Tauri↔Ztron 对齐；本表记 **Ztron 自身平台实现之间**的差距。方法：`host_macos.c`（3697 行/133 op）↔ `host_windows.c`（1874 行/115 op）dispatch op 全集对照 + `runtime-ffi/src/host.ts` 事件路由核查。平台不支持 ≠ 不移植：Windows 有等价 Win32/WebView2 API 的一律列为待移植项。
+
+## P0 — bug 级（功能失效/挂起）
+
+| ID | 缺口 | 证据 | 状态 |
+|----|------|------|------|
+| H1 | **dialog_ask/dialog_confirm 未处理** → `dialog.ask()`/`confirm()` Promise 永久挂起（host.c 静默丢弃，query_result 永不返回） | runtime-ffi `host.ts:760/766` 无条件发送；`host_windows.c` 无对应分支 | ✓ `dialog_confirm_like`（MB_OKCANCEL/MB_YESNO + kind→icon，JSON true/false 回执对齐 mac）——DESIGN §125 |
+| H2 | **窗口事件误路由**：move/resize/close/focus/blur 发成 `tray_event` → `Window.onMoved/onResized/onFocusChanged/onCloseRequested` 永不触发；托盘监听器收无 trayId 垃圾事件 | `host_windows.c:628-638` vs mac `emit_window_event_labeled`（:1260） | ✓ `emit_window_event`（window_event+label 线格式同 mac），WM_ACTIVATE/MOVE/SIZE/CLOSE 全改路由——DESIGN §125 |
+| H3 | **prevent_close 无效**：`set_prevent_close` stub，WM_CLOSE 放行 → `preventDefault()` 阻不住关闭。mac 语义：prevent 开启时拦截 + 发 close 事件 + 不关闭，由 backend 决定 destroy | `host_windows.c:636/1414` vs mac `zt_should_close`（:1339） | ✓ WM_CLOSE 查 WinState 拦截/放行 + relaunch 改 webview_terminate 防自吞——DESIGN §125 |
+| H4 | **多窗口裸奔**：`attach_webview=NULL`，仅主窗口被 subclass → 第二窗口无事件/min-max size 是全局量（g_min_w）/无 close 处理 | `host_windows.c:1874/119` vs mac attach_webview 完整 | ✓ `WinState[16]`（hwnd 键 min/max/prevent_close）+ attach_webview SetWindowSubclass + WM_DESTROY 摘表——DESIGN §125 |
+
+## P1 — 功能级缺失
+
+| ID | 缺口 | Windows 可接 API | 状态 |
+|----|------|------------------|------|
+| H5 | `ztron://` scheme handler 无实现（内容走 file://，ACL 单源 origin 模型不可用） | WebView2 `WebResourceRequested`（wry 同构） | ☐ |
+| H6 | WebView2 权限桥缺失：`onPermissionRequest` no-op（PR #39 仅 mac 实现，win 无 `PermissionRequested` 接线） | `ICoreWebView2::add_PermissionRequested` | ☐ |
+| H7 | window effects 无视觉效果（round-trip only） | `DwmSetWindowAttribute` Mica/Acrylic/`DWM_SYSTEMBACKDROP_TYPE` | ☐ |
+| H8 | 拖放事件族不存在：无 drag_enter/over/drop/leave 推送 + `set_file_drop_enabled` 缺失 → `onDragDropEvent` 不可用 | `IDropTarget`（wry 同构） | ☐ |
+| H9 | deep-link 全链路不通：无 scheme 注册表写入、无 deep_link 事件推送 | HKCU`Software\Classes`+`WM_COPYDATA`/argv 转发 | ☐ |
+| H10 | `webview_clear_data` 缺失 → `clearBrowsingData()` 静默无效 | `ICoreWebView2_13::ClearBrowsingData` | ☐ |
+| H11 | `set_theme` 缺失 + 无主题变更推送（查询读注册表✓，但 `onThemeChanged` 不触发） | `AppsUseLightTheme`+`WM_SETTINGCHANGE` | ☐ |
+| H12 | 通知降级为托盘气球（依赖托盘存在，无托盘时静默失败）+ is_granted/request_permission 缺失 | WinRT `ToastNotification` | ☐ |
+
+## P2 — 功能面缺口（op 级）
+
+| ID | 缺口 | 状态 |
+|----|------|------|
+| H13 | `menu_popup` stub（仅托盘点击可弹）→ 程序化弹出菜单不可用 | ☐ |
+| H14 | `menu_create_default`/`menu_set_item_icon`/`menu_set_window_menu` 缺失（无 Menu.default()、IconMenuItem 无 owner-draw、菜单栏全局单一挂载） | ☐ |
+| H15 | `app_show`/`app_hide`/`app_set_dock_visibility` 三 op 缺失（Windows 等价：主窗口 ShowWindow/skip_taskbar） | ☐ |
+| H16 | `set_background_color` 缺失 | WebView2 `put_DefaultBackgroundColor` | ☐ |
+| H17 | 托盘单实例 + click 仅 WM_LBUTTONUP（无右键事件/doubleClick/move/enter/leave） | ☐ |
+| H18 | `set_badge_count/label` round-trip only（需 GDI 文本→HICON overlay）、`set_cursor_grab`/`set_visible_on_all_workspaces` no-op | ☐ |
+| H19 | `set_titlebar_style`/`set_traffic_light_position`/`tray_set_icon_template` — macOS 专属概念，标记 N/A（不改） | N/A |
+
+## P3 — 打包/工具链
+
+| ID | 缺口 | 状态 |
+|----|------|------|
+| H20 | msi 仅 WiX 骨架（candle+light 未接）；无 Authenticode 签名（mac 有 codesign+notarize 全链 F5） | ☐ |
+| H21 | driver msedgedriver remote：spawn 表有，请求级转发待真机验证（VERIFY-LATER A1） | ☐ |
+| H22 | single-instance argv 恒 `[]`（第二实例参数不转发，上游 Windows 走命名管道） | ☐ |
+
+---
+
 # 执行批次（Phase G 规划）
 
 > 原则：安全项最先；同文件扎堆；每批次收口 = 测试全绿 + 设计文档章节记录。

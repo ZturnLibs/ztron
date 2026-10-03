@@ -1331,6 +1331,19 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 125. Windows P0 平台差距批(GAP H1–H4:dialog 挂起/窗口事件误路由/prevent_close/多窗口 attach)
+
+- **盘点(GAP.md H 表新增)**:GAP A–G 记 Tauri↔Ztron 对齐,平台内差距(win vs mac)此前无维度。方法:host_macos.c(3697 行/133 op)↔ host_windows.c(1874 行/115 op)dispatch op 全集对照 + runtime-ffi 事件路由核查。win 缺 18 op,其中 P0 四项为本批;H5–H22(P1–P3)留账
+- **H1 dialog_ask/confirm(runtime-ffi 无条件发送,host_windows.c 无分支,host.c:344 静默丢弃 → `dialog.ask()/confirm()` Promise 永久挂起)**:`dialog_confirm_like(m, MB_OKCANCEL|MB_YESNO)` —— ask=OK/Cancel、confirm=Yes/No,kind 0/1/2 → ICONINFORMATION/WARNING/ERROR,zt_reply_query JSON true/false 与 mac `dialog_confirm_like` 回执格式逐字节对齐
+- **H2 窗口事件误路由(原 move/resize/close/focus/blur 全部 `emit_tray_event` 发送 → core 按 window_event+label 路由 → Window.onMoved/onResized/onFocusChanged/onCloseRequested 在 Windows 永不触发,托盘监听器反收无 trayId 垃圾)**:新增 `emit_window_event(h, event)`(mac `emit_window_event_labeled` 同构线格式 `{"type":"window_event","label","event"}`),zt_proc 的 WM_ACTIVATE(LOWORD(wp) 判 focus/blur)/WM_MOVE/WM_SIZE 全部改走;label 由 `zt_label_for_window` 解析
+- **H3 prevent_close(原 stub "WM_CLOSE intercept not implemented")**:WM_CLOSE 分支查 `win_state(h)->prevent_close`,armed 则 `emit_window_event(h,"close")` + return 0 吞掉(不进 DefSubclassProc → 引擎 WM_CLOSE→DestroyWindow 默认路径不跑),未 armed 放行 —— mac `zt_should_close` 语义逐条对齐(prevent 时拦截+发事件+不关闭,backend 经 ztron://close-requested 决定 destroy);`set_prevent_close` dispatch 从 stub 改写状态表
+- **H4 多窗口 attach(`attach_webview=NULL`,仅主窗口 subclass → 第二窗口无事件/min-max 是全局量 g_min_w)**:g_min_* 四全局 → `WinState[16]`(hwnd 键,min/max/prevent_close),WM_GETMINMAXINFO 查表;window_set_min/max_size 写表;`attach_webview` 实现 SetWindowSubclass(自增 subclass id,main 占 1);WM_DESTROY 摘表项;`zt_platform` 接线 attach_webview
+- **relaunch 修正**:原 `PostMessageW(WM_CLOSE)` 在 prevent_close armed 后会被自家拦截器吞掉(旧实例永不退出)——改 `webview_terminate(zt_w)`(与 host.c "quit" 同路径,绕过拦截)
+- **探针 `examples/winevent-probe`(自驱动,零人工)**:页面用 `__ZTRON_INTERNALS__` 裸订阅 move/resize/focus/close-requested(复刻 api Window 语义)+ arm prevent_close;后端 setPosition/maximize/set_focus + PowerShell user32 PostMessage 直发 WM_ACTIVATE(自动化环境窗口从未失活,真机点击路径同为此消息)与 WM_CLOSE(arm→拦截存活→disarm→销毁退出);存活证明=进程零码退出(引擎末窗销毁即 terminate,窗口若幸存则撞 harness 超时)——**post-mortem 日志与进程退出竞速,disarm 后不再打日志是刻意设计**;ci.sh 增 windows-only 步骤(5.5)
+- **CLI 顺带修复(check 门禁完整性 bug)**:`--expect` 原经 `flagValue`(indexOf 取首个)解析 → ci.sh 重复 `--expect A --expect B` 形式下 **只有第一个标记生效**(multiwin 门禁实际只验 SECOND_WINDOW_OK,menuprobe 只验 MENU_V2_OK)——改为收集全部出现并逐个逗号展开,向后兼容逗号形式。**教训:门禁断言"看似生效"与"真被强制"必须以故意缺席用例验证**(本批首跑即因标记拼写与 _OK 后缀规则两处偏差被修复后的门禁拦下,反向证明了修复有效)
+- **验证**:winevent-probe 4/4(WIN_EVENTS_OK:move 3/resize 2/focus 1 + CLOSE_PREVENT_OK + WINDOW_ALIVE_OK + CLOSE_DISARMED_OK exit 0);hello FULL_OK;multiwin 5/5、menuprobe 5/5(**修复后 expect 全量强制下复跑**);243 tests / 241 pass / 2 skip;MSVC /W4 无新警告(host_windows.c 重编 + ztron-host.exe 替换);工作区 build 过
+- **教训**:①探针标记必须匹配 harness 的 `_OK/_FAIL/_BONUS` 后缀规则与 bare 行正则——写完先对 `onLine` 的解析规则逐字符核对;②`windowState("is_visible")` 不是查询 op(联合类型无此键,运行时 invoke 拒绝)——窗口存活改用 is_minimized 查询(协议活性)+ 引擎退出语义(存在性)双信号;③detached async 在 run() resolve 后即随进程消亡,依赖"死后回调"的断言必须改为以进程退出本身为信号
+
 ## 124. 真·minisign 四向互测(VERIFY-LATER B2 闭环)
 
 - **D1**:真 minisign 签名 → verifyMinisig ✓(G3 已验,本轮复证)

@@ -114,9 +114,37 @@ static HWND zt_hwnd_for(webview_t wv) {
   return (HWND)webview_get_native_handle(wv, WEBVIEW_NATIVE_HANDLE_KIND_UI_WINDOW);
 }
 
-/* Size constraints honored via WM_GETMINMAXINFO (window_set_min/max_size;
-   0 = unconstrained). Outer-window approximation of the inner-size API. */
-static int g_min_w, g_min_h, g_max_w, g_max_h;
+/* Per-window state honored via WM_GETMINMAXINFO / WM_CLOSE (window_set_min/
+   max_size, set_prevent_close; 0 = unconstrained/off). Keyed by HWND so
+   secondary windows carry their own constraints (mac parity: per-label
+   state); dropped on WM_DESTROY. */
+typedef struct {
+  HWND hwnd;
+  int min_w, min_h, max_w, max_h;
+  int prevent_close; /* WM_CLOSE intercepted -> "close" event, no destroy */
+} WinState;
+#define MAX_WIN_STATES 16
+static WinState g_winstates[MAX_WIN_STATES];
+
+static WinState *win_state(HWND w) {
+  int i, slot = -1;
+  if (!w) return NULL;
+  for (i = 0; i < MAX_WIN_STATES; i++) {
+    if (g_winstates[i].hwnd == w) return &g_winstates[i];
+    if (slot < 0 && !g_winstates[i].hwnd) slot = i;
+  }
+  if (slot < 0) return NULL;
+  memset(&g_winstates[slot], 0, sizeof(g_winstates[slot]));
+  g_winstates[slot].hwnd = w;
+  return &g_winstates[slot];
+}
+
+static void win_state_drop(HWND w) {
+  int i;
+  for (i = 0; i < MAX_WIN_STATES; i++)
+    if (g_winstates[i].hwnd == w)
+      memset(&g_winstates[i], 0, sizeof(g_winstates[i]));
+}
 
 static int g_cursor_visible = 1;
 
@@ -509,9 +537,11 @@ static void handle_window_op(Msg *m, webview_t wv) {
       g_cursor_visible = m->bool_val != 0;
     }
   } else if (strcmp(m->type, "window_set_min_size") == 0) {
-    g_min_w = m->width; g_min_h = m->height;
+    WinState *st = win_state(zt_hwnd_for(wv));
+    if (st) { st->min_w = m->width; st->min_h = m->height; }
   } else if (strcmp(m->type, "window_set_max_size") == 0) {
-    g_max_w = m->width; g_max_h = m->height;
+    WinState *st = win_state(zt_hwnd_for(wv));
+    if (st) { st->max_w = m->width; st->max_h = m->height; }
   } else if (strcmp(m->type, "set_progress_bar") == 0) {
     taskbar_progress(w, m->opacity_val);
   } else if (strcmp(m->type, "set_badge_count") == 0 ||
@@ -602,6 +632,18 @@ static void emit_tray_event(const char *event) {
   zt_send_line(buf);
 }
 
+/* Window lifecycle events route per-label like macOS (emit_window_event_
+   labeled): the runtime resolves the label and fans out to the Window
+   handle; unknown labels are dropped there. Never routed as tray_event —
+   the two consumers expect different payloads. */
+static void emit_window_event(HWND h, const char *event) {
+  char buf[192];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"%s\"}",
+           zt_label_for_window((void *)h), event);
+  zt_send_line(buf);
+}
+
 /* Window proc forwarding tray/menu/window messages; the host's main window
  * proc (in webview/webview) may already handle some; we hook via subclass. */
 static void zt_shortcut_pressed(int id);
@@ -626,22 +668,36 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
       zt_shortcut_pressed((int)wp);
       return 0;
     case WM_ACTIVATE:
-      if (wp != WA_INACTIVE) emit_tray_event("focus");
-      else emit_tray_event("blur");
+      emit_window_event(h, LOWORD(wp) == WA_INACTIVE ? "blur" : "focus");
       break;
     case WM_MOVE:
-    case WM_SIZE:
-      emit_tray_event(msg == WM_MOVE ? "move" : "resize");
+      emit_window_event(h, "move");
       break;
-    case WM_CLOSE:
-      emit_tray_event("close");
+    case WM_SIZE:
+      emit_window_event(h, "resize");
+      break;
+    case WM_CLOSE: {
+      /* mac zt_should_close parity: with prevent_close armed the close is
+         intercepted and surfaced as a "close" window event (-> ztron://
+         close-requested); the backend decides whether to destroy. Without
+         it the default engine path runs (WM_CLOSE -> DestroyWindow). */
+      WinState *st = win_state(h);
+      if (st && st->prevent_close) {
+        emit_window_event(h, "close");
+        return 0;
+      }
+      break;
+    }
+    case WM_DESTROY:
+      win_state_drop(h);
       break;
     case WM_GETMINMAXINFO: {
+      WinState *st = win_state(h);
       MINMAXINFO *mmi = (MINMAXINFO *)lp;
-      if (g_min_w > 0) mmi->ptMinTrackSize.x = g_min_w;
-      if (g_min_h > 0) mmi->ptMinTrackSize.y = g_min_h;
-      if (g_max_w > 0) mmi->ptMaxTrackSize.x = g_max_w;
-      if (g_max_h > 0) mmi->ptMaxTrackSize.y = g_max_h;
+      if (st && st->min_w > 0) mmi->ptMinTrackSize.x = st->min_w;
+      if (st && st->min_h > 0) mmi->ptMinTrackSize.y = st->min_h;
+      if (st && st->max_w > 0) mmi->ptMaxTrackSize.x = st->max_w;
+      if (st && st->max_h > 0) mmi->ptMaxTrackSize.y = st->max_h;
       return 0;
     }
   }
@@ -1062,6 +1118,18 @@ static void dialog_message(Msg *m) {
   zt_reply_string(m->req_id, tmp);
 }
 
+/* ask/confirm parity with mac dialog_confirm_like: JSON true on the first
+   button. ask = OK/Cancel, confirm = Yes/No; kind maps to the message icon.
+   Unhandled here meant the backend promise never resolved (GAP H1). */
+static void dialog_confirm_like(Msg *m, UINT buttons) {
+  UINT icon = m->kind == 2   ? MB_ICONERROR
+              : m->kind == 1 ? MB_ICONWARNING
+                             : MB_ICONINFORMATION;
+  int r = MessageBoxA(zt_hwnd(), m->str2[0] ? m->str2 : m->id, m->id,
+                      buttons | icon);
+  zt_reply_query(m->req_id, (r == IDOK || r == IDYES) ? "true" : "false");
+}
+
 static void zt_reply_frame(int req_id, const RECT *r) {
   char buf[256];
   snprintf(buf, sizeof(buf),
@@ -1411,7 +1479,13 @@ static int dispatch(Msg *m, webview_t wv) {
     if (w) SetWindowPos(w, 0, m->x, m->y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
     return 1;
   }
-  if (strcmp(m->type, "set_prevent_close") == 0) { return 1; } /* WM_CLOSE intercept not implemented */
+  if (strcmp(m->type, "set_prevent_close") == 0) {
+    /* Arms the WM_CLOSE intercept in zt_proc (mac zt_should_close parity):
+       close becomes a "close" event the backend answers via destroy. */
+    WinState *st = win_state(zt_hwnd_for(wv));
+    if (st) st->prevent_close = m->bool_val;
+    return 1;
+  }
   if (strcmp(m->type, "window_destroy") == 0) {
     /* Non-main windows: destroy the webview itself and drop the registry
        entry. The main window is torn down by "quit" — never here. */
@@ -1755,6 +1829,14 @@ static int dispatch(Msg *m, webview_t wv) {
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }
   if (strcmp(m->type, "dialog_message") == 0) { dialog_message(m); return 1; }
+  if (strcmp(m->type, "dialog_ask") == 0) {
+    dialog_confirm_like(m, MB_OKCANCEL);
+    return 1;
+  }
+  if (strcmp(m->type, "dialog_confirm") == 0) {
+    dialog_confirm_like(m, MB_YESNO);
+    return 1;
+  }
 
   if (strcmp(m->type, "clipboard_read_text") == 0) {
     if (m->req_id >= 0 && OpenClipboard(NULL)) {
@@ -1863,12 +1945,27 @@ static int init(void) {
   return 1;
 }
 
+/* Subclass IDs must be unique per installation into a window chain; the
+   main window takes 1 in init, runtime-created windows count up here. */
+static UINT g_subclass_next = 1;
+
+static int attach_webview(webview_t w) {
+  /* Per-window event/close handling for runtime-created windows (GAP H4):
+     without this, secondary windows never emit move/resize/focus/blur/close
+     and their WM_CLOSE takes the raw engine path. */
+  HWND h = zt_hwnd_for(w);
+  if (h) SetWindowSubclass(h, zt_proc, ++g_subclass_next, 0);
+  return 1;
+}
+
 static void relaunch(void) {
   char path[MAX_PATH];
   if (GetModuleFileNameA(NULL, path, sizeof(path)) > 0) {
     ShellExecuteA(NULL, "open", path, "0", NULL, SW_SHOWNORMAL);
   }
-  PostMessageW(zt_hwnd(), WM_CLOSE, 0, 0);
+  /* webview_terminate, not WM_CLOSE: the prevent-close intercept would eat
+     a posted WM_CLOSE and the relaunch would strand the old instance. */
+  webview_terminate(zt_w);
 }
 
-const HostPlatformOps zt_platform = { dispatch, init, NULL, relaunch };
+const HostPlatformOps zt_platform = { dispatch, init, attach_webview, relaunch };

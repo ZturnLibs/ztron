@@ -468,8 +468,16 @@ async function dev(cwd: string, entry: string): Promise<void> {
  */
 async function check(cwd: string, entry: string, args: string[]): Promise<void> {
   const timeoutMs = numberFlag(args, "--timeout", 120_000);
-  const expect = flagValue(args, "--expect");
-  const required = expect ? expect.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  /* Every --expect occurrence counts (flagValue takes only the first), each
+     holding one tag or a comma-separated list — ci.sh repeats the flag. */
+  const required: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--expect" && args[i + 1]) {
+      required.push(
+        ...args[i + 1]!.split(",").map((t) => t.trim()).filter(Boolean),
+      );
+    }
+  }
   await runApp(cwd, entry, "check", {
     timeoutMs,
     required,

@@ -275,6 +275,22 @@ importers:
         specifier: ^3.0.0
         version: 3.3.11(typescript@5.9.3)
 
+  examples/winevent-probe:
+    dependencies:
+      '@zturnlibs/ztron-api':
+        specifier: workspace:*
+        version: link:../../packages/api
+      '@zturnlibs/ztron-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@zturnlibs/ztron-runtime-ffi':
+        specifier: workspace:*
+        version: link:../../packages/runtime-ffi
+    devDependencies:
+      '@zturnlibs/ztron-cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   packages/api:
     devDependencies:
       typescript:

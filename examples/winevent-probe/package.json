@@ -1,0 +1,17 @@
+{
+  "name": "@zturnlibs/ztron-example-winevent-probe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ztron dev"
+  },
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-core": "workspace:*",
+    "@zturnlibs/ztron-runtime-ffi": "workspace:*"
+  },
+  "devDependencies": {
+    "@zturnlibs/ztron-cli": "workspace:*"
+  }
+}

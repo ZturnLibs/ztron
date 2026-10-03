@@ -229,6 +229,29 @@ run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
+# ---- 5.5 winevent probe (windows only; GAP H1–H4 regression) -----------------
+
+# Window-event routing / prevent-close on the win32 host (host_windows.c).
+# The hello spike never asserted per-window event delivery, so these P0s
+# regressed silently until the probe existed (2026-10-03 batch: events were
+# misrouted as tray_event, prevent_close was a stub, dialog ask/confirm
+# hung, secondary windows had no attach). Needs an interactive desktop —
+# windows runners qualify; skip elsewhere.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "winevent probe (win32 window events + prevent-close)"
+    run_ztron_check "$ROOT/examples/winevent-probe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect WIN_EVENTS_OK \
+      --expect CLOSE_PREVENT_OK \
+      --expect WINDOW_ALIVE_OK \
+      --expect CLOSE_DISARMED_OK \
+      > /tmp/ci-winevent.log 2>&1 \
+      || { tail -30 /tmp/ci-winevent.log; fail "winevent probe"; }
+    tail -2 /tmp/ci-winevent.log
+    ;;
+  *) step "winevent probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user
