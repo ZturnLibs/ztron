@@ -461,30 +461,639 @@ index 1a0a2c6..f369cf3 100755
  } // namespace detail
  
 diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
-index 316a9d5..cedc92c 100644
+index 316a9d5..8af54d8 100644
 --- a/core/include/webview/detail/backends/win32_edge.hh
 +++ b/core/include/webview/detail/backends/win32_edge.hh
-@@ -460,6 +460,20 @@ protected:
+@@ -61,6 +61,7 @@
+ #include <list>
+ #include <memory>
+ #include <utility>
++#include <vector>
+ 
+ #ifndef WIN32_LEAN_AND_MEAN
+ #define WIN32_LEAN_AND_MEAN
+@@ -138,6 +139,13 @@ public:
+     return E_NOINTERFACE;
+   }
+   HRESULT STDMETHODCALLTYPE Invoke(HRESULT res, ICoreWebView2Environment *env) {
++    // Capture the environment on the first successful callback (retries may
++    // invoke again); callers use it e.g. for CreateWebResourceResponse.
++    if (m_env_out && SUCCEEDED(res) && env) {
++      *m_env_out = env;
++      env->AddRef();
++      m_env_out = nullptr;
++    }
+     if (SUCCEEDED(res)) {
+       res = env->CreateCoreWebView2Controller(m_window, this);
+       if (SUCCEEDED(res)) {
+@@ -200,6 +208,11 @@ public:
+     m_attempt_handler = attempt_handler;
+   }
+ 
++  // Optional out-slot receiving the created ICoreWebView2Environment.
++  void set_env_out(ICoreWebView2Environment **env_out) noexcept {
++    m_env_out = env_out;
++  }
++
+   // Retry creating a WebView2 environment.
+   // The initiating logic for creating the environment is defined by the
+   // caller of set_attempt_handler().
+@@ -232,6 +245,7 @@ private:
+   HWND m_window;
+   msg_cb_t m_msgCb;
+   webview2_com_handler_cb_t m_cb;
++  ICoreWebView2Environment **m_env_out = nullptr;
+   std::atomic<ULONG> m_ref_count{1};
+   std::function<HRESULT()> m_attempt_handler;
+   unsigned int m_max_attempts = 60;
+@@ -291,6 +305,369 @@ private:
+   std::atomic<ULONG> m_ref_count{1};
+ };
+ 
++// ---- custom URL scheme serving (win32/WebView2; mac WKURLSchemeHandler
++// parity) ------------------------------------------------------------
++// Maps scheme://host/<path> onto <root>/<path> and serves the file from
++// inside WebResourceRequested. Unlike WKURLSchemeTask there is no async
++// delivery — WebView2 requires the response before the handler returns, so
++// the disk read runs synchronously on the UI thread (wry does the same).
++
++inline std::string scheme_percent_decode(const std::string &enc) {
++  // Basic percent-decoding (%20 -> space, %2F -> /), mac parity.
++  std::string dec;
++  for (size_t i = 0; i < enc.size(); ++i) {
++    if (enc[i] == '%' && i + 2 < enc.size()) {
++      auto hex = [](char c) -> int {
++        if (c >= '0' && c <= '9') return c - '0';
++        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
++        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
++        return 0;
++      };
++      dec += static_cast<char>((hex(enc[i + 1]) << 4) | hex(enc[i + 2]));
++      i += 2;
++    } else {
++      dec += enc[i];
++    }
++  }
++  return dec;
++}
++
++inline std::string scheme_mime_for(const std::string &path) {
++  // Minimal MIME detection so the engine parses HTML/CSS/JS (mac parity).
++  std::string mime = "application/octet-stream";
++  if (path.rfind(".html") != std::string::npos ||
++      path.rfind(".htm") != std::string::npos) {
++    mime = "text/html";
++  } else if (path.rfind(".js") != std::string::npos) {
++    mime = "application/javascript";
++  } else if (path.rfind(".css") != std::string::npos) {
++    mime = "text/css";
++  } else if (path.rfind(".png") != std::string::npos) {
++    mime = "image/png";
++  } else if (path.rfind(".svg") != std::string::npos) {
++    mime = "image/svg+xml";
++  }
++  return mime;
++}
++
++class webview2_web_resource_requested_handler
++    : public ICoreWebView2WebResourceRequestedEventHandler {
++public:
++  using callback_fn =
++      std::function<void(ICoreWebView2WebResourceRequestedEventArgs *)>;
++
++  webview2_web_resource_requested_handler(callback_fn cb) : m_cb{cb} {}
++
++  virtual ~webview2_web_resource_requested_handler() = default;
++  webview2_web_resource_requested_handler(
++      const webview2_web_resource_requested_handler &other) = delete;
++  webview2_web_resource_requested_handler &operator=(
++      const webview2_web_resource_requested_handler &other) = delete;
++  webview2_web_resource_requested_handler(
++      webview2_web_resource_requested_handler &&other) = delete;
++  webview2_web_resource_requested_handler &operator=(
++      webview2_web_resource_requested_handler &&other) = delete;
++
++  ULONG STDMETHODCALLTYPE AddRef() { return ++m_ref_count; }
++  ULONG STDMETHODCALLTYPE Release() {
++    if (m_ref_count > 1) {
++      return --m_ref_count;
++    }
++    delete this;
++    return 0;
++  }
++
++  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, LPVOID *ppv) {
++    using namespace mswebview2::cast_info;
++
++    if (!ppv) {
++      return E_POINTER;
++    }
++
++    if (cast_if_equal_iid(this, riid, web_resource_requested, ppv)) {
++      return S_OK;
++    }
++
++    return E_NOINTERFACE;
++  }
++
++  HRESULT STDMETHODCALLTYPE
++  Invoke(ICoreWebView2 * /*sender*/,
++         ICoreWebView2WebResourceRequestedEventArgs *args) {
++    m_cb(args);
++    return S_OK;
++  }
++
++private:
++  callback_fn m_cb;
++  std::atomic<ULONG> m_ref_count{1};
++};
++
++// ---- custom scheme registration (GAP H5; webview-local) ------------------
++// Chromium refuses top-level navigations to schemes it does not know — the
++// WebResourceRequested event never fires for them — so the scheme must be
++// registered on the environment options (wry does the same via
++// ICoreWebView2EnvironmentOptions4::SetCustomSchemeRegistrations). The
++// vendored SDK header (1.0.1150) predates those interfaces; the two shapes
++// below are declared verbatim from the 1.0.2792 SDK (GUIDs are ABI
++// constants), with minimal implementations carrying only what the runtime
++// reads back (scheme name, TreatAsSecure, AllowedOrigins,
++// HasAuthorityComponent) plus safe base-option defaults.
++
++MIDL_INTERFACE("d60ac92c-37a6-4b26-a39e-95cfe59047bb")
++ICoreWebView2CustomSchemeRegistration : public IUnknown {
++public:
++  virtual /* [propget] */ HRESULT STDMETHODCALLTYPE
++  get_SchemeName(LPWSTR *schemeName) = 0;
++  virtual /* [propget] */ HRESULT STDMETHODCALLTYPE
++  get_TreatAsSecure(BOOL *treatAsSecure) = 0;
++  virtual /* [propput] */ HRESULT STDMETHODCALLTYPE
++  put_TreatAsSecure(BOOL treatAsSecure) = 0;
++  virtual HRESULT STDMETHODCALLTYPE
++  GetAllowedOrigins(UINT32 *allowedOriginsCount, LPWSTR **allowedOrigins) = 0;
++  virtual HRESULT STDMETHODCALLTYPE
++  SetAllowedOrigins(UINT32 allowedOriginsCount, LPCWSTR *allowedOrigins) = 0;
++  virtual /* [propget] */ HRESULT STDMETHODCALLTYPE
++  get_HasAuthorityComponent(BOOL *hasAuthorityComponent) = 0;
++  virtual /* [propput] */ HRESULT STDMETHODCALLTYPE
++  put_HasAuthorityComponent(BOOL hasAuthorityComponent) = 0;
++};
++
++MIDL_INTERFACE("ac52d13f-0d38-475a-9dca-876580d6793e")
++ICoreWebView2EnvironmentOptions4 : public IUnknown {
++public:
++  virtual HRESULT STDMETHODCALLTYPE GetCustomSchemeRegistrations(
++      UINT32 *count,
++      ICoreWebView2CustomSchemeRegistration ***schemeRegistrations) = 0;
++  virtual HRESULT STDMETHODCALLTYPE SetCustomSchemeRegistrations(
++      UINT32 count,
++      ICoreWebView2CustomSchemeRegistration **schemeRegistrations) = 0;
++};
++
++inline HRESULT scheme_copy_wide(LPCWSTR src, LPWSTR *dst) {
++  size_t bytes = (wcslen(src) + 1) * sizeof(wchar_t);
++  auto buf = static_cast<LPWSTR>(CoTaskMemAlloc(bytes));
++  if (!buf) {
++    return E_OUTOFMEMORY;
++  }
++  CopyMemory(buf, src, bytes);
++  *dst = buf;
++  return S_OK;
++}
++
++class ztron_custom_scheme_registration
++    : public ICoreWebView2CustomSchemeRegistration {
++public:
++  explicit ztron_custom_scheme_registration(const std::wstring &scheme)
++      : m_scheme(scheme) {}
++  virtual ~ztron_custom_scheme_registration() = default;
++  ztron_custom_scheme_registration(
++      const ztron_custom_scheme_registration &) = delete;
++  ztron_custom_scheme_registration &
++  operator=(const ztron_custom_scheme_registration &) = delete;
++
++  ULONG STDMETHODCALLTYPE AddRef() { return ++m_ref_count; }
++  ULONG STDMETHODCALLTYPE Release() {
++    if (m_ref_count > 1) {
++      return --m_ref_count;
++    }
++    delete this;
++    return 0;
++  }
++  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, LPVOID *ppv) {
++    if (!ppv) {
++      return E_POINTER;
++    }
++    if (IsEqualIID(riid, IID_IUnknown) ||
++        IsEqualIID(riid, __uuidof(ICoreWebView2CustomSchemeRegistration))) {
++      *ppv = static_cast<ICoreWebView2CustomSchemeRegistration *>(this);
++      AddRef();
++      return S_OK;
++    }
++    *ppv = nullptr;
++    return E_NOINTERFACE;
++  }
++
++  HRESULT STDMETHODCALLTYPE get_SchemeName(LPWSTR *schemeName) override {
++    if (!schemeName) {
++      return E_POINTER;
++    }
++    return scheme_copy_wide(m_scheme.c_str(), schemeName);
++  }
++  HRESULT STDMETHODCALLTYPE get_TreatAsSecure(BOOL *treatAsSecure) override {
++    if (!treatAsSecure) {
++      return E_POINTER;
++    }
++    *treatAsSecure = TRUE;
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE put_TreatAsSecure(BOOL) override { return S_OK; }
++  HRESULT STDMETHODCALLTYPE
++  GetAllowedOrigins(UINT32 *allowedOriginsCount, LPWSTR **allowedOrigins) override {
++    if (!allowedOriginsCount || !allowedOrigins) {
++      return E_POINTER;
++    }
++    auto buf = static_cast<LPWSTR *>(CoTaskMemAlloc(sizeof(LPWSTR)));
++    if (!buf) {
++      return E_OUTOFMEMORY;
++    }
++    if (FAILED(scheme_copy_wide(L"*", buf))) {
++      CoTaskMemFree(buf);
++      return E_OUTOFMEMORY;
++    }
++    *allowedOrigins = buf;
++    *allowedOriginsCount = 1;
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE
++  SetAllowedOrigins(UINT32, LPCWSTR *) override {
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE
++  get_HasAuthorityComponent(BOOL *hasAuthorityComponent) override {
++    if (!hasAuthorityComponent) {
++      return E_POINTER;
++    }
++    *hasAuthorityComponent = TRUE;
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE put_HasAuthorityComponent(BOOL) override {
++    return S_OK;
++  }
++
++private:
++  std::wstring m_scheme;
++  std::atomic<ULONG> m_ref_count{1};
++};
++
++class ztron_env_options : public ICoreWebView2EnvironmentOptions,
++                          public ICoreWebView2EnvironmentOptions4 {
++public:
++  explicit ztron_env_options(const std::wstring &target_version)
++      : m_target_version(target_version) {}
++  virtual ~ztron_env_options() = default;
++  ztron_env_options(const ztron_env_options &) = delete;
++  ztron_env_options &operator=(const ztron_env_options &) = delete;
++
++  ULONG STDMETHODCALLTYPE AddRef() { return ++m_ref_count; }
++  ULONG STDMETHODCALLTYPE Release() {
++    if (m_ref_count > 1) {
++      return --m_ref_count;
++    }
++    delete this;
++    return 0;
++  }
++  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, LPVOID *ppv) {
++    if (!ppv) {
++      return E_POINTER;
++    }
++    if (IsEqualIID(riid, IID_IUnknown) ||
++        IsEqualIID(riid, IID_ICoreWebView2EnvironmentOptions)) {
++      *ppv = static_cast<ICoreWebView2EnvironmentOptions *>(this);
++    } else if (IsEqualIID(riid, __uuidof(ICoreWebView2EnvironmentOptions4))) {
++      *ppv = static_cast<ICoreWebView2EnvironmentOptions4 *>(this);
++    } else {
++      *ppv = nullptr;
++      return E_NOINTERFACE;
++    }
++    AddRef();
++    return S_OK;
++  }
++
++  // Base options: safe defaults so the runtime's version/compat checks keep
++  // behaving like the previous nullptr-options path.
++  HRESULT STDMETHODCALLTYPE
++  get_AdditionalBrowserArguments(LPWSTR *value) override {
++    if (!value) {
++      return E_POINTER;
++    }
++    return scheme_copy_wide(L"", value);
++  }
++  HRESULT STDMETHODCALLTYPE
++  put_AdditionalBrowserArguments(LPCWSTR) override {
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE get_Language(LPWSTR *value) override {
++    if (!value) {
++      return E_POINTER;
++    }
++    return scheme_copy_wide(L"", value);
++  }
++  HRESULT STDMETHODCALLTYPE put_Language(LPCWSTR) override { return S_OK; }
++  HRESULT STDMETHODCALLTYPE
++  get_TargetCompatibleBrowserVersion(LPWSTR *value) override {
++    if (!value) {
++      return E_POINTER;
++    }
++    return scheme_copy_wide(m_target_version.c_str(), value);
++  }
++  HRESULT STDMETHODCALLTYPE
++  put_TargetCompatibleBrowserVersion(LPCWSTR) override {
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE
++  get_AllowSingleSignOnUsingOSPrimaryAccount(BOOL *value) override {
++    if (!value) {
++      return E_POINTER;
++    }
++    *value = FALSE;
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE
++  put_AllowSingleSignOnUsingOSPrimaryAccount(BOOL) override {
++    return S_OK;
++  }
++
++  // The runtime reads the registrations back through this getter while
++  // building the environment (the docs' CoTaskMemFree note is addressed to
++  // implementors of this exact method).
++  HRESULT STDMETHODCALLTYPE GetCustomSchemeRegistrations(
++      UINT32 *count,
++      ICoreWebView2CustomSchemeRegistration ***schemeRegistrations) override {
++    if (!count || !schemeRegistrations) {
++      return E_POINTER;
++    }
++    auto array = static_cast<ICoreWebView2CustomSchemeRegistration **>(
++        CoTaskMemAlloc(m_registrations.size() *
++                       sizeof(ICoreWebView2CustomSchemeRegistration *)));
++    if (!array) {
++      return E_OUTOFMEMORY;
++    }
++    for (size_t i = 0; i < m_registrations.size(); ++i) {
++      array[i] = m_registrations[i];
++      array[i]->AddRef();
++    }
++    *schemeRegistrations = array;
++    *count = static_cast<UINT32>(m_registrations.size());
++    return S_OK;
++  }
++  HRESULT STDMETHODCALLTYPE SetCustomSchemeRegistrations(
++      UINT32 count,
++      ICoreWebView2CustomSchemeRegistration **schemeRegistrations) override {
++    if (count > 0 && !schemeRegistrations) {
++      return E_POINTER;
++    }
++    // Setter semantics: replace, not append — a second Set with the same
++    // scheme name would otherwise hand the runtime duplicate registrations.
++    for (auto *reg : m_registrations) {
++      reg->Release();
++    }
++    m_registrations.clear();
++    for (UINT32 i = 0; i < count; ++i) {
++      if (schemeRegistrations[i]) {
++        schemeRegistrations[i]->AddRef();
++        m_registrations.push_back(schemeRegistrations[i]);
++      }
++    }
++    return S_OK;
++  }
++
++private:
++  std::vector<ICoreWebView2CustomSchemeRegistration *> m_registrations;
++  std::wstring m_target_version;
++  std::atomic<ULONG> m_ref_count{1};
++};
++
+ class user_script::impl {
+ public:
+   impl(const std::wstring &id, const std::wstring &code)
+@@ -318,6 +695,25 @@ public:
+   }
+ 
+   virtual ~win32_edge_engine() {
++    if (m_webview && m_webres_req_handler) {
++      m_webview->remove_WebResourceRequested(m_webres_req_token);
++    }
++    if (m_webres_req_handler) {
++      m_webres_req_handler->Release();
++      m_webres_req_handler = nullptr;
++    }
++    if (m_environment) {
++      m_environment->Release();
++      m_environment = nullptr;
++    }
++    if (m_scheme_reg) {
++      m_scheme_reg->Release();
++      m_scheme_reg = nullptr;
++    }
++    if (m_env_options) {
++      m_env_options->Release();
++      m_env_options = nullptr;
++    }
+     if (m_com_handler) {
+       m_com_handler->Release();
+       m_com_handler = nullptr;
+@@ -460,6 +856,16 @@ protected:
      return {};
    }
  
-+  // Custom URL scheme serving is implemented for the macOS backend only
-+  // (async ztron:// in cocoa_webkit). Win32 frontends load via file:// or
-+  // http, and host.c does not register scheme handlers today — but the pure
-+  // virtual in engine_base leaves this class abstract without an override,
-+  // which failed to compile every win32 engine instantiation.
++  // Custom URL scheme serving via WebResourceRequested (mac parity, GAP H5).
++  // Only meaningful before the engine is constructed (window_settings reads
++  // ZTRON_SCHEME_ROOT); store so a pre-create call works too.
 +  noresult set_scheme_handler_impl(const std::string &scheme,
 +                                   const std::string &root_dir) override {
-+    (void)scheme;
-+    (void)root_dir;
-+    return noresult{error_info{
-+        WEBVIEW_ERROR_MISSING_DEPENDENCY,
-+        "custom scheme handlers are not implemented on win32/WebView2"}};
++    m_scheme = scheme;
++    m_scheme_root = root_dir;
++    return {};
 +  }
 +
    user_script add_user_script_impl(const std::string &js) override {
      auto wjs = widen_string(js);
      std::wstring script_id;
+@@ -740,6 +1146,41 @@ private:
+     wchar_t userDataFolder[MAX_PATH];
+     PathCombineW(userDataFolder, dataPath, currentExeName);
+ 
++    // Register the ztron custom scheme on the environment options so
++    // Chromium routes ztron:// navigations into WebResourceRequested (GAP
++    // H5). The options object MUST be a process-wide singleton: WebView2
++    // refuses a second environment on the same user-data folder whose
++    // EnvironmentOptions differ (engine_base's create/retry comment), which
++    // broke secondary-window creation when every engine passed a fresh
++    // instance. Deliberately never freed — it must outlive every engine.
++    static ztron_custom_scheme_registration *g_scheme_reg = nullptr;
++    static ztron_env_options *g_env_options = nullptr;
++    if (!g_env_options) {
++      LPWSTR rt_ver_w = nullptr;
++      std::wstring rt_ver;
++      if (SUCCEEDED(m_webview2_loader.get_available_browser_version_string(
++              nullptr, &rt_ver_w)) &&
++          rt_ver_w) {
++        rt_ver = rt_ver_w;
++        CoTaskMemFree(rt_ver_w);
++      }
++      if (rt_ver.empty()) {
++        rt_ver = L"1.0.1150.38";
++      }
++      g_env_options = new ztron_env_options(rt_ver);
++      g_scheme_reg = new ztron_custom_scheme_registration(L"ztron");
++      ICoreWebView2CustomSchemeRegistration *regs[1] = {g_scheme_reg};
++      g_env_options->SetCustomSchemeRegistrations(1, regs);
++    }
++    m_env_options = g_env_options;
++    m_env_options->AddRef();
++    m_scheme_reg = g_scheme_reg;
++    m_scheme_reg->AddRef();
++    ICoreWebView2EnvironmentOptions *env_options_arg =
++        m_env_options ? static_cast<ICoreWebView2EnvironmentOptions *>(
++                            m_env_options)
++                      : nullptr;
++
+     m_com_handler = new webview2_com_handler(
+         wnd, cb,
+         [&](ICoreWebView2Controller *controller, ICoreWebView2 *webview) {
+@@ -753,10 +1194,11 @@ private:
+           m_webview = webview;
+           flag.clear();
+         });
++    m_com_handler->set_env_out(&m_environment);
+ 
+     m_com_handler->set_attempt_handler([&] {
+       return m_webview2_loader.create_environment_with_options(
+-          nullptr, userDataFolder, nullptr, m_com_handler);
++          nullptr, userDataFolder, env_options_arg, m_com_handler);
+     });
+     m_com_handler->try_create_environment();
+ 
+@@ -802,9 +1244,105 @@ private:
+     if (owns_window()) {
+       focus_webview();
+     }
++    install_scheme_handler();
+     return {};
+   }
+ 
++  // Registers the custom scheme (ztron://) BEFORE any navigation reaches it
++  // (mac window_settings parity: env fallback when nothing was set via the
++  // C API pre-create).
++  void install_scheme_handler() {
++    if (m_scheme.empty()) {
++      const char *scheme_root_env = getenv("ZTRON_SCHEME_ROOT");
++      if (scheme_root_env && scheme_root_env[0]) {
++        m_scheme = "ztron";
++        m_scheme_root = scheme_root_env;
++      }
++    }
++    if (m_scheme.empty() || m_scheme_root.empty() || !m_webview) {
++      return;
++    }
++    std::wstring filter = widen_string(m_scheme + "://*");
++    m_webview->AddWebResourceRequestedFilter(
++        filter.c_str(), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL);
++    m_webres_req_handler = new webview2_web_resource_requested_handler(
++        [this](ICoreWebView2WebResourceRequestedEventArgs *args) {
++          on_web_resource_requested(args);
++        });
++    m_webview->add_WebResourceRequested(m_webres_req_handler,
++                                        &m_webres_req_token);
++  }
++
++  void on_web_resource_requested(
++      ICoreWebView2WebResourceRequestedEventArgs *args) {
++    if (!m_environment) {
++      return;
++    }
++    ICoreWebView2WebResourceRequest *request = nullptr;
++    if (FAILED(args->get_Request(&request)) || !request) {
++      return;
++    }
++    LPWSTR uri_w = nullptr;
++    std::string url;
++    if (SUCCEEDED(request->get_Uri(&uri_w)) && uri_w) {
++      url = narrow_string(uri_w);
++      CoTaskMemFree(uri_w);
++    }
++    request->Release();
++    if (url.empty()) {
++      return;
++    }
++
++    // Map scheme://host/<path> onto <root>/<path>; `asset/<url-encoded abs
++    // path>` (convertFileSrc) serves the decoded absolute path directly
++    // (mac scheme_start parity). Fragment/query are stripped first — core
++    // appends `#ztron-window=<label>` to window URLs.
++    std::string path = url;
++    auto pos = path.find("://");
++    if (pos != std::string::npos) {
++      path = path.substr(pos + 3);
++      auto slash = path.find('/');
++      path = slash == std::string::npos ? "" : path.substr(slash + 1);
++    }
++    auto frag = path.find_first_of("#?");
++    if (frag != std::string::npos) {
++      path = path.substr(0, frag);
++    }
++    std::string full;
++    if (path.rfind("asset/", 0) == 0) {
++      full = scheme_percent_decode(path.substr(6));
++    } else {
++      if (path.empty()) {
++        path = "index.html";
++      }
++      full = m_scheme_root + "/" + path;
++    }
++    std::string mime = scheme_mime_for(path);
++
++    IStream *stream = nullptr;
++    std::wstring full_w = widen_string(full);
++    bool ok = SUCCEEDED(SHCreateStreamOnFileEx(
++               full_w.c_str(), STGM_READ | STGM_SHARE_DENY_WRITE,
++               FILE_ATTRIBUTE_NORMAL, FALSE, nullptr, &stream)) &&
++             stream;
++    if (!ok) {
++      // Empty 404 body (mac parity: status only, no body).
++      CreateStreamOnHGlobal(nullptr, TRUE, &stream);
++    }
++    ICoreWebView2WebResourceResponse *response = nullptr;
++    std::wstring headers = widen_string("Content-Type: " + mime + "\r\n");
++    if (SUCCEEDED(m_environment->CreateWebResourceResponse(
++            stream, ok ? 200 : 404, ok ? L"OK" : L"Not Found",
++            headers.c_str(), &response)) &&
++        response) {
++      args->put_Response(response);
++      response->Release();
++    }
++    if (stream) {
++      stream->Release();
++    }
++  }
++
+   void resize_widget() {
+     if (m_widget) {
+       RECT r{};
+@@ -892,6 +1430,13 @@ private:
+   DWORD m_main_thread = GetCurrentThreadId();
+   ICoreWebView2 *m_webview = nullptr;
+   ICoreWebView2Controller *m_controller = nullptr;
++  ICoreWebView2Environment *m_environment = nullptr;
++  ICoreWebView2EnvironmentOptions *m_env_options = nullptr;
++  ICoreWebView2CustomSchemeRegistration *m_scheme_reg = nullptr;
++  std::string m_scheme;      // custom scheme, e.g. "ztron" (GAP H5)
++  std::string m_scheme_root; // filesystem root served under the scheme
++  EventRegistrationToken m_webres_req_token{};
++  webview2_web_resource_requested_handler *m_webres_req_handler = nullptr;
+   webview2_com_handler *m_com_handler = nullptr;
+   mswebview2::loader m_webview2_loader;
+   int m_dpi{};
 diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
 index 01c8d29..8165fe6 100644
 --- a/core/include/webview/detail/engine_base.hh
@@ -561,3 +1170,50 @@ index 7a41a3a..a109b0d 100644
    return objc::msg_send<id>(objc::get_class("WKWebView"),
                              objc::selector("alloc"));
  }
+diff --git a/core/include/webview/detail/platform/windows/webview2/loader.hh b/core/include/webview/detail/platform/windows/webview2/loader.hh
+index 085086b..ff527ab 100644
+--- a/core/include/webview/detail/platform/windows/webview2/loader.hh
++++ b/core/include/webview/detail/platform/windows/webview2/loader.hh
+@@ -118,6 +118,11 @@ static constexpr IID
+         0x9B11,
+         0x47B5,
+         {0xBC, 0x6F, 0x8E, 0x78, 0x95, 0xFC, 0xEA, 0x17}};
++static constexpr IID IID_ICoreWebView2WebResourceRequestedEventHandler{
++    0xAB00B74C,
++    0x15F1,
++    0x4646,
++    {0x80, 0xE8, 0xE7, 0x63, 0x41, 0xD2, 0x5D, 0x71}};
+ 
+ #if WEBVIEW_MSWEBVIEW2_BUILTIN_IMPL == 1
+ enum class webview2_runtime_type { installed = 0, embedded = 1 };
+@@ -253,11 +258,18 @@ private:
+     }
+     auto info_length_bytes =
+         found_client.version.size() * sizeof(found_client.version[0]);
+-    auto info = static_cast<LPWSTR>(CoTaskMemAlloc(info_length_bytes));
++    // Room for the characters AND a null terminator — the API contract is a
++    // null-terminated CoTaskMem string, and callers parse it with CRT
++    // string functions (a missing terminator reads adjacent heap bytes into
++    // the version, e.g. "154.0.4258.53NO", which then fails
++    // TargetCompatibleBrowserVersion validation with E_INVALIDARG).
++    auto info = static_cast<LPWSTR>(
++        CoTaskMemAlloc(info_length_bytes + sizeof(found_client.version[0])));
+     if (!info) {
+       return -1;
+     }
+     CopyMemory(info, found_client.version.c_str(), info_length_bytes);
++    info[found_client.version.size()] = L'\0';
+     *version = info;
+     return 0;
+   }
+@@ -380,6 +392,10 @@ static constexpr auto add_script_to_execute_on_document_created_completed =
+     cast_info_t<
+         ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>{
+         IID_ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler};
++
++static constexpr auto web_resource_requested =
++    cast_info_t<ICoreWebView2WebResourceRequestedEventHandler>{
++        IID_ICoreWebView2WebResourceRequestedEventHandler};
+ } // namespace cast_info
+ 
+ } // namespace mswebview2

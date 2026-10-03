@@ -145,7 +145,7 @@
 
 | ID | 缺口 | Windows 可接 API | 状态 |
 |----|------|------------------|------|
-| H5 | `ztron://` scheme handler 无实现（内容走 file://，ACL 单源 origin 模型不可用） | WebView2 `WebResourceRequested`（wry 同构） | ☐ |
+| H5 | `ztron://` scheme handler 无实现（内容走 file://，ACL 单源 origin 模型不可用） | WebView2 `WebResourceRequested`（wry 同构） | ✓ 同步 `CreateWebResourceResponse` + `EnvironmentOptions4::SetCustomSchemeRegistrations`（Chromium 在资源管线之前拦未注册 scheme）+ options 进程级单例（同 UDF 二次创建异 options → ERROR_INVALID_STATE）——DESIGN §126 |
 | H6 | WebView2 权限桥缺失：`onPermissionRequest` no-op（PR #39 仅 mac 实现，win 无 `PermissionRequested` 接线） | `ICoreWebView2::add_PermissionRequested` | ☐ |
 | H7 | window effects 无视觉效果（round-trip only） | `DwmSetWindowAttribute` Mica/Acrylic/`DWM_SYSTEMBACKDROP_TYPE` | ☐ |
 | H8 | 拖放事件族不存在：无 drag_enter/over/drop/leave 推送 + `set_file_drop_enabled` 缺失 → `onDragDropEvent` 不可用 | `IDropTarget`（wry 同构） | ☐ |

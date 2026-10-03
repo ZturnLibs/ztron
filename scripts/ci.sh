@@ -252,6 +252,26 @@ case "$(uname -s)" in
   *) step "winevent probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.6 ztron:// scheme handler probe (win32; mac has WKURLSchemeHandler) ---
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "scheme probe (win32 ztron:// WebResourceRequested)"
+    SCHEME_ROOT="$(cygpath -m "$(mktemp -d)")"
+    mkdir -p "$SCHEME_ROOT"
+    ZTRON_SCHEME_ROOT="$SCHEME_ROOT" \
+      run_ztron_check "$ROOT/examples/schemeprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect SCHEME_PAGE_OK \
+      --expect SCHEME_SUBRES_OK \
+      --expect SCHEME_404_OK \
+      --expect SCHEME_ASSET_OK \
+      > /tmp/ci-scheme.log 2>&1 \
+      || { tail -30 /tmp/ci-scheme.log; fail "scheme probe"; }
+    tail -2 /tmp/ci-scheme.log
+    rm -rf "$SCHEME_ROOT"
+    ;;
+  *) step "scheme probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user
