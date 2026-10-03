@@ -751,7 +751,7 @@ static int is_window_op(const char *t) {
       "maximize",         "unmaximize",     "is_enabled",
       "set_focusable",    "set_cursor_visible",
       "set_cursor_grab",  "window_set_icon", "window_set_overlay_icon",
-      "window_set_effects", "window_clear_effects",
+      "set_effects", "clear_effects",
       "set_visible_on_all_workspaces", "set_simple_fullscreen",
   };
   for (size_t i = 0; i < sizeof(ops) / sizeof(ops[0]); i++) {
@@ -1176,11 +1176,13 @@ static void handle_window_op(Msg *m, webview_t w) {
     window_set_icon(m->id[0] ? atoi(m->id) : -1);
   } else if (strcmp(m->type, "window_set_overlay_icon") == 0) {
     window_set_overlay_icon(m->id[0] ? atoi(m->id) : -1);
-  } else if (strcmp(m->type, "window_set_effects") == 0) {
-    /* material rides in `text`(str2), state in status, radius in opacity_val. */
+  } else if (strcmp(m->type, "set_effects") == 0) {
+    /* material rides in `text`(str2), state in status, radius in opacity_val.
+       (Wire name is `set_effects` — the old `window_set_effects` alias was
+       never emitted by core, so the branch was dead until GAP H7.) */
     window_set_effects(w, m->str2, m->status, m->opacity_val, m->aux,
                        m->num_val, m->str);
-  } else if (strcmp(m->type, "window_clear_effects") == 0) {
+  } else if (strcmp(m->type, "clear_effects") == 0) {
     window_clear_effects(w);
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
     /* CanJoinAllSpaces = 1<<0, FullScreenAuxiliary = 1<<9. */

@@ -343,7 +343,13 @@ async function main(): Promise<void> {
       report("HTTP_FAIL:" + extractError(e).slice(0, 40));
     }
     try {
-      const resp2 = await http.fetch("https://api.github.com/");
+      // External fetches carry an explicit timeout: without timeoutMs the
+      // plugin sets no AbortSignal, and a black-holed TCP connect (observed
+      // on api.github.com from CN networks) stalls the whole spike past the
+      // packaged FULL_OK beacon window.
+      const resp2 = await http.fetch("https://api.github.com/", {
+        timeoutMs: 8000,
+      });
       if (resp2.ok) report("HTTP_EXT_BONUS:" + resp2.status);
       void resp2;
     } catch {
@@ -351,7 +357,7 @@ async function main(): Promise<void> {
     }
     // 5b-cont. out-of-scope URL is denied (scope enforcement)
     try {
-      await http.fetch("https://evil.example.com/steal");
+      await http.fetch("https://evil.example.com/steal", { timeoutMs: 8000 });
       report("HTTP_SCOPE_FAIL: was allowed");
     } catch (e) {
       const msg = extractError(e);

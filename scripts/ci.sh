@@ -292,6 +292,31 @@ case "$(uname -s)" in
   *) step "permission probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.8 window effects probe (win32; mac has NSVisualEffectView) -----------
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "effects probe (win32 Mica/Acrylic backdrops)"
+    run_ztron_check "$ROOT/examples/effectprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect EFFECTS_INIT_OK \
+      --expect EFFECTS_ACRYLIC_OK \
+      --expect EFFECTS_MICA_OK \
+      --expect EFFECTS_GLASS_OK \
+      --expect EFFECTS_CLEAR_OK \
+      > /tmp/ci-effects.log 2>&1 \
+      || { tail -30 /tmp/ci-effects.log; fail "effects probe"; }
+    tail -2 /tmp/ci-effects.log
+    # Legacy accent path (Win10 pre-22H2 analog), forced via env — the
+    # DWMWA_SYSTEMBACKDROP_TYPE path always wins on 22H2+ runners.
+    ZTRON_EFFECTS_LEGACY=1 \
+      run_ztron_check "$ROOT/examples/effectprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect EFFECTS_LEGACY_OK \
+      > /tmp/ci-effects-legacy.log 2>&1 \
+      || { tail -30 /tmp/ci-effects-legacy.log; fail "effects probe (legacy)"; }
+    tail -2 /tmp/ci-effects-legacy.log
+    ;;
+  *) step "effects probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user

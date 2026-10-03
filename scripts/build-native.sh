@@ -153,6 +153,15 @@ case "$(uname -s)" in
       exit 1
     fi
     BUILD_CMD="$NATIVE/.build-host-windows.cmd"
+    # WebView2 SDK headers fetched by the webview build stage (FetchContent):
+    # host_windows.c includes WebView2.h for ICoreWebView2Controller2
+    # (put_DefaultBackgroundColor behind the Mica/Acrylic backdrops).
+    SDK_INC="$NATIVE/webview/build/_deps/microsoft_web_webview2-src/build/native/include"
+    if [ ! -f "$SDK_INC/WebView2.h" ]; then
+      echo "FATAL: WebView2 SDK headers missing at $SDK_INC —" >&2
+      echo "the webview build stage fetches them; run it before the host build." >&2
+      exit 1
+    fi
     {
       echo '@echo off'
       # Anchor to native/host so cl drops its .obj files beside the sources
@@ -163,7 +172,7 @@ case "$(uname -s)" in
       # helper paths via its own console output on some toolchains and fails
       # with "path not found" when stdout is nul (observed: VSBT 17.14).
       echo "call \"$VSDIR\\VC\\Auxiliary\\Build\\vcvars64.bat\" || exit /b 1"
-      echo "cl -nologo /D_CRT_SECURE_NO_WARNINGS \"$(cygpath -w "$NATIVE/host/host.c")\" \"$(cygpath -w "$NATIVE/host/host_windows.c")\" /I \"$(cygpath -w "$NATIVE/webview/core/include")\" /link \"$(cygpath -w "$NATIVE/libs/webview.lib")\" user32.lib shell32.lib comdlg32.lib ws2_32.lib gdi32.lib advapi32.lib comctl32.lib ole32.lib uuid.lib shcore.lib gdiplus.lib /OUT:\"$(cygpath -w "$NATIVE/libs/ztron-host.exe")\" || exit /b 1"
+      echo "cl -nologo /D_CRT_SECURE_NO_WARNINGS \"$(cygpath -w "$NATIVE/host/host.c")\" \"$(cygpath -w "$NATIVE/host/host_windows.c")\" /I \"$(cygpath -w "$NATIVE/webview/core/include")\" /I \"$(cygpath -w "$SDK_INC")\" /link \"$(cygpath -w "$NATIVE/libs/webview.lib")\" user32.lib shell32.lib comdlg32.lib ws2_32.lib gdi32.lib advapi32.lib comctl32.lib ole32.lib uuid.lib shcore.lib gdiplus.lib dwmapi.lib /OUT:\"$(cygpath -w "$NATIVE/libs/ztron-host.exe")\" || exit /b 1"
     } > "$BUILD_CMD"
     cmd //c "$(cygpath -w "$BUILD_CMD")"
     RC=$?

@@ -24,6 +24,11 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <shellscalingapi.h>
+#include <dwmapi.h>
+/* Fetched by the webview build stage (build/_deps): COREWEBVIEW2_COLOR +
+   ICoreWebView2Controller2 for the transparent default background the
+   backdrops below need to be visible through (GAP H7). */
+#include "WebView2.h"
 
 #include "host_platform.h"
 
@@ -246,7 +251,7 @@ static int is_window_op(const char *t) {
       "request_user_attention", "set_focusable",
       "set_cursor_visible", "set_cursor_grab",
       "window_set_icon",  "window_set_overlay_icon",
-      "window_set_effects", "window_clear_effects",
+      "set_effects",      "clear_effects",   "window_effects_query",
       "set_visible_on_all_workspaces", "set_simple_fullscreen",
       "window_set_min_size", "window_set_max_size",
       "set_progress_bar", "set_badge_count", "set_badge_label",
@@ -495,6 +500,200 @@ static char *image_rgba_b64(GpBitmap *bmp, UINT *w, UINT *h) {
   return b64;
 }
 
+/* ---- window effects: Mica/Acrylic system backdrops (GAP H7) ---- */
+
+/* DWMWA_SYSTEMBACKDROP_TYPE / DWMSBT_* (Win11 22H2+; ABI-stable values —
+   older SDK headers lack the definitions). */
+#ifndef DWMWA_SYSTEMBACKDROP_TYPE
+#define DWMWA_SYSTEMBACKDROP_TYPE 38
+#endif
+enum {
+  ZT_DWMSBT_NONE = 1,
+  ZT_DWMSBT_MAINWINDOW = 2,      /* Mica */
+  ZT_DWMSBT_TRANSIENTWINDOW = 3, /* Acrylic */
+  ZT_DWMSBT_TABBEDWINDOW = 4     /* Mica Alt */
+};
+
+/* mac material -> Windows system backdrop (mirror of host_macos.c
+   effect_material()). DWM expresses only two backdrop families plus Mica
+   Alt, so the mac taxonomy maps coarsely — the NSVisualEffectView blends
+   have no true Windows analog:
+     chrome/transient surfaces -> DWMSBT_TRANSIENTWINDOW (acrylic)
+     whole-window backgrounds  -> DWMSBT_MAINWINDOW      (mica)
+   The native names Tauri uses are accepted too (core's Tauri rule filters
+   them out today, but they document intent). Unknown -> -1: no-op, like
+   wry. */
+static int effect_backdrop(const char *name) {
+  if (strcmp(name, "mica") == 0 || strcmp(name, "liquidGlassRegular") == 0 ||
+      strcmp(name, "liquidGlassClear") == 0)
+    return ZT_DWMSBT_MAINWINDOW; /* closest Windows-native glass */
+  if (strcmp(name, "acrylic") == 0 || strcmp(name, "blur") == 0 ||
+      strcmp(name, "titlebar") == 0 || strcmp(name, "menu") == 0 ||
+      strcmp(name, "popover") == 0 || strcmp(name, "sidebar") == 0 ||
+      strcmp(name, "headerView") == 0 || strcmp(name, "sheet") == 0 ||
+      strcmp(name, "toolTip") == 0 || strcmp(name, "selection") == 0 ||
+      strcmp(name, "contentBackground") == 0)
+    return ZT_DWMSBT_TRANSIENTWINDOW;
+  if (strcmp(name, "tabbed") == 0) return ZT_DWMSBT_TABBEDWINDOW;
+  if (strcmp(name, "appearanceBased") == 0 ||
+      strcmp(name, "windowBackground") == 0 ||
+      strcmp(name, "hudWindow") == 0 ||
+      strcmp(name, "fullScreenUI") == 0 ||
+      strcmp(name, "underWindowBackground") == 0 ||
+      strcmp(name, "underPageBackground") == 0)
+    return ZT_DWMSBT_MAINWINDOW;
+  return -1;
+}
+
+/* The backdrop renders behind the window's redirection surface, so it is
+   only visible where WebView2 stops painting an opaque background —
+   put_DefaultBackgroundColor with alpha 0 (the recipe wry uses for Tauri's
+   transparent:true). alpha 255 restores the opaque default. */
+static void webview_background_alpha(webview_t wv, BYTE alpha) {
+  ICoreWebView2Controller *ctl;
+  ICoreWebView2Controller2 *ctl2 = NULL;
+  COREWEBVIEW2_COLOR col;
+  if (!wv) wv = zt_w;
+  ctl = (ICoreWebView2Controller *)webview_get_native_handle(
+      wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+  if (!ctl) return;
+  if (ctl->lpVtbl->QueryInterface(ctl, &IID_ICoreWebView2Controller2,
+                                  (void **)&ctl2) != S_OK || !ctl2)
+    return;
+  col.A = alpha;
+  col.R = 255;
+  col.G = 255;
+  col.B = 255;
+  ctl2->lpVtbl->put_DefaultBackgroundColor(ctl2, col);
+  ctl2->lpVtbl->Release(ctl2);
+}
+
+/* Win10 pre-22H2 fallback: the undocumented SetWindowCompositionAttribute
+   acrylic-behind accent (same recipe as tao/wry). No readback exists, so
+   window_effects_query reports mode "legacy" and probes verify by reply
+   shape. On 22H2+ the DWM path always wins — this accent's blur is
+   frozen-frame there (long-standing Windows bug). */
+typedef struct {
+  int AccentState;             /* 0 = disabled, 4 = ACRYLICBLURBEHIND */
+  int AccentFlags;             /* tao's value (2) */
+  unsigned long GradientColor; /* AABBGGRR tint over the blur */
+  int AnimationId;
+} ZT_ACCENT_POLICY;
+typedef struct {
+  int Attribute; /* 19 = WCA_ACCENT_POLICY */
+  void *Data;
+  SIZE_T SizeOfData;
+} ZT_WCA_DATA;
+
+static int effects_legacy_mode(void) {
+  static int mode = -1;
+  if (mode < 0) {
+    char b[4] = {0};
+    mode = GetEnvironmentVariableA("ZTRON_EFFECTS_LEGACY", b, sizeof(b)) > 0;
+  }
+  return mode;
+}
+
+static BOOL accent_apply(HWND w, int on, const char *color_hex) {
+  static BOOL (WINAPI *pfn)(HWND, const ZT_WCA_DATA *);
+  ZT_ACCENT_POLICY pol;
+  ZT_WCA_DATA data;
+  unsigned long tint = 0xCC000000UL; /* default smoky tint (alpha 80%) */
+  if (!pfn) {
+    pfn = (BOOL (WINAPI *)(HWND, const ZT_WCA_DATA *))GetProcAddress(
+        GetModuleHandleW(L"user32.dll"), "SetWindowCompositionAttribute");
+  }
+  if (!pfn) return FALSE;
+  if (color_hex && color_hex[0]) {
+    unsigned r = 0, g = 0, b = 0;
+    const char *hex = color_hex[0] == '#' ? color_hex + 1 : color_hex;
+    if (strlen(hex) == 6 &&
+        sscanf(hex, "%02x%02x%02x", &r, &g, &b) == 3)
+      tint = (0xC8UL << 24) | (b << 16) | (g << 8) | r; /* AABBGGRR */
+  }
+  memset(&pol, 0, sizeof(pol));
+  pol.AccentState = on ? 4 : 0; /* ACRYLICBLURBEHIND : DISABLED */
+  pol.AccentFlags = 2;
+  pol.GradientColor = tint;
+  data.Attribute = 19; /* WCA_ACCENT_POLICY */
+  data.Data = &pol;
+  data.SizeOfData = sizeof(pol);
+  return pfn(w, &data);
+}
+
+/* Sheet-of-glass margins so the backdrop spans the whole client area. */
+static void effects_apply(HWND w, webview_t wv, int backdrop,
+                          const char *color_hex) {
+  MARGINS mg = {-1, -1, -1, -1};
+  DwmExtendFrameIntoClientArea(w, &mg);
+  if (!effects_legacy_mode()) {
+    if (SUCCEEDED(DwmSetWindowAttribute(w, DWMWA_SYSTEMBACKDROP_TYPE,
+                                        &backdrop, sizeof(backdrop)))) {
+      webview_background_alpha(wv, 0);
+      return;
+    }
+    /* pre-22H2: DWMWA_SYSTEMBACKDROP_TYPE rejected -> accent below */
+  }
+  accent_apply(w, 1, color_hex);
+  webview_background_alpha(wv, 0);
+}
+
+static void effects_clear(HWND w, webview_t wv) {
+  int none = ZT_DWMSBT_NONE;
+  MARGINS mg = {0, 0, 0, 0};
+  DwmSetWindowAttribute(w, DWMWA_SYSTEMBACKDROP_TYPE, &none, sizeof(none));
+  DwmExtendFrameIntoClientArea(w, &mg);
+  accent_apply(w, 0, NULL);
+  webview_background_alpha(wv, 255);
+}
+
+/* Windows analog of host_macos.c window_set_effects: the material maps
+   through effect_backdrop(); if DWMWA_SYSTEMBACKDROP_TYPE is unavailable
+   the accent blur covers regardless of material, so `fallback` is a mac-
+   only concept here — likewise state/radius/interactive (no DWM analog). */
+static void window_set_effects(HWND w, webview_t wv, const char *name,
+                               const char *color, const char *fallback) {
+  int backdrop = effect_backdrop(name);
+  (void)fallback;
+  if (backdrop < 0) return; /* unsupported material: no-op like wry */
+  effects_apply(w, wv, backdrop, color);
+}
+
+/* Diagnostics for the GAP H7 probe (host-only op; probed through
+   HostRuntime.sendRequest("window_effects_query")): the DWM readback
+   proves the OS accepted the backdrop, the WebView2 background alpha
+   proves the composition can actually show it. */
+static void effects_query(Msg *m, webview_t wv, HWND w) {
+  char buf[160];
+  int backdrop = ZT_DWMSBT_NONE;
+  unsigned long hr = 0;
+  BYTE alpha = 255;
+  ICoreWebView2Controller *ctl;
+  if (!wv) wv = zt_w;
+  if (!effects_legacy_mode()) {
+    hr = (unsigned long)DwmGetWindowAttribute(
+        w, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+  }
+  ctl = (ICoreWebView2Controller *)webview_get_native_handle(
+      wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+  if (ctl) {
+    ICoreWebView2Controller2 *ctl2 = NULL;
+    COREWEBVIEW2_COLOR col;
+    memset(&col, 0, sizeof(col));
+    if (ctl->lpVtbl->QueryInterface(ctl, &IID_ICoreWebView2Controller2,
+                                    (void **)&ctl2) == S_OK && ctl2) {
+      if (SUCCEEDED(ctl2->lpVtbl->get_DefaultBackgroundColor(ctl2, &col)))
+        alpha = col.A;
+      ctl2->lpVtbl->Release(ctl2);
+    }
+  }
+  snprintf(buf, sizeof(buf),
+           "{\"backdrop\":%d,\"mode\":\"%s\",\"hr\":\"0x%08lx\",\"bg_alpha\":%u}",
+           backdrop, effects_legacy_mode() ? "legacy" : "dwm", hr,
+           (unsigned)alpha);
+  zt_reply_query(m->req_id, buf);
+}
+
 static void reply_image_id(Msg *m, GpBitmap *bmp) {
   char buf[32];
   int idn = image_add(bmp);
@@ -626,9 +825,17 @@ static void handle_window_op(Msg *m, webview_t wv) {
     if (!g_taskbar) taskbar_progress(w, -1); /* ensures COM + instance */
     if (g_taskbar)
       g_taskbar->lpVtbl->SetOverlayIcon(g_taskbar, w, icon, NULL);
-  } else if (strcmp(m->type, "window_set_effects") == 0 ||
+  } else if (strcmp(m->type, "set_effects") == 0 ||
+             /* legacy alias (nothing emits it today; kept for symmetry
+                with the window_* op family) */
+             strcmp(m->type, "window_set_effects") == 0) {
+    window_set_effects(w, wv, m->str2, m->aux, m->str);
+  } else if (strcmp(m->type, "clear_effects") == 0 ||
              strcmp(m->type, "window_clear_effects") == 0) {
-    /* Mica/acrylic backdrop (DwmSetWindowAttribute) pending; round-trip only. */
+    effects_clear(w, wv);
+  } else if (strcmp(m->type, "window_effects_query") == 0) {
+    effects_query(m, wv, w);
+    return; /* replied inline; skip the generic true/false reply */
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
     /* No Win32 equivalent; accepted no-op. */
   } else if (strcmp(m->type, "set_always_on_top") == 0) {

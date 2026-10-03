@@ -147,7 +147,7 @@
 |----|------|------------------|------|
 | H5 | `ztron://` scheme handler 无实现（内容走 file://，ACL 单源 origin 模型不可用） | WebView2 `WebResourceRequested`（wry 同构） | ✓ 同步 `CreateWebResourceResponse` + `EnvironmentOptions4::SetCustomSchemeRegistrations`（Chromium 在资源管线之前拦未注册 scheme）+ options 进程级单例（同 UDF 二次创建异 options → ERROR_INVALID_STATE）——DESIGN §126 |
 | H6 | WebView2 权限桥缺失：`onPermissionRequest` no-op（PR #39 仅 mac 实现，win 无 `PermissionRequested` 接线） | `ICoreWebView2::add_PermissionRequested` | ✓ lib 级 permission handler API（仅 camera/mic，mac parity）+ `GetDeferral` 挂起 + 决策 0/1/2 与 `PERMISSION_STATE` 逐值对齐；host init/attach 双装桥（0ca12de 教训）；TS 侧零改动——DESIGN §127 |
-| H7 | window effects 无视觉效果（round-trip only） | `DwmSetWindowAttribute` Mica/Acrylic/`DWM_SYSTEMBACKDROP_TYPE` | ☐ |
+| H7 | window effects 无视觉效果（round-trip only） | `DwmSetWindowAttribute` Mica/Acrylic/`DWM_SYSTEMBACKDROP_TYPE` | ✓ |
 | H8 | 拖放事件族不存在：无 drag_enter/over/drop/leave 推送 + `set_file_drop_enabled` 缺失 → `onDragDropEvent` 不可用 | `IDropTarget`（wry 同构） | ☐ |
 | H9 | deep-link 全链路不通：无 scheme 注册表写入、无 deep_link 事件推送 | HKCU`Software\Classes`+`WM_COPYDATA`/argv 转发 | ☐ |
 | H10 | `webview_clear_data` 缺失 → `clearBrowsingData()` 静默无效 | `ICoreWebView2_13::ClearBrowsingData` | ☐ |
