@@ -272,6 +272,26 @@ case "$(uname -s)" in
   *) step "scheme probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.7 permission bridge probe (win32; mac has the WKUIDelegate bridge) ---
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "permission probe (win32 PermissionRequested bridge)"
+    PERM_ROOT="$(cygpath -m "$(mktemp -d)")"
+    mkdir -p "$PERM_ROOT"
+    ZTRON_SCHEME_ROOT="$PERM_ROOT" \
+      run_ztron_check "$ROOT/examples/permissionprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect PERM_REQ_OK \
+      --expect PERM_DENY_OK \
+      --expect PERM_ALLOW_OK \
+      --expect PERM_KINDS_OK \
+      > /tmp/ci-perm.log 2>&1 \
+      || { tail -30 /tmp/ci-perm.log; fail "permission probe"; }
+    tail -2 /tmp/ci-perm.log
+    rm -rf "$PERM_ROOT"
+    ;;
+  *) step "permission probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user

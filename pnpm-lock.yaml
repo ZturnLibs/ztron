@@ -106,6 +106,22 @@ importers:
         specifier: workspace:*
         version: link:../../packages/cli
 
+  examples/permissionprobe:
+    dependencies:
+      '@zturnlibs/ztron-api':
+        specifier: workspace:*
+        version: link:../../packages/api
+      '@zturnlibs/ztron-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@zturnlibs/ztron-runtime-ffi':
+        specifier: workspace:*
+        version: link:../../packages/runtime-ffi
+    devDependencies:
+      '@zturnlibs/ztron-cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   examples/react-demo:
     dependencies:
       '@zturnlibs/ztron-api':

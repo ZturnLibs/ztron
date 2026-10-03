@@ -1331,6 +1331,16 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 127. Windows P1 第二项(GAP H6):WebView2 权限桥(PermissionRequested → backend 决策回环)
+
+- **目标(GAP.md H6)**:PR #39 只做了 mac(WKUIDelegate `requestMediaCapturePermissionForOrigin` 拦截 + decisionHandler 保留);win 端 core 的 `onPermissionRequest` 收不到任何事件(host_windows.c 的 `zt_permission_respond` 是 no-op stub)
+- **线格式本就是跨平台的**:host 推 `{"type":"permission_request","id","kind","url","label"}` 行 → runtime-ffi `#permissionSink` → core handler;决策经 `permission_response` op(`req_id` + aux "allow"/"deny"/默认)回 host.c:dispatch → `zt_permission_respond`。**TS 侧零改动**——缺的只是 win 的两端接线
+- **lib 层(新公共 API)**:`webview_set_permission_handler(w, fn(kind,url,id,arg), arg)` + `webview_permission_respond(w, id, decision)`。com_handler 的 `PermissionRequested` Invoke 原本只有内置 CLIPBOARD_READ auto-allow → 现在装了 handler 就转给引擎:`on_permission_requested` 只放行 **CAMERA/MICROPHONE**(mac parity:WKUIDelegate 只拦 media capture),其余 kind 保持平台默认;`GetDeferral` 把请求挂起(WebView2 语义天然对齐 mac "未应答=decisionHandler 悬挂"),pending 表上限 64,饱和即平台默认;`complete_permission`(engine 线程,经 dispatch_impl)按 decision `put_State` + `Complete`。**decision 编码 0/1/2 恰好三处同值**(mac default/allow/deny、COREWEBVIEW2_PERMISSION_STATE DEFAULT/ALLOW/DENY、wire aux)——巧合不是契约,映射显式写在两处
+- **host 层**:`init()` 在 MAIN webview 装桥 + `attach_webview()` 给每个第二窗口装(0ca12de 的教训:attach 路径只覆盖第二窗口);`g_perm_target[id]→engine` 表把响应路由回发起引擎(permission_response 无窗口字段,app-global 与 mac 同款)
+- **探针 `examples/permissionprobe`**:**getUserMedia 需要 secure context**——html 串窗口是 opaque origin(连 `navigator.mediaDevices` 都不存在),必须复用 H5 的 ztron://(TreatAsSecure 注册)。双 kind 双决策:camera→deny→`NotAllowedError`(PERM_DENY_OK),microphone→allow→stream 打开(或任何非 NotAllowedError 失败——测的是决策路径,不是设备存在性)(PERM_ALLOW_OK);PERM_REQ_OK 验 kind/url/label 形状,PERM_KINDS_OK 验两 kind 都到桥。ci.sh 步骤 5.7(windows-only,ZTRON_SCHEME_ROOT 同 5.6)
+- **验证**:permissionprobe 首跑 5/5;**ci.sh 全链 FULL CI GREEN**——hello 85 FULL_OK、multiwin 5/5、menuprobe 5/5、winevent 4/4、scheme probe 5/5、permission probe 5/5、packaged 全链;unit tests 全过(2 既有 skip)
+- **教训**:①opaque origin 上 `navigator.mediaDevices` 直接 undefined——权限族探针必须挂在 secure context 上,自定义 scheme(TreatAsSecure)是现成载体;②WebView2 的 deferral 与 mac decisionHandler 是同构模型,"事件同步返回但决策异步"两边语义逐条对得上;③跨平台 op 先核对线格式——这次 TS/协议全绿,真正要写的只有 C 两端
+
 ## 126. Windows P1 首项(GAP H5):ztron:// scheme handler(WebView2 自定义 scheme 全链路)
 
 - **目标(GAP.md H5)**:mac 端 cocoa_webkit `scheme_start` 的 win 等价物——`ztron://localhost/<path>` 域内文档/子资源 + `ztron://localhost/asset/<percent-encoded abs path>`(convertFileSrc 分支),ACL 单源 origin 模型在 Windows 的前提

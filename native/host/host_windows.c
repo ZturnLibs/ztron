@@ -27,10 +27,6 @@
 
 #include "host_platform.h"
 
-/* Permission interception is macOS-only for now (WebView2/webkitgtk event
-   wiring pending); the shared host.c still routes here, so drop silently. */
-void zt_permission_respond(Msg *m) { (void)m; }
-
 
 /* ---- JSON reply helpers ---- */
 
@@ -144,6 +140,66 @@ static void win_state_drop(HWND w) {
   for (i = 0; i < MAX_WIN_STATES; i++)
     if (g_winstates[i].hwnd == w)
       memset(&g_winstates[i], 0, sizeof(g_winstates[i]));
+}
+
+/* ---- webview permission interception (GAP H6; mac bridge parity) --------
+ * The webview lib defers camera/microphone PermissionRequested events and
+ * hands them here; the decision round-trips through the backend
+ * (permission_request line out, permission_response in, shared host.c
+ * dispatch). Pending ids map to the engine that raised them — the backend's
+ * permission_response carries no window (app-global, like macOS). */
+
+#define MAX_PERM_TARGETS 64
+static struct {
+  long id;
+  webview_t w;
+} g_perm_target[MAX_PERM_TARGETS];
+
+/* GUI thread (WebView2 event): park the id, push the request line. */
+static void zt_perm_cb(const char *kind, const char *url, long id, void *arg) {
+  int i;
+  for (i = 0; i < MAX_PERM_TARGETS; i++) {
+    if (!g_perm_target[i].w) {
+      g_perm_target[i].id = id;
+      g_perm_target[i].w = (webview_t)arg;
+      break;
+    }
+  }
+  /* Saturated table: forward anyway; the respond lookup just won't find it
+     and the request stays pending in the webview (documented behavior). */
+  {
+    char esc[512];
+    char buf[1024];
+    zt_json_escape(url ? url : "", esc, sizeof(esc));
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"permission_request\",\"id\":%ld,\"kind\":\"%s\","
+             "\"url\":\"%s\",\"label\":\"%s\"}",
+             id, kind, esc, zt_label_for_window((void *)zt_hwnd_for((webview_t)arg)));
+    zt_send_line(buf);
+  }
+}
+
+static void install_permission_bridge(webview_t w) {
+  if (w) {
+    webview_set_permission_handler(w, zt_perm_cb, w);
+  }
+}
+
+void zt_permission_respond(Msg *m) {
+  /* 0 = platform default (COREWEBVIEW2_PERMISSION_STATE_DEFAULT), matching
+     the macOS decision encoding (default/allow/deny = 0/1/2). */
+  int decision = 0;
+  if (strcmp(m->aux, "allow") == 0) decision = 1;
+  else if (strcmp(m->aux, "deny") == 0) decision = 2;
+  for (int i = 0; i < MAX_PERM_TARGETS; i++) {
+    if (g_perm_target[i].w && g_perm_target[i].id == m->req_id) {
+      webview_t w = g_perm_target[i].w;
+      g_perm_target[i].w = NULL; /* claim before the async completion */
+      webview_permission_respond(w, (long)m->req_id, decision);
+      return;
+    }
+  }
+  /* Unknown id (already answered / saturated out): ignore. */
 }
 
 static int g_cursor_visible = 1;
@@ -1942,6 +1998,9 @@ static int dispatch(Msg *m, webview_t wv) {
 static int init(void) {
   HWND w = zt_hwnd();
   if (w) SetWindowSubclass(w, zt_proc, 1, 0);
+  /* Permission bridge on the MAIN webview (the attach path below is
+     second-window only) — 0ca12de lesson, mac parity. */
+  install_permission_bridge(zt_w);
   return 1;
 }
 
@@ -1955,6 +2014,8 @@ static int attach_webview(webview_t w) {
      and their WM_CLOSE takes the raw engine path. */
   HWND h = zt_hwnd_for(w);
   if (h) SetWindowSubclass(h, zt_proc, ++g_subclass_next, 0);
+  /* Permission interception: every webview gets the bridge; core decides. */
+  install_permission_bridge(w);
   return 1;
 }
 

@@ -1,8 +1,8 @@
 diff --git a/core/include/webview/api.h b/core/include/webview/api.h
-index aecc050..66d1cb0 100644
+index aecc050..c6c1d32 100644
 --- a/core/include/webview/api.h
 +++ b/core/include/webview/api.h
-@@ -73,6 +73,15 @@ WEBVIEW_API webview_error_t webview_destroy(webview_t w);
+@@ -73,6 +73,37 @@ WEBVIEW_API webview_error_t webview_destroy(webview_t w);
   */
  WEBVIEW_API webview_error_t webview_run(webview_t w);
  
@@ -15,14 +15,36 @@ index aecc050..66d1cb0 100644
 +                                                       const char *scheme,
 +                                                       const char *root_dir);
 +
++/**
++ * Registers a handler for webview media-capture permission requests
++ * (camera/microphone). The handler receives the kind ("camera" or
++ * "microphone"), the requesting origin URL, an opaque request id and the
++ * user argument. Answer asynchronously with
++ * webview_permission_respond(); a request that is never answered keeps its
++ * permission pending (the browser deferral holds it open). Without a
++ * handler, permission requests keep the platform default behavior.
++ */
++WEBVIEW_API webview_error_t webview_set_permission_handler(
++    webview_t w,
++    void (*fn)(const char *kind, const char *url, long id, void *arg),
++    void *arg);
++
++/**
++ * Responds to a permission request previously delivered to the handler
++ * installed with webview_set_permission_handler(). The decision is one of:
++ * 0 = platform default, 1 = allow, 2 = deny. Safe to call from any thread.
++ */
++WEBVIEW_API webview_error_t webview_permission_respond(webview_t w, long id,
++                                                       int decision);
++
  /**
   * Stops the main loop. It is safe to call this function from another
   * background thread.
 diff --git a/core/include/webview/c_api_impl.hh b/core/include/webview/c_api_impl.hh
-index 8ee1d94..169bf24 100644
+index 8ee1d94..b2eb6fa 100644
 --- a/core/include/webview/c_api_impl.hh
 +++ b/core/include/webview/c_api_impl.hh
-@@ -115,6 +115,16 @@ WEBVIEW_API webview_error_t webview_run(webview_t w) {
+@@ -115,6 +115,40 @@ WEBVIEW_API webview_error_t webview_run(webview_t w) {
    return api_filter([=] { return cast_to_webview(w)->run(); });
  }
  
@@ -34,6 +56,30 @@ index 8ee1d94..169bf24 100644
 +    return cast_to_webview(w)->set_scheme_handler(
 +        std::string(scheme ? scheme : ""), std::string(root_dir ? root_dir : ""));
 +  });
++}
++
++WEBVIEW_API webview_error_t webview_set_permission_handler(
++    webview_t w,
++    void (*fn)(const char *kind, const char *url, long id, void *arg),
++    void *arg) {
++  using namespace webview::detail;
++  return api_filter([=] {
++    auto *wv = cast_to_webview(w);
++    if (!fn) {
++      return wv->set_permission_handler(nullptr);
++    }
++    return wv->set_permission_handler(
++        [fn, arg](const char *kind, const char *url, long id) {
++          fn(kind, url, id, arg);
++        });
++  });
++}
++
++WEBVIEW_API webview_error_t webview_permission_respond(webview_t w, long id,
++                                                       int decision) {
++  using namespace webview::detail;
++  return api_filter(
++      [=] { return cast_to_webview(w)->permission_respond(id, decision); });
 +}
 +
  WEBVIEW_API webview_error_t webview_terminate(webview_t w) {
@@ -461,10 +507,14 @@ index 1a0a2c6..f369cf3 100755
  } // namespace detail
  
 diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
-index 316a9d5..8af54d8 100644
+index 316a9d5..b250d0e 100644
 --- a/core/include/webview/detail/backends/win32_edge.hh
 +++ b/core/include/webview/detail/backends/win32_edge.hh
-@@ -61,6 +61,7 @@
+@@ -58,9 +58,11 @@
+ #include <atomic>
+ #include <cstdlib>
+ #include <functional>
++#include <map>
  #include <list>
  #include <memory>
  #include <utility>
@@ -472,7 +522,7 @@ index 316a9d5..8af54d8 100644
  
  #ifndef WIN32_LEAN_AND_MEAN
  #define WIN32_LEAN_AND_MEAN
-@@ -138,6 +139,13 @@ public:
+@@ -138,6 +140,13 @@ public:
      return E_NOINTERFACE;
    }
    HRESULT STDMETHODCALLTYPE Invoke(HRESULT res, ICoreWebView2Environment *env) {
@@ -486,7 +536,18 @@ index 316a9d5..8af54d8 100644
      if (SUCCEEDED(res)) {
        res = env->CreateCoreWebView2Controller(m_window, this);
        if (SUCCEEDED(res)) {
-@@ -200,6 +208,11 @@ public:
+@@ -186,6 +195,10 @@ public:
+   HRESULT STDMETHODCALLTYPE
+   Invoke(ICoreWebView2 * /*sender*/,
+          ICoreWebView2PermissionRequestedEventArgs *args) {
++    if (m_permCb) {
++      m_permCb(args);
++      return S_OK;
++    }
+     COREWEBVIEW2_PERMISSION_KIND kind;
+     args->get_PermissionKind(&kind);
+     if (kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ) {
+@@ -200,6 +213,20 @@ public:
      m_attempt_handler = attempt_handler;
    }
  
@@ -495,18 +556,28 @@ index 316a9d5..8af54d8 100644
 +    m_env_out = env_out;
 +  }
 +
++  // Optional permission interception (GAP H6): when set, permission
++  // requests are handed to the engine (which defers + forwards them to the
++  // app); when not set, the built-in default behavior applies.
++  void set_permission_cb(
++      std::function<void(ICoreWebView2PermissionRequestedEventArgs *)> cb)
++      noexcept {
++    m_permCb = std::move(cb);
++  }
++
    // Retry creating a WebView2 environment.
    // The initiating logic for creating the environment is defined by the
    // caller of set_attempt_handler().
-@@ -232,6 +245,7 @@ private:
+@@ -232,6 +259,8 @@ private:
    HWND m_window;
    msg_cb_t m_msgCb;
    webview2_com_handler_cb_t m_cb;
++  std::function<void(ICoreWebView2PermissionRequestedEventArgs *)> m_permCb;
 +  ICoreWebView2Environment **m_env_out = nullptr;
    std::atomic<ULONG> m_ref_count{1};
    std::function<HRESULT()> m_attempt_handler;
    unsigned int m_max_attempts = 60;
-@@ -291,6 +305,369 @@ private:
+@@ -291,6 +320,369 @@ private:
    std::atomic<ULONG> m_ref_count{1};
  };
  
@@ -876,13 +947,16 @@ index 316a9d5..8af54d8 100644
  class user_script::impl {
  public:
    impl(const std::wstring &id, const std::wstring &code)
-@@ -318,6 +695,25 @@ public:
+@@ -318,6 +710,28 @@ public:
    }
  
    virtual ~win32_edge_engine() {
 +    if (m_webview && m_webres_req_handler) {
 +      m_webview->remove_WebResourceRequested(m_webres_req_token);
 +    }
++    // Pending permission deferrals die with the engine: the webview that
++    // issued them is going away, so there is nothing left to complete.
++    abandon_pending_permissions();
 +    if (m_webres_req_handler) {
 +      m_webres_req_handler->Release();
 +      m_webres_req_handler = nullptr;
@@ -902,7 +976,7 @@ index 316a9d5..8af54d8 100644
      if (m_com_handler) {
        m_com_handler->Release();
        m_com_handler = nullptr;
-@@ -460,6 +856,16 @@ protected:
+@@ -460,6 +874,16 @@ protected:
      return {};
    }
  
@@ -919,7 +993,7 @@ index 316a9d5..8af54d8 100644
    user_script add_user_script_impl(const std::string &js) override {
      auto wjs = widen_string(js);
      std::wstring script_id;
-@@ -740,6 +1146,41 @@ private:
+@@ -740,6 +1164,41 @@ private:
      wchar_t userDataFolder[MAX_PATH];
      PathCombineW(userDataFolder, dataPath, currentExeName);
  
@@ -961,11 +1035,15 @@ index 316a9d5..8af54d8 100644
      m_com_handler = new webview2_com_handler(
          wnd, cb,
          [&](ICoreWebView2Controller *controller, ICoreWebView2 *webview) {
-@@ -753,10 +1194,11 @@ private:
+@@ -753,10 +1212,15 @@ private:
            m_webview = webview;
            flag.clear();
          });
 +    m_com_handler->set_env_out(&m_environment);
++    m_com_handler->set_permission_cb(
++        [this](ICoreWebView2PermissionRequestedEventArgs *args) {
++          on_permission_requested(args);
++        });
  
      m_com_handler->set_attempt_handler([&] {
        return m_webview2_loader.create_environment_with_options(
@@ -974,7 +1052,7 @@ index 316a9d5..8af54d8 100644
      });
      m_com_handler->try_create_environment();
  
-@@ -802,9 +1244,105 @@ private:
+@@ -802,9 +1266,170 @@ private:
      if (owns_window()) {
        focus_webview();
      }
@@ -1077,10 +1155,75 @@ index 316a9d5..8af54d8 100644
 +    }
 +  }
 +
++  // ---- permission interception (GAP H6; webview-local) --------------------
++  // Media capture only (mac parity: WKUIDelegate media-capture selector).
++  // The event fires on the engine thread; the request is parked under a
++  // deferral and answered asynchronously via complete_permission(). Saturate
++  // to a platform-default pass-through rather than grow without bound.
++  void on_permission_requested(
++      ICoreWebView2PermissionRequestedEventArgs *args) {
++    if (!m_permission_handler) {
++      return;
++    }
++    COREWEBVIEW2_PERMISSION_KIND kind;
++    args->get_PermissionKind(&kind);
++    const char *kind_str = nullptr;
++    if (kind == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE) {
++      kind_str = "microphone";
++    } else if (kind == COREWEBVIEW2_PERMISSION_KIND_CAMERA) {
++      kind_str = "camera";
++    } else {
++      return; /* non-media kinds keep platform default */
++    }
++    if (m_perm_pending.size() >= MAX_PERM_PENDING) {
++      return;
++    }
++    LPWSTR uri_w = nullptr;
++    std::string url;
++    if (SUCCEEDED(args->get_Uri(&uri_w)) && uri_w) {
++      url = narrow_string(uri_w);
++      CoTaskMemFree(uri_w);
++    }
++    ICoreWebView2Deferral *deferral = nullptr;
++    if (FAILED(args->GetDeferral(&deferral)) || !deferral) {
++      return; /* no deferral: platform default */
++    }
++    args->AddRef();
++    long id = m_perm_next_id++;
++    m_perm_pending.emplace(id, PendingPermission{args, deferral});
++    m_permission_handler(kind_str, url.c_str(), id);
++  }
++
++  void complete_permission(long id, int decision) override {
++    auto it = m_perm_pending.find(id);
++    if (it == m_perm_pending.end()) {
++      return; /* unknown id: already answered / saturated out */
++    }
++    COREWEBVIEW2_PERMISSION_STATE state = COREWEBVIEW2_PERMISSION_STATE_DEFAULT;
++    if (decision == 1) {
++      state = COREWEBVIEW2_PERMISSION_STATE_ALLOW;
++    } else if (decision == 2) {
++      state = COREWEBVIEW2_PERMISSION_STATE_DENY;
++    }
++    it->second.args->put_State(state);
++    it->second.deferral->Complete();
++    it->second.deferral->Release();
++    it->second.args->Release();
++    m_perm_pending.erase(it);
++  }
++
++  void abandon_pending_permissions() {
++    for (auto &entry : m_perm_pending) {
++      entry.second.deferral->Release();
++      entry.second.args->Release();
++    }
++    m_perm_pending.clear();
++  }
++
    void resize_widget() {
      if (m_widget) {
        RECT r{};
-@@ -892,6 +1430,13 @@ private:
+@@ -892,6 +1517,23 @@ private:
    DWORD m_main_thread = GetCurrentThreadId();
    ICoreWebView2 *m_webview = nullptr;
    ICoreWebView2Controller *m_controller = nullptr;
@@ -1091,14 +1234,24 @@ index 316a9d5..8af54d8 100644
 +  std::string m_scheme_root; // filesystem root served under the scheme
 +  EventRegistrationToken m_webres_req_token{};
 +  webview2_web_resource_requested_handler *m_webres_req_handler = nullptr;
++
++  // Permission interception state (GAP H6). UI-thread only (requests arrive
++  // and complete on the engine message loop) — no lock needed.
++  struct PendingPermission {
++    ICoreWebView2PermissionRequestedEventArgs *args;
++    ICoreWebView2Deferral *deferral;
++  };
++  static constexpr size_t MAX_PERM_PENDING = 64;
++  std::map<long, PendingPermission> m_perm_pending;
++  long m_perm_next_id = 1;
    webview2_com_handler *m_com_handler = nullptr;
    mswebview2::loader m_webview2_loader;
    int m_dpi{};
 diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
-index 01c8d29..8165fe6 100644
+index 01c8d29..2084773 100644
 --- a/core/include/webview/detail/engine_base.hh
 +++ b/core/include/webview/detail/engine_base.hh
-@@ -137,6 +137,11 @@ window.__webview__.onUnbind(" +
+@@ -137,6 +137,27 @@ window.__webview__.onUnbind(" +
    noresult dispatch(std::function<void()> f) { return dispatch_impl(f); }
    noresult set_title(const std::string &title) { return set_title_impl(title); }
  
@@ -1107,19 +1260,44 @@ index 01c8d29..8165fe6 100644
 +    return set_scheme_handler_impl(scheme, root_dir);
 +  }
 +
++  // Media-capture permission interception (GAP H6; webview-local). The
++  // handler fires on the engine thread; answer asynchronously through
++  // permission_respond() (any thread) or leave the request pending.
++  using permission_handler_t =
++      std::function<void(const char *kind, const char *url, long id)>;
++
++  noresult set_permission_handler(permission_handler_t handler) {
++    m_permission_handler = std::move(handler);
++    return {};
++  }
++
++  noresult permission_respond(long id, int decision) {
++    return dispatch_impl(
++        [this, id, decision] { complete_permission(id, decision); });
++  }
++
    noresult set_size(int width, int height, webview_hint_t hints) {
      auto res = set_size_impl(width, height, hints);
      m_is_size_set = true;
-@@ -165,6 +170,8 @@ protected:
+@@ -165,6 +186,17 @@ protected:
                                   webview_hint_t hints) = 0;
    virtual noresult set_html_impl(const std::string &html) = 0;
    virtual noresult eval_impl(const std::string &js) = 0;
 +  virtual noresult set_scheme_handler_impl(const std::string &scheme,
 +                                           const std::string &root_dir) = 0;
++
++  // Completes a pending permission request on the engine thread; no-op when
++  // the id is unknown (already answered / never pending).
++  virtual void complete_permission(long id, int decision) {
++    (void)id;
++    (void)decision;
++  }
++
++  permission_handler_t m_permission_handler;
  
    virtual user_script *add_user_script(const std::string &js) {
      return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
-@@ -324,7 +331,11 @@ protected:
+@@ -324,7 +356,11 @@ protected:
    }
  
    // Runs the event loop until the currently queued events have been processed.
