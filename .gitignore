@@ -41,3 +41,6 @@ bench-results.json
 
 # playwright MCP session artifacts (console logs / page snapshots)
 .playwright-mcp/
+
+# launch/promotion drafts (local only, not part of the shipped repo)
+marketing/
