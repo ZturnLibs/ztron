@@ -27,6 +27,22 @@
 - **Zero-cost migration for Tauri users** — the API is a faithful port of [`@tauri-apps/api`](https://github.com/tauri-apps/tauri) as `@zturnlibs/ztron-api`; the IPC/events/commands/plugins protocol is isomorphic. The [migration guide](https://zturnlibs.github.io/ztron/docs/en/guide/tauri-migration.html) gets you moved in half a day.
 - **Complete ecosystem** — 25+ built-in plugins (fs/http/store/sql/shell/tray/menu/dialog/updater…), an ACL capability system, the `ztron://` custom protocol, auto-update + signing + dmg packaging.
 
+## How Ztron Compares
+
+| | Ztron | Tauri v2 | Electron |
+| --- | --- | --- | --- |
+| Frontend | TS + any framework | TS + any framework | TS + any framework |
+| **Backend** | **TypeScript (txiki.js)** | Rust | JavaScript (Node.js) |
+| Native toolchain | None (CLI ships prebuilt) | Rust toolchain; cross-compiling needs setup | None |
+| Rendering | OS webview | OS webview | Bundled Chromium + Node |
+| Installer size | **6.2 MB** (measured) | ~3–10 MB | ~85–100 MB |
+| Backend change takes effect | On save | Rust recompile | On save |
+| Security model | ACL capabilities + Path/HttpScope + CSP | capabilities + scope | roll your own |
+| Packaging / signing / updater | ✅ built in | ✅ built in | via electron-builder & friends |
+| Platform verification | ✅ macOS (Apple Silicon) · 🚧 Windows · 🚧 Linux | ✅ all platforms + mobile | ✅ all platforms (10+ years) |
+
+> Ztron numbers are a measured baseline (Apple M3, 2026-09, reproducible via `ztron bench --record`): cold start 582ms · invoke P50 0.31ms / P95 1ms · Channel 8.5MB/s · window create 58ms · .app 6.21MB. Competitor sizes are commonly cited figures, for scale only. **Honest disclaimer: Tauri and Electron are far more mature across platforms than Ztron** — treat the last row as the deciding one.
+
 ## Up and Running in 30 Seconds
 
 > Prerequisites: macOS (Apple Silicon verified) + Node.js ≥ 20. The native chain ships prebuilt with the CLI — **no repo clone, no compilation, no environment variables**.

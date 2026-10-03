@@ -27,6 +27,22 @@
 - **Tauri 用户零成本迁移** —— API 自 [`@tauri-apps/api`](https://github.com/tauri-apps/tauri) 忠实移植为 `@zturnlibs/ztron-api`，IPC/事件/命令/插件协议同构，[迁移指南](https://zturnlibs.github.io/ztron/docs/guide/tauri-migration.html)半天搬完。
 - **生态完整** —— 25+ 内置插件（fs/http/store/sql/shell/tray/menu/dialog/updater…）、ACL 能力权限体系、`ztron://` 自定义协议、自动更新 + 签名 + dmg 打包。
 
+## 横向对比
+
+| | Ztron | Tauri v2 | Electron |
+| --- | --- | --- | --- |
+| 前端 | TS + 任意框架 | TS + 任意框架 | TS + 任意框架 |
+| **后端** | **TypeScript（txiki.js）** | Rust | JavaScript（Node.js） |
+| 原生工具链 | 无（CLI 自带预编译链） | Rust 工具链，交叉编译需配置 | 无 |
+| 渲染 | 系统 WebView | 系统 WebView | 捆绑 Chromium + Node |
+| 安装包 | **6.2 MB**（实测） | ~3–10 MB | ~85–100 MB |
+| 后端改动生效 | 保存即生效 | 需 Rust 重编译 | 保存即生效 |
+| 安全模型 | ACL capabilities + Path/HttpScope + CSP | capabilities + scope | 自行实践 |
+| 打包 / 签名 / 自动更新 | ✅ 内置 | ✅ 内置 | 需 electron-builder 等生态件 |
+| 平台验证 | ✅ macOS（Apple Silicon）· 🚧 Windows · 🚧 Linux | ✅ 全平台 + 移动端 | ✅ 全平台（10 年+） |
+
+> Ztron 数字为实测基线（Apple M3，2026-09，`ztron bench --record` 可复现）：冷启动 582ms · invoke P50 0.31ms / P95 1ms · Channel 8.5MB/s · 窗口创建 58ms · .app 6.21MB。竞品体积为公开资料常见量级，仅供感知。**诚实声明：Tauri/Electron 的多平台成熟度远高于 Ztron**，选型请以上表最后一行为准。
+
 ## 30 秒上手
 
 > 前置：macOS（Apple Silicon 已验证）+ Node.js ≥ 20。原生链已随 CLI 预编译，**无需 clone 本仓库、无需编译、无需配环境变量**。
