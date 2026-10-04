@@ -2340,6 +2340,50 @@ static int menu_popup_track(MenuRec *pm, HWND w, int x, int y) {
   return cmd;
 }
 
+/* GAP H15: whole-app hide/show — the NSApp hide:/unhide analog. Windows
+   has no per-app visibility, so cover the main window FIRST (it is not
+   in the registry — add_webview only registers non-main labels) and then
+   every registered extra window; each keeps its own state and just goes
+   off-screen. Show uses SW_SHOWNA so restoring z-order/focus is a
+   separate, deliberate step. */
+static void app_hide_all(void) {
+  int i;
+  if (zt_hwnd()) ShowWindow(zt_hwnd(), SW_HIDE);
+  for (i = 0; i < zt_webview_count(); i++) {
+    const char *lb = zt_webview_label_at(i);
+    webview_t wv2 = lb ? zt_webview(lb) : NULL;
+    HWND hw = (wv2 && wv2 != zt_w) ? zt_hwnd_for(wv2) : NULL;
+    if (hw) ShowWindow(hw, SW_HIDE);
+  }
+}
+
+static void app_show_all(void) {
+  int i;
+  if (zt_hwnd() && !IsWindowVisible(zt_hwnd()))
+    ShowWindow(zt_hwnd(), SW_SHOWNA);
+  for (i = 0; i < zt_webview_count(); i++) {
+    const char *lb = zt_webview_label_at(i);
+    webview_t wv2 = lb ? zt_webview(lb) : NULL;
+    HWND hw = (wv2 && wv2 != zt_w) ? zt_hwnd_for(wv2) : NULL;
+    if (hw && !IsWindowVisible(hw)) ShowWindow(hw, SW_SHOWNA);
+  }
+  /* mac app_show ends with activateIgnoringOtherApps — borrow foreground
+     rights the same way menu_popup_track does (H13), best-effort: a
+     background host without a foreground peer still just shows. */
+  {
+    HWND w = zt_hwnd();
+    DWORD fg_tid = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+    DWORD my_tid = GetCurrentThreadId();
+    BOOL attached = fg_tid && fg_tid != my_tid &&
+                    AttachThreadInput(my_tid, fg_tid, TRUE);
+    if (w) {
+      SetForegroundWindow(w);
+      SetActiveWindow(w);
+    }
+    if (attached) AttachThreadInput(my_tid, fg_tid, FALSE);
+  }
+}
+
 /* Probe support: inject arrow/enter keys into the foreground menu's input
    queue from a side thread while the GUI thread sits in TrackPopupMenu's
    modal loop. leaf: DOWN,ENTER (first item). sub: DOWN,DOWN,RIGHT,ENTER —
@@ -3597,6 +3641,48 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
+  if (strcmp(m->type, "app_hide") == 0) {
+    /* Whole-app hide — windows stay alive, just off-screen. */
+    app_hide_all();
+    return 1;
+  }
+  if (strcmp(m->type, "app_show") == 0) {
+    app_show_all();
+    return 1;
+  }
+  if (strcmp(m->type, "app_set_dock_visibility") == 0) {
+    /* Dock icon on/off = taskbar button on/off: WS_EX_TOOLWINDOW, the
+       same switch set_skip_taskbar uses, exposed as a distinct API (mac
+       parity: both map to the activation-policy switch). The hide/show
+       cycle makes an already-visible window's Explorer button disappear
+       immediately instead of at the next show. */
+    HWND w = zt_hwnd();
+    if (w) {
+      LONG_PTR ex = GetWindowLongPtr(w, GWL_EXSTYLE);
+      if (m->bool_val) ex &= ~WS_EX_TOOLWINDOW;
+      else ex |= WS_EX_TOOLWINDOW;
+      SetWindowLongPtr(w, GWL_EXSTYLE, ex);
+      SetWindowPos(w, 0, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+      if (IsWindowVisible(w)) {
+        ShowWindow(w, SW_HIDE);
+        ShowWindow(w, SW_SHOWNA);
+      }
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "app_diag") == 0) {
+    /* H15 probe readback: main window visibility + taskbar-skip style
+       (structure, no Explorer queries). */
+    HWND w = zt_hwnd();
+    LONG_PTR ex = w ? GetWindowLongPtr(w, GWL_EXSTYLE) : 0;
+    char buf[96];
+    snprintf(buf, sizeof(buf), "{\"visible\":%s,\"toolwindow\":%s}",
+             w && IsWindowVisible(w) ? "true" : "false",
+             (ex & WS_EX_TOOLWINDOW) ? "true" : "false");
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
   if (strcmp(m->type, "tray_set_menu") == 0) {
     snprintf(g_tray_menu_id, sizeof(g_tray_menu_id), "%s", m->str);
     return 1;

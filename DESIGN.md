@@ -1331,6 +1331,20 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 136. Windows P2 第三项(GAP H15):app_show/app_hide/app_set_dock_visibility + host 异常死亡的可观测性
+
+三个 app 级可见性 op 的 Windows 对应，外加验证过程中沉淀的一套 host 死亡诊断法。
+
+**语义映射**:Windows 没有 per-app 可见性,三 op 全部落在窗口/样式层。`app_hide`=遍历所有 ztron 窗口 ShowWindow(SW_HIDE)(窗口都活着,只是离屏——mac NSApp hide: 的同构);`app_show`=SW_SHOWNA 逐个恢复(SW_SHOW 不行——它会抢激活打乱 z 序,恢复可见与激活分离)再对主窗口借权激活(AttachThreadInput→SetForegroundWindow→detach,与 H13 menu_popup_track 同款;后台 CI 无前台对象可借时退化为纯显示,断言不依赖激活)。**`app_set_dock_visibility`=任务栏按钮开关**:WS_EX_TOOLWINDOW 加减(set_skip_taskbar 的同款开关——mac 侧注释本来就写明两者同源,都是 activation policy 一个开关),SetWindowPos FRAMECHANGED 让样式即时生效,再在窗口当前可见时 SW_HIDE/SW_SHOWNA 一轮——没有这一轮,Explorer 的按钮要等下次 show 才消失。
+
+**registry 盲区(本项真正的实现坑)**:第一版 app_hide_all 只遍历 zt_webview_count()——**主窗口从不进 registry**(add_webview 只登记非 main 标签,host.c create_window 分支)。stress-* 全销毁后 count=0,循环空转,main 根本没被隐藏,探针 hide 腿读到 visible=true。修法照抄 theme_apply_all 的形状:**先显式处理 zt_hwnd(),再遍历 registry 且跳过 zt_w**(zt_webview(未注册 label) 返回 zt_w,不过滤会对主窗口双重处理)。
+
+**探针**:multiwin 既有 APP_LIFECYCLE 冒烟腿(只断言"调用不挂")升级为真断言——marker 名保持 APP_LIFECYCLE_OK,ci.sh 的 multiwin expect 需补一个该 marker。win32 下:hide→getWindowState().visible===false→show→visible===true→app_diag 基线 toolwindow===false→dock(false)→toolwindow===true→dock(true)→false。app_diag 是新的 host-only 诊断 op,读回主窗口 {visible,toolwindow}。
+
+**host 异常死亡的可观测性(验证期间沉淀,长期保留)**:验证时撞上一个 multiwin 间歇 AV——second.destroy() 后 host 消失,tjs 全线 EPIPE。诊断有三层坑:①check harness 在 tjs 退出即 process.exit,host 的退出码永远不可观测;②SetUnhandledExceptionFilter 之前,AV 无声;③fprintf(stderr) 在崩溃路径上不可靠,要用 `_write(2, ...)` 直写。最终打点三件:crash filter(异常码+**模块名+模块内 RVA**,GetModuleHandleEx FROM_ADDRESS 反查)、webview_run 返回后的无条件 "run loop exited"(区分优雅退出与异常死亡)、quit/app_exit op 行。RVA 定位靠 /MAP 重编(`-DCMAKE_SHARED_LINKER_FLAGS_RELEASE="/DEBUG /MAP /MAPINFO:EXPORTS"`,MSVC 空格分隔、分号会被当整串报 LNK4044):map 第 3 列地址−0x180000000=RVA,awk 找 ≤ 目标的最近符号——锁到 eval_impl+0x4a。
+
+**老雷根因与修复(vendored webview,GAP H15 期间定位)**:crash=0xc0000005 @ webview.dll eval_impl,模块链/时序证据齐了才敢动手。**真根因**:win32_edge 的 message-only window 是跨线程 dispatch 通道(dispatch_impl 从 socket 线程 PostMessage WM_APP,wndproc 解 GWLP_USERDATA 执行 lambda)。引擎析构与 socket 线程 dispatch 竞态时,存量 WM_APP 被**尾部 deplete 泵执行在半析构 engine 上**(controller 已 Release)→eval_impl AV。**修复三件(win32_edge.hh)**:①`dispatch gate`(SRWLOCK+`m_dispatch_closed`):析构 exclusive 关闸、dispatch_impl shared 内 PostMessage——锁序保证关闸后零漏网;②析构**头部**执行型排空:资源全活时裸泵执行存量 WM_APP(尾部执行才是不安全点);③尾部 deplete 改 **PeekMessage 非阻塞版+WM_QUIT re-post**。③还修了修复过程中暴露的第二形态:第一版修复把 DestroyWindow(message window) 提到析构头部,掐断 deplete 的 done 回执通道→嵌套 GetMessage 在队列空+quitting 置位时消费 WM_QUIT 且不还→主 run loop 永远等不到→host 挂死、tjs TIMEOUT(上一行"run loop exited"打点正好区分了优雅/异常/挂死三态)。run_event_loop_while(GetMessage 版)同样补 re-post(sync-bind 嵌套泵同病)。**验证**:修复前 6 连跑=5 TIMEOUT+1 WebView2 Runtime 内 crash;修复后 **12/12 全绿**(0 crash 0 TIMEOUT,APP_LIFECYCLE_OK 真断言全过)。时序敏感的老结论不变:任何验证结论都要在没有额外打点的时序下复核。**UDF 按 exe 名共享给用户真实应用,不可清理重置**(本机 WebView2 Runtime 154.0.4258.53)。
+
 ## 135. Windows P2 第二项(GAP H14):default 菜单树 + SetMenuItemBitmaps 图标 + per-window 菜单栏
 
 三个缺失 op 一批补齐，全部围绕 Win32 HMENU 的所有权模型展开。

@@ -9,7 +9,7 @@
  *  4. backend destroys the second window (registry cleanup path)
  *  5. main terminates → MULTI_WINDOW_RUNTIME_OK + exit 0
  */
-import { AppBuilder } from "@zturnlibs/ztron-core";
+import { AppBuilder, detectPlatform } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 declare const tjs: {
@@ -116,8 +116,11 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
             await sleep(350);
           }
           // App-lifecycle surface (G2 / core:app parity): drive whole-app
-          // show/hide + Dock visibility through the host. Each op must ack
-          // without hanging the GUI thread before we quit.
+          // show/hide + Dock visibility through the host. Windows (GAP H15)
+          // adds REAL assertions: hide must unmap every window, show must
+          // bring main back, and the dock switch must toggle the
+          // taskbar-skip style (host-only app_diag readback). mac keeps
+          // the smoke-only contract here.
           try {
             runtime.application.show();
             await sleep(80);
@@ -129,9 +132,55 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
             await sleep(60);
             runtime.application.show(); /* leave the app visible */
             await sleep(80);
+            if (detectPlatform() === "windows") {
+              const sendReq = (
+                runtime as unknown as {
+                  sendRequest: (
+                    op: string,
+                    payload?: Record<string, unknown>,
+                  ) => Promise<unknown>;
+                }
+              ).sendRequest.bind(runtime);
+              type Diag = { visible?: boolean; toolwindow?: boolean };
+              type St = { visible: boolean } | null | undefined;
+              const state = (): Promise<St> =>
+                (
+                  app.getWebview("main") as unknown as
+                    | { getWindowState(): Promise<St> }
+                    | undefined
+                )?.getWindowState() ?? Promise.resolve(null);
+              runtime.application.hide();
+              await sleep(250);
+              const s1 = await state();
+              if (!s1 || s1.visible) {
+                throw new Error("hide:left-visible:" + JSON.stringify(s1));
+              }
+              runtime.application.show();
+              await sleep(250);
+              const s2 = await state();
+              if (!s2 || !s2.visible) {
+                throw new Error("show:still-hidden:" + JSON.stringify(s2));
+              }
+              const d0 = (await sendReq("app_diag")) as Diag | null;
+              if (!d0 || d0.toolwindow !== false) {
+                throw new Error("dock:baseline:" + JSON.stringify(d0));
+              }
+              runtime.application.setDockVisibility(false);
+              await sleep(200);
+              const d1 = (await sendReq("app_diag")) as Diag | null;
+              if (!d1 || d1.toolwindow !== true) {
+                throw new Error("dock:no-skip:" + JSON.stringify(d1));
+              }
+              runtime.application.setDockVisibility(true);
+              await sleep(200);
+              const d2 = (await sendReq("app_diag")) as Diag | null;
+              if (!d2 || d2.toolwindow !== false) {
+                throw new Error("dock:stuck-skip:" + JSON.stringify(d2));
+              }
+            }
             console.log("APP_LIFECYCLE_OK");
           } catch (e) {
-            console.log("APP_LIFECYCLE_FAIL:" + String(e).slice(0, 60));
+            console.log("APP_LIFECYCLE_FAIL:" + String(e).slice(0, 120));
           }
 
           console.log("STRESS_OK");

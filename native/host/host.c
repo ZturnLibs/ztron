@@ -35,6 +35,35 @@ static zt_ssize_t zt_sock_read(int fd, char *buf, size_t n) {
   return recv(fd, buf, (int)n, 0);
 }
 #define zt_close(fd) closesocket(fd)
+/* CI diagnostics: an abnormal host death used to leave no trace (the check
+   harness decides before the host's exit code is observable). _write to fd 2
+   avoids CRT-state hazards at crash time. */
+static LONG WINAPI zt_crash_filter(EXCEPTION_POINTERS *ep) {
+  static char msg[220];
+  HMODULE mod = NULL;
+  char mname[MAX_PATH] = "?";
+  DWORD rva = 0;
+  if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                             GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                         (LPCWSTR)ep->ExceptionRecord->ExceptionAddress,
+                         &mod) &&
+      mod) {
+    wchar_t wname[MAX_PATH];
+    if (GetModuleFileNameW(mod, wname, MAX_PATH)) {
+      wchar_t *slash = wcsrchr(wname, L'\\');
+      WideCharToMultiByte(CP_UTF8, 0, slash ? slash + 1 : wname, -1, mname,
+                          sizeof(mname), NULL, NULL);
+    }
+    rva = (DWORD)((char *)ep->ExceptionRecord->ExceptionAddress -
+                  (char *)mod);
+  }
+  int n = _snprintf(msg, sizeof(msg),
+                    "[zt] HOST CRASH code=0x%08lx mod=%s rva=0x%lx\n",
+                    (unsigned long)ep->ExceptionRecord->ExceptionCode, mname,
+                    (unsigned long)rva);
+  if (n > 0) _write(2, msg, n);
+  return EXCEPTION_CONTINUE_SEARCH;
+}
 /* SRWLOCK statically initializes like PTHREAD_MUTEX_INITIALIZER. */
 static SRWLOCK g_lock = SRWLOCK_INIT;
 #define zt_lock() AcquireSRWLockExclusive(&g_lock)
@@ -353,8 +382,10 @@ static void on_gui(webview_t w, void *arg) {
   } else if (strcmp(m->type, "response") == 0) {
     webview_return(w, m->id, m->status, m->str);
   } else if (strcmp(m->type, "quit") == 0) {
+    fprintf(stderr, "[zt] quit op received\n");
     webview_terminate(w);
   } else if (strcmp(m->type, "app_exit") == 0) {
+    fprintf(stderr, "[zt] app_exit op received (code %d)\n", m->status);
     g_exit_code = m->status;
     webview_terminate(w);
   } else if (strcmp(m->type, "app_relaunch") == 0) {
@@ -551,6 +582,7 @@ extern int zt_deeplink_preinit(int argc, char **argv);
 
 int main(int argc, char **argv) {
 #if defined(_WIN32)
+  SetUnhandledExceptionFilter(zt_crash_filter);
   WSADATA wsa;
   if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
     fprintf(stderr, "WSAStartup failed\n");
@@ -629,7 +661,9 @@ int main(int argc, char **argv) {
 #endif
 
   webview_run(zt_w);
-  if (getenv("ZT_TRACE")) fprintf(stderr, "[zt] run loop exited\n");
+  /* Unconditional: distinguishes a graceful run-loop return (this line
+     printed) from an abnormal process death (line absent) in CI logs. */
+  fprintf(stderr, "[zt] run loop exited\n");
   webview_destroy(zt_w);
   if (getenv("ZT_TRACE")) fprintf(stderr, "[zt] host shutting down\n");
   zt_close(cfd);

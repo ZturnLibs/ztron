@@ -8,7 +8,7 @@
  * the destroy-flood (known upstream UAF terrain on darwin 25.2 — DESIGN §98)
  * cannot mask this check.
  */
-import { AppBuilder } from "@zturnlibs/ztron-core";
+import { AppBuilder, detectPlatform } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
 
 const runtime = new HostRuntime({
@@ -44,7 +44,7 @@ await sleep(400);
 
 void (async () => {
   const root = `$sys-${Date.now()}`;
-  const isDarwin = tjs.platform === "darwin";
+  const isDarwin = detectPlatform() === "macos";
   try {
     runtime.menu.createMenu({ id: "probe", items: [] });
     // H14: menu_create_default now exists on BOTH platforms — the same

@@ -507,7 +507,7 @@ index 1a0a2c6..f369cf3 100755
  } // namespace detail
  
 diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
-index 316a9d5..b250d0e 100644
+index 316a9d5..81e32a3 100644
 --- a/core/include/webview/detail/backends/win32_edge.hh
 +++ b/core/include/webview/detail/backends/win32_edge.hh
 @@ -58,9 +58,11 @@
@@ -947,10 +947,37 @@ index 316a9d5..b250d0e 100644
  class user_script::impl {
  public:
    impl(const std::wstring &id, const std::wstring &code)
-@@ -318,6 +710,28 @@ public:
+@@ -318,6 +710,55 @@ public:
    }
  
    virtual ~win32_edge_engine() {
++    /* Close the dispatch gate first: past this point no foreign thread
++       can post a new WM_APP for this engine. Dispatches already sitting
++       in the thread queue were posted while the engine was fully alive,
++       so they are drained and EXECUTED right below (the message window
++       must stay alive until the tail of this destructor for that to
++       work — destroying it early breaks the drain's done-callback and
++       the nested GetMessage then swallows a pending WM_QUIT, hanging
++       the outer run loop). Executing them here is safe; leaving them
++       for the tail-end cleanup is not — the tail pump would run them
++       against a half-destructed engine (observed as 0xc0000005 in
++       eval_impl when a dispatch racing window destruction was pumped
++       after the WebView2 controller had already been released). */
++    AcquireSRWLockExclusive(&m_dispatch_gate);
++    m_dispatch_closed = true;
++    ReleaseSRWLockExclusive(&m_dispatch_gate);
++    {
++      bool done{};
++      if (!PostMessageW(m_message_window, WM_APP, 0,
++                        (LPARAM)new dispatch_fn_t([&] { done = true; }))) {
++        done = true;
++      }
++      MSG msg;
++      while (!done && GetMessageW(&msg, nullptr, 0, 0) > 0) {
++        TranslateMessage(&msg);
++        DispatchMessageW(&msg);
++      }
++    }
 +    if (m_webview && m_webres_req_handler) {
 +      m_webview->remove_WebResourceRequested(m_webres_req_token);
 +    }
@@ -976,7 +1003,25 @@ index 316a9d5..b250d0e 100644
      if (m_com_handler) {
        m_com_handler->Release();
        m_com_handler = nullptr;
-@@ -460,6 +874,16 @@ protected:
+@@ -403,7 +844,17 @@ protected:
+     return {};
+   }
+   noresult dispatch_impl(dispatch_fn_t f) override {
++    // The post happens under the shared gate so a destructor closing the
++    // gate (exclusive) can never race a dispatch into the queue: any
++    // dispatch that gets through is guaranteed to be drained and executed
++    // by the head-of-destructor pump while the engine is still alive.
++    AcquireSRWLockShared(&m_dispatch_gate);
++    if (m_dispatch_closed) {
++      ReleaseSRWLockShared(&m_dispatch_gate);
++      return error_info{WEBVIEW_ERROR_INVALID_STATE};
++    }
+     PostMessageW(m_message_window, WM_APP, 0, (LPARAM) new dispatch_fn_t(f));
++    ReleaseSRWLockShared(&m_dispatch_gate);
+     return {};
+   }
+ 
+@@ -460,6 +911,16 @@ protected:
      return {};
    }
  
@@ -993,7 +1038,7 @@ index 316a9d5..b250d0e 100644
    user_script add_user_script_impl(const std::string &js) override {
      auto wjs = widen_string(js);
      std::wstring script_id;
-@@ -740,6 +1164,41 @@ private:
+@@ -740,6 +1201,41 @@ private:
      wchar_t userDataFolder[MAX_PATH];
      PathCombineW(userDataFolder, dataPath, currentExeName);
  
@@ -1035,7 +1080,7 @@ index 316a9d5..b250d0e 100644
      m_com_handler = new webview2_com_handler(
          wnd, cb,
          [&](ICoreWebView2Controller *controller, ICoreWebView2 *webview) {
-@@ -753,10 +1212,15 @@ private:
+@@ -753,10 +1249,15 @@ private:
            m_webview = webview;
            flag.clear();
          });
@@ -1052,7 +1097,7 @@ index 316a9d5..b250d0e 100644
      });
      m_com_handler->try_create_environment();
  
-@@ -802,9 +1266,170 @@ private:
+@@ -802,9 +1303,170 @@ private:
      if (owns_window()) {
        focus_webview();
      }
@@ -1223,7 +1268,53 @@ index 316a9d5..b250d0e 100644
    void resize_widget() {
      if (m_widget) {
        RECT r{};
-@@ -892,6 +1517,23 @@ private:
+@@ -874,7 +1536,33 @@ private:
+ 
+   void run_event_loop_while(std::function<bool()> fn) override {
+     MSG msg;
+-    while (fn() && GetMessageW(&msg, nullptr, 0, 0) > 0) {
++    while (fn()) {
++      auto r = GetMessageW(&msg, nullptr, 0, 0);
++      if (r <= 0) {
++        if (r == 0) {
++          // A nested pump consumed the WM_QUIT; re-post so the flag
++          // survives for the outer loop, which owns termination.
++          PostQuitMessage((int)msg.wParam);
++        }
++        break;
++      }
++      TranslateMessage(&msg);
++      DispatchMessageW(&msg);
++    }
++  }
++
++  // Tail-of-destructor drain: the gate is closed and the head-of-destructor
++  // pump has already executed every queued dispatch, so normally there is
++  // nothing left — this is a non-blocking mop-up. Unlike the blocking pump
++  // it never waits on a done-callback that can no longer be posted, and it
++  // re-posts WM_QUIT so the outer run loop still observes termination.
++  void deplete_run_loop_event_queue() override {
++    MSG msg;
++    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
++      if (msg.message == WM_QUIT) {
++        PostQuitMessage((int)msg.wParam);
++        continue;
++      }
+       TranslateMessage(&msg);
+       DispatchMessageW(&msg);
+     }
+@@ -887,11 +1575,34 @@ private:
+   HWND m_window = nullptr;
+   HWND m_widget = nullptr;
+   HWND m_message_window = nullptr;
++  // Guards dispatch_impl against racing the destructor: the destructor
++  // takes the gate exclusively to flip m_dispatch_closed, dispatch takes
++  // it shared around the PostMessage, so no dispatch can slip into the
++  // thread queue once destruction has begun.
++  SRWLOCK m_dispatch_gate = SRWLOCK_INIT;
++  bool m_dispatch_closed = false;
+   POINT m_minsz = POINT{0, 0};
+   POINT m_maxsz = POINT{0, 0};
    DWORD m_main_thread = GetCurrentThreadId();
    ICoreWebView2 *m_webview = nullptr;
    ICoreWebView2Controller *m_controller = nullptr;
@@ -1248,10 +1339,18 @@ index 316a9d5..b250d0e 100644
    mswebview2::loader m_webview2_loader;
    int m_dpi{};
 diff --git a/core/include/webview/detail/engine_base.hh b/core/include/webview/detail/engine_base.hh
-index 01c8d29..2084773 100644
+index 01c8d29..bf6afd9 100644
 --- a/core/include/webview/detail/engine_base.hh
 +++ b/core/include/webview/detail/engine_base.hh
-@@ -137,6 +137,27 @@ window.__webview__.onUnbind(" +
+@@ -35,6 +35,7 @@
+ #include "user_script.hh"
+ 
+ #include <atomic>
++#include <cstdio>
+ #include <functional>
+ #include <list>
+ #include <map>
+@@ -137,6 +138,27 @@ window.__webview__.onUnbind(" +
    noresult dispatch(std::function<void()> f) { return dispatch_impl(f); }
    noresult set_title(const std::string &title) { return set_title_impl(title); }
  
@@ -1279,7 +1378,7 @@ index 01c8d29..2084773 100644
    noresult set_size(int width, int height, webview_hint_t hints) {
      auto res = set_size_impl(width, height, hints);
      m_is_size_set = true;
-@@ -165,6 +186,17 @@ protected:
+@@ -165,6 +187,17 @@ protected:
                                   webview_hint_t hints) = 0;
    virtual noresult set_html_impl(const std::string &html) = 0;
    virtual noresult eval_impl(const std::string &js) = 0;
@@ -1297,7 +1396,14 @@ index 01c8d29..2084773 100644
  
    virtual user_script *add_user_script(const std::string &js) {
      return std::addressof(*m_user_scripts.emplace(m_user_scripts.end(),
-@@ -324,7 +356,11 @@ protected:
+@@ -318,13 +351,18 @@ protected:
+   virtual void on_window_destroyed(bool skip_termination = false) {
+     if (dec_window_count() <= 0) {
+       if (!skip_termination) {
++        fprintf(stderr, "[zt] engine terminate: window count exhausted\n");
+         terminate();
+       }
+     }
    }
  
    // Runs the event loop until the currently queued events have been processed.
