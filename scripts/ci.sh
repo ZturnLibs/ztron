@@ -383,6 +383,22 @@ case "$(uname -s)" in
   *) step "theme probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.13 notification probe (win32 WinRT toast; mac UNUserNotificationCenter) --
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "notif probe (win32 WinRT ToastNotification via raw vtbl)"
+    run_ztron_check "$ROOT/examples/notifprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect NOTIF_SETTING_OK \
+      --expect NOTIF_SEND_OK \
+      --expect NOTIF_GRANTED_OK \
+      --expect NOTIF_REQUEST_OK \
+      > /tmp/ci-notif.log 2>&1 \
+      || { tail -30 /tmp/ci-notif.log; fail "notif probe"; }
+    tail -2 /tmp/ci-notif.log
+    ;;
+  *) step "notif probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user

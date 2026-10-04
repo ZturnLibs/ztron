@@ -29,6 +29,8 @@
 #include <ole2.h>
 #include <shellapi.h> /* DragQueryFileW (CF_HDROP extraction) */
 #include <shlobj_core.h> /* DROPFILES layout (surprising home, not shellapi) */
+#include <roapi.h>     /* RoInitialize / RoGetActivationFactory (WinRT) */
+#include <winstring.h> /* HSTRING helpers */
 /* Fetched by the webview build stage (build/_deps): COREWEBVIEW2_COLOR +
    ICoreWebView2Controller2 for the transparent default background the
    backdrops below need to be visible through (GAP H7). */
@@ -2139,7 +2141,250 @@ static void zt_reply_frame(int req_id, const RECT *r) {
   zt_send_line(buf);
 }
 
+/* ---- notifications (WinRT toast, GAP H12) ----------------------------- */
+/* mac uses UNUserNotificationCenter (bundle-gated, dev no-ops). Windows
+   analog: ToastNotificationManager with an explicit AUMID — no tray icon
+   needed, the toast lands in the Action Center like a first-class app
+   (Tauri/wry pass a bare AUMID for unpackaged exes the same way). The SDK
+   ships no C ABI header for this namespace, so the vtbl hops are hand-
+   rolled against the .NET-projection interface GUIDs; IInspectable puts
+   every interface's own methods at slot 6+. */
+
+static const IID zt_IID_TNManagerStatics = {
+    0x50ac103f, 0xd235, 0x4598, {0xbb, 0xef, 0x98, 0xfe, 0x4d, 0x1a, 0x3a, 0xd4}};
+static const IID zt_IID_TNFactory = {
+    0x04124b20, 0x82c6, 0x4229, {0xb1, 0x09, 0xfd, 0x9e, 0xd4, 0x66, 0x2b, 0x53}};
+static const IID zt_IID_TNotifier = {
+    0x75927b93, 0x03f3, 0x41ec, {0x91, 0xd3, 0x6e, 0x5b, 0xac, 0x1b, 0x38, 0xe7}};
+static const IID zt_IID_XmlDocIO = {
+    0x6cd0e74e, 0xee65, 0x4489, {0x9e, 0xbf, 0xca, 0x43, 0xe8, 0x7b, 0xa6, 0x37}};
+
+typedef HRESULT (STDMETHODCALLTYPE *zt_gettemplate_fn)(void *, int, void **);
+typedef HRESULT (STDMETHODCALLTYPE *zt_loadxml_fn)(void *, void * /*HSTRING*/);
+typedef HRESULT (STDMETHODCALLTYPE *zt_createtoast_fn)(void *, void *, void **);
+typedef HRESULT (STDMETHODCALLTYPE *zt_createnotifier_fn)(void *, void *,
+                                                          void **);
+typedef HRESULT (STDMETHODCALLTYPE *zt_show_fn)(void *, void *);
+typedef HRESULT (STDMETHODCALLTYPE *zt_getsetting_fn)(void *, int *);
+
+static void toast_xml_escape(const char *s, char *out, size_t outsz) {
+  size_t o = 0;
+  for (; *s && o + 8 < outsz; s++) {
+    unsigned char c = (unsigned char)*s;
+    switch (c) {
+      case '&':  o += (size_t)snprintf(out + o, outsz - o, "&amp;");   break;
+      case '<':  o += (size_t)snprintf(out + o, outsz - o, "&lt;");    break;
+      case '>':  o += (size_t)snprintf(out + o, outsz - o, "&gt;");    break;
+      case '"':  o += (size_t)snprintf(out + o, outsz - o, "&quot;");  break;
+      case '\'': o += (size_t)snprintf(out + o, outsz - o, "&apos;");  break;
+      default:
+        if (c >= 0x20) out[o++] = (char)c; /* UTF-8 passes through verbatim */
+        else out[o++] = '?';
+    }
+  }
+  out[o] = 0;
+}
+
+static HSTRING toast_hstring(const wchar_t *w) {
+  HSTRING h = NULL;
+  if (WindowsCreateString(w, (UINT32)wcslen(w), &h) != S_OK) return NULL;
+  return h;
+}
+
+/* Per-hop diagnostics for the notification_diag probe op. */
+static struct {
+  long hr_fac;      /* RoGetActivationFactory(ManagerStatics) */
+  long hr_notifier; /* CreateToastNotifierWithId */
+  long hr_tpl;      /* GetTemplateContent */
+  long hr_docio;    /* QI IXmlDocumentIO */
+  long hr_loadxml;  /* LoadXml */
+  long hr_fac_tn;   /* RoGetActivationFactory(ToastNotificationFactory) */
+  long hr_toast;    /* CreateToastNotification */
+  long hr_show;     /* notifier Show */
+  long hr_setting;  /* notifier get_Setting */
+} g_toast_diag;
+
+/* WinRT activation requires an MTA apartment; our dispatch/UI threads
+   are already STA (WebView2 COM), so every toast call runs on a fresh
+   MTA thread and the caller blocks until it finishes. Notifications are
+   rare, user-facing events — thread churn is cheaper than keeping a
+   resident worker. */
+typedef struct ZtToastTask {
+  int (*fn)(void *ctx);
+  void *ctx;
+  int rc;
+} ZtToastTask;
+
+static DWORD WINAPI zt_toast_thread(LPVOID p) {
+  ZtToastTask *t = (ZtToastTask *)p;
+  HRESULT hr = RoInitialize(RO_INIT_MULTITHREADED);
+  if (SUCCEEDED(hr)) t->rc = t->fn(t->ctx);
+  if (hr == S_OK) RoUninitialize(); /* S_FALSE: the MTA outlives us */
+  return 0;
+}
+
+static int toast_on_mta(int (*fn)(void *), void *ctx) {
+  ZtToastTask t;
+  HANDLE h;
+  t.fn = fn;
+  t.ctx = ctx;
+  t.rc = 0;
+  h = CreateThread(NULL, 0, zt_toast_thread, &t, 0, NULL);
+  if (!h) return 0;
+  WaitForSingleObject(h, INFINITE);
+  CloseHandle(h);
+  return t.rc;
+}
+
+/* IToastNotifier for our AUMID — MTA thread only; the caller Releases. */
+static void *toast_notifier_get(void) {
+  void *mgr_statics = NULL, *notifier = NULL;
+  HSTRING haumid = NULL;
+  g_toast_diag.hr_fac = g_toast_diag.hr_notifier = E_FAIL;
+  {
+    HSTRING hcls = toast_hstring(L"Windows.UI.Notifications.ToastNotificationManager");
+    if (!hcls) return NULL;
+    g_toast_diag.hr_fac = RoGetActivationFactory(hcls,
+                                                 &zt_IID_TNManagerStatics,
+                                                 &mgr_statics);
+    WindowsDeleteString(hcls);
+    if (g_toast_diag.hr_fac != S_OK || !mgr_statics) return NULL;
+  }
+  haumid = toast_hstring(L"ztron-host");
+  /* statics slot 7 = CreateToastNotifierWithId(String, out notifier) —
+     slot 6 is the no-arg CreateToastNotifier (packaged apps only), slot
+     8 is GetTemplateContent. */
+  if (haumid)
+    g_toast_diag.hr_notifier =
+      ((zt_createnotifier_fn)(*(void ***)mgr_statics)[7])(mgr_statics,
+                                                          haumid, &notifier);
+  if (haumid) WindowsDeleteString(haumid);
+  ((zt_ref_fn)(*(void ***)mgr_statics)[2])(mgr_statics);
+  return notifier;
+}
+
+/* ToastNotificationSetting: 0 Enabled, 1 Disabled, 2 DisabledForApplication,
+   3 DisabledForUser; -1 = the query itself failed. */
+static int toast_query_setting_task(void *ctx) {
+  int *out = (int *)ctx;
+  void *notifier = toast_notifier_get();
+  *out = -1;
+  g_toast_diag.hr_setting = E_FAIL;
+  if (notifier) {
+    /* notifier slot 8 = get_Setting (Show=6 and Hide=7 precede) */
+    g_toast_diag.hr_setting =
+      ((zt_getsetting_fn)(*(void ***)notifier)[8])(notifier, out);
+    if (g_toast_diag.hr_setting == S_OK &&
+        (*out < 0 || *out > 3))
+      *out = -1;
+    ((zt_ref_fn)(*(void ***)notifier)[2])(notifier);
+  }
+  return 0;
+}
+
+static int toast_setting(void) {
+  int s = -1;
+  toast_on_mta(toast_query_setting_task, &s);
+  return s;
+}
+
+typedef struct ZtToastShowArgs {
+  const char *title;
+  const char *body;
+  int ok;
+} ZtToastShowArgs;
+
+static int toast_show_task(void *ctx) {
+  ZtToastShowArgs *a = (ZtToastShowArgs *)ctx;
+  void *mgr_statics = NULL, *tn_factory = NULL;
+  void *xmldoc = NULL, *docio = NULL, *notifier = NULL, *toast = NULL;
+  HSTRING hcls_mgr = NULL, hcls_tn = NULL, hx = NULL;
+  char xml[2048], tesc[512], besc[1024];
+  wchar_t wxml[2048];
+  a->ok = 0;
+  toast_xml_escape(a->title, tesc, sizeof(tesc));
+  toast_xml_escape(a->body, besc, sizeof(besc));
+  snprintf(xml, sizeof(xml),
+           "<toast><visual><binding template=\"ToastGeneric\">"
+           "<text>%s</text><text>%s</text></binding></visual></toast>",
+           tesc, besc);
+  MultiByteToWideChar(CP_UTF8, 0, xml, -1, wxml,
+                      (int)(sizeof(wxml) / sizeof(wxml[0])));
+  hcls_mgr = toast_hstring(L"Windows.UI.Notifications.ToastNotificationManager");
+  hcls_tn = toast_hstring(L"Windows.UI.Notifications.ToastNotification");
+  if (!hcls_mgr || !hcls_tn) goto out;
+  g_toast_diag.hr_fac = RoGetActivationFactory(hcls_mgr,
+                                               &zt_IID_TNManagerStatics,
+                                               &mgr_statics);
+  if (g_toast_diag.hr_fac != S_OK || !mgr_statics)
+    goto out;
+  /* statics slot 8 = GetTemplateContent(type, out XmlDocument) — the
+     template is immediately overwritten by LoadXml below. Slot 6 is
+     CreateToastNotifier() and MUST NOT be called with our (this, 0,
+     &doc) shape: it writes its single out param into the second
+     register, i.e. into NULL. */
+  g_toast_diag.hr_tpl =
+    ((zt_gettemplate_fn)(*(void ***)mgr_statics)[8])(mgr_statics, 0,
+                                                     &xmldoc);
+  if (g_toast_diag.hr_tpl != S_OK || !xmldoc)
+    goto out;
+  g_toast_diag.hr_docio =
+    ((zt_qi_fn)(*(void ***)xmldoc)[0])(xmldoc, &zt_IID_XmlDocIO, &docio);
+  if (g_toast_diag.hr_docio != S_OK || !docio)
+    goto out;
+  hx = toast_hstring(wxml);
+  if (!hx) goto out;
+  /* IXmlDocumentIO slot 6 = LoadXml(HSTRING) */
+  g_toast_diag.hr_loadxml =
+    ((zt_loadxml_fn)(*(void ***)docio)[6])(docio, hx);
+  if (g_toast_diag.hr_loadxml != S_OK) {
+    WindowsDeleteString(hx);
+    goto out;
+  }
+  WindowsDeleteString(hx);
+  hx = NULL;
+  g_toast_diag.hr_fac_tn = RoGetActivationFactory(hcls_tn,
+                                                  &zt_IID_TNFactory,
+                                                  &tn_factory);
+  if (g_toast_diag.hr_fac_tn != S_OK || !tn_factory)
+    goto out;
+  /* factory slot 6 = CreateToastNotification(XmlDocument, out) */
+  g_toast_diag.hr_toast =
+    ((zt_createtoast_fn)(*(void ***)tn_factory)[6])(tn_factory, xmldoc,
+                                                    &toast);
+  if (g_toast_diag.hr_toast != S_OK || !toast)
+    goto out;
+  notifier = toast_notifier_get();
+  if (!notifier) goto out;
+  /* notifier slot 6 = Show(toast) */
+  g_toast_diag.hr_show = ((zt_show_fn)(*(void ***)notifier)[6])(notifier,
+                                                                toast);
+  a->ok = g_toast_diag.hr_show == S_OK;
+out:
+  if (hx) WindowsDeleteString(hx);
+  if (toast) ((zt_ref_fn)(*(void ***)toast)[2])(toast);
+  if (notifier) ((zt_ref_fn)(*(void ***)notifier)[2])(notifier);
+  if (docio) ((zt_ref_fn)(*(void ***)docio)[2])(docio);
+  if (xmldoc) ((zt_ref_fn)(*(void ***)xmldoc)[2])(xmldoc);
+  if (tn_factory) ((zt_ref_fn)(*(void ***)tn_factory)[2])(tn_factory);
+  if (mgr_statics) ((zt_ref_fn)(*(void ***)mgr_statics)[2])(mgr_statics);
+  if (hcls_mgr) WindowsDeleteString(hcls_mgr);
+  if (hcls_tn) WindowsDeleteString(hcls_tn);
+  return 0;
+}
+
+static int toast_show(const char *title, const char *body) {
+  ZtToastShowArgs a;
+  a.title = title;
+  a.body = body;
+  a.ok = 0;
+  toast_on_mta(toast_show_task, &a);
+  return a.ok;
+}
+
 static void notification_send(const char *title, const char *body) {
+  if (toast_show(title, body)) return;
+  /* legacy fallback: tray balloon (needs a live tray icon) */
   if (g_tray_hwnd) {
     g_nid.uFlags = NIF_INFO;
     to_wide(title, g_nid.szInfoTitle, sizeof(g_nid.szInfoTitle) / sizeof(wchar_t));
@@ -2801,6 +3046,50 @@ static int dispatch(Msg *m, webview_t wv) {
   }
   if (strcmp(m->type, "notification_send") == 0) {
     notification_send(m->id[0] ? m->id : "", m->str2);
+    return 1;
+  }
+  if (strcmp(m->type, "notification_is_granted") == 0) {
+    /* WinRT ToastNotificationSetting == Enabled — the honest signal for
+       "toasts from this app will actually surface". */
+    if (m->req_id >= 0)
+      zt_reply_query(m->req_id, toast_setting() == 0 ? "true" : "false");
+    return 1;
+  }
+  if (strcmp(m->type, "notification_request_permission") == 0) {
+    /* No per-app authorization API exists on Windows (Tauri answers true
+       the same way); report whether the system currently accepts our
+       toasts — Enabled or query-unavailable counts as granted. */
+    if (m->req_id >= 0) {
+      int s = toast_setting();
+      zt_reply_query(m->req_id, s == -1 || s == 0 ? "true" : "false");
+    }
+    return 1;
+  }
+  if (strcmp(m->type, "notification_diag") == 0) {
+    /* H12 probe readback: toast Setting + per-hop HRESULTs of the last
+       WinRT chain (fac = activation factory, notifier = WithId). */
+    char buf[384];
+    int s = toast_setting();
+    snprintf(buf, sizeof(buf),
+             "{\"setting\":%d,\"hr_fac\":\"0x%08lx\","
+             "\"hr_notifier\":\"0x%08lx\",\"hr_setting\":\"0x%08lx\","
+             "\"hr_tpl\":\"0x%08lx\",\"hr_docio\":\"0x%08lx\","
+             "\"hr_loadxml\":\"0x%08lx\",\"hr_fac_tn\":\"0x%08lx\","
+             "\"hr_toast\":\"0x%08lx\",\"hr_show\":\"0x%08lx\"}",
+             s, g_toast_diag.hr_fac, g_toast_diag.hr_notifier,
+             g_toast_diag.hr_setting, g_toast_diag.hr_tpl,
+             g_toast_diag.hr_docio, g_toast_diag.hr_loadxml,
+             g_toast_diag.hr_fac_tn, g_toast_diag.hr_toast,
+             g_toast_diag.hr_show);
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "notification_show_test") == 0) {
+    /* H12 probe vehicle: drive toast_show directly and report whether
+       the OS accepted the toast (production notification_send uses the
+       same component but is fire-and-forget on the wire). */
+    int ok = toast_show("ztron notifprobe", "H12 verification toast");
+    zt_reply_query(m->req_id, ok ? "true" : "false");
     return 1;
   }
   if (strcmp(m->type, "shortcut_register") == 0) {
