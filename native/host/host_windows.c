@@ -975,6 +975,122 @@ static void drop_install(webview_t wv) {
     free(t);
 }
 
+/* ---- deep-link: ztron:// scheme claim + hot activation (GAP H9) ----
+   Windows has no LaunchServices: the scheme lives in HKCU\Software\Classes
+   and an OS activation spawns a SECOND process with the URL in argv. That
+   process forwards the URL to the running instance over WM_COPYDATA and
+   exits (before any webview/backend exists); with no live instance it
+   cold-starts and the URL is delivered on the first backend message. The
+   wire line mirrors host_macos.c ae_geturl_handler exactly. */
+
+#define ZT_DLCOPY_MAGIC 0x5A444C4B /* 'ZDLK' — COPYDATASTRUCT.dwData tag */
+
+static char g_deeplink_pending[2048];
+static int g_deeplink_pending_sent;
+
+/* Same-line emitter as mac's ae_geturl_handler. */
+static void dl_emit(const char *url) {
+  char esc[4300];
+  char out[4364];
+  zt_json_escape(url, esc, sizeof(esc));
+  snprintf(out, sizeof(out), "{\"type\":\"deep_link\",\"url\":\"%s\"}", esc);
+  zt_send_line(out);
+}
+
+/* Claim HKCU\Software\Classes\ztron (the LSRegisterURL analog; HKCU needs
+   no elevation). Last writer wins — same semantics as LSRegisterURL. */
+static void dl_register_scheme(void) {
+  WCHAR exe[MAX_PATH];
+  char exeA[MAX_PATH * 2];
+  char buf[MAX_PATH * 2 + 16];
+  HKEY k1;
+  DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
+  int k;
+  if (n == 0 || n >= MAX_PATH)
+    return;
+  k = WideCharToMultiByte(CP_UTF8, 0, exe, -1, exeA, sizeof(exeA), NULL, NULL);
+  if (k <= 0)
+    return;
+  if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Classes\\ztron", 0, NULL,
+                      0, KEY_SET_VALUE, NULL, &k1, NULL) == ERROR_SUCCESS) {
+    RegSetValueExA(k1, NULL, 0, REG_SZ, (const BYTE *)"URL:ztron", 10);
+    RegSetValueExA(k1, "URL Protocol", 0, REG_SZ, (const BYTE *)"", 1);
+    RegCloseKey(k1);
+  }
+  if (RegCreateKeyExA(HKEY_CURRENT_USER,
+                      "Software\\Classes\\ztron\\shell\\open\\command", 0,
+                      NULL, 0, KEY_SET_VALUE, NULL, &k1,
+                      NULL) == ERROR_SUCCESS) {
+    int w = snprintf(buf, sizeof(buf), "\"%s\" \"%%1\"", exeA);
+    if (w > 0)
+      RegSetValueExA(k1, NULL, 0, REG_SZ, (const BYTE *)buf,
+                     (DWORD)strlen(buf) + 1);
+    RegCloseKey(k1);
+  }
+}
+
+/* A live instance of the SAME exe only: the registry command points at
+   this exact binary, so forwarding anywhere else would misdeliver the URL
+   to a different app that merely shares the "webview" window class. */
+static BOOL CALLBACK dl_find_target(HWND w, LPARAM lp) {
+  WCHAR cls[32];
+  DWORD pid = 0;
+  HANDLE p;
+  WCHAR pth[MAX_PATH], own[MAX_PATH];
+  DWORD sz = sizeof(pth);
+  int same = 0;
+  if (!GetClassNameW(w, cls, 32) || wcscmp(cls, L"webview") != 0)
+    return TRUE;
+  GetWindowThreadProcessId(w, &pid);
+  if (pid == 0 || pid == GetCurrentProcessId())
+    return TRUE;
+  p = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (p) {
+    if (QueryFullProcessImageNameW(p, 0, pth, &sz)) {
+      GetModuleFileNameW(NULL, own, MAX_PATH);
+      same = lstrcmpiW(pth, own) == 0;
+    }
+    CloseHandle(p);
+  }
+  if (same) {
+    *(HWND *)lp = w;
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/* Returns 1 when the URL was forwarded (caller must exit — a bare
+   host with no port argument would strand in accept() otherwise). */
+static int dl_forward_or_store(const char *url) {
+  HWND target = NULL;
+  EnumWindows(dl_find_target, (LPARAM)&target);
+  if (target) {
+    COPYDATASTRUCT cds;
+    cds.dwData = ZT_DLCOPY_MAGIC;
+    cds.cbData = (DWORD)strlen(url) + 1;
+    cds.lpData = (void *)url;
+    if (SendMessageW(target, WM_COPYDATA, 0, (LPARAM)&cds))
+      return 1;
+    /* target vanished or declined: fall through to a cold start */
+  }
+  snprintf(g_deeplink_pending, sizeof(g_deeplink_pending), "%s", url);
+  return 0;
+}
+
+/* Runs first in main, before sockets/webview/backend (GAP H9). Claims the
+   scheme, then scans argv for a ztron:// URL: forwards to the running
+   instance (returns 0 -> main exits) or records it for cold-start
+   delivery on the first backend message (returns 1 -> normal startup). */
+int zt_deeplink_preinit(int argc, char **argv) {
+  int i;
+  dl_register_scheme();
+  for (i = 1; i < argc; i++) {
+    if (strncmp(argv[i], "ztron://", 8) == 0)
+      return dl_forward_or_store(argv[i]) ? 0 : 1;
+  }
+  return 1;
+}
+
 static void reply_image_id(Msg *m, GpBitmap *bmp) {
   char buf[32];
   int idn = image_add(bmp);
@@ -1269,6 +1385,21 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
     case WM_HOTKEY:
       zt_shortcut_pressed((int)wp);
       return 0;
+    case WM_COPYDATA: {
+      /* Deep-link hot activation (GAP H9): the second process the OS
+         spawned for ztron:// hands the URL over here. WM_COPYDATA maps
+         lpData into our address space for the handler's duration. */
+      COPYDATASTRUCT *cds = (COPYDATASTRUCT *)lp;
+      if (cds && cds->dwData == ZT_DLCOPY_MAGIC && cds->lpData &&
+          cds->cbData > 0 && cds->cbData < 2048 &&
+          strncmp((const char *)cds->lpData, "ztron://", 8) == 0) {
+        char url[2048];
+        snprintf(url, sizeof(url), "%s", (const char *)cds->lpData);
+        dl_emit(url);
+        return TRUE;
+      }
+      break; /* foreign payload: let the subclass chain handle it */
+    }
     case WM_ACTIVATE:
       emit_window_event(h, LOWORD(wp) == WA_INACTIVE ? "blur" : "focus");
       break;
@@ -2016,6 +2147,37 @@ static int dispatch(Msg *m, webview_t wv) {
      before dispatching); window ops must act on it, not always on main —
      label-blind routing made WebviewWindow("x").destroy() kill the MAIN
      window and the whole check hang. */
+  /* Cold-start deep-link delivery (GAP H9): a URL recorded in preinit sits
+     here until the backend proves it is listening (its first message). */
+  if (g_deeplink_pending[0] && !g_deeplink_pending_sent) {
+    g_deeplink_pending_sent = 1;
+    dl_emit(g_deeplink_pending);
+  }
+  if (strcmp(m->type, "deeplink_registry_query") == 0) {
+    /* H9 probe readback: what the OS will actually run for ztron://. */
+    char cmd[MAX_PATH * 2 + 16];
+    DWORD sz = sizeof(cmd);
+    char esc[(MAX_PATH * 2 + 16) * 2];
+    char buf[(MAX_PATH * 2 + 16) * 2 + 32];
+    if (RegGetValueA(HKEY_CURRENT_USER,
+                     "Software\\Classes\\ztron\\shell\\open\\command", NULL,
+                     RRF_RT_REG_SZ, NULL, cmd, &sz) == ERROR_SUCCESS) {
+      zt_json_escape(cmd, esc, sizeof(esc));
+      snprintf(buf, sizeof(buf), "{\"command\":\"%s\"}", esc);
+    } else {
+      snprintf(buf, sizeof(buf), "{\"command\":null}");
+    }
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "deeplink_emit_test") == 0) {
+    /* H9 probe vehicle: drive the production emitter for the deep_link
+       wire line (the OS leg — registry, second process, WM_COPYDATA — is
+       covered by the hot-activation stage of the probe). */
+    if (m->str[0]) dl_emit(m->str);
+    zt_reply_query(m->req_id, "true");
+    return 1;
+  }
   if (is_window_op(m->type)) { handle_window_op(m, wv); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
     RECT r;

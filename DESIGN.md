@@ -1331,6 +1331,17 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 130. Windows P1 第五项(GAP H9):deep-link 全链路——注册表 claim + 二次进程 WM_COPYDATA 转发
+
+- **目标(GAP.md H9)**:win 端 `ztron://` 无注册表注册、无 deep_link 事件推送;TS 侧(runtime-ffi `deep_link` 行→`#deepLinkCb`/`#lastDeepLink`→core emit `ztron://deep-link`→api `onDeepLink`/`get_last_url`→hello `DEEP_LINK_OK` plumbing 断言)**全链早已备好**——与 H8 同款格局,缺的只是 Windows host 两端
+- **与 mac 的结构差**:mac 的 `LSRegisterURL` + Apple Event(kAEGetURL)是**系统级单实例语义**——运行中实例直接收事件。Windows 注册表 `shell\open\command` 的每次 OS 激活都**拉起一个新进程**(argv 带 URL)——没有"送达已有实例"的原生机制。所以 Windows 需要一条 mac 没有的链:二次进程把 URL **转发**给运行中实例后自灭
+- **`zt_deeplink_preinit`(main 最早期,先于 WSAStartup 之后的 socket bind/webview 创建/backend)**:①幂等写 HKCU\Software\Classes\ztron(`URL Protocol` 空串 + `shell\open\command`=`"<exe>" "%1"`,LSRegisterURL 同构、HKCU 免提权、后写者赢同语义);②argv 扫 `ztron://` 前缀 → `dl_forward_or_store`:EnumWindows 找**同 exe**的活实例(class `webview` + `QueryFullProcessImageNameW` 校验——class 是 vendored 库的固定名,不校验 exe 会把 URL 误投给恰好在跑的**别的** ztron 应用)→ 命中则 `SendMessageW(WM_COPYDATA)`(COPYDATASTRUCT.dwData 魔数 'ZDLK')后**返回 0 → main 直接 WSACleanup+exit(0)**——转发进程不 bind 端口、不创建 webview、不等 backend(main 的 `atoi(argv[1])` 对 URL 得 0 会 bind 随机端口然后永远挂在 accept() 上,转发必须发生在这一切之前);未命中(无实例/发送失败)→ 存 `g_deeplink_pending` 冷启动
+- **冷启动补发时机**:preinit 存的 URL 不能在 init 立即 emit——TS backend 此时还没连上(host 先起、TS 后连),行会丢。**dispatch() 入口**:首条 backend 消息到达时补发——TS 发出了消息即证明它在听。mac 的 AppleEvent 排队 emit 有同样的"TS 未连即丢"窗口,Windows 这版反而更严谨
+- **接收端**:zt_proc(主窗子类)加 WM_COPYDATA 分支——校验 magic + `ztron://` 前缀(防其它 app 误投)+ cbData 上限 → `dl_emit` → `{"type":"deep_link","url":"..."}` 与 mac ae_geturl_handler 逐字段同形。WM_COPYDATA 的 lpData 由系统在处理期间映射进本进程,可直接读
+- **探针 `examples/deeplinkprobe` 三段**:REG(host-only `deeplink_registry_query` 读回注册表 command,断言 exe 路径+"%1"+引号形状)→ LINE(host-only `deeplink_emit_test` 走生产 emitter→wire 行→controller,断言行链)→ **HOT(真 OS 腿)**:backend `tjs.spawn(["cmd.exe","/c","start","","ztron://ci-hot-<随机>"])` → Windows 按注册表 command 拉起第二 host → preinit 转发 → WM_COPYDATA → 探针收集到 URL。runtime 的 deepLink 槽在 build() 后重绑(core 注册它向页面总线扇出;探针页面不订阅,backend 侧独占无损——dragdrop-probe 同款手法)。ci.sh 步骤 5.10(windows-only)
+- **验证**:探针 3/3 首跑即绿(HOT 链含真实 OS 激活);FULL CI GREEN
+- **教训**:①**hot-activation 的转发出口必须早于 main 的一切资源承诺**——main 对 argv 的唯一既有消费是 `atoi(argv[1])` 当端口,URL 会变 0→随机端口 bind→accept() 挂死;任何"平台 preinit"类钩子都要在 socket/webview 之前,这是 Windows 二次进程模型(mac 没有)的固有复杂度;②跨进程找目标窗口别用窗口属性(GetPropW 进程内私有),用 class+**exe 路径校验**(QueryFullProcessImageNameW,PROCESS_QUERY_LIMITED_INFORMATION 免特权限够);③**多 ztron 应用并存时 scheme 是全局单归属**(注册表后写者赢)——HOT 链的 URL 可能落进另一个同 exe 实例,这与 mac LSRegisterURL 的语义一致,生产可靠性按 Tauri 惯例配 single-instance 插件(端口信号量式,已有);④探针自驱 `cmd /c start ""` 拉起 OS 激活即可让"OS→注册表→二次进程→COPYDATA"全真入 CI,不需要终端驱动浏览器
+
 ## 129. Windows P1 第四项(GAP H8):文件拖放事件族——IDropTarget 桥(WebView2 子 HWND 夺取)
 
 - **目标(GAP.md H8)**:win 端拖文件进窗口是 Chromium 默认行为(导航加载文件),core/api 的 `onDragDropEvent` 全族事件不存在;`set_file_drop_enabled` 在 Windows host 上无分支(`dragDropEnabled` 配置静默无效)。mac 侧 drag_enter/over/drop/leave 早已存在(host_macos.c drop_prepare/drop_perform 一族 + set_file_drop_enabled),runtime-ffi 消息泵的 `drag_enter→drag-enter` 映射与 `{paths,position}` payload 装配**早已完备**(host.ts:962-995)——本项纯 Windows host 侧补齐,TS 侧零改动

@@ -541,12 +541,24 @@ static void ipc_cb(const char *id, const char *req, void *arg) {
   zt_send_line(buf);
 }
 
+#if defined(_WIN32)
+/* host_windows.c: claims the ztron:// scheme (HKCU) and, when this process
+   was spawned by an OS activation carrying a URL, forwards it to the
+   running instance over WM_COPYDATA. Returns 0 when this process is just
+   that forwarder and must exit before binding anything. */
+extern int zt_deeplink_preinit(int argc, char **argv);
+#endif
+
 int main(int argc, char **argv) {
 #if defined(_WIN32)
   WSADATA wsa;
   if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
     fprintf(stderr, "WSAStartup failed\n");
     return 1;
+  }
+  if (!zt_deeplink_preinit(argc, argv)) {
+    WSACleanup();
+    return 0; /* hot-activation forwarder: URL handed off, nothing to run */
   }
 #endif
   const char *host = "127.0.0.1";

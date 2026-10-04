@@ -52,6 +52,22 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  examples/deeplinkprobe:
+    dependencies:
+      '@zturnlibs/ztron-api':
+        specifier: workspace:*
+        version: link:../../packages/api
+      '@zturnlibs/ztron-core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@zturnlibs/ztron-runtime-ffi':
+        specifier: workspace:*
+        version: link:../../packages/runtime-ffi
+    devDependencies:
+      '@zturnlibs/ztron-cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
+
   examples/dragdrop-probe:
     dependencies:
       '@zturnlibs/ztron-api':

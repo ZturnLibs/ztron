@@ -333,6 +333,21 @@ case "$(uname -s)" in
   *) step "dragdrop probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.10 deep-link probe (win32; mac has LSRegisterURL + Apple Events) ------
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "deeplink probe (win32 ztron:// registry claim + hot activation)"
+    run_ztron_check "$ROOT/examples/deeplinkprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect DEEPLINK_REG_OK \
+      --expect DEEPLINK_LINE_OK \
+      --expect DEEPLINK_HOT_OK \
+      > /tmp/ci-deeplink.log 2>&1 \
+      || { tail -30 /tmp/ci-deeplink.log; fail "deeplink probe"; }
+    tail -2 /tmp/ci-deeplink.log
+    ;;
+  *) step "deeplink probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user
