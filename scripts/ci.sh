@@ -348,6 +348,25 @@ case "$(uname -s)" in
   *) step "deeplink probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.11 clear-browsing-data probe (win32; mac clears WKWebsiteDataStore) --
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "cleardata probe (win32 ICoreWebView2Profile2::ClearBrowsingDataAll)"
+    CLEAR_ROOT="$(cygpath -m "$(mktemp -d)")"
+    mkdir -p "$CLEAR_ROOT"
+    ZTRON_SCHEME_ROOT="$CLEAR_ROOT" \
+      run_ztron_check "$ROOT/examples/cleardataprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect CLEAR_SEED_OK \
+      --expect HTTP_SEED_OK \
+      --expect CLEAR_DATA_OK \
+      > /tmp/ci-cleardata.log 2>&1 \
+      || { tail -30 /tmp/ci-cleardata.log; fail "cleardata probe"; }
+    tail -2 /tmp/ci-cleardata.log
+    rm -rf "$CLEAR_ROOT"
+    ;;
+  *) step "cleardata probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user

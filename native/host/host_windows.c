@@ -1091,6 +1091,160 @@ int zt_deeplink_preinit(int argc, char **argv) {
   return 1;
 }
 
+/* ---- browsing-data clear (GAP H10) ----
+   mac clears the default WKWebsiteDataStore (all types, all time,
+   fire-and-forget). WebView2's analog is ICoreWebView2Profile2::
+   ClearBrowsingDataAll — reachable as ICoreWebView2_13::get_Profile + QI.
+   The vendored SDK header stops at ICoreWebView2_10, so the two hops past
+   it are hand-rolled vtbl-slot calls: get_Profile sits at flat slot 105
+   of _13 (IUnknown + the whole _2.._12 accumulation precede it; counted
+   from the official 1.0.3xxx header where it is the only _13 addition),
+   ClearBrowsingDataAll at slot 12 of Profile2 (3 IUnknown + 7 Profile
+   methods precede it). Completed handler is a 4-method COM stub. */
+
+static const IID zt_IID_CoreWebView2_13 = {
+    0xf75f09a8, 0x667e, 0x4983, {0x88, 0xd6, 0xc8, 0x77, 0x3f, 0x31, 0x5e, 0x84}};
+static const IID zt_IID_Profile2 = {
+    0xfa740d4b, 0x5eae, 0x4344, {0xa8, 0xad, 0x74, 0xbe, 0x31, 0x92, 0x53, 0x97}};
+static const IID zt_IID_ClearHandler = {
+    0xe9710a06, 0x1d1d, 0x49b2, {0x82, 0x34, 0x22, 0x6f, 0x35, 0x84, 0x6a, 0xe5}};
+
+typedef HRESULT (STDMETHODCALLTYPE *zt_get_profile_fn)(void *This,
+                                                       void **profile);
+typedef HRESULT (STDMETHODCALLTYPE *zt_qi_fn)(void *This, REFIID riid,
+                                              void **out);
+typedef ULONG (STDMETHODCALLTYPE *zt_ref_fn)(void *This);
+typedef HRESULT (STDMETHODCALLTYPE *zt_clear_all_fn)(void *This,
+                                                     void *handler);
+typedef HRESULT (STDMETHODCALLTYPE *zt_clear_kinds_fn)(void *This,
+                                                       DWORD kinds,
+                                                       void *handler);
+
+typedef struct {
+  void *vtbl;
+  LONG refs;
+  int tag; /* 1 = the All() handler, 2 = the explicit-kinds handler */
+} ZtClearHandler;
+
+static HRESULT STDMETHODCALLTYPE ztc_qi(void *s, REFIID riid, void **ppv) {
+  if (IsEqualIID(riid, &IID_IUnknown) ||
+      IsEqualIID(riid, &zt_IID_ClearHandler)) {
+    *ppv = s;
+    ((zt_ref_fn)(*(void ***)s)[1])(s); /* AddRef */
+    return S_OK;
+  }
+  *ppv = NULL;
+  return E_NOINTERFACE;
+}
+
+static ULONG STDMETHODCALLTYPE ztc_addref(void *s) {
+  return (ULONG)InterlockedIncrement(&((ZtClearHandler *)s)->refs);
+}
+
+static ULONG STDMETHODCALLTYPE ztc_release(void *s) {
+  ZtClearHandler *h = (ZtClearHandler *)s;
+  LONG r = InterlockedDecrement(&h->refs);
+  if (r == 0)
+    free(h);
+  return (ULONG)r;
+}
+
+/* fire-and-forget on the wire — the no-op body matches mac's noop block;
+   the completion HRESULT is recorded for webview_clear_data_diag */
+static void *zt_clear_vtbl[4]; /* QI / AddRef / Release / Invoke */
+
+/* Per-hop diagnostics for the clear chain — the probe reads these back via
+   webview_clear_data_diag because every failure mode here is silent
+   (fire-and-forget on the wire, async completion). */
+typedef struct {
+  HRESULT hr_ctl, hr_core, hr_qi13, hr_profile, hr_qi2, hr_clear;
+  int invoked; /* sticky: CompletedHandler::Invoke fired at least once */
+  HRESULT invoke_hr;
+  HRESULT hr_clear_kinds;
+  int invoked_kinds;
+  HRESULT invoke_hr_kinds;
+} ZtClearDiag;
+static ZtClearDiag g_clear_diag;
+
+static HRESULT STDMETHODCALLTYPE ztc_invoke(void *s, HRESULT errorCode) {
+  ZtClearHandler *h = (ZtClearHandler *)s;
+  if (h->tag == 2) {
+    g_clear_diag.invoked_kinds = 1;
+    g_clear_diag.invoke_hr_kinds = errorCode;
+  } else {
+    g_clear_diag.invoked = 1;
+    g_clear_diag.invoke_hr = errorCode;
+  }
+  return S_OK;
+}
+
+static void clear_data_core(webview_t wv, int kinds_too) {
+  ICoreWebView2Controller *ctl;
+  ICoreWebView2 *core = NULL;
+  void *c13 = NULL, *profile = NULL, *profile2 = NULL;
+  if (!zt_clear_vtbl[0]) {
+    zt_clear_vtbl[0] = (void *)ztc_qi;
+    zt_clear_vtbl[1] = (void *)ztc_addref;
+    zt_clear_vtbl[2] = (void *)ztc_release;
+    zt_clear_vtbl[3] = (void *)ztc_invoke;
+  }
+  if (!wv)
+    wv = zt_w;
+  ctl = (ICoreWebView2Controller *)webview_get_native_handle(
+      wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+  if (!ctl)
+    return;
+  g_clear_diag.hr_ctl = S_OK;
+  g_clear_diag.hr_core = ctl->lpVtbl->get_CoreWebView2(ctl, &core);
+  if (g_clear_diag.hr_core != S_OK || !core)
+    return;
+  g_clear_diag.hr_qi13 =
+      core->lpVtbl->QueryInterface(core, &zt_IID_CoreWebView2_13, &c13);
+  if (g_clear_diag.hr_qi13 != S_OK) {
+    core->lpVtbl->Release(core);
+    return; /* runtime too old for profile-scoped clearing */
+  }
+  g_clear_diag.hr_profile =
+      ((zt_get_profile_fn)(*(void ***)c13)[105])(c13, &profile);
+  if (g_clear_diag.hr_profile == S_OK && profile) {
+    g_clear_diag.hr_qi2 = ((zt_qi_fn)(*(void ***)profile)[0])(
+        profile, &zt_IID_Profile2, &profile2);
+    if (g_clear_diag.hr_qi2 == S_OK && profile2) {
+      ZtClearHandler *h = (ZtClearHandler *)malloc(sizeof(*h));
+      if (h) {
+        h->vtbl = zt_clear_vtbl;
+        h->refs = 1;
+        h->tag = 1;
+        /* WebView2 takes its own reference and Releases after Invoke. */
+        g_clear_diag.hr_clear =
+            ((zt_clear_all_fn)(*(void ***)profile2)[12])(profile2, (void *)h);
+      }
+      if (kinds_too) {
+        /* Diag leg: slot 10 = ClearBrowsingData(kinds, handler). Explicit
+           site-data kinds (file systems | indexed db | local storage |
+           web sql | cache storage | all dom storage | cookies | disk
+           cache) — cross-checks whether the All() variant's "all" covers
+           the same ground on this runtime. */
+        ZtClearHandler *h2 = (ZtClearHandler *)malloc(sizeof(*h));
+        if (h2) {
+          h2->vtbl = zt_clear_vtbl;
+          h2->refs = 1;
+          h2->tag = 2;
+          g_clear_diag.hr_clear_kinds =
+              ((zt_clear_kinds_fn)(*(void ***)profile2)[10])(
+                  profile2, 0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40 | 0x100,
+                  (void *)h2);
+        }
+      }
+    }
+    ((zt_ref_fn)(*(void ***)profile)[2])(profile);
+  }
+  if (profile2)
+    ((zt_ref_fn)(*(void ***)profile2)[2])(profile2);
+  ((zt_ref_fn)(*(void ***)c13)[2])(c13);
+  core->lpVtbl->Release(core);
+}
+
 static void reply_image_id(Msg *m, GpBitmap *bmp) {
   char buf[32];
   int idn = image_add(bmp);
@@ -2176,6 +2330,32 @@ static int dispatch(Msg *m, webview_t wv) {
        covered by the hot-activation stage of the probe). */
     if (m->str[0]) dl_emit(m->str);
     zt_reply_query(m->req_id, "true");
+    return 1;
+  }
+  if (strcmp(m->type, "webview_clear_data") == 0) {
+    /* GAP H10: profile-wide browsing-data clear, fire-and-forget on the
+       wire (mac clears defaultDataStore the same way). */
+    clear_data_core(wv, 0);
+    return 1;
+  }
+  if (strcmp(m->type, "webview_clear_data_diag") == 0) {
+    /* H10 probe vehicle: run BOTH clear variants (All + explicit kinds)
+       and read back every hop's HRESULT plus which completed-handlers
+       fired with what errorCode. */
+    char buf[384];
+    clear_data_core(wv, 1);
+    snprintf(buf, sizeof(buf),
+             "{\"ctl\":%ld,\"core\":%ld,\"qi13\":%ld,\"profile\":%ld,"
+             "\"qi2\":%ld,\"clear\":%ld,\"invoked\":%d,\"invoke_hr\":%ld,"
+             "\"clear_kinds\":%ld,\"invoked_kinds\":%d,"
+             "\"invoke_hr_kinds\":%ld}",
+             (long)g_clear_diag.hr_ctl, (long)g_clear_diag.hr_core,
+             (long)g_clear_diag.hr_qi13, (long)g_clear_diag.hr_profile,
+             (long)g_clear_diag.hr_qi2, (long)g_clear_diag.hr_clear,
+             g_clear_diag.invoked, (long)g_clear_diag.invoke_hr,
+             (long)g_clear_diag.hr_clear_kinds, g_clear_diag.invoked_kinds,
+             (long)g_clear_diag.invoke_hr_kinds);
+    zt_reply_query(m->req_id, buf);
     return 1;
   }
   if (is_window_op(m->type)) { handle_window_op(m, wv); return 1; }
