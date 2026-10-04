@@ -367,6 +367,22 @@ case "$(uname -s)" in
   *) step "cleardata probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.12 theme probe (win32; mac has NSAppearance + distributed notif) ------
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "theme probe (win32 set_theme + WM_SETTINGCHANGE push)"
+    run_ztron_check "$ROOT/examples/themeprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect THEME_GET_OK \
+      --expect THEME_SET_OK \
+      --expect THEME_PUSH_OK \
+      --expect THEME_RESET_OK \
+      > /tmp/ci-theme.log 2>&1 \
+      || { tail -30 /tmp/ci-theme.log; fail "theme probe"; }
+    tail -2 /tmp/ci-theme.log
+    ;;
+  *) step "theme probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user

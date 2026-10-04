@@ -1119,6 +1119,8 @@ typedef HRESULT (STDMETHODCALLTYPE *zt_clear_all_fn)(void *This,
 typedef HRESULT (STDMETHODCALLTYPE *zt_clear_kinds_fn)(void *This,
                                                        DWORD kinds,
                                                        void *handler);
+typedef HRESULT (STDMETHODCALLTYPE *zt_put_scheme_fn)(void *This, int scheme);
+typedef HRESULT (STDMETHODCALLTYPE *zt_get_scheme_fn)(void *This, int *scheme);
 
 typedef struct {
   void *vtbl;
@@ -1243,6 +1245,109 @@ static void clear_data_core(webview_t wv, int kinds_too) {
     ((zt_ref_fn)(*(void ***)profile2)[2])(profile2);
   ((zt_ref_fn)(*(void ***)c13)[2])(c13);
   core->lpVtbl->Release(core);
+}
+
+/* ---- system theme (GAP H11) ------------------------------------------ */
+/* mac drives NSApp.appearance app-wide and observes
+   AppleInterfaceThemeChangedNotification; the Windows analogs are
+   DWMWA_USE_IMMERSIVE_DARK_MODE (title bar) + Profile2
+   put_PreferredColorScheme (web content, slot 9 of the same Profile2 the
+   clear chain reaches) and WM_SETTINGCHANGE("ImmersiveColorSet"). */
+
+static int g_theme_override = -1; /* -1 follow system, 0 light, 1 dark */
+
+static int zt_theme_sys_dark(void) {
+  DWORD apps = 1;
+  DWORD size = sizeof(apps);
+  if (RegGetValueW(HKEY_CURRENT_USER,
+                   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\"
+                   L"Personalize",
+                   L"AppsUseLightTheme", RRF_RT_DWORD, NULL, &apps,
+                   &size) == ERROR_SUCCESS)
+    return apps ? 0 : 1;
+  return 0;
+}
+
+static int zt_theme_effective_dark(void) {
+  return g_theme_override >= 0 ? g_theme_override : zt_theme_sys_dark();
+}
+
+/* Profile lives off ICoreWebView2_13::get_Profile — a direct QI of
+   ICoreWebView2Profile2 on the core FAILS (independent interface level).
+   Returns a ref the caller must Release, or NULL. */
+static void *zt_profile2_of_webview(webview_t wv) {
+  ICoreWebView2Controller *ctl =
+      (ICoreWebView2Controller *)webview_get_native_handle(
+          wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
+  ICoreWebView2 *core = NULL;
+  void *c13 = NULL, *profile = NULL, *profile2 = NULL;
+  if (!ctl || ctl->lpVtbl->get_CoreWebView2(ctl, &core) != S_OK || !core)
+    return NULL;
+  if (core->lpVtbl->QueryInterface(core, &zt_IID_CoreWebView2_13, &c13) ==
+          S_OK &&
+      c13) {
+    if (((zt_get_profile_fn)(*(void ***)c13)[105])(c13, &profile) == S_OK &&
+        profile) {
+      ((zt_qi_fn)(*(void ***)profile)[0])(profile, &zt_IID_Profile2,
+                                          &profile2);
+      ((zt_ref_fn)(*(void ***)profile)[2])(profile);
+    }
+    ((zt_ref_fn)(*(void ***)c13)[2])(c13);
+  }
+  core->lpVtbl->Release(core);
+  return profile2;
+}
+
+static void theme_apply_webview(webview_t wv, int dark) {
+  HWND w = zt_hwnd_for(wv);
+  if (w) {
+    BOOL on = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(w, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &on,
+                          sizeof(on));
+  }
+  {
+    void *profile2 = zt_profile2_of_webview(wv);
+    if (profile2) {
+      int scheme = dark ? 2 : 1; /* auto / light / dark */
+      ((zt_put_scheme_fn)(*(void ***)profile2)[9])(profile2, scheme);
+      ((zt_ref_fn)(*(void ***)profile2)[2])(profile2);
+    }
+  }
+}
+
+static void theme_apply_all(int dark) {
+  theme_apply_webview(zt_w, dark);
+  for (int i = 0; i < zt_webview_count(); i++) {
+    const char *lb = zt_webview_label_at(i);
+    if (lb && strcmp(lb, "main") == 0) continue; /* zt_w already applied */
+    theme_apply_webview(zt_webview(lb), dark);
+  }
+}
+
+/* Line shape identical to host_macos.c emit_theme_change_all: main first,
+   then every registered webview (main skipped in the registry walk). */
+static void emit_theme_change_all(void) {
+  const char *t = zt_theme_effective_dark() ? "dark" : "light";
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"window_event\",\"label\":\"main\",\"event\":\"theme_"
+           "change\",\"theme\":\"%s\"}",
+           t);
+  zt_send_line(buf);
+  for (int i = 0; i < zt_webview_count(); i++) {
+    const char *lb = zt_webview_label_at(i);
+    if (!lb || strcmp(lb, "main") == 0) continue;
+    snprintf(buf, sizeof(buf),
+             "{\"type\":\"window_event\",\"label\":\"%s\",\"event\":\"theme_"
+             "change\",\"theme\":\"%s\"}",
+             lb, t);
+    zt_send_line(buf);
+  }
+}
+
+static void theme_system_changed(void) {
+  if (g_theme_override < 0) theme_apply_all(zt_theme_sys_dark());
+  emit_theme_change_all();
 }
 
 static void reply_image_id(Msg *m, GpBitmap *bmp) {
@@ -1539,6 +1644,13 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
     case WM_HOTKEY:
       zt_shortcut_pressed((int)wp);
       return 0;
+    case WM_SETTINGCHANGE:
+      /* GAP H11: the OS broadcasts this with lParam = "ImmersiveColorSet"
+         when the personalization theme flips (mac
+         AppleInterfaceThemeChangedNotification analog). */
+      if (lp && lstrcmpiW((LPCWSTR)lp, L"ImmersiveColorSet") == 0)
+        theme_system_changed();
+      break;
     case WM_COPYDATA: {
       /* Deep-link hot activation (GAP H9): the second process the OS
          spawned for ztron:// hands the URL over here. WM_COPYDATA maps
@@ -2358,6 +2470,49 @@ static int dispatch(Msg *m, webview_t wv) {
     zt_reply_query(m->req_id, buf);
     return 1;
   }
+  if (strcmp(m->type, "set_theme") == 0) {
+    /* GAP H11: app-wide like NSApp.appearance — "dark"/"light" override,
+       "" (core null) re-follows the system. */
+    g_theme_override = strcmp(m->str2, "dark") == 0   ? 1
+                       : strcmp(m->str2, "light") == 0 ? 0
+                                                       : -1;
+    theme_apply_all(zt_theme_effective_dark());
+    return 1;
+  }
+  if (strcmp(m->type, "theme_diag") == 0) {
+    /* H11 probe readback: the DWM title-bar bit and the Profile scheme
+       as applied to the main window right now. */
+    char buf[160];
+    BOOL on = FALSE;
+    unsigned long hr = 0;
+    int scheme = -1;
+    HWND w = zt_hwnd_for(zt_w);
+    if (w)
+      hr = (unsigned long)DwmGetWindowAttribute(w, 20, &on, sizeof(on));
+    {
+      void *profile2 = zt_profile2_of_webview(zt_w);
+      if (profile2) {
+        ((zt_get_scheme_fn)(*(void ***)profile2)[8])(profile2, &scheme);
+        ((zt_ref_fn)(*(void ***)profile2)[2])(profile2);
+      }
+    }
+    snprintf(buf, sizeof(buf), "{\"dwm\":%s,\"scheme\":%d,\"hr\":\"0x%08lx\"}",
+             on ? "true" : "false", scheme, hr);
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "theme_settingchange_test") == 0) {
+    /* H11 probe vehicle: drive the REAL WM_SETTINGCHANGE message path
+       ("ImmersiveColorSet" through zt_proc) without flipping the user's
+       actual global theme — the OS broadcast carries exactly this message
+       + string, nothing more. */
+    HWND w = zt_hwnd_for(zt_w);
+    if (w)
+      SendMessageW(w, WM_SETTINGCHANGE, 0,
+                   (LPARAM)L"ImmersiveColorSet");
+    zt_reply_query(m->req_id, "true");
+    return 1;
+  }
   if (is_window_op(m->type)) { handle_window_op(m, wv); return 1; }
   if (strcmp(m->type, "window_get_frame") == 0) {
     RECT r;
@@ -2567,16 +2722,11 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "window_get_theme") == 0) {
+    /* effective like mac's effectiveAppearance: the set_theme override
+       wins while it is armed, the registry value otherwise. */
     if (m->req_id >= 0) {
-      DWORD apps = 0;
-      DWORD size = sizeof(apps);
-      const char *theme = "light";
-      if (RegGetValueW(HKEY_CURRENT_USER,
-                       L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                       L"AppsUseLightTheme", RRF_RT_DWORD, NULL, &apps, &size) == ERROR_SUCCESS) {
-        theme = apps ? "light" : "dark";
-      }
-      zt_reply_string(m->req_id, theme);
+      zt_reply_string(m->req_id,
+                      zt_theme_effective_dark() ? "dark" : "light");
     }
     return 1;
   }

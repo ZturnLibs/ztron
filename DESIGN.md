@@ -1331,6 +1331,16 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 132. Windows P1 第七项(GAP H11):set_theme 双钩子 + WM_SETTINGCHANGE 主题推送
+
+- **目标(GAP.md H11)**:win 端 `set_theme` wire 行无人消费(dispatch 尾部兜底假绿,H7 同款)且无 `theme_change` 推送;`window_get_theme` 读注册表虽 ✓ 但语义是纯系统值。TS plumbing(host.ts `set_theme` 行、window_event 的 theme_change→"theme-change" 映射且 **payload=msg.theme 裸字符串**)全备——缺的只是 Windows host 两端
+- **mac 语义对照**:NSApp.appearance app-wide(DarkAqua/Aqua/nil 跟随)+ DistributedNotificationCenter `AppleInterfaceThemeChangedNotification` → `emit_theme_change_all()`(main 先行+每注册 webview 一条,theme=effectiveAppearance)。Windows 无 per-app 外观——**双钩子合成**同一效果:①标题栏 `DWMWA_USE_IMMERSIVE_DARK_MODE`(20,BOOL);②web 内容 `ICoreWebView2Profile::put_PreferredColorScheme`(slot 9,2=dark/1=light)——同一 Profile2(H10 已达);`g_theme_override`(-1 跟随/0/1)对应 nil/DarkAqua/Aqua 三态
+- **推送**:zt_proc 加 `WM_SETTINGCHANGE` 分支——lParam 串等于 `L"ImmersiveColorSet"` 即个性化主题翻转的 OS 广播(mac 通知的 Windows 同构)→ `theme_system_changed()`:跟随态(override<0)按注册表新值重 apply 全窗(override 语义下窗口保持用户设的值,只 emit)+ `emit_theme_change_all()`(线形逐字段抄 mac,theme=effective=override 优先)
+- **`window_get_theme` 改 effective**:override 武装时答 override,否则注册表——对齐 mac effectiveAppearance
+- **探针 `examples/themeprobe` 四段**:GET(注册表基准值)→ SET(翻转设色,`theme_diag` host-only op 读回 dwm BOOL readback + Profile scheme get slot 8,双钩子都要到位)→ **PUSH(`theme_settingchange_test` 在 host 内部对主窗 SendMessageW 真 WM_SETTINGCHANGE 串——真实消息路径且零系统副作用;断言 backend 收到 theme_change 且 theme=effective)**→ RESET(setTheme(null) 读回=系统原值)。不真翻 AppsUseLightTheme 注册表:那是用户全局外观,CI 机器即日常机器,中途崩溃会留下用户主题被翻——探针降级为"消息路径真、广播源模拟",记录于 DESIGN
+- **验证**:4/4(THEME_GET/SET/PUSH/RESET)。第一版 scheme 恒 -1:**从 ICoreWebView2 直接 QI ICoreWebView2Profile2 是 E_NOINTERFACE**——Profile 是独立接口层级,必须 `_13::get_Profile(flat slot 105)` 再 QI;抽 `zt_profile2_of_webview()` helper(返回需 Release 的 ref),theme apply 与 diag 共用。PUSH 首跑 events=[] 是探针侧:wire 名 `theme_change` 到 slot 已映射为 **"theme-change"**(连字符)且 theme 是裸 payload 字符串(host.ts window_event 管线),与 dragdrop-probe 的 "drag-" 前缀同款
+- **教训**:①**接口层级不能跨级 QI**——core/Profile/driver 的 COM 层级里,下级接口只在父接口的方法返回值里(QI 只认同对象支持的 IID);凡 QI 失败先画层级图再怀疑槽位;②win 事件名过 TS 管线有 wire→core 名映射(theme_change→theme-change),探针断言要按 **slot 收到的名字**写;③模拟 OS 广播(SendMessageW 同串)验证接收端是零副作用的"真路径"折中——代价是没有 OS 广播的时序/多窗扇出,可接受
+
 ## 131. Windows P1 第六项(GAP H10):clearBrowsingData——Profile 全清(vtbl 链过 vendored header 天花板)
 
 - **目标(GAP.md H10)**:win 端 `webview_clear_data` wire 行无人消费 → `clearBrowsingData()` 静默无效;TS 侧 plumbing(host.ts `send({type:"webview_clear_data"})` fire-and-forget、core WebviewHandle 方法)早备好——缺的只是 host 端;mac 语义=WKWebsiteDataStore defaultDataStore + allWebsiteDataTypes + distantPast + noop block(异步完成即弃)
