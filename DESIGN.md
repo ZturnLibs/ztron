@@ -1331,6 +1331,22 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 135. Windows P2 第二项(GAP H14):default 菜单树 + SetMenuItemBitmaps 图标 + per-window 菜单栏
+
+三个缺失 op 一批补齐，全部围绕 Win32 HMENU 的所有权模型展开。
+
+**menu_create_default(mac 同构树)**:与 mac 同一套 id 形状(`{root}.app.about`/`{root}.edit.copy`/…),App/Edit/View/Window 四个子菜单。子菜单 rec 由 `menu_default_submenu` 注册(独立 cmd_base,+256 单调,与 H13 的池一致);叶子由 `menu_item_insert_kind` 插入并携带 kind。**角色=数据不是行为**:点击时 `menu_emit_for_cmd` 先发 menu_event 再调 `menu_role_action(kind)`——应用可观察也可覆盖。Win32 的角色实现是"直接模拟"档:minimize/maximize(切换)/quit(PostMessage WM_CLOSE)/hide(SW_HIDE)/showAll+bringAllToFront+hideOthers(zt_webview_count 循环)作用于主 HWND;剪贴板五件套(undo/cut/copy/paste/selectAll)走 GetGUIThreadInfo(0).hwndFocus 发 WM_UNDO/WM_CUT/WM_COPY/WM_PASTE/EM_SETSEL(0,-1)——WebView2 子 HWND 持焦点时经典消息链有效,但**没有跨进程焦点保证**,这是 best-effort 而非契约;about/fullscreen 仅事件(Win32 无系统级对应)。
+
+**menu_set_item_icon(SetMenuItemBitmaps 路)**:选 SetMenuItemBitmaps 而非 owner-draw——保留系统文字绘制、选中态高亮和键盘导航,只换图。GpBitmap→HBITMAP 用 GdipCreateHBITMAPFromBitmap(背景 0xFFFFFFFF,保 PNG 透明)。spec 两档:纯数字=image registry id(image_by_id 直取 GpBitmap);含 /、\\ 或 . =文件路径(GdipCreateBitmapFromFile→HBITMAP→GdipDisposeImage 立即释放)。mac 的 stock-kind 名("Copy")在 Win32 无对应,no-op。**所有权雷:HBITMAP 由 MenuItemRec 拥有**(it->bmp),items_clear/item_remove/替换时 DeleteObject——菜单结构一变 menu_rebuild 重建 HMENU,bitmap 关联随旧 HMENU 死亡,**重建后必须重贴**(rebuild 尾部对有 bmp 的项重新 SetMenuItemBitmaps)。漏重贴的症状是"图标设上后改个标题就消失"。
+
+**menu_set_window_menu(per-window bar)**:全局 g_menu_bar_hwnd 换成 MenuRec.attached_hwnd。`menu_attach_to(menu_id, hwnd)` 双向互斥:一窗一 bar(挂新菜单先摘旧 bar 的 SetMenu(NULL)+DrawMenuBar)、一菜单一窗(同一菜单换窗先从旧窗摘)。menu_set_app=attach_to(zt_hwnd());menu_set_window_menu(menu_id,label)=zt_webview(label)→zt_hwnd_for。mac 的 document-window 模型(NSMenu 每个 window 一份)在 Win32 是原生形状——SetMenu 本来就是 per-HWND 的。
+
+**诊断面**:新 host-only op `menu_diag` 读回 `{bars:[{menu,label}],icons:[{menu,item}]}`——bars 扫 attached_hwnd(zt_label_for_window 反查 label),icons 扫带 bmp 的项(只报结构不报像素)。HostRuntime.sendRequest 直达即可验证,无需改 core/api(H13 同款路数)。
+
+**探针(menuprobe 三腿)**:①MENU_WINMENU_OK——先挂两个假 id(`$sys-dummy`/`$nonexistent`,C 侧 menu_by_id 查无即弃)再挂真 root,menu_diag 必须**恰一条 bar**且 menu/label 精确——证明坏 id 不抢槽;②MENU_ICON_OK——image.fromPath(app-icon.png)→setItemIcon(edit,copy,String(rid))→diag.icons 含目标项(与 G17 IMG_READBACK 腿共用同一注册 id 语义);③ROLE_MIN_OK——复用 H13 的 menu_popup_select_test 通道:对 `{root}.window` 子菜单 rec 直接 TrackPopupMenu(子菜单 HMENU 本就可独立 track),键序 DOWN,ENTER 落在首叶 Minimize→menu_role_action→真 ShowWindow(SW_MINIMIZE)→断言 is_minimized===true。**这是角色行为的端到端证明:不是"消息发出去了"而是"窗口真的小了"**。
+
+**边界与纪律**:执行顺序敏感——ROLE_MIN 先于 INNER_POS 腿把窗口最小化,后者的 get_inner_position 读到 -32000(-32000(最小化坐标),但该腿断言只查数值类型,顺序无害;若未来 INNER_POS 加值断言须先 restore。CI 侧 menuprobe 步骤加条件 EXTRAS(case/uname,MINGW* 追加三个 --expect,mac 保持 5 腿)。
+
 ## 134. Windows P2 第一项(GAP H13):程序化 menu_popup——TPM_RETURNCMD + 唯一命令 id 基址
 
 - **目标(GAP.md H13)**:win 端 `menu_popup` dispatch 分支是 `return 1;` 空转——程序化弹出不可用,唯一能弹的是托盘左击路径;mac 侧 `popUpMenuPositioningItem:atLocation:inView:`(窗口坐标,(0,0)=当前光标)

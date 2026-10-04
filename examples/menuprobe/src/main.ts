@@ -17,6 +17,16 @@ const runtime = new HostRuntime({
 });
 await runtime.connect();
 
+const sendReq = (
+  runtime as unknown as {
+    sendRequest: (
+      op: string,
+      payload?: Record<string, unknown>,
+      from?: string,
+    ) => Promise<unknown>;
+  }
+).sendRequest.bind(runtime);
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const app = new AppBuilder(runtime, "com.ztron.menuprobe")
@@ -33,40 +43,17 @@ void app.run().catch((e) => console.log("[menuprobe] ERROR", String(e)));
 await sleep(400);
 
 void (async () => {
+  const root = `$sys-${Date.now()}`;
+  const isDarwin = tjs.platform === "darwin";
   try {
-    const root = `$sys-${Date.now()}`;
-    const isDarwin = tjs.platform === "darwin";
     runtime.menu.createMenu({ id: "probe", items: [] });
-    // darwin: NSApp default menu (App/Edit/Window/Help role submenus).
-    // Windows has no NSApp default-menu concept (no menu_create_default in
-    // host_windows.c) — build an equivalent tree explicitly, then drive the
-    // SAME structured snapshot + removeAt-tombstone surface below.
-    if (isDarwin) {
-      runtime.menu.createDefaultMenu?.(root);
-    } else {
-      runtime.menu.createMenu({ id: root, items: [] });
-      const edit = `${root}.edit`;
-      const win = `${root}.window`;
-      runtime.menu.createMenu({ id: edit, items: [] });
-      runtime.menu.createMenu({ id: win, items: [] });
-      runtime.menu.addSubmenu?.(root, edit, "Edit");
-      runtime.menu.addItem(root, {
-        id: `${root}.sep`,
-        text: "",
-        separator: true,
-      });
-      runtime.menu.addItem(root, {
-        id: `${root}.check`,
-        text: "Check",
-        type: "check",
-        checked: true,
-      });
-      runtime.menu.addSubmenu?.(root, win, "Window");
-      runtime.menu.addItem(edit, { id: `${edit}.copy`, text: "Copy" });
-    }
+    // H14: menu_create_default now exists on BOTH platforms — the same
+    // standard tree (App/Edit/View/Window, same item ids) on mac NSApp
+    // and win32 (role items carry built-in behavior at click time).
+    runtime.menu.createDefaultMenu?.(root);
     const snap1 = (await runtime.menu.items?.(root)) ?? [];
     const withSub = snap1.filter((x) => x.hasSubmenu).length;
-    if (snap1.length < 4 || withSub < (isDarwin ? 4 : 2)) {
+    if (snap1.length < 4 || withSub < 4) {
       console.log(`MENU_V2_FAIL:${snap1.length}:${withSub}`);
     } else {
       if (isDarwin) {
@@ -96,6 +83,84 @@ void (async () => {
     }
   } catch (e) {
     console.log("MENU_V2_FAIL:" + String(e).slice(0, 80));
+  }
+
+  // H14 win32 legs: per-window menu bar mount + SetMenuItemBitmaps icon +
+  // a REAL role action (programmatic popup-select on the Window submenu's
+  // first leaf = Minimize -> the window must actually be minimized).
+  if (!isDarwin) {
+    type Diag = {
+      bars?: { menu: string; label: string }[];
+      icons?: { menu: string; item: string }[];
+    };
+    // Leg 1: mount the default tree as main's window menu bar; bogus ids
+    // must be rejected WITHOUT stealing the slot (diag shows exactly one
+    // bar and it is ours).
+    try {
+      runtime.menu.setAsWindowMenu?.("$sys-dummy", "main");
+      runtime.menu.setAsWindowMenu?.("$nonexistent", "main");
+      runtime.menu.setAsWindowMenu?.(root, "main");
+      await sleep(100);
+      const d = (await sendReq("menu_diag")) as Diag | null;
+      const bars = d?.bars ?? [];
+      const ok =
+        bars.length === 1 &&
+        bars[0]?.menu === root &&
+        bars[0]?.label === "main";
+      console.log(
+        ok ? "MENU_WINMENU_OK" : `MENU_WINMENU_FAIL:${JSON.stringify(bars)}`,
+      );
+    } catch (e) {
+      console.log("MENU_WINMENU_FAIL:" + String(e).slice(0, 60));
+    }
+    // Leg 2: registry image -> bitmap on the default Edit/Copy item.
+    try {
+      const iconPath = `${tjs.cwd}/../../assets/app-icon.png`;
+      const st = await tjs.stat(iconPath).catch(() => null);
+      if (!st) {
+        console.log("MENU_ICON_SKIP:no-icon");
+      } else {
+        const rid = await runtime.image.fromPath(iconPath);
+        runtime.menu.setItemIcon?.(
+          `${root}.edit`,
+          `${root}.edit.copy`,
+          String(rid),
+        );
+        await sleep(100);
+        const d = (await sendReq("menu_diag")) as Diag | null;
+        const icon = (d?.icons ?? []).find(
+          (x) =>
+            x.menu === `${root}.edit` && x.item === `${root}.edit.copy`,
+        );
+        console.log(
+          icon
+            ? "MENU_ICON_OK"
+            : `MENU_ICON_FAIL:${JSON.stringify(d?.icons ?? [])}`,
+        );
+      }
+    } catch (e) {
+      console.log("MENU_ICON_FAIL:" + String(e).slice(0, 60));
+    }
+    // Leg 3: real Minimize role action via the H13 popup-select channel —
+    // tracks the Window submenu popup and keys DOWN,ENTER onto its first
+    // leaf (Minimize), then the native window state must reflect it.
+    try {
+      const sel = (await sendReq("menu_popup_select_test", {
+        menu_id: `${root}.window`,
+      })) as unknown;
+      await sleep(400);
+      const main = app.getWebview("main") as unknown as
+        | { windowState(op: string): Promise<unknown> }
+        | undefined;
+      const ws = await main?.windowState("is_minimized");
+      console.log(
+        sel === true && ws === true
+          ? "ROLE_MIN_OK"
+          : `ROLE_MIN_FAIL:${String(sel)}:${String(ws)}`,
+      );
+    } catch (e) {
+      console.log("ROLE_MIN_FAIL:" + String(e).slice(0, 60));
+    }
   }
 
   // Tray multi-instance surface (G5 / B9): id creation -> existence query ->

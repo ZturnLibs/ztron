@@ -1808,12 +1808,14 @@ typedef struct {
   int checked; /* -1 = not checkable */
   int separator;
   int has_submenu;
+  char kind[24];      /* predefined role (quit/minimize/copy/…; "" = plain) */
+  HBITMAP bmp;        /* SetMenuItemBitmaps icon; ours; deleted with item */
 } MenuItemRec;
 
 typedef struct MenuRec_ {
   char id[64];
   HMENU hmenu; /* owned; rebuilt from items */
-  int attached;
+  HWND attached_hwnd; /* per-window menu bar (menu_set_app / set_window_menu) */
   int cmd_base; /* unique WM_COMMAND base (monotonic; 256 slots per menu) */
   MenuItemRec items[MAX_MENU_ITEMS];
   int count;
@@ -1823,7 +1825,6 @@ typedef struct MenuRec_ {
 static MenuRec g_menus[MAX_MENUS];
 static int g_menu_count = 0;
 static int g_menu_cmd_next = 1000; /* WORD-safe: 16*256+128 << 65536 */
-static HWND g_menu_bar_hwnd = NULL;
 static char g_tray_menu_id[64] = "";
 
 static MenuRec *menu_by_id(const char *id) {
@@ -1872,7 +1873,7 @@ static void menu_rebuild(MenuRec *m) {
       if (child) menu_rebuild(child);
     }
   }
-  if (m->attached && g_menu_bar_hwnd) SetMenu(g_menu_bar_hwnd, NULL);
+  if (m->attached_hwnd) SetMenu(m->attached_hwnd, NULL);
   if (m->hmenu) DestroyMenu(m->hmenu);
   m->hmenu = m->parent ? CreatePopupMenu() : CreateMenu();
   for (i = 0; i < m->count; i++) {
@@ -1892,15 +1893,23 @@ static void menu_rebuild(MenuRec *m) {
     flags = MF_STRING | (it->enabled ? MF_ENABLED : MF_GRAYED);
     if (it->checked == 1) flags |= MF_CHECKED;
     AppendMenuA(m->hmenu, flags, m->cmd_base + i, it->title);
+    /* SetMenuItemBitmaps associations die with the HMENU — reapply. */
+    if (it->bmp)
+      SetMenuItemBitmaps(m->hmenu, i, MF_BYPOSITION, it->bmp, it->bmp);
   }
-  if (m->attached && g_menu_bar_hwnd) {
-    SetMenu(g_menu_bar_hwnd, m->hmenu);
-    DrawMenuBar(g_menu_bar_hwnd);
+  if (m->attached_hwnd) {
+    SetMenu(m->attached_hwnd, m->hmenu);
+    DrawMenuBar(m->attached_hwnd);
   }
 }
 
 static void menu_items_clear(MenuRec *m) {
   int i;
+  for (i = 0; i < m->count; i++)
+    if (m->items[i].bmp) {
+      DeleteObject(m->items[i].bmp);
+      m->items[i].bmp = NULL;
+    }
   /* drop child submenu recs first */
   for (i = 0; i < m->count; i++) {
     if (m->items[i].has_submenu) {
@@ -1935,9 +1944,10 @@ static MenuRec *menu_create(const char *menu_id) {
   return m;
 }
 
-static void menu_item_insert(MenuRec *m, int at, const char *item_id,
-                             const char *text, int enabled, int separator,
-                             int checked, int has_submenu) {
+static void menu_item_insert_kind(MenuRec *m, int at, const char *item_id,
+                                  const char *text, int enabled,
+                                  int separator, int checked, int has_submenu,
+                                  const char *kind) {
   int i;
   MenuItemRec *it;
   if (!m || m->count >= MAX_MENU_ITEMS) return;
@@ -1952,12 +1962,24 @@ static void menu_item_insert(MenuRec *m, int at, const char *item_id,
   it->checked = checked;
   it->separator = separator;
   it->has_submenu = has_submenu;
+  snprintf(it->kind, sizeof(it->kind), "%s", kind ? kind : "");
   menu_rebuild(m);
+}
+
+static void menu_item_insert(MenuRec *m, int at, const char *item_id,
+                             const char *text, int enabled, int separator,
+                             int checked, int has_submenu) {
+  menu_item_insert_kind(m, at, item_id, text, enabled, separator, checked,
+                        has_submenu, "");
 }
 
 static void menu_item_remove(MenuRec *m, int idx) {
   int i;
   MenuItemRec *it = &m->items[idx];
+  if (it->bmp) {
+    DeleteObject(it->bmp);
+    it->bmp = NULL;
+  }
   if (it->has_submenu) {
     MenuRec *child = menu_by_id(it->id);
     int j;
@@ -1976,24 +1998,152 @@ static void menu_item_remove(MenuRec *m, int idx) {
   menu_rebuild(m);
 }
 
-static void menu_set_app(const char *menu_id) {
+/* Attaches a menu as one window's menu bar (per-window document model;
+   menu_set_app is the main-window special case). Only one menu bar per
+   window and one window per menu — the previous holder is detached. */
+static void menu_attach_to(const char *menu_id, HWND w) {
   MenuRec *m = menu_resolve(menu_id);
-  HWND w = zt_hwnd();
   int i;
   if (!m || !w) return;
-  for (i = 0; i < g_menu_count; i++) g_menus[i].attached = 0;
-  m->attached = 1;
-  g_menu_bar_hwnd = w;
+  for (i = 0; i < g_menu_count; i++) {
+    if (g_menus[i].attached_hwnd == w && &g_menus[i] != m) {
+      g_menus[i].attached_hwnd = NULL; /* window loses its old bar */
+      break;
+    }
+  }
+  if (m->attached_hwnd && m->attached_hwnd != w)
+    SetMenu(m->attached_hwnd, NULL); /* menu leaves its old window */
+  m->attached_hwnd = w;
   menu_rebuild(m);
+}
+
+static void menu_set_app(const char *menu_id) {
+  menu_attach_to(menu_id, zt_hwnd());
+}
+
+/* GAP H14: per-window menu bar (mac setMenu: document-window model). */
+static void menu_set_window_menu(const char *menu_id, const char *label) {
+  webview_t wv = zt_webview(label);
+  menu_attach_to(menu_id, wv ? zt_hwnd_for(wv) : NULL);
+}
+
+/* GAP H14: set a bitmap icon on an existing item (IconMenuItem.setIcon —
+   SetMenuItemBitmaps keeps system text drawing, no owner-draw). Spec:
+   numeric = image-registry id (GDI+ GpBitmap -> HBITMAP), else a file
+   path. Mac stock-kind names ("Copy") have no Win32 analog: no-op. */
+static void menu_set_item_icon(const char *menu_id, const char *item_id,
+                               const char *spec) {
+  MenuRec *root = menu_resolve(menu_id);
+  MenuRec *owner;
+  MenuItemRec *it;
+  GpBitmap *src = NULL;
+  HBITMAP hb = NULL;
+  int idx = -1, numeric = 1;
+  const char *s;
+  if (!root || !spec[0]) return;
+  owner = menu_item_owner(root, item_id, &idx);
+  if (!owner || idx < 0) return;
+  it = &owner->items[idx];
+  for (s = spec; *s; s++)
+    if (*s < '0' || *s > '9') { numeric = 0; break; }
+  gdiplus_ensure();
+  if (numeric) {
+    src = image_by_id(atoi(spec));
+    if (src) GdipCreateHBITMAPFromBitmap(src, &hb, 0xFFFFFFFF);
+  } else if (strchr(spec, '/') || strchr(spec, '\\') || strchr(spec, '.')) {
+    GpBitmap *file = NULL;
+    WCHAR wpath[MAX_PATH];
+    to_wide(spec, wpath, MAX_PATH);
+    if (GdipCreateBitmapFromFile(wpath, &file) == 0 && file) {
+      GdipCreateHBITMAPFromBitmap(file, &hb, 0xFFFFFFFF);
+      GdipDisposeImage((GpImage *)file);
+    }
+  }
+  if (!hb) return;
+  if (it->bmp) DeleteObject(it->bmp);
+  it->bmp = hb;
+  if (owner->hmenu) SetMenuItemBitmaps(owner->hmenu, idx, MF_BYPOSITION,
+                                       hb, hb);
 }
 
 static void menu_destroy(const char *menu_id) {
   MenuRec *m = menu_by_id(menu_id);
   if (!m) return;
+  if (m->attached_hwnd) {
+    SetMenu(m->attached_hwnd, NULL);
+    DrawMenuBar(m->attached_hwnd);
+  }
+  m->attached_hwnd = NULL;
   menu_items_clear(m);
   if (m->hmenu) DestroyMenu(m->hmenu);
   m->hmenu = NULL;
-  m->attached = 0;
+}
+
+/* Registers a submenu rec + popup item (same shape as the
+   menu_add_submenu_item dispatch branch, callable from C). */
+static void menu_default_submenu(const char *root, const char *sid,
+                                 const char *title) {
+  MenuRec *parent = menu_resolve(root);
+  MenuRec *child = menu_by_id(sid);
+  if (!child && g_menu_count < MAX_MENUS) {
+    child = &g_menus[g_menu_count++];
+    memset(child, 0, sizeof(*child));
+    snprintf(child->id, sizeof(child->id), "%s", sid);
+    child->cmd_base = g_menu_cmd_next;
+    g_menu_cmd_next += 256;
+    child->parent = parent;
+    menu_rebuild(child);
+  }
+  if (parent) menu_item_insert(parent, -1, sid, title, 1, 0, -1, 1);
+}
+
+/* GAP H14: standard application menu tree under one root id (mac
+   menu_create_default parity: App/Edit/View/Window with the same item
+   ids). Role items carry their kind for menu_role_action at click time. */
+static void menu_create_default(const char *root) {
+  char sid[128], iid[192];
+  if (!menu_resolve(root)) menu_create(root);
+#define ZD_PRE(PARENT, TAG, TEXT, KIND)                                     \
+  do {                                                                      \
+    snprintf(iid, sizeof(iid), "%s." TAG, PARENT);                          \
+    menu_item_insert_kind(menu_resolve(PARENT), -1, iid, TEXT, 1, 0, -1, 0, \
+                          KIND);                                            \
+  } while (0)
+#define ZD_SEP(PARENT, TAG)                                                 \
+  do {                                                                      \
+    snprintf(iid, sizeof(iid), "%s.$sep" TAG, PARENT);                      \
+    menu_item_insert_kind(menu_resolve(PARENT), -1, iid, "", 1, 1, -1, 0,   \
+                          "");                                              \
+  } while (0)
+  snprintf(sid, sizeof(sid), "%s.app", root);
+  menu_default_submenu(root, sid, "App");
+  ZD_PRE(sid, "about", "About", "about");
+  ZD_SEP(sid, "0");
+  ZD_PRE(sid, "hide", "Hide", "hide");
+  ZD_PRE(sid, "hideOthers", "Hide Others", "hideOthers");
+  ZD_PRE(sid, "showAll", "Show All", "showAll");
+  ZD_SEP(sid, "1");
+  ZD_PRE(sid, "quit", "Quit", "quit");
+  snprintf(sid, sizeof(sid), "%s.edit", root);
+  menu_default_submenu(root, sid, "Edit");
+  ZD_PRE(sid, "undo", "Undo", "undo");
+  ZD_PRE(sid, "redo", "Redo", "redo");
+  ZD_SEP(sid, "0");
+  ZD_PRE(sid, "cut", "Cut", "cut");
+  ZD_PRE(sid, "copy", "Copy", "copy");
+  ZD_PRE(sid, "paste", "Paste", "paste");
+  ZD_PRE(sid, "selectAll", "Select All", "selectAll");
+  snprintf(sid, sizeof(sid), "%s.view", root);
+  menu_default_submenu(root, sid, "View");
+  ZD_PRE(sid, "fullscreen", "Toggle Full Screen", "fullscreen");
+  snprintf(sid, sizeof(sid), "%s.window", root);
+  menu_default_submenu(root, sid, "Window");
+  ZD_PRE(sid, "minimize", "Minimize", "minimize");
+  ZD_PRE(sid, "maximize", "Zoom", "maximize");
+  ZD_SEP(sid, "0");
+  ZD_PRE(sid, "front", "Bring All to Front", "bringAllToFront");
+#undef ZD_PRE
+#undef ZD_SEP
 }
 
 static void menu_set_item_enabled(const char *menu_id, const char *item_id, int enabled) {
@@ -2064,7 +2214,10 @@ static void menu_reply_items(Msg *m) {
 /* Command dispatch: WM_COMMAND (bar / tray popup) and TrackPopupMenu's
    TPM_RETURNCMD both funnel here. Command bases are unique per registered
    menu (roots AND submenu recs), so the owning menu is exact — a click in
-   a submenu or a popup no longer misattributes to an attached bar menu. */
+   a submenu or a popup no longer misattributes to an attached bar menu.
+   Predefined role items additionally run their built-in behavior. */
+static void menu_role_action(const char *kind);
+
 static void menu_emit_for_cmd(int cmd) {
   int i;
   for (i = 0; i < g_menu_count; i++) {
@@ -2079,9 +2232,75 @@ static void menu_emit_for_cmd(int cmd) {
                "{\"type\":\"menu_event\",\"menu_id\":\"%s\",\"item_id\":\"%s\"}",
                em, ei);
       zt_send_line(buf);
+      menu_role_action(m->items[idx].kind);
       return;
     }
   }
+}
+
+/* Built-in behavior for predefined role items (GAP H14). mac routes these
+   through first-responder selectors; Windows gets direct analogs where
+   Win32 has one. Every role ALSO emits its menu_event (above) so apps can
+   observe/override. Best-effort: clipboard/edit messages go to the focused
+   HWND (WebView2 child handles the classics; no cross-process focus
+   guarantees). */
+static void menu_role_action(const char *kind) {
+  HWND w = zt_hwnd();
+  GUITHREADINFO gi;
+  if (!kind[0]) return;
+  if (strcmp(kind, "minimize") == 0) {
+    if (w) ShowWindow(w, SW_MINIMIZE);
+    return;
+  }
+  if (strcmp(kind, "maximize") == 0) {
+    if (w) ShowWindow(w, IsZoomed(w) ? SW_RESTORE : SW_MAXIMIZE);
+    return;
+  }
+  if (strcmp(kind, "quit") == 0) {
+    if (w) PostMessage(w, WM_CLOSE, 0, 0);
+    return;
+  }
+  if (strcmp(kind, "hide") == 0) {
+    if (w) ShowWindow(w, SW_HIDE);
+    return;
+  }
+  if (strcmp(kind, "showAll") == 0 || strcmp(kind, "bringAllToFront") == 0) {
+    int i;
+    for (i = 0; i < zt_webview_count(); i++) {
+      HWND hw = zt_hwnd_for(zt_webview(zt_webview_label_at(i)));
+      if (hw) ShowWindow(hw, SW_SHOW);
+    }
+    return;
+  }
+  if (strcmp(kind, "hideOthers") == 0) {
+    int i;
+    for (i = 0; i < zt_webview_count(); i++) {
+      HWND hw = zt_hwnd_for(zt_webview(zt_webview_label_at(i)));
+      if (hw && hw != w) ShowWindow(hw, SW_HIDE);
+    }
+    return;
+  }
+  if (strcmp(kind, "undo") == 0 || strcmp(kind, "cut") == 0 ||
+      strcmp(kind, "copy") == 0 || strcmp(kind, "paste") == 0 ||
+      strcmp(kind, "selectAll") == 0) {
+    UINT msg = 0;
+    memset(&gi, 0, sizeof(gi));
+    gi.cbSize = sizeof(gi);
+    if (!GetGUIThreadInfo(0, &gi) || !gi.hwndFocus) return;
+    if (strcmp(kind, "undo") == 0) msg = WM_UNDO;
+    else if (strcmp(kind, "cut") == 0) msg = WM_CUT;
+    else if (strcmp(kind, "copy") == 0) msg = WM_COPY;
+    else if (strcmp(kind, "paste") == 0) msg = WM_PASTE;
+    else if (strcmp(kind, "selectAll") == 0) {
+      PostMessage(gi.hwndFocus, EM_SETSEL, 0, -1);
+      return;
+    }
+    PostMessage(gi.hwndFocus, msg, 0, 0);
+    return;
+  }
+  /* about / hideOthers-style roles without a Win32 analog stay
+     event-only; fullscreen toggling is window-state territory (existing
+     set_fullscreen op), not a menu role. */
 }
 
 /* Shared TrackPopupMenu core for programmatic popups (GAP H13). Returns
@@ -3220,9 +3439,10 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "menu_add_predefined") == 0) {
-    /* Role items render as plain entries (no Win32 role mapping). */
-    menu_item_insert(menu_resolve(m->str), -1, m->id, m->str2, m->status,
-                     0, -1, 0);
+    /* H14: kind rides in aux; roles run built-in behavior at click time
+       (menu_role_action) on top of the menu_event. */
+    menu_item_insert_kind(menu_resolve(m->str), -1, m->id, m->str2,
+                          m->status, 0, -1, 0, m->aux);
     return 1;
   }
   if (strcmp(m->type, "menu_add_icon_item") == 0) {
@@ -3328,6 +3548,54 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
+  if (strcmp(m->type, "menu_set_window_menu") == 0) {
+    menu_set_window_menu(m->str, m->win_label);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_set_item_icon") == 0) {
+    menu_set_item_icon(m->str, m->id, m->aux);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_create_default") == 0) {
+    menu_create_default(m->str);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_diag") == 0) {
+    /* H14 probe readback: per-window menu-bar attachments + items that
+       carry a SetMenuItemBitmaps bitmap (structure without pixels). */
+    char buf[2048];
+    int i, j, o = 0, first;
+    o += snprintf(buf + o, sizeof(buf) - o, "{\"bars\":[");
+    first = 1;
+    for (i = 0; i < g_menu_count && o < (int)sizeof(buf) - 160; i++) {
+      char em[130], el[130];
+      const char *lb;
+      if (!g_menus[i].attached_hwnd) continue;
+      lb = zt_label_for_window((void *)g_menus[i].attached_hwnd);
+      zt_json_escape(g_menus[i].id, em, sizeof(em));
+      zt_json_escape(lb ? lb : "", el, sizeof(el));
+      o += snprintf(buf + o, sizeof(buf) - o,
+                    "%s{\"menu\":\"%s\",\"label\":\"%s\"}",
+                    first ? "" : ",", em, el);
+      first = 0;
+    }
+    o += snprintf(buf + o, sizeof(buf) - o, "],\"icons\":[");
+    first = 1;
+    for (i = 0; i < g_menu_count && o < (int)sizeof(buf) - 160; i++)
+      for (j = 0; j < g_menus[i].count && o < (int)sizeof(buf) - 160; j++)
+        if (g_menus[i].items[j].bmp) {
+          char em[130], ei[160];
+          zt_json_escape(g_menus[i].id, em, sizeof(em));
+          zt_json_escape(g_menus[i].items[j].id, ei, sizeof(ei));
+          o += snprintf(buf + o, sizeof(buf) - o,
+                        "%s{\"menu\":\"%s\",\"item\":\"%s\"}",
+                        first ? "" : ",", em, ei);
+          first = 0;
+        }
+    snprintf(buf + o, sizeof(buf) - o, "]}");
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "tray_set_menu") == 0) {
     snprintf(g_tray_menu_id, sizeof(g_tray_menu_id), "%s", m->str);

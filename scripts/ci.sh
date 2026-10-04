@@ -219,12 +219,20 @@ run_ztron_check "$ROOT/examples/multiwin" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }
 
 step "menuprobe spike (ztron check --expect)"
+# GAP H14: win32-only legs — per-window bar mount, bitmap icon, real
+# Minimize role action (mac covers these through NSApp mounts above).
+MENUPROBE_EXTRAS=""
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    MENUPROBE_EXTRAS="--expect MENU_WINMENU_OK --expect MENU_ICON_OK --expect ROLE_MIN_OK" ;;
+esac
 run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect MENU_V2_OK \
     --expect TRAY_V2_OK \
     --expect LOCALHOST_OK \
     --expect INNER_POS_OK \
     --expect IMG_READBACK_OK \
+    $MENUPROBE_EXTRAS \
     > /tmp/ci-menuprobe.log 2>&1 \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
