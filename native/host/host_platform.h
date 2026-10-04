@@ -72,6 +72,8 @@ extern void zt_send_line(const char *line);
 /* JSON field helpers (implemented in host.c). */
 extern int zt_json_str(const char *json, const char *key, char *out,
                        size_t outsz);
+extern int zt_json_raw(const char *json, const char *key, char *out,
+                       size_t outsz);
 extern int zt_json_int(const char *json, const char *key, int def);
 
 /* JSON escaping helpers (implemented in each platform file). */

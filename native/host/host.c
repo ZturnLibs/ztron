@@ -64,6 +64,48 @@ static const char *skip_ws(const char *s) {
   return s;
 }
 
+/* extracts "key":<raw JSON value> verbatim (arrays/objects included —
+   zt_json_str only takes quoted strings). Balanced-bracket aware and
+   string-literal safe. Returns 1 on success. */
+int zt_json_raw(const char *json, const char *key, char *out, size_t outsz) {
+  char pat[128];
+  snprintf(pat, sizeof(pat), "\"%s\"", key);
+  const char *p = strstr(json, pat);
+  if (!p) return 0;
+  p = strchr(p + strlen(pat), ':');
+  if (!p) return 0;
+  p = skip_ws(p + 1);
+  if (!*p) return 0;
+  size_t n = 0;
+  int depth = 0;
+  while (*p && n + 1 < outsz) {
+    char c = *p;
+    if (c == '"') { /* string literal: copy verbatim, escapes included */
+      out[n++] = *p++;
+      while (*p && n + 1 < outsz) {
+        char d = *p++;
+        out[n++] = d;
+        if (d == '\\' && *p) out[n++] = *p++;
+        else if (d == '"') break;
+      }
+      continue;
+    }
+    if (c == '[' || c == '{') depth++;
+    if (c == ']' || c == '}') {
+      depth--;
+      out[n++] = c;
+      p++;
+      if (depth <= 0) break;
+      continue;
+    }
+    if (depth == 0 && c == ',') break; /* end of a scalar value */
+    out[n++] = c;
+    p++;
+  }
+  out[n] = 0;
+  return n > 0;
+}
+
 /* extracts "key":"..." (decoding JSON escapes) into out; returns 1 on success */
 int zt_json_str(const char *json, const char *key, char *out, size_t outsz) {
   char pat[128];
@@ -400,6 +442,7 @@ static int zt_handle_backend_line(char *line) {
   zt_json_str(line, "fallback", m->str, sizeof(m->str)); /* effects fallback material */
   m->num_val = zt_json_int(line, "interactive", m->num_val); /* Liquid Glass */
   zt_json_str(line, "response", m->aux, sizeof(m->aux)); /* permission decision */
+  zt_json_raw(line, "paths", m->str, sizeof(m->str)); /* drag-drop path array */
 
   if (strcmp(m->type, "permission_response") == 0) {
     /* Webview permission decision from the backend (app-global, no window). */

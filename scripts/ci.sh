@@ -317,6 +317,22 @@ case "$(uname -s)" in
   *) step "effects probe: SKIPPED (windows only)" ;;
 esac
 
+# ---- 5.9 drag-drop probe (win32; mac drop events live in host_macos.c) -------
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "dragdrop probe (win32 IDropTarget bridge)"
+    run_ztron_check "$ROOT/examples/dragdrop-probe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect DRAG_SEQ_OK \
+      --expect DRAG_PATHS_OK \
+      --expect DRAG_DISABLE_OK \
+      --expect DRAG_REENABLE_OK \
+      > /tmp/ci-dragdrop.log 2>&1 \
+      || { tail -30 /tmp/ci-dragdrop.log; fail "dragdrop probe"; }
+    tail -2 /tmp/ci-dragdrop.log
+    ;;
+  *) step "dragdrop probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 6. packaged spike (platform e2e; skippable) ------------------------------
 
 # Full packaged-chain e2e per platform: exercise exactly what an end user
