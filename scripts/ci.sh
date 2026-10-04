@@ -219,10 +219,11 @@ tail -2 /tmp/ci-hello.log
 step "multiwin spike (ztron check --expect)"
 # GAP H15: APP_LIFECYCLE_OK carries real assertions on windows (hide/show
 # visibility round-trip + dock-skip readback via app_diag); on mac the leg
-# stays a smoke call, same marker.
+# stays a smoke call, same marker. BG_COLOR_OK (GAP H16) samples the
+# webview surface pixel via a PrintWindow readback — windows-only leg.
 run_ztron_check "$ROOT/examples/multiwin" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
-    --expect APP_LIFECYCLE_OK \
+    --expect APP_LIFECYCLE_OK --expect BG_COLOR_OK \
   > /tmp/ci-multiwin.log 2>&1 \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }
 

@@ -1331,6 +1331,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 137. Windows P2 第四项(GAP H16):set_background_color——put_DefaultBackgroundColor + PrintWindow 像素读回
+
+**语义映射**:mac 侧 `set_background_color` 落 NSWindow setBackgroundColor:(zt_parse_color:transparent→clearColor、#rrggbb(A=255)/#rrggbbaa、其他→windowBackgroundColor 兜底)。Windows 对应面是 **ICoreWebView2Controller2::put_DefaultBackgroundColor**(网页 body 无 CSS 背景时透出来的表面色)——H7 窗口效果已为此写过 `webview_background_alpha`(alpha 0 透明让 backdrop 透出),本项把它泛化为 `webview_background_rgba(wv, COREWEBVIEW2_COLOR)` 返回 HRESULT,alpha 版退化为包装(effects 链零改动);新增 `zt_parse_bg_color` 按 mac 同款格式解析(transparent→A=0 RGB 白(wry 同款,pre-22H2 accent blur 的 tint 保持)、hex→对应色、其他→不透明白=WebView2 默认,即 mac windowBackgroundColor 的对应物)。COREWEBVIEW2_COLOR 是 {A,R,G,B} BYTE 序——**alpha 必须 0 或 255,中间值 E_INVALIDARG**(文档约束,解析器不产出中间值)。
+
+**本项实现坑(白名单盲区,复用 H15 的教训形状)**:dispatch 分支写完第一跑**打点一行不出**——host_windows.c `is_window_op` 是窗口 op 路由白名单,type 不在名单里根本进不了窗口分支链(set_title 等老 op 都在)。症状形状与 H15 的 registry 盲区同款:**"op 到不了代码"要先查路由表,再查代码本身**。
+
+**探针**:put_DefaultBackgroundColor 无 get(Tauri/wry 同),读回走**像素**:host-only `bg_probe` op 用 **PrintWindow(PW_CLIENTONLY|PW_RENDERFULLCONTENT)** 抓目标 webview 到 32bpp top-down DIB,采样客户区右下角 (w-20,h-20)——PW_RENDERFULLCONTENT 强制含 DirectX 合成内容(WebView2 是独立子 HWND 的 DX 层,裸 GetPixel 会读到 CI 里的遮挡窗口);multiwin 页面无 CSS 背景,DefaultBackgroundColor 直接落在像素上:baseline 白(容差 ±14)→`#204060`(r32/g64/b96 各 ±14)→transparent(ack-only,alpha 无 GDI 读回,与 mac clearColor 同)。临时 stderr 打点(bg_color str2/argb/hr)保留——这是该无读回面唯一的 put 侧诊断。
+
 ## 136. Windows P2 第三项(GAP H15):app_show/app_hide/app_set_dock_visibility + host 异常死亡的可观测性
 
 三个 app 级可见性 op 的 Windows 对应，外加验证过程中沉淀的一套 host 死亡诊断法。

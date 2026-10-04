@@ -177,7 +177,34 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
               if (!d2 || d2.toolwindow !== false) {
                 throw new Error("dock:stuck-skip:" + JSON.stringify(d2));
               }
+              // GAP H16: DefaultBackgroundColor is what shows through the
+              // page — the multiwin pages set no CSS background, so the
+              // webview surface color lands on the pixels directly.
+              // bg_probe samples via PrintWindow(PW_RENDERFULLCONTENT),
+              // immune to CI window stacking.
+              type Px = { r?: number; g?: number; b?: number } | null;
+              const probe = (): Promise<Px> =>
+                sendReq("bg_probe") as Promise<Px>;
+              const near = (v: number | undefined, want: number) =>
+                typeof v === "number" && Math.abs(v - want) <= 14;
+              const win =
+                app.getWebview("main") as unknown as {
+                  setBackgroundColor(color: string): Promise<void>;
+                };
+              const b0 = await probe();
+              if (!b0 || !near(b0.r, 255) || !near(b0.g, 255) || !near(b0.b, 255)) {
+                throw new Error("bg:baseline:" + JSON.stringify(b0));
+              }
+              await win.setBackgroundColor("#204060");
+              await sleep(400);
+              const b1 = await probe();
+              if (!b1 || !near(b1.r, 0x20) || !near(b1.g, 0x40) || !near(b1.b, 0x60)) {
+                throw new Error("bg:set:" + JSON.stringify(b1));
+              }
+              await win.setBackgroundColor("transparent");
+              await sleep(200); /* ack-only: alpha has no GDI readback */
             }
+            console.log("BG_COLOR_OK"); /* windows: asserted above; mac: smoke */
             console.log("APP_LIFECYCLE_OK");
           } catch (e) {
             console.log("APP_LIFECYCLE_FAIL:" + String(e).slice(0, 120));

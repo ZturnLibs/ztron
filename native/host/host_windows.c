@@ -255,6 +255,7 @@ static int is_window_op(const char *t) {
       "set_minimizable",  "is_minimizable",  "set_maximizable",
       "is_maximizable",   "set_closable",    "is_closable",
       "set_skip_taskbar", "set_content_protected",
+      "set_background_color",
       "request_user_attention", "set_focusable",
       "set_cursor_visible", "set_cursor_grab",
       "window_set_icon",  "window_set_overlay_icon",
@@ -557,23 +558,60 @@ static int effect_backdrop(const char *name) {
    only visible where WebView2 stops painting an opaque background —
    put_DefaultBackgroundColor with alpha 0 (the recipe wry uses for Tauri's
    transparent:true). alpha 255 restores the opaque default. */
-static void webview_background_alpha(webview_t wv, BYTE alpha) {
+static HRESULT webview_background_rgba(webview_t wv, COREWEBVIEW2_COLOR col) {
   ICoreWebView2Controller *ctl;
   ICoreWebView2Controller2 *ctl2 = NULL;
-  COREWEBVIEW2_COLOR col;
+  HRESULT hr = E_FAIL;
   if (!wv) wv = zt_w;
   ctl = (ICoreWebView2Controller *)webview_get_native_handle(
       wv, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER);
-  if (!ctl) return;
+  if (!ctl) return hr;
   if (ctl->lpVtbl->QueryInterface(ctl, &IID_ICoreWebView2Controller2,
                                   (void **)&ctl2) != S_OK || !ctl2)
-    return;
+    return hr;
+  hr = ctl2->lpVtbl->put_DefaultBackgroundColor(ctl2, col);
+  ctl2->lpVtbl->Release(ctl2);
+  return hr;
+}
+
+static void webview_background_alpha(webview_t wv, BYTE alpha) {
+  COREWEBVIEW2_COLOR col;
   col.A = alpha;
   col.R = 255;
   col.G = 255;
   col.B = 255;
-  ctl2->lpVtbl->put_DefaultBackgroundColor(ctl2, col);
-  ctl2->lpVtbl->Release(ctl2);
+  webview_background_rgba(wv, col);
+}
+
+/* Parses a window background color (GAP H16): "transparent" → alpha 0
+   (RGB channels are irrelevant to the compositors, white keeps the
+   pre-22H2 accent blur tinted like wry), "#rrggbb"/"#rrggbbaa" hex →
+   that color, anything else → opaque white (the WebView2 default, the
+   analog of mac's windowBackgroundColor fallback). */
+static COREWEBVIEW2_COLOR zt_parse_bg_color(const char *s) {
+  COREWEBVIEW2_COLOR col;
+  col.A = 255;
+  col.R = 255;
+  col.G = 255;
+  col.B = 255;
+  if (!s) return col;
+  if (strcmp(s, "transparent") == 0) {
+    col.A = 0;
+    return col;
+  }
+  if (s[0] == '#' && (strlen(s) == 7 || strlen(s) == 9)) {
+    unsigned int r = 255, g = 255, b = 255, a = 255;
+    if (strlen(s) == 9) {
+      if (sscanf(s, "#%2x%2x%2x%2x", &r, &g, &b, &a) != 4) return col;
+    } else {
+      if (sscanf(s, "#%2x%2x%2x", &r, &g, &b) != 3) return col;
+    }
+    col.R = (BYTE)r;
+    col.G = (BYTE)g;
+    col.B = (BYTE)b;
+    col.A = (BYTE)a;
+  }
+  return col;
 }
 
 /* Win10 pre-22H2 fallback: the undocumented SetWindowCompositionAttribute
@@ -1433,6 +1471,14 @@ static void handle_window_op(Msg *m, webview_t wv) {
     SetWindowLongPtr(w, GWL_EXSTYLE, ex);
     SetWindowPos(w, 0, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+  } else if (strcmp(m->type, "set_background_color") == 0) {
+    /* GAP H16: the webview surface color, not the HWND's — the browser
+       paints over the redirection surface everywhere except where its
+       own background is transparent. */
+    COREWEBVIEW2_COLOR col = zt_parse_bg_color(m->str2);
+    HRESULT hr = webview_background_rgba(wv, col);
+    fprintf(stderr, "[zt] bg_color str2='%s' argb=%02x%02x%02x%02x hr=0x%08lx\n",
+            m->str2, col.A, col.R, col.G, col.B, (unsigned long)hr);
   } else if (strcmp(m->type, "set_content_protected") == 0) {
     SetWindowDisplayAffinity(w, m->bool_val ? WDA_MONITOR : WDA_NONE);
   } else if (strcmp(m->type, "request_user_attention") == 0) {
@@ -3680,6 +3726,48 @@ static int dispatch(Msg *m, webview_t wv) {
     snprintf(buf, sizeof(buf), "{\"visible\":%s,\"toolwindow\":%s}",
              w && IsWindowVisible(w) ? "true" : "false",
              (ex & WS_EX_TOOLWINDOW) ? "true" : "false");
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "bg_probe") == 0) {
+    /* H16 probe readback: one pixel from the target webview's client
+       area, captured with PrintWindow(PW_RENDERFULLCONTENT) so the
+       DirectX-composited WebView2 surface lands in the DIB even when a
+       CI window is stacked on top (GetPixel would read the occluder).
+       Sample point is near the bottom-right corner, away from page
+       content. */
+    HWND w = zt_hwnd_for(wv);
+    char buf[64] = "null";
+    RECT rc;
+    if (w && GetClientRect(w, &rc) && rc.right > 40 && rc.bottom > 40) {
+      int bw = rc.right - rc.left, bh = rc.bottom - rc.top;
+      HDC wdc = GetWindowDC(w);
+      HDC mem = CreateCompatibleDC(wdc);
+      BITMAPINFO bi;
+      void *bits = NULL;
+      ZeroMemory(&bi, sizeof(bi));
+      bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+      bi.bmiHeader.biWidth = bw;
+      bi.bmiHeader.biHeight = -bh; /* top-down */
+      bi.bmiHeader.biPlanes = 1;
+      bi.bmiHeader.biBitCount = 32;
+      bi.bmiHeader.biCompression = BI_RGB;
+      HBITMAP bmp = CreateDIBSection(wdc, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+      if (bmp && bits) {
+        HGDIOBJ old = SelectObject(mem, bmp);
+        if (PrintWindow(w, mem, PW_CLIENTONLY | PW_RENDERFULLCONTENT)) {
+          /* 32bpp DIB is BGRA in memory (little-endian COLORREF order). */
+          BYTE *row = (BYTE *)bits + (size_t)(bh - 20) * bw * 4;
+          BYTE *px = row + (size_t)(bw - 20) * 4;
+          snprintf(buf, sizeof(buf), "{\"r\":%d,\"g\":%d,\"b\":%d}",
+                   px[2], px[1], px[0]);
+        }
+        SelectObject(mem, old);
+        DeleteObject(bmp);
+      }
+      DeleteDC(mem);
+      ReleaseDC(w, wdc);
+    }
     zt_reply_query(m->req_id, buf);
     return 1;
   }
