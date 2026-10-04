@@ -1602,6 +1602,10 @@ static void handle_window_op(Msg *m, webview_t wv) {
 
 /* ---- tray (Shell_NotifyIcon) ---- */
 
+/* H13 menu-popup cancel probe: WM_TIMER id that unwinds the modal
+   TrackPopupMenu loop from the outside (see zt_proc WM_TIMER). */
+#define ZT_MENU_CANCEL_TIMER 4711
+
 static HWND g_tray_hwnd = NULL;
 static NOTIFYICONDATAW g_nid;
 
@@ -1627,7 +1631,7 @@ static void emit_window_event(HWND h, const char *event) {
  * proc (in webview/webview) may already handle some; we hook via subclass. */
 static void zt_shortcut_pressed(int id);
 static void tray_popup_menu(void); /* menu registry lives below */
-static void menu_handle_command(WORD id);
+static void menu_emit_for_cmd(int cmd);
 
 static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
                                 UINT_PTR id, DWORD_PTR ref) {
@@ -1640,8 +1644,17 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
         tray_popup_menu();
       }
       return 0;
+    case WM_TIMER:
+      /* menu_popup cancel probe (H13): end the modal TrackPopupMenu loop
+         from outside — DefWindowProc's WM_CANCELMODE handling unwinds it. */
+      if (wp == ZT_MENU_CANCEL_TIMER) {
+        KillTimer(h, wp);
+        SendMessage(h, WM_CANCELMODE, 0, 0);
+        return 0;
+      }
+      break;
     case WM_COMMAND:
-      if (lp == 0) menu_handle_command(LOWORD(wp));
+      if (lp == 0) menu_emit_for_cmd(LOWORD(wp));
       break;
     case WM_HOTKEY:
       zt_shortcut_pressed((int)wp);
@@ -1801,6 +1814,7 @@ typedef struct MenuRec_ {
   char id[64];
   HMENU hmenu; /* owned; rebuilt from items */
   int attached;
+  int cmd_base; /* unique WM_COMMAND base (monotonic; 256 slots per menu) */
   MenuItemRec items[MAX_MENU_ITEMS];
   int count;
   struct MenuRec_ *parent; /* non-NULL for submenu recs */
@@ -1808,6 +1822,7 @@ typedef struct MenuRec_ {
 
 static MenuRec g_menus[MAX_MENUS];
 static int g_menu_count = 0;
+static int g_menu_cmd_next = 1000; /* WORD-safe: 16*256+128 << 65536 */
 static HWND g_menu_bar_hwnd = NULL;
 static char g_tray_menu_id[64] = "";
 
@@ -1876,7 +1891,7 @@ static void menu_rebuild(MenuRec *m) {
     }
     flags = MF_STRING | (it->enabled ? MF_ENABLED : MF_GRAYED);
     if (it->checked == 1) flags |= MF_CHECKED;
-    AppendMenuA(m->hmenu, flags, 1000 + i, it->title);
+    AppendMenuA(m->hmenu, flags, m->cmd_base + i, it->title);
   }
   if (m->attached && g_menu_bar_hwnd) {
     SetMenu(g_menu_bar_hwnd, m->hmenu);
@@ -1911,6 +1926,8 @@ static MenuRec *menu_create(const char *menu_id) {
     m = &g_menus[g_menu_count++];
     memset(m, 0, sizeof(*m));
     snprintf(m->id, sizeof(m->id), "%s", menu_id);
+    m->cmd_base = g_menu_cmd_next;
+    g_menu_cmd_next += 256;
   } else {
     menu_items_clear(m);
   }
@@ -2044,28 +2061,97 @@ static void menu_reply_items(Msg *m) {
   zt_reply_query(m->req_id, buf);
 }
 
-/* Command dispatch: WM_COMMAND arrives with 1000+index (bar) or 3000+index
-   (tray popup); the click is reported to the backend as a menu_event. */
-static void menu_handle_command(WORD id) {
-  int idx = (int)id - 1000;
-  MenuRec *m = NULL;
+/* Command dispatch: WM_COMMAND (bar / tray popup) and TrackPopupMenu's
+   TPM_RETURNCMD both funnel here. Command bases are unique per registered
+   menu (roots AND submenu recs), so the owning menu is exact — a click in
+   a submenu or a popup no longer misattributes to an attached bar menu. */
+static void menu_emit_for_cmd(int cmd) {
   int i;
-  /* Bar and tray-popup items share the 1000+index range; clicks are only
-     observable from the attached bar menu in the automated spike, so the
-     attached menu wins. (Manual tray clicks report its menu id instead.) */
-  for (i = 0; i < g_menu_count; i++)
-    if (g_menus[i].attached) { m = &g_menus[i]; break; }
-  if (!m && g_tray_menu_id[0]) m = menu_by_id(g_tray_menu_id);
-  if (!m) return;
-  if (idx >= 0 && idx < m->count && !m->items[idx].separator) {
-    char ei[300], em[130], buf[700];
-    zt_json_escape(m->items[idx].id, ei, sizeof(ei));
-    zt_json_escape(m->id, em, sizeof(em));
-    snprintf(buf, sizeof(buf),
-             "{\"type\":\"menu_event\",\"menu_id\":\"%s\",\"item_id\":\"%s\"}",
-             em, ei);
-    zt_send_line(buf);
+  for (i = 0; i < g_menu_count; i++) {
+    MenuRec *m = &g_menus[i];
+    int idx = cmd - m->cmd_base;
+    if (idx >= 0 && idx < m->count && !m->items[idx].separator &&
+        !m->items[idx].has_submenu) {
+      char ei[300], em[130], buf[700];
+      zt_json_escape(m->items[idx].id, ei, sizeof(ei));
+      zt_json_escape(m->id, em, sizeof(em));
+      snprintf(buf, sizeof(buf),
+               "{\"type\":\"menu_event\",\"menu_id\":\"%s\",\"item_id\":\"%s\"}",
+               em, ei);
+      zt_send_line(buf);
+      return;
+    }
   }
+}
+
+/* Shared TrackPopupMenu core for programmatic popups (GAP H13). Returns
+   the selected command id (0 = dismissed/cancelled, -1 = bad args).
+   Coordinates are client coords of w; (0,0) means "at the cursor" — mac
+   parity (popUpMenuPositioningItem at the mouse location). TPM_RETURNCMD
+   keeps the selection attribution exact instead of merging into
+   WM_COMMAND. */
+static int menu_popup_track(MenuRec *pm, HWND w, int x, int y) {
+  POINT pt;
+  int cmd;
+  if (!pm || !pm->hmenu || !w) return -1;
+  if (x != 0 || y != 0) {
+    pt.x = x;
+    pt.y = y;
+    ClientToScreen(w, &pt);
+  } else {
+    GetCursorPos(&pt);
+  }
+  /* A background host (CI job, launched-but-unfocused app) is denied
+     SetForegroundWindow, and the popup then never sees keyboard input —
+     attach to the foreground thread to borrow its activation rights
+     (the standard trick; mac popUp menus surface the same way). */
+  {
+    DWORD fg_tid = GetWindowThreadProcessId(GetForegroundWindow(), NULL);
+    DWORD my_tid = GetCurrentThreadId();
+    BOOL attached = fg_tid && fg_tid != my_tid &&
+                    AttachThreadInput(my_tid, fg_tid, TRUE);
+    SetForegroundWindow(w);
+    SetActiveWindow(w);
+    if (attached) AttachThreadInput(my_tid, fg_tid, FALSE);
+  }
+  cmd = (int)TrackPopupMenu(pm->hmenu,
+                            TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+                            pt.x, pt.y, 0, w, NULL);
+  PostMessage(w, WM_NULL, 0, 0);
+  return cmd;
+}
+
+/* Probe support: inject arrow/enter keys into the foreground menu's input
+   queue from a side thread while the GUI thread sits in TrackPopupMenu's
+   modal loop. leaf: DOWN,ENTER (first item). sub: DOWN,DOWN,RIGHT,ENTER —
+   highlight the submenu title (2nd item) then RIGHT opens it with its
+   first child highlighted. */
+static int g_menu_keys_sub = 0;
+
+static void menu_probe_send_key(WORD vk) {
+  INPUT in[2];
+  memset(in, 0, sizeof(in));
+  in[0].type = INPUT_KEYBOARD;
+  in[0].ki.wVk = vk;
+  in[1].type = INPUT_KEYBOARD;
+  in[1].ki.wVk = vk;
+  in[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  SendInput(2, in, sizeof(INPUT));
+}
+
+static DWORD WINAPI menu_keys_thread(LPVOID p) {
+  (void)p;
+  Sleep(600);
+  menu_probe_send_key(VK_DOWN);
+  Sleep(300);
+  if (g_menu_keys_sub) {
+    menu_probe_send_key(VK_DOWN);
+    Sleep(300);
+    menu_probe_send_key(VK_RIGHT);
+    Sleep(300);
+  }
+  menu_probe_send_key(VK_RETURN);
+  return 0;
 }
 
 /* Left-click tray popup (called from the subclassed window proc). */
@@ -3152,6 +3238,8 @@ static int dispatch(Msg *m, webview_t wv) {
       child = &g_menus[g_menu_count++];
       memset(child, 0, sizeof(*child));
       snprintf(child->id, sizeof(child->id), "%s", m->id);
+      child->cmd_base = g_menu_cmd_next;
+      g_menu_cmd_next += 256;
       child->parent = parent;
       menu_rebuild(child);
     }
@@ -3198,7 +3286,47 @@ static int dispatch(Msg *m, webview_t wv) {
     }
     return 1;
   }
-  if (strcmp(m->type, "menu_popup") == 0) { return 1; } /* modal tracking: armed by tray click only */
+  if (strcmp(m->type, "menu_popup") == 0) {
+    /* H13: programmatic popup — modal track on the GUI thread (the tray
+       left-click path is the same component); TPM_RETURNCMD gives the
+       exact selection so the menu_event is attributed to the right menu
+       even when a bar menu is also attached. Fire-and-forget on the wire
+       (mac parity). */
+    int cmd = menu_popup_track(menu_by_id(m->str), zt_hwnd_for(wv),
+                               m->x, m->y);
+    if (cmd > 0) menu_emit_for_cmd(cmd);
+    return 1;
+  }
+  if (strcmp(m->type, "menu_popup_cancel_test") == 0) {
+    /* H13 probe: popup enters the REAL modal track, then a WM_TIMER (see
+       zt_proc) cancels it 350ms in — cmd must come back 0. A stub would
+       return instantly with nothing to cancel. */
+    HWND w = zt_hwnd_for(wv);
+    int cmd;
+    if (w) SetTimer(w, ZT_MENU_CANCEL_TIMER, 350, NULL);
+    cmd = menu_popup_track(menu_by_id(m->str), w, 0, 0);
+    if (w) KillTimer(w, ZT_MENU_CANCEL_TIMER);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, cmd == 0 ? "true" : "false");
+    return 1;
+  }
+  if (strcmp(m->type, "menu_popup_select_test") == 0) {
+    /* H13 probe: side thread injects DOWN/ENTER into the tracking menu's
+       input queue; TPM_RETURNCMD + menu_emit_for_cmd must produce a real
+       menu_event for the right item (leaf or submenu leaf via id:"sub"). */
+    HWND w = zt_hwnd_for(wv);
+    HANDLE th;
+    int cmd;
+    g_menu_keys_sub = m->id[0] ? 1 : 0;
+    th = CreateThread(NULL, 0, menu_keys_thread, NULL, 0, NULL);
+    cmd = menu_popup_track(menu_by_id(m->str), w, 0, 0);
+    if (th) {
+      WaitForSingleObject(th, 8000);
+      CloseHandle(th);
+    }
+    if (cmd > 0) menu_emit_for_cmd(cmd);
+    if (m->req_id >= 0) zt_reply_query(m->req_id, cmd > 0 ? "true" : "false");
+    return 1;
+  }
   if (strcmp(m->type, "menu_set_app") == 0) { menu_set_app(m->str); return 1; }
   if (strcmp(m->type, "menu_destroy") == 0) { menu_destroy(m->str); return 1; }
   if (strcmp(m->type, "tray_set_menu") == 0) {

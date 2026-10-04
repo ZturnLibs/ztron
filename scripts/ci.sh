@@ -229,6 +229,21 @@ run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
   || { tail -30 /tmp/ci-menuprobe.log; fail "menuprobe ztron check"; }
 tail -2 /tmp/ci-multiwin.log
 
+# ---- 5.4b menu popup probe (win32; GAP H13 — mac popup is NSMenu-native) -----
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    step "popuprobe (win32 programmatic TrackPopupMenu + TPM_RETURNCMD)"
+    run_ztron_check "$ROOT/examples/popuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
+      --expect POPUP_CANCEL_OK \
+      --expect POPUP_LEAF_OK \
+      --expect POPUP_SUB_OK \
+      > /tmp/ci-popuprobe.log 2>&1 \
+      || { tail -30 /tmp/ci-popuprobe.log; fail "popuprobe ztron check"; }
+    tail -2 /tmp/ci-popuprobe.log
+    ;;
+  *) step "popuprobe: SKIPPED (windows only)" ;;
+esac
+
 # ---- 5.5 winevent probe (windows only; GAP H1–H4 regression) -----------------
 
 # Window-event routing / prevent-close on the win32 host (host_windows.c).

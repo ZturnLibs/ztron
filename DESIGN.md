@@ -1331,6 +1331,18 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 134. Windows P2 第一项(GAP H13):程序化 menu_popup——TPM_RETURNCMD + 唯一命令 id 基址
+
+- **目标(GAP.md H13)**:win 端 `menu_popup` dispatch 分支是 `return 1;` 空转——程序化弹出不可用,唯一能弹的是托盘左击路径;mac 侧 `popUpMenuPositioningItem:atLocation:inView:`(窗口坐标,(0,0)=当前光标)
+- **共享弹核心**:`menu_popup_track(menu, hwnd, x, y)`——坐标非零走 `ClientToScreen`(目标窗口 client 坐标),双零取 `GetCursorPos`(mac 同款语义);`TrackPopupMenu(TPM_RETURNCMD)` 直接返回选中项 id 而非并入 WM_COMMAND——归属天然精确,不被 attached bar 菜单抢走。dispatch 分支( fire-and-forget,mac 同款)与两个 host-only 测试 op 共用这一核心
+- **唯一命令 id 基址(连带修的老雷)**:老实现所有菜单的 item 命令 id 都是 `1000+index`——子菜单叶子和根菜单同 index 撞号,`menu_handle_command` 只能"attached 菜单优先,托盘菜单兜底"启发式猜归属:托盘弹出菜单的子菜单叶子点击会错报成根菜单的同行 item。改成 **MenuRec.cmd_base 单调分配(+256/菜单,roots 与子菜单 rec 同池,16 菜单×256 WORD 安全)**,rebuild 时 `cmd_base+i` 烤进 HMENU;WM_COMMAND(挂在 zt_proc)、托盘弹出、程序化 TPM_RETURNCMD 三路统一过 `menu_emit_for_cmd`(全池扫 base 区间,separator/submenu 标题排除)——归属从猜测变精确
+- **探针 `examples/popuprobe`(win32-only,menuprobe 是双平台多面探针不掺和)**:三腿全走 host-only op(sendRequest 直达 dispatch):
+  - **CANCEL**:`menu_popup_cancel_test` → host `SetTimer(350ms)` → 进真实 modal track → WM_TIMER(zt_proc 新分支)`SendMessage(WM_CANCELMODE)` 让 `DefWindowProc` 拆掉菜单模式 → `TPM_RETURNCMD` 返回 0 → 断言"确实取消"。stub 无从取消——这腿证明弹的是真 modal loop
+  - **LEAF/SUB**:`menu_popup_select_test` → 副线程 `SendInput` 注入键序,GUI 线程正坐在 TrackPopupMenu 的模态泵里吃前台输入;断言 reply true + `menu_event` 的 menuId/itemId 全对(LEAF=ctx/alpha,SUB=**ctx.more/beta**——子菜单归属精确性的直接证据)
+  - **键序教训**:leaf `DOWN,ENTER`;sub 一开始写 `DOWN,DOWN,ENTER` 挂死(DOWN 在子菜单标题上不展开,ENTER 落空 TrackPopupMenu 永不返回→op 挂),改 `DOWN,RIGHT,ENTER` 又选回 alpha(RIGHT 落在叶子 alpha 上无效果)——**正确序 = DOWN(高亮叶子1),DOWN(高亮子菜单标题),RIGHT(展开,首个子项高亮),ENTER**。Win32 菜单键盘语义:DOWN/UP 列内移动,RIGHT 是展开子菜单的唯一键
+- **CI**:5.4b(windows-only case 块,插 menuprobe 后)。首跑 LNK1104=stale 进程占 exe(path 域验证后 PID 杀,H12 同款);第二次 FULL CI **挂在 popuprobe LEAF 腿**——交互跑全绿、后台 CI 跑挂:`menu_popup_track` 里的裸 `SetForegroundWindow` 对无前台权的进程(后台 CI 任务、后台启动的应用)会被系统拒绝,菜单照样弹出但 SendInput 键进的是真正前台窗口的队列,菜单永不关闭→op 挂到超时。修法=经典的 **AttachThreadInput 借权**(attach 前台线程→SetForegroundWindow/SetActiveWindow→detach),生产路径同样受益(mac popUp 菜单本来就置前台);用 run_in_background 同款后台条件复验 3/3 再跑 FULL CI GREEN——**"交互过、后台挂"要专门以后台方式复现验证**
+- **教训**:①"命令 id 从共享计数改唯一基址"这类改动要找**所有**消费路径(WM_COMMAND/托盘/新 popup)一起换到同一归属函数——三路两个旧路径各有个隐性启发式;②Win32 键盘注入验证 modal UI,每次键间隔 300ms+首键 600ms 延迟在 CI 上稳定;键序语义不试不知道,挂死比选错更容易诊断(选错=事件错归属,挂死=op 永不返回);③依赖前台状态的 API(SetForegroundWindow/键盘注入)在 CI 必须按 CI 的前台上下文验证——AttachThreadInput 是后台进程拿激活权的标准钥匙
+
 ## 133. Windows P1 第八项(GAP H12):WinRT ToastNotification——纯 C vtbl + MTA 专职线程
 
 - **目标(GAP.md H12)**:win 端通知降级为托盘气球(依赖托盘存在,无托盘静默失败),且 `is_granted`/`request_permission` 整个缺失;mac 侧是 UNUserNotificationCenter(bundle 身份+授权弹窗)
