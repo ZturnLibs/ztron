@@ -132,6 +132,27 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
             await sleep(60);
             runtime.application.show(); /* leave the app visible */
             await sleep(80);
+            // GAP H18: badge / cursor grab / visible-on-all-workspaces.
+            // Public-API ack smoke on both platforms (mac implements them
+            // against the dock tile / CG / collectionBehavior); the real
+            // assertions live in the windows block below via host-only
+            // probes (SetOverlayIcon / ClipCursor / WS_EX_TOPMOST).
+            const mainWin = app.getWebview("main") as unknown as {
+              setBadgeCount(count: number | null): Promise<void>;
+              setBadgeLabel(label: string | null): Promise<void>;
+              windowState(
+                op: string,
+                v?: boolean,
+              ): boolean | Promise<boolean> | null;
+            };
+            await mainWin.setBadgeCount(3);
+            await mainWin.setBadgeLabel("hi");
+            await mainWin.setBadgeCount(null);
+            await mainWin.setBadgeLabel(null);
+            await mainWin.windowState("set_cursor_grab", true);
+            await mainWin.windowState("set_cursor_grab", false);
+            await mainWin.windowState("set_visible_on_all_workspaces", true);
+            await mainWin.windowState("set_visible_on_all_workspaces", false);
             if (detectPlatform() === "windows") {
               const sendReq = (
                 runtime as unknown as {
@@ -203,8 +224,65 @@ const app = new AppBuilder(runtime, "com.ztron.multiwin")
               }
               await win.setBackgroundColor("transparent");
               await sleep(200); /* ack-only: alpha has no GDI readback */
+
+              // GAP H18 windows assertions (host-only probe readbacks).
+              // Badge: SetOverlayIcon has no getter — render through the
+              // real path, accept, clear; S_OK is the observable.
+              type Bdg = {
+                mk1?: number;
+                mk3?: number;
+                set?: number;
+                clear?: number;
+              };
+              const bd = (await sendReq("badge_probe")) as Bdg | null;
+              if (
+                !bd ||
+                bd.mk1 !== 1 ||
+                bd.mk3 !== 1 ||
+                bd.set !== 0 ||
+                bd.clear !== 0
+              ) {
+                throw new Error("badge:" + JSON.stringify(bd));
+              }
+              // Cursor grab: the clip rect must equal the window rect while
+              // grabbed, and fall back to the virtual screen on release.
+              // (Set/read/clear/read happens inside ONE host handler, so
+              // the desktop-global ClipCursor lives for microseconds.)
+              type R4 = number[];
+              const eq4 = (a: R4 | undefined, b: R4 | undefined) =>
+                !!a && !!b && a.length === 4 && b.length === 4 &&
+                a.every((v, i) => v === b[i]);
+              const gp = (await sendReq("grab_probe")) as {
+                win?: R4;
+                clip?: R4;
+                free?: R4;
+                vs?: R4;
+              } | null;
+              if (!eq4(gp?.clip, gp?.win)) {
+                throw new Error("grab:clip:" + JSON.stringify(gp));
+              }
+              if (!eq4(gp?.free, gp?.vs)) {
+                throw new Error("grab:free:" + JSON.stringify(gp));
+              }
+              // All-workspaces: the live topmost bit flips with the op.
+              type Ws = { topmost?: number } | null;
+              await mainWin.windowState("set_visible_on_all_workspaces", true);
+              await sleep(150);
+              const w1 = (await sendReq("ws_probe")) as Ws;
+              if (!w1 || w1.topmost !== 1) {
+                throw new Error("ws:on:" + JSON.stringify(w1));
+              }
+              await mainWin.windowState("set_visible_on_all_workspaces", false);
+              await sleep(150);
+              const w2 = (await sendReq("ws_probe")) as Ws;
+              if (!w2 || w2.topmost !== 0) {
+                throw new Error("ws:off:" + JSON.stringify(w2));
+              }
             }
             console.log("BG_COLOR_OK"); /* windows: asserted above; mac: smoke */
+            console.log("BADGE_OK"); /* windows: asserted above; mac: smoke */
+            console.log("GRAB_OK"); /* windows: asserted above; mac: smoke */
+            console.log("ALLWS_OK"); /* windows: asserted above; mac: smoke */
             console.log("APP_LIFECYCLE_OK");
           } catch (e) {
             console.log("APP_LIFECYCLE_FAIL:" + String(e).slice(0, 120));

@@ -363,6 +363,42 @@ GpStatus __stdcall GdipSaveImageToStream(GpImage *image, IStream *stream,
                                          const CLSID *encoderClsID,
                                          const void *encoderParams);
 
+/* Badge text rendering (GAP H18) — same hand-declared flat API. */
+typedef float REAL;
+typedef void GpGraphics;
+typedef void GpFont;
+typedef void GpFontFamily;
+typedef void GpStringFormat;
+typedef void GpSolidFill;
+typedef struct { REAL X, Y, Width, Height; } GpRectF;
+
+GpStatus __stdcall GdipCreateBitmapFromScan0(int width, int height, int stride,
+                                             INT pixelFormat, BYTE *scan0,
+                                             GpBitmap **bitmap);
+GpStatus __stdcall GdipGetImageGraphicsContext(GpImage *image,
+                                               GpGraphics **graphics);
+GpStatus __stdcall GdipDeleteGraphics(GpGraphics *graphics);
+GpStatus __stdcall GdipGetGenericFontFamilySansSerif(GpFontFamily **family);
+GpStatus __stdcall GdipCreateFont(GpFontFamily *family, REAL emSize,
+                                  INT style, INT unit, GpFont **font);
+GpStatus __stdcall GdipDeleteFont(GpFont *font);
+GpStatus __stdcall GdipDeleteFontFamily(GpFontFamily *family);
+GpStatus __stdcall GdipCreateSolidFill(UINT32 color, GpSolidFill **brush);
+GpStatus __stdcall GdipDeleteBrush(void *brush);
+GpStatus __stdcall GdipFillEllipseI(GpGraphics *graphics, void *brush, int x,
+                                    int y, int width, int height);
+GpStatus __stdcall GdipDrawString(GpGraphics *graphics, const WCHAR *string,
+                                  int length, const GpFont *font,
+                                  const GpRectF *layoutRect,
+                                  const GpStringFormat *format, void *brush);
+GpStatus __stdcall GdipStringFormatGetGenericDefault(GpStringFormat **format);
+GpStatus __stdcall GdipDeleteStringFormat(GpStringFormat *format);
+GpStatus __stdcall GdipSetStringFormatAlign(GpStringFormat *format, INT align);
+GpStatus __stdcall GdipSetStringFormatLineAlign(GpStringFormat *format,
+                                                INT align);
+GpStatus __stdcall GdipSetSmoothingMode(GpGraphics *graphics, INT mode);
+GpStatus __stdcall GdipSetTextRenderingHint(GpGraphics *graphics, INT mode);
+
 /* PNG encoder CLSID (stable, documented). */
 static const CLSID GP_CLSID_PNG_ENCODER = {
   0x557cf406, 0x1a04, 0x11d3, { 0x9a, 0x73, 0x0, 0x0, 0xf8, 0x1e, 0xf3, 0x2e } };
@@ -507,6 +543,123 @@ static char *image_rgba_b64(GpBitmap *bmp, UINT *w, UINT *h) {
   }
   GdipBitmapUnlockBits(bmp, &bd);
   return b64;
+}
+
+/* ---- badge (taskbar overlay icon, GAP H18) ---- */
+
+/* Windows analog of the mac dock badge: an overlay icon on the MAIN
+   window's taskbar button (the app identity anchor), red circle + white
+   centered text like the dock tile draws. SetOverlayIcon does NOT copy
+   the HICON, so the live one is cached and replaced (never destroyed
+   while displayed). */
+static HICON g_badge_icon = NULL;
+
+static void badge_clear(HWND main) {
+  if (!main) return;
+  if (!g_taskbar) taskbar_progress(main, -1); /* ensures COM + instance */
+  if (g_taskbar)
+    g_taskbar->lpVtbl->SetOverlayIcon(g_taskbar, main, NULL, NULL);
+  if (g_badge_icon) {
+    DestroyIcon(g_badge_icon);
+    g_badge_icon = NULL;
+  }
+}
+
+static HICON badge_icon_for(const char *text) {
+  const int SZ = 48; /* shell scales overlays down (~16px at 100% DPI) */
+  HICON icon = NULL;
+  GpBitmap *bmp = NULL;
+  GpGraphics *gfx = NULL;
+  GpFontFamily *fam = NULL;
+  GpFont *font = NULL;
+  GpSolidFill *fill = NULL;
+  GpStringFormat *fmt = NULL;
+  int ok = 0;
+  if (!text || !text[0]) return NULL;
+  gdiplus_ensure();
+  if (GdipCreateBitmapFromScan0(SZ, SZ, 0, GP_PIXEL_FORMAT32ARGB, NULL,
+                                &bmp) != 0)
+    return NULL;
+  if (GdipGetImageGraphicsContext((GpImage *)bmp, &gfx) == 0 && gfx) {
+    int len = (int)strlen(text);
+    /* Font shrinks with digit count (the dock tile auto-fits the same way). */
+    REAL px = len <= 2 ? 26.0f : (len == 3 ? 19.0f : 13.0f);
+    GpRectF layout = {0.0f, 0.0f, (REAL)SZ, (REAL)SZ};
+    GpSolidFill *wfill = NULL;
+    /* macOS systemRed circle, opaque white text — dock-badge visual parity */
+    GdipSetSmoothingMode(gfx, 4 /* AntiAlias */);
+    GdipSetTextRenderingHint(gfx, 4 /* AntiAlias */);
+    if (GdipGetGenericFontFamilySansSerif(&fam) == 0 && fam &&
+        GdipCreateFont(fam, px, 1 /* Bold */, 2 /* UnitPixel */, &font) == 0 &&
+        font && GdipCreateSolidFill(0xFFFF3B30u, &fill) == 0 && fill &&
+        GdipCreateSolidFill(0xFFFFFFFFu, &wfill) == 0 && wfill &&
+        GdipStringFormatGetGenericDefault(&fmt) == 0 && fmt) {
+      GdipSetStringFormatAlign(fmt, 1 /* Center */);
+      GdipSetStringFormatLineAlign(fmt, 1 /* Center */);
+      GdipFillEllipseI(gfx, fill, 2, 2, SZ - 4, SZ - 4);
+      ok = GdipDrawString(gfx, (const WCHAR *)text, -1, font, &layout, fmt,
+                          wfill) == 0;
+    }
+    if (wfill) GdipDeleteBrush(wfill);
+    if (ok) {
+      if (GdipCreateHICONFromBitmap(bmp, &icon) != 0) icon = NULL;
+    }
+    GdipDeleteGraphics(gfx);
+  }
+  if (fmt) GdipDeleteStringFormat(fmt);
+  if (fill) GdipDeleteBrush(fill);
+  if (font) GdipDeleteFont(font);
+  if (fam) GdipDeleteFontFamily(fam);
+  if (bmp) GdipDisposeImage((GpImage *)bmp);
+  return icon;
+}
+
+static void badge_apply(HWND main, const char *text) {
+  HICON icon;
+  if (!text || !text[0]) {
+    badge_clear(main);
+    return;
+  }
+  icon = badge_icon_for(text);
+  if (!icon) return;
+  if (!g_taskbar) taskbar_progress(main, -1);
+  if (g_taskbar &&
+      g_taskbar->lpVtbl->SetOverlayIcon(g_taskbar, main, icon, NULL) == S_OK) {
+    if (g_badge_icon) DestroyIcon(g_badge_icon);
+    g_badge_icon = icon; /* SetOverlayIcon keeps the handle — stay alive */
+  } else {
+    DestroyIcon(icon);
+  }
+}
+
+/* ---- cursor grab (GAP H18): tao-aligned ClipCursor confinement ---- */
+
+static int g_cursor_grabbed = 0;
+static HWND g_cursor_grab_wnd = NULL;
+
+static void window_set_cursor_grab(HWND w, int on) {
+  on = on ? 1 : 0;
+  if (on == g_cursor_grabbed) return;
+  if (on) {
+    RECT r;
+    /* A prior owner may have left the clip in place: unclip first so the
+       readback below reflects OUR clip (tao does the same). */
+    ClipCursor(NULL);
+    if (w && GetWindowRect(w, &r)) ClipCursor(&r);
+    g_cursor_grab_wnd = w;
+  } else {
+    ClipCursor(NULL);
+    g_cursor_grab_wnd = NULL;
+  }
+  g_cursor_grabbed = on;
+}
+
+/* Re-confine when the grabbed window moves/resizes; release if it dies. */
+static void cursor_grab_sync(HWND h) {
+  RECT r;
+  if (!g_cursor_grabbed || h != g_cursor_grab_wnd) return;
+  if (GetWindowRect(h, &r))
+    ClipCursor(&r);
 }
 
 /* ---- window effects: Mica/Acrylic system backdrops (GAP H7) ---- */
@@ -1505,10 +1658,23 @@ static void handle_window_op(Msg *m, webview_t wv) {
     taskbar_progress(w, m->opacity_val);
   } else if (strcmp(m->type, "set_badge_count") == 0 ||
              strcmp(m->type, "set_badge_label") == 0) {
-    /* Badge: Windows analog is a taskbar overlay icon rendered from text —
-       needs GDI text-to-HICON; round-trip only for now. */
+    /* GAP H18: the dock badge analog is a text overlay icon on the MAIN
+       window's taskbar button (badge is app-wide on mac; count rides
+       m->width, label text rides m->str2 — shared parser slots). */
+    HWND main = zt_hwnd();
+    if (main) {
+      if (m->type[10] == 'c') { /* set_badge_`c`ount */
+        char text[32] = "";
+        if (m->width > 0) snprintf(text, sizeof(text), "%d", (int)m->width);
+        badge_apply(main, text);
+      } else {
+        badge_apply(main, m->str2);
+      }
+    }
   } else if (strcmp(m->type, "set_cursor_grab") == 0) {
-    /* No Win32 grab without a raw-input capture loop; accepted no-op. */
+    /* GAP H18: mac uncouples movement via CGAssociateMouseAndMouseCursor
+       Position; the platform-native analog is ClipCursor confinement. */
+    window_set_cursor_grab(w, m->bool_val);
   } else if (strcmp(m->type, "window_set_icon") == 0) {
     /* Image registry id in m->id ("-1" clears). */
     GpBitmap *bmp = image_by_id(m->id[0] ? atoi(m->id) : -1);
@@ -1599,7 +1765,13 @@ static void handle_window_op(Msg *m, webview_t wv) {
     zt_reply_query(m->req_id, "true");
     return;
   } else if (strcmp(m->type, "set_visible_on_all_workspaces") == 0) {
-    /* No Win32 equivalent; accepted no-op. */
+    /* GAP H18: Win32 has no spaces — the platform analog (wry/tao map it
+       the same way) is topmost. Deliberately does NOT touch track_topmost:
+       that state belongs to set_always_on_top; both ops collide on one
+       mechanism and the last writer wins. NOACTIVATE keeps a background
+       host from stealing focus. */
+    SetWindowPos(w, m->bool_val ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   } else if (strcmp(m->type, "set_always_on_top") == 0) {
     track_topmost(w, m->bool_val);
     SetWindowPos(w, m->bool_val ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
@@ -1815,9 +1987,11 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
       emit_window_event(h, LOWORD(wp) == WA_INACTIVE ? "blur" : "focus");
       break;
     case WM_MOVE:
+      cursor_grab_sync(h); /* GAP H18: re-confine at the new rect */
       emit_window_event(h, "move");
       break;
     case WM_SIZE:
+      cursor_grab_sync(h);
       emit_window_event(h, "resize");
       break;
     case WM_CLOSE: {
@@ -1833,6 +2007,8 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
       break;
     }
     case WM_DESTROY:
+      /* GAP H18: never leave a dead window's clip confining the cursor. */
+      if (g_cursor_grab_wnd == h) window_set_cursor_grab(h, 0);
       win_state_drop(h);
       break;
     case WM_GETMINMAXINFO: {
@@ -3935,6 +4111,75 @@ static int dispatch(Msg *m, webview_t wv) {
       DeleteDC(mem);
       ReleaseDC(w, wdc);
     }
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "badge_probe") == 0) {
+    /* H18 readback: render through the real badge path, push to the
+       taskbar, clear again — SetOverlayIcon has no getter, so acceptance
+       HRESULTs are the observable (H12 lesson: acceptance is what's real).
+       Nothing lingers on the taskbar. */
+    HWND main = zt_hwnd();
+    HICON a, b;
+    int mk1, mk3;
+    long set = -1, clr = -1;
+    char buf[112];
+    a = badge_icon_for("9");
+    b = badge_icon_for("888");
+    mk1 = a ? 1 : 0;
+    mk3 = b ? 1 : 0;
+    if (main && a) {
+      if (!g_taskbar) taskbar_progress(main, -1);
+      if (g_taskbar) {
+        set = (long)g_taskbar->lpVtbl->SetOverlayIcon(g_taskbar, main, a,
+                                                      NULL);
+        clr = (long)g_taskbar->lpVtbl->SetOverlayIcon(g_taskbar, main, NULL,
+                                                      NULL);
+      }
+    }
+    if (a) DestroyIcon(a);
+    if (b) DestroyIcon(b);
+    snprintf(buf, sizeof(buf),
+             "{\"mk1\":%d,\"mk3\":%d,\"set\":%ld,\"clear\":%ld}", mk1, mk3,
+             set, clr);
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "grab_probe") == 0) {
+    /* H18 readback: set/read/clear/read through the production grab fns,
+       all inside one handler — ClipCursor is desktop-global (CI machines
+       are also real desktops), so the clip must live for microseconds,
+       never across ops. */
+    HWND main = zt_hwnd();
+    RECT win = {0, 0, 0, 0}, got = {0, 0, 0, 0}, rel = {0, 0, 0, 0};
+    char buf[352];
+    if (main) {
+      GetWindowRect(main, &win);
+      window_set_cursor_grab(main, 1);
+      GetClipCursor(&got);
+      window_set_cursor_grab(main, 0);
+      GetClipCursor(&rel);
+    }
+    snprintf(buf, sizeof(buf),
+             "{\"win\":[%ld,%ld,%ld,%ld],\"clip\":[%ld,%ld,%ld,%ld],"
+             "\"free\":[%ld,%ld,%ld,%ld],\"vs\":[%ld,%ld,%ld,%ld]}",
+             (long)win.left, (long)win.top, (long)win.right,
+             (long)win.bottom, (long)got.left, (long)got.top,
+             (long)got.right, (long)got.bottom, (long)rel.left,
+             (long)rel.top, (long)rel.right, (long)rel.bottom,
+             (long)GetSystemMetrics(SM_XVIRTUALSCREEN),
+             (long)GetSystemMetrics(SM_YVIRTUALSCREEN),
+             (long)GetSystemMetrics(SM_CXVIRTUALSCREEN),
+             (long)GetSystemMetrics(SM_CYVIRTUALSCREEN));
+    zt_reply_query(m->req_id, buf);
+    return 1;
+  }
+  if (strcmp(m->type, "ws_probe") == 0) {
+    /* H18 readback: the live WS_EX_TOPMOST bit of the main window. */
+    char buf[48];
+    snprintf(buf, sizeof(buf), "{\"topmost\":%d}",
+             (GetWindowLong(zt_hwnd(), GWL_EXSTYLE) & WS_EX_TOPMOST) ? 1
+                                                                      : 0);
     zt_reply_query(m->req_id, buf);
     return 1;
   }

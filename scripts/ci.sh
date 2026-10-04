@@ -221,9 +221,12 @@ step "multiwin spike (ztron check --expect)"
 # visibility round-trip + dock-skip readback via app_diag); on mac the leg
 # stays a smoke call, same marker. BG_COLOR_OK (GAP H16) samples the
 # webview surface pixel via a PrintWindow readback — windows-only leg.
+# BADGE_OK / GRAB_OK / ALLWS_OK (GAP H18): badge overlay accept hres,
+# ClipCursor set/release readback, live WS_EX_TOPMOST flip.
 run_ztron_check "$ROOT/examples/multiwin" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect SECOND_WINDOW_OK --expect SECOND_OPS_OK --expect STRESS_OK \
     --expect APP_LIFECYCLE_OK --expect BG_COLOR_OK \
+    --expect BADGE_OK --expect GRAB_OK --expect ALLWS_OK \
   > /tmp/ci-multiwin.log 2>&1 \
   || { tail -30 /tmp/ci-multiwin.log; fail "multiwin ztron check"; }
 
