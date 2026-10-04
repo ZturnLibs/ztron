@@ -1331,6 +1331,14 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 138. Windows P2 第五项(GAP H17):托盘多实例 + 完整事件族——uID 归因 + hover 合成 + tray_inject 探针
+
+**多实例**:Shell_NotifyIconW 一 (hWnd,uID) 对一个图标——实例相乘靠分配不同 uID(取最小空档,create/remove churn 下 id 稳定),回调 wParam 即 uID(`tray_by_uid` 归因)。**记录数组必须压缩**(remove 后 memmove 后者前移):"第一个实例"是 id-less op 的目标——mac `tray_pick("")` 在 g_tray_count>0 时返回 index0,Windows 同款;legacy 面(set_title/tooltip/icon/set_menu/set_visible/destroy/balloon fallback)全走 index0,具名走 tray_pick(tid)。第一版按"固定槽 0=legacy"设计,与探针"先建具名再建 legacy"的组合冲突(inject("") 会错归具名实例)——**压缩数组+index0 语义一次理顺**。TrayRec 拥有 HICON(替换/销毁 DestroyIcon,menu bitmap 同款所有权惯例)和 nid 副本(tip/icon 状态保活:set_visible 用 NIM_DELETE/ADD 往返,toast 失败的 balloon fallback 也从 Rec 读)。TrayRec/tray_by_uid 定义在 zt_proc 之前(回调归因要用)。
+
+**事件族(mac 同 JSON)**:click/doubleClick `{event,trayId,button,clickCount,double,x,y}`——WM_L/RBUTTONUP(count1)+WM_L/RBUTTONDBLCLK(count2),坐标 GetCursorPos(回调消息不带坐标);附着 menu 左右单击都弹(menu_on_left=false 时 detach——只发事件,menu 仍可程序化 popup,mac tray_relink_menu 同语义)。**hover enter/leave/move 是合成的**:shell 对托盘图标没有 tracking 事件——首个 WM_MOUSEMOVE 即 enter,每次 move 重臂 400ms 一次性 SetTimer,静默到期发 leave;timer id=base+uID(0x5E00+)与 H13 的 cancel timer(4711)错开。tray_set_visible/set_show_menu_on_left_click 从"接受的 no-op"升级为真实现。
+
+**探针(tray_inject)**:真实托盘点击需要鼠标到托盘图标坐标(shell 无 rect 查询、CI 任务栏折叠区坐标不可靠)——host-only `tray_inject` op 直接 **PostMessage(WM_APP+1, uID, mouse-msg)**,与 shell 投递逐字节相同,真 wndproc/真事件构造/真 menu 弹出路径全跑。**必须 Post 不能 Send**:dispatch 跑在 socket 线程,SendMessage 到 GUI 线程窗口会阻塞到目标线程处理完——注入 click 若触发 modal TrackPopupMenu,菜单泵的是 GUI 线程队列,socket 线程要挂到菜单关。menuprobe TRAY_EVENTS_OK 腿:左/右击(button/trayId/clickCount)、双击(double+clickCount=2)、hover 三态时序(注入 move 后 sleep 650 等 leave timer 到期)、legacy index0 归因(trayId=="")——**腿内先建 legacy 再建具名**,index0 语义才有确定归属;ci.sh MENUPROBE_EXTRAS 补 expect。
+
 ## 137. Windows P2 第四项(GAP H16):set_background_color——put_DefaultBackgroundColor + PrintWindow 像素读回
 
 **语义映射**:mac 侧 `set_background_color` 落 NSWindow setBackgroundColor:(zt_parse_color:transparent→clearColor、#rrggbb(A=255)/#rrggbbaa、其他→windowBackgroundColor 兜底)。Windows 对应面是 **ICoreWebView2Controller2::put_DefaultBackgroundColor**(网页 body 无 CSS 背景时透出来的表面色)——H7 窗口效果已为此写过 `webview_background_alpha`(alpha 0 透明让 backdrop 透出),本项把它泛化为 `webview_background_rgba(wv, COREWEBVIEW2_COLOR)` 返回 HRESULT,alpha 版退化为包装(effects 链零改动);新增 `zt_parse_bg_color` 按 mac 同款格式解析(transparent→A=0 RGB 白(wry 同款,pre-22H2 accent blur 的 tint 保持)、hex→对应色、其他→不透明白=WebView2 默认,即 mac windowBackgroundColor 的对应物)。COREWEBVIEW2_COLOR 是 {A,R,G,B} BYTE 序——**alpha 必须 0 或 255,中间值 E_INVALIDARG**(文档约束,解析器不产出中间值)。

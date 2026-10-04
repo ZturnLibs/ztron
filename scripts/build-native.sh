@@ -7,6 +7,22 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NATIVE="$ROOT/native"
 
+# Install an artifact into native/libs. That tree is shared with running apps
+# (junctioned projects keep loaded artifacts locked): skip the copy when the
+# bits already match, and on a genuine lock keep the existing copy with a
+# warning instead of failing the whole build.
+install_lib_artifact() { # <src> <dst>
+  local src="$1" dst="$2"
+  if [ -f "$dst" ] && cmp -s "$src" "$dst"; then return 0; fi
+  if cp "$src" "$dst" 2>/dev/null; then return 0; fi
+  if [ -f "$dst" ]; then
+    echo "WARN: ${dst##*/} is locked by a running app; keeping the existing copy" >&2
+  else
+    echo "FATAL: cannot install ${dst##*/} (copy failed and no existing copy)" >&2
+    exit 1
+  fi
+}
+
 echo "==> [1/2] building txiki.js (tjs)"
 # Pinned upstream refs — unpinned `--depth 1` master clones drift between
 # builds, and a drifted webview build shipped in 0.3.5 with a libwebview
@@ -92,21 +108,21 @@ fi
 
 mkdir -p "$NATIVE/libs"
 case "$(uname -s)" in
-  Darwin) cp "$NATIVE/webview/build/core/libwebview.dylib" "$NATIVE/libs/" ;;
-  Linux)  cp "$NATIVE/webview/build/core/libwebview.so" "$NATIVE/libs/" ;;
+  Darwin) install_lib_artifact "$NATIVE/webview/build/core/libwebview.dylib" "$NATIVE/libs/libwebview.dylib" ;;
+  Linux)  install_lib_artifact "$NATIVE/webview/build/core/libwebview.so" "$NATIVE/libs/libwebview.so" ;;
   *)
     # MSVC multi-config puts artifacts under build/core/Release/; single-config
     # generators (Ninja) put them directly under build/core/.
     for cand in \
       "$NATIVE/webview/build/core/Release/webview.dll" \
       "$NATIVE/webview/build/core/webview.dll"; do
-      if [ -f "$cand" ]; then cp "$cand" "$NATIVE/libs/"; break; fi
+      if [ -f "$cand" ]; then install_lib_artifact "$cand" "$NATIVE/libs/webview.dll"; break; fi
     done
     # import library — required to link ztron-host below
     for cand in \
       "$NATIVE/webview/build/core/Release/webview.lib" \
       "$NATIVE/webview/build/core/webview.lib"; do
-      if [ -f "$cand" ]; then cp "$cand" "$NATIVE/libs/"; break; fi
+      if [ -f "$cand" ]; then install_lib_artifact "$cand" "$NATIVE/libs/webview.lib"; break; fi
     done
     ;;
 esac
@@ -192,7 +208,7 @@ for tjs_bin in \
   "$NATIVE/txiki.js/build/tjs" \
   "$NATIVE/txiki.js/build/Release/tjs.exe"; do
   if [ -f "$tjs_bin" ]; then
-    cp "$tjs_bin" "$NATIVE/libs/"
+    install_lib_artifact "$tjs_bin" "$NATIVE/libs/$(basename "$tjs_bin")"
     break
   fi
 done
@@ -200,6 +216,6 @@ done
 # Windows tjs links libffi dynamically (vcpkg): ship the DLL beside the exe
 # or the runtime cannot load at all.
 FFI_DLL="${VCPKG_ROOT:-/c/vcpkg}/installed/x64-windows/bin/ffi-8.dll"
-[ -f "$FFI_DLL" ] && cp "$FFI_DLL" "$NATIVE/libs/"
+[ -f "$FFI_DLL" ] && install_lib_artifact "$FFI_DLL" "$NATIVE/libs/ffi-8.dll"
 
 echo "==> done. tjs: $NATIVE/libs/tjs, host: $NATIVE/libs/ztron-host"

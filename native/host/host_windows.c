@@ -1652,12 +1652,52 @@ static void handle_window_op(Msg *m, webview_t wv) {
    TrackPopupMenu loop from the outside (see zt_proc WM_TIMER). */
 #define ZT_MENU_CANCEL_TIMER 4711
 
-static HWND g_tray_hwnd = NULL;
-static NOTIFYICONDATAW g_nid;
+/* Multi-instance tray records (GAP H17). Defined ahead of zt_proc so the
+   callback can attribute events through tray_by_uid. */
+#define MAX_TRAYS 8
+/* One-shot leave-detection timers: per-tray ids well clear of the H13
+   menu-cancel timer (4711). */
+#define ZT_TRAY_HOVER_TIMER_BASE 0x5E00
 
-static void emit_tray_event(const char *event) {
-  char buf[128];
-  snprintf(buf, sizeof(buf), "{\"type\":\"tray_event\",\"event\":\"%s\"}", event);
+typedef struct {
+  char tid[64];         /* app-facing tray id ("" = legacy default) */
+  NOTIFYICONDATAW nid;  /* live tip/icon state kept for MODIFY/set_visible */
+  int menu_on_left;     /* attached menu pops on any click (mac parity) */
+  char menu_id[64];     /* attached menu (tray_set_menu targets slot 0) */
+  int hover;            /* pointer is over the icon (enter/leave synth) */
+} TrayRec;
+
+static TrayRec g_trays[MAX_TRAYS];
+static int g_tray_count = 0; /* records are compacted: [0, count) live */
+
+static TrayRec *tray_by_uid(UINT uid) {
+  for (int i = 0; i < g_tray_count; i++)
+    if (g_trays[i].nid.uID == uid) return &g_trays[i];
+  return NULL;
+}
+
+/* Click/doubleClick: full attribution shape, same JSON as the darwin
+   emitter (button + clickCount + double + screen point). */
+static void emit_tray_click(TrayRec *t, const char *button, int count,
+                            int x, int y) {
+  char buf[256];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
+           "\"button\":\"%s\",\"clickCount\":%d,\"double\":%s,"
+           "\"x\":%d,\"y\":%d}",
+           count >= 2 ? "doubleClick" : "click", t->tid, button, count,
+           count >= 2 ? "true" : "false", x, y);
+  zt_send_line(buf);
+}
+
+/* Hover family: enter/leave are synthesized around WM_MOUSEMOVE quiet
+   periods (the shell gives tray icons no tracking events). */
+static void emit_tray_hover(TrayRec *t, const char *kind, int x, int y) {
+  char buf[192];
+  snprintf(buf, sizeof(buf),
+           "{\"type\":\"tray_event\",\"event\":\"%s\",\"trayId\":\"%s\","
+           "\"x\":%d,\"y\":%d}",
+           kind, t->tid, x, y);
   zt_send_line(buf);
 }
 
@@ -1676,7 +1716,7 @@ static void emit_window_event(HWND h, const char *event) {
 /* Window proc forwarding tray/menu/window messages; the host's main window
  * proc (in webview/webview) may already handle some; we hook via subclass. */
 static void zt_shortcut_pressed(int id);
-static void tray_popup_menu(void); /* menu registry lives below */
+static void tray_popup_menu(const char *menu_id); /* menu registry lives below */
 static void menu_emit_for_cmd(int cmd);
 
 static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
@@ -1684,18 +1724,62 @@ static LRESULT CALLBACK zt_proc(HWND h, UINT msg, WPARAM wp, LPARAM lp,
   (void)id;
   (void)ref;
   switch (msg) {
-    case WM_APP + 1: /* tray callback */
-      if (LOWORD(lp) == WM_LBUTTONUP) {
-        emit_tray_event("click");
-        tray_popup_menu();
+    case WM_APP + 1: {
+      /* tray callback (GAP H17): wParam = uID attributes the event to the
+         instance; lParam low word is the shell mouse message. Clicks carry
+         the full darwin-shaped payload; the attached menu pops on any
+         single click while menu_on_left is set (mac parity — detach via
+         set_show_menu_on_left_click(false) leaves bare events). */
+      TrayRec *t = tray_by_uid((UINT)wp);
+      POINT pt;
+      if (!t) return 0;
+      GetCursorPos(&pt);
+      switch (LOWORD(lp)) {
+        case WM_LBUTTONUP:
+          emit_tray_click(t, "left", 1, pt.x, pt.y);
+          if (t->menu_on_left && t->menu_id[0]) tray_popup_menu(t->menu_id);
+          break;
+        case WM_RBUTTONUP:
+          emit_tray_click(t, "right", 1, pt.x, pt.y);
+          if (t->menu_on_left && t->menu_id[0]) tray_popup_menu(t->menu_id);
+          break;
+        case WM_LBUTTONDBLCLK:
+          emit_tray_click(t, "left", 2, pt.x, pt.y);
+          break;
+        case WM_RBUTTONDBLCLK:
+          emit_tray_click(t, "right", 2, pt.x, pt.y);
+          break;
+        case WM_MOUSEMOVE:
+          /* The shell sends no tracking events for tray icons: first move
+             is enter, then each move re-arms a one-shot timer; a quiet
+             400ms window fires leave. */
+          if (!t->hover) {
+            t->hover = 1;
+            emit_tray_hover(t, "enter", pt.x, pt.y);
+          }
+          emit_tray_hover(t, "move", pt.x, pt.y);
+          SetTimer(h, ZT_TRAY_HOVER_TIMER_BASE + t->nid.uID, 400, NULL);
+          break;
       }
       return 0;
+    }
     case WM_TIMER:
       /* menu_popup cancel probe (H13): end the modal TrackPopupMenu loop
          from outside — DefWindowProc's WM_CANCELMODE handling unwinds it. */
       if (wp == ZT_MENU_CANCEL_TIMER) {
         KillTimer(h, wp);
         SendMessage(h, WM_CANCELMODE, 0, 0);
+        return 0;
+      }
+      if (wp >= ZT_TRAY_HOVER_TIMER_BASE) { /* tray hover leave (H17) */
+        TrayRec *t = tray_by_uid((UINT)(wp - ZT_TRAY_HOVER_TIMER_BASE));
+        KillTimer(h, wp);
+        if (t && t->hover) {
+          POINT pt;
+          t->hover = 0;
+          GetCursorPos(&pt);
+          emit_tray_hover(t, "leave", pt.x, pt.y);
+        }
         return 0;
       }
       break;
@@ -1768,73 +1852,141 @@ static void tray_create(const char *title, const char *tid);
 static void tray_remove_by_id(const char *tid);
 static void tray_get_by_id(const char *tid, int req_id);
 
-/* Single-instance tray (Shell_NotifyIconW holds one icon): the id of the
-   live icon backs getById / remove_by_id, mirroring the darwin registry's
-   query surface without a full multi-icon registry. */
-static char g_tray_id[64] = "";
+/* Multi-instance tray (GAP H17): Shell_NotifyIconW holds one icon per
+   (hWnd, uID) pair, so instances multiply through distinct uIDs on the
+   shared host window. Slot 0 is the legacy default (tid ""), which the
+   id-less ops (set_title/set_tooltip/set_icon/set_menu/set_visible/
+   destroy) act on — the same convention as the darwin registry.
+   Records/timer ids live ahead of zt_proc (event attribution). */
+
+static int tray_pick(const char *tid) {
+  /* The id-less ops act on the FIRST instance, darwin parity (mac's
+     tray_pick("") returns index 0 whenever any tray exists). */
+  if (!tid || !tid[0]) return g_tray_count > 0 ? 0 : -1;
+  for (int i = 0; i < g_tray_count; i++)
+    if (strcmp(g_trays[i].tid, tid) == 0) return i;
+  return -1;
+}
+static void tray_drop(TrayRec *t) {
+  Shell_NotifyIconW(NIM_DELETE, &t->nid);
+  if (t->nid.hIcon) {
+    DestroyIcon(t->nid.hIcon);
+    t->nid.hIcon = NULL;
+  }
+  if (t->hover) {
+    KillTimer(zt_hwnd(), ZT_TRAY_HOVER_TIMER_BASE + t->nid.uID);
+    t->hover = 0;
+  }
+}
+
+/* Compacting removal keeps "the first instance" well-defined for the
+   id-less ops; uIDs travel inside their records so callback attribution
+   is unaffected. */
+static void tray_remove_at(int ti) {
+  if (ti < 0 || ti >= g_tray_count) return;
+  tray_drop(&g_trays[ti]);
+  memmove(&g_trays[ti], &g_trays[ti + 1],
+          sizeof(TrayRec) * (size_t)(g_tray_count - ti - 1));
+  g_tray_count--;
+  memset(&g_trays[g_tray_count], 0, sizeof(TrayRec));
+}
 
 static void tray_create(const char *title, const char *tid) {
   HWND w = zt_hwnd();
   if (!w) return;
-  snprintf(g_tray_id, sizeof(g_tray_id), "%s", tid ? tid : "");
-  g_tray_hwnd = w;
-  memset(&g_nid, 0, sizeof(g_nid));
-  g_nid.cbSize = sizeof(g_nid);
-  g_nid.hWnd = w;
-  g_nid.uID = 1;
-  g_nid.uFlags = NIF_MESSAGE | NIF_TIP;
-  g_nid.uCallbackMessage = WM_APP + 1;
-  to_wide(title, g_nid.szTip, sizeof(g_nid.szTip) / sizeof(wchar_t));
-  Shell_NotifyIconW(NIM_ADD, &g_nid);
+  const char *id = (tid && tid[0]) ? tid : "";
+  TrayRec *t = NULL;
+  for (int i = 0; i < g_tray_count; i++) {
+    if (strcmp(g_trays[i].tid, id) == 0) {
+      t = &g_trays[i]; /* re-create over the same instance */
+      break;
+    }
+  }
+  if (!t) {
+    if (g_tray_count >= MAX_TRAYS) return;
+    t = &g_trays[g_tray_count++];
+  } else {
+    tray_drop(t);
+  }
+  memset(&t->nid, 0, sizeof(t->nid));
+  snprintf(t->tid, sizeof(t->tid), "%s", id);
+  t->menu_on_left = 1;
+  /* lowest free uID keeps ids stable across create/remove churn */
+  UINT uid = 1;
+  while (tray_by_uid(uid)) uid++;
+  t->nid.cbSize = sizeof(t->nid);
+  t->nid.hWnd = w;
+  t->nid.uID = uid;
+  t->nid.uFlags = NIF_MESSAGE | NIF_TIP;
+  t->nid.uCallbackMessage = WM_APP + 1;
+  to_wide(title, t->nid.szTip, sizeof(t->nid.szTip) / sizeof(wchar_t));
+  Shell_NotifyIconW(NIM_ADD, &t->nid);
 }
 static void tray_set_title(const char *title) {
-  if (g_tray_hwnd) {
-    g_nid.uFlags = NIF_TIP;
-    to_wide(title, g_nid.szTip, sizeof(g_nid.szTip) / sizeof(wchar_t));
-    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+  int ti = tray_pick("");
+  if (ti >= 0) {
+    g_trays[ti].nid.uFlags = NIF_TIP;
+    to_wide(title, g_trays[ti].nid.szTip,
+            sizeof(g_trays[ti].nid.szTip) / sizeof(wchar_t));
+    Shell_NotifyIconW(NIM_MODIFY, &g_trays[ti].nid);
   }
 }
 static void tray_set_tooltip(const char *tooltip) { tray_set_title(tooltip); }
 static void tray_set_icon(const char *path) {
-  if (g_tray_hwnd && path && path[0]) {
+  int ti = tray_pick("");
+  if (ti >= 0 && path && path[0]) {
     HICON icon = (HICON)LoadImageA(NULL, path, IMAGE_ICON, 0, 0,
                                    LR_LOADFROMFILE | LR_DEFAULTSIZE);
     if (icon) {
-      g_nid.hIcon = icon;
-      g_nid.uFlags = NIF_ICON;
-      Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+      TrayRec *t = &g_trays[ti];
+      if (t->nid.hIcon) DestroyIcon(t->nid.hIcon);
+      t->nid.hIcon = icon;
+      t->nid.uFlags = NIF_ICON;
+      Shell_NotifyIconW(NIM_MODIFY, &t->nid);
     }
   }
 }
 static void tray_set_icon_id(int image_id) {
+  int ti = tray_pick("");
   GpBitmap *bmp = image_by_id(image_id);
-  if (g_tray_hwnd && bmp) {
+  if (ti >= 0 && bmp) {
     HICON icon = NULL;
     gdiplus_ensure();
     if (GdipCreateHICONFromBitmap(bmp, &icon) == 0 && icon) {
-      g_nid.hIcon = icon;
-      g_nid.uFlags = NIF_ICON;
-      Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+      TrayRec *t = &g_trays[ti];
+      if (t->nid.hIcon) DestroyIcon(t->nid.hIcon);
+      t->nid.hIcon = icon;
+      t->nid.uFlags = NIF_ICON;
+      Shell_NotifyIconW(NIM_MODIFY, &t->nid);
     }
   }
 }
+/* NSStatusItem has a settable `visible` property; NIM_DELETE/ADD is the
+   Shell_NotifyIcon analog (nid keeps the tip/icon state across the trip). */
+static void tray_set_visible(int visible) {
+  int ti = tray_pick("");
+  if (ti < 0) return;
+  TrayRec *t = &g_trays[ti];
+  if (!visible) {
+    Shell_NotifyIconW(NIM_DELETE, &t->nid);
+  } else {
+    Shell_NotifyIconW(NIM_ADD, &t->nid);
+    t->hover = 0; /* icon was gone: any pending hover state is stale */
+  }
+}
 static void tray_destroy(void) {
-  if (g_tray_hwnd) Shell_NotifyIconW(NIM_DELETE, &g_nid);
-  g_tray_hwnd = NULL;
-  g_tray_id[0] = '\0';
+  int ti = tray_pick("");
+  if (ti >= 0) tray_remove_at(ti);
 }
 
 static void tray_remove_by_id(const char *tid) {
-  if (g_tray_hwnd && tid && strcmp(tid, g_tray_id) == 0) {
-    Shell_NotifyIconW(NIM_DELETE, &g_nid);
-    g_tray_hwnd = NULL;
-    g_tray_id[0] = '\0';
-  }
+  int ti = tray_pick(tid);
+  if (ti >= 0) tray_remove_at(ti);
 }
 
 static void tray_get_by_id(const char *tid, int req_id) {
   if (req_id >= 0) {
-    int found = g_tray_hwnd && tid && strcmp(tid, g_tray_id) == 0;
+    int found = tray_pick(tid) >= 0;
     zt_reply_query(req_id, found ? "true" : "false");
   }
 }
@@ -1871,7 +2023,6 @@ typedef struct MenuRec_ {
 static MenuRec g_menus[MAX_MENUS];
 static int g_menu_count = 0;
 static int g_menu_cmd_next = 1000; /* WORD-safe: 16*256+128 << 65536 */
-static char g_tray_menu_id[64] = "";
 
 static MenuRec *menu_by_id(const char *id) {
   int i;
@@ -2464,9 +2615,9 @@ static DWORD WINAPI menu_keys_thread(LPVOID p) {
 }
 
 /* Left-click tray popup (called from the subclassed window proc). */
-static void tray_popup_menu(void) {
-  if (g_tray_menu_id[0]) {
-    MenuRec *tm = menu_by_id(g_tray_menu_id);
+static void tray_popup_menu(const char *menu_id) {
+  if (menu_id && menu_id[0]) {
+    MenuRec *tm = menu_by_id(menu_id);
     HWND w = zt_hwnd();
     if (tm && tm->hmenu && w) {
       POINT pt;
@@ -2780,11 +2931,14 @@ static int toast_show(const char *title, const char *body) {
 static void notification_send(const char *title, const char *body) {
   if (toast_show(title, body)) return;
   /* legacy fallback: tray balloon (needs a live tray icon) */
-  if (g_tray_hwnd) {
-    g_nid.uFlags = NIF_INFO;
-    to_wide(title, g_nid.szInfoTitle, sizeof(g_nid.szInfoTitle) / sizeof(wchar_t));
-    to_wide(body, g_nid.szInfo, sizeof(g_nid.szInfo) / sizeof(wchar_t));
-    Shell_NotifyIconW(NIM_MODIFY, &g_nid);
+  int ti = tray_pick("");
+  if (ti >= 0) {
+    g_trays[ti].nid.uFlags = NIF_INFO;
+    to_wide(title, g_trays[ti].nid.szInfoTitle,
+            sizeof(g_trays[ti].nid.szInfoTitle) / sizeof(wchar_t));
+    to_wide(body, g_trays[ti].nid.szInfo,
+            sizeof(g_trays[ti].nid.szInfo) / sizeof(wchar_t));
+    Shell_NotifyIconW(NIM_MODIFY, &g_trays[ti].nid);
   }
 }
 
@@ -3516,6 +3670,19 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "tray_destroy") == 0) { tray_destroy(); return 1; }
+  if (strcmp(m->type, "tray_inject") == 0) {
+    /* Probe-only (H17): drive the real shell-callback wndproc path without
+       a mouse — PostMessage(WM_APP+1, uID, mouse-msg) is byte-for-byte what
+       the shell posts. Async: the GUI thread owns the callback (and any
+       menu popup it triggers), so the socket thread must not SendMessage. */
+    int ti = tray_pick(m->win_label);
+    if (ti >= 0) {
+      PostMessage(zt_hwnd(), WM_APP + 1, (WPARAM)g_trays[ti].nid.uID,
+                  MAKELPARAM((UINT)m->status, 0));
+    }
+    zt_reply_query(m->req_id, "true");
+    return 1;
+  }
 
   if (strcmp(m->type, "menu_create") == 0) { menu_create(m->str); return 1; }
   if (strcmp(m->type, "menu_add_item") == 0) {
@@ -3772,12 +3939,24 @@ static int dispatch(Msg *m, webview_t wv) {
     return 1;
   }
   if (strcmp(m->type, "tray_set_menu") == 0) {
-    snprintf(g_tray_menu_id, sizeof(g_tray_menu_id), "%s", m->str);
+    /* Attaches to the legacy default tray (slot 0), darwin parity. */
+    int ti = tray_pick("");
+    if (ti >= 0)
+      snprintf(g_trays[ti].menu_id, sizeof(g_trays[ti].menu_id), "%s", m->str);
     return 1;
   }
-  if (strcmp(m->type, "tray_set_show_menu_on_left_click") == 0 ||
-      strcmp(m->type, "tray_set_visible") == 0 ||
-      strcmp(m->type, "tray_set_icon_template") == 0) { return 1; } /* accepted no-ops */
+  if (strcmp(m->type, "tray_set_show_menu_on_left_click") == 0) {
+    /* GAP H17: false detaches the attached menu — clicks then emit bare
+       events and the app can still popup() the menu programmatically. */
+    int ti = tray_pick(m->win_label);
+    if (ti >= 0) g_trays[ti].menu_on_left = m->bool_val ? 1 : 0;
+    return 1;
+  }
+  if (strcmp(m->type, "tray_set_visible") == 0) {
+    tray_set_visible(m->bool_val ? 1 : 0);
+    return 1;
+  }
+  if (strcmp(m->type, "tray_set_icon_template") == 0) { return 1; } /* accepted no-op */
 
   if (strcmp(m->type, "dialog_open") == 0) { dialog_open(m); return 1; }
   if (strcmp(m->type, "dialog_save") == 0) { dialog_save(m); return 1; }

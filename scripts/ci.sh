@@ -233,7 +233,9 @@ step "menuprobe spike (ztron check --expect)"
 MENUPROBE_EXTRAS=""
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
-    MENUPROBE_EXTRAS="--expect MENU_WINMENU_OK --expect MENU_ICON_OK --expect ROLE_MIN_OK" ;;
+    # GAP H17: TRAY_EVENTS_OK drives the shell-callback path via tray_inject
+    # (click/right/doubleClick + synthesized hover family + attribution).
+    MENUPROBE_EXTRAS="--expect MENU_WINMENU_OK --expect MENU_ICON_OK --expect ROLE_MIN_OK --expect TRAY_EVENTS_OK" ;;
 esac
 run_ztron_check "$ROOT/examples/menuprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
     --expect MENU_V2_OK \

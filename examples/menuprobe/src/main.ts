@@ -184,6 +184,80 @@ void (async () => {
     console.log("TRAY_V2_FAIL:" + String(e).slice(0, 60));
   }
 
+  // GAP H17 (win32): rich tray event family + multi-instance attribution.
+  // tray_inject posts the exact message the shell would (WM_APP+1, uID,
+  // mouse msg) so the real callback wndproc path runs without a mouse.
+  // Legacy default is created FIRST so it owns index 0 (the target of the
+  // id-less ops, darwin parity); "g17-a" is a second named instance.
+  if (!isDarwin) {
+    try {
+      type Ev = {
+        event: string;
+        trayId?: string;
+        button?: string;
+        clickCount?: number;
+        double?: boolean;
+      };
+      const events: Ev[] = [];
+      runtime.tray.onEvent((e) => events.push(e));
+      const inject = (id: string, msg: number) =>
+        sendReq("tray_inject", { label: id, status: msg });
+      runtime.tray.apply("create", { title: "legacy" });
+      runtime.tray.apply("create", { title: "probe-a", id: "g17-a" });
+      await sleep(100);
+      await inject("g17-a", 0x0202); /* WM_LBUTTONUP */
+      await sleep(120);
+      await inject("g17-a", 0x0205); /* WM_RBUTTONUP */
+      await sleep(120);
+      await inject("g17-a", 0x0203); /* WM_LBUTTONDBLCLK */
+      await sleep(120);
+      await inject("g17-a", 0x0200); /* WM_MOUSEMOVE: enter + move */
+      await sleep(650); /* hover leave timer fires at 400ms quiet */
+      const clicks = events.filter(
+        (e) => e.event === "click" || e.event === "doubleClick",
+      );
+      const hovers = events.map((e) => e.event);
+      if (clicks.length !== 3) {
+        throw new Error("tray:clicks:" + JSON.stringify(events).slice(0, 90));
+      }
+      if (
+        clicks[0].button !== "left" ||
+        clicks[0].clickCount !== 1 ||
+        clicks[0].trayId !== "g17-a"
+      ) {
+        throw new Error("tray:left:" + JSON.stringify(clicks[0]));
+      }
+      if (clicks[1].button !== "right" || clicks[1].trayId !== "g17-a") {
+        throw new Error("tray:right:" + JSON.stringify(clicks[1]));
+      }
+      if (
+        clicks[2].event !== "doubleClick" ||
+        clicks[2].double !== true ||
+        clicks[2].clickCount !== 2
+      ) {
+        throw new Error("tray:dbl:" + JSON.stringify(clicks[2]));
+      }
+      for (const k of ["enter", "move", "leave"]) {
+        if (!hovers.includes(k)) {
+          throw new Error("tray:hover:" + hovers.join(","));
+        }
+      }
+      await inject("", 0x0202); /* legacy slot (index 0) attribution */
+      await sleep(120);
+      const legacy = events.find(
+        (e) => e.event === "click" && e.trayId === "",
+      );
+      if (!legacy) {
+        throw new Error("tray:legacy:" + JSON.stringify(events).slice(0, 90));
+      }
+      runtime.tray.apply("destroy"); /* legacy (index 0) */
+      runtime.tray.apply("remove_by_id", { id: "g17-a" });
+      console.log("TRAY_EVENTS_OK");
+    } catch (e) {
+      console.log("TRAY_EVENTS_FAIL:" + String(e).slice(0, 120));
+    }
+  }
+
   // G17/B11: real decode readback for a PATH-loaded image.
   try {
     const path = `${tjs.cwd}/../../assets/app-icon.png`;
