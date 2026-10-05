@@ -12,8 +12,9 @@ export async function isPrimaryInstance(): Promise<boolean> {
 
 /**
  * Listens for a second instance attempting to launch. The handler runs on the
- * primary instance with the second instance's argv/cwd (argv is currently
- * always empty).
+ * primary instance with the second instance's argv/cwd — for a packed app,
+ * the args its launcher received (the launcher forwards them to the backend,
+ * the secondary POSTs them to the primary before exiting, like upstream).
  */
 export async function onSecondInstance(
   handler: (event: { argv: string[]; cwd: string }) => void,

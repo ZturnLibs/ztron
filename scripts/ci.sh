@@ -622,6 +622,40 @@ else
   esac
 fi
 
+# ---- single-instance probe (win32; GAP H22) -----------------------------------
+# The packed chain end-to-end: `ztron build` produces the flat app, then the
+# probe (dev chain, primary) spawns the packed launcher as a second instance
+# with marker args from a different cwd, and asserts the forwarded argv/cwd
+# plus the secondary's post-forward exit-0 (upstream parity). Needs the same
+# GUI session as the packaged spike.
+win_siprobe_spike() {
+local APP_DIR="$ROOT/examples/siprobe"
+local DIST="$APP_DIR/dist/ZtronApp"
+step "single-instance probe (win32): ztron build -> flat app"
+rm -rf "$APP_DIR/dist"
+run_ztron_check "$APP_DIR" build > /tmp/ci-siprobe-build.log 2>&1 \
+  || { tail -20 /tmp/ci-siprobe-build.log; fail "siprobe packaged build (win32)"; }
+[ -e "$DIST/ztron-launcher.exe" ] \
+  || fail "siprobe payload missing ztron-launcher.exe (win32)"
+step "single-instance probe (win32): secondary argv/cwd -> primary + exit"
+win_sweep
+run_ztron_check "$APP_DIR" check --timeout "$SPIKE_TIMEOUT_MS" \
+  --expect SIPROBE_PRIMARY_OK \
+  --expect SIPROBE_SECOND_EXIT_OK \
+  --expect SIPROBE_FWD_OK \
+  > /tmp/ci-siprobe.log 2>&1 \
+  || { tail -30 /tmp/ci-siprobe.log; win_sweep; fail "single-instance probe (win32)"; }
+tail -2 /tmp/ci-siprobe.log
+win_sweep
+}
+
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    [[ "$SKIP_PACKAGED" -eq 1 ]] && step "single-instance probe: SKIPPED (--skip-packaged)" \
+      || win_siprobe_spike ;;
+  *) step "single-instance probe: SKIPPED (windows only)" ;;
+esac
+
 # ---- summary -----------------------------------------------------------------
 
 # Kill any straggler dev servers / backends: the CLI's vite child holds the

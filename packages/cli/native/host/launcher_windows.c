@@ -9,12 +9,12 @@
  *   <dir>/ztron.conf.json      staged project config (forwarded as ZTRON_CONF)
  *   <dir>/capabilities/        staged capabilities (ZTRON_CAPABILITIES_DIR)
  *
- * Flow: spawn host with stdout redirected to .host.log (CREATE_NO_WINDOW —
+ * Flow: spawn host with stdout redirected to .host.<pid>.log (CREATE_NO_WINDOW —
  * the host itself is a console binary), poll the log for PORT=, then spawn
  * the backend with the coordination env vars and wait; the host is killed
  * when the backend exits. Compiled with
  *   cl /O2 /DZTRON_INVOKE_KEY="..." launcher_windows.c
- *      /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
+ *      /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup user32.lib shell32.lib
  * so no console window flashes. All paths are wide-char (Chinese/space
  * install dirs are first-class).
  */
@@ -23,6 +23,7 @@
 #define _UNICODE
 #endif
 #include <windows.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,11 +131,47 @@ static BOOL spawn_process(const wchar_t *path, const wchar_t *args,
                         pi);
 }
 
+/* Append `arg` to `buf` as one quoted Windows command-line token (CRT
+   parsing rules: double the backslashes that precede a quote or the
+   closing quote, escape embedded quotes). Always quoting is safe for
+   tokens without specials. Bounded by `cap` like the rest of this
+   launcher. */
+static void append_backend_arg(wchar_t *buf, size_t cap, const wchar_t *arg) {
+  size_t n = wcslen(buf);
+  if (n > 0 && n + 1 < cap) buf[n++] = L' ';
+  if (n + 1 < cap) buf[n++] = L'"';
+  int bs = 0;
+  for (const wchar_t *p = arg; *p != L'\0'; p++) {
+    if (*p == L'\\') { bs += 1; continue; }
+    int dbl = (*p == L'"') ? 2 : 1;
+    for (int i = 0; i < bs * dbl && n + 1 < cap; i++) buf[n++] = L'\\';
+    bs = 0;
+    if (*p == L'"' && n + 1 < cap) buf[n++] = L'\\';
+    if (n + 1 < cap) buf[n++] = *p;
+  }
+  for (int i = 0; i < bs * 2 && n + 1 < cap; i++) buf[n++] = L'\\';
+  if (n + 1 < cap) buf[n++] = L'"';
+  buf[n] = L'\0';
+}
+
 static void fail_box(const wchar_t *msg) {
   MessageBoxW(NULL, msg, L"ztron", MB_ICONERROR | MB_OK);
 }
 
 int main(void) {
+  /* Everything past argv[0] is the app's own command line: forward it to
+     the backend (surfaced there as tjs.args[1..]) so a packed app sees the
+     args its launcher received — e.g. a single-instance secondary forwards
+     them to the primary, matching upstream Tauri. */
+  int argc_w = 0;
+  wchar_t **argv_w = CommandLineToArgvW(GetCommandLineW(), &argc_w);
+  wchar_t backend_args[ZT_MAX_PATH] = L"";
+  if (argv_w != NULL) {
+    for (int i = 1; i < argc_w; i++)
+      append_backend_arg(backend_args, ZT_MAX_PATH, argv_w[i]);
+    LocalFree(argv_w);
+  }
+
   wchar_t dir[ZT_MAX_PATH];
   DWORD n = GetModuleFileNameW(NULL, dir, ZT_MAX_PATH);
   if (n == 0 || n >= ZT_MAX_PATH) return 1;
@@ -145,7 +182,13 @@ int main(void) {
   wchar_t host_log[ZT_MAX_PATH], host_bin[ZT_MAX_PATH], backend[ZT_MAX_PATH];
   wchar_t url[ZT_MAX_PATH * 3 + 64], conf_path[ZT_MAX_PATH],
       caps_path[ZT_MAX_PATH];
-  _snwprintf_s(host_log, ZT_MAX_PATH, _TRUNCATE, L"%s\\.host.log", dir);
+  /* Per-launch log: a second launcher of the same install (the very case
+     single-instance handles) must not fight the running instance's log —
+     a shared name loses the CREATE_ALWAYS race against the live host's
+     inherited handle, the new PORT= print goes nowhere, and the poll picks
+     up the FIRST instance's port instead. */
+  _snwprintf_s(host_log, ZT_MAX_PATH, _TRUNCATE, L"%s\\.host.%lu.log", dir,
+               GetCurrentProcessId());
   _snwprintf_s(host_bin, ZT_MAX_PATH, _TRUNCATE, L"%s\\ztron-host.exe", dir);
   _snwprintf_s(backend, ZT_MAX_PATH, _TRUNCATE, L"%s\\ztron-backend.exe", dir);
   /* file:/// + percent-encoded forward-slashed dir — canonical local-file
@@ -175,7 +218,7 @@ int main(void) {
   conf_path[ZT_MAX_PATH - 1] = L'\0';
   caps_path[ZT_MAX_PATH - 1] = L'\0';
 
-  /* start the host, stdout+stderr -> .host.log (inheritable for the child) */
+  /* start the host, stdout+stderr -> .host.<pid>.log (inheritable) */
   SECURITY_ATTRIBUTES sa;
   ZeroMemory(&sa, sizeof(sa));
   sa.nLength = sizeof(sa);
@@ -203,7 +246,11 @@ int main(void) {
     TerminateProcess(host_pi.hProcess, 1);
     CloseHandle(host_pi.hThread);
     CloseHandle(host_pi.hProcess);
-    fail_box(L"ztron: host failed to start (see .host.log)");
+    DeleteFileW(host_log);
+    wchar_t box[ZT_MAX_PATH + 64];
+    _snwprintf_s(box, ZT_MAX_PATH + 64, _TRUNCATE,
+                 L"ztron: host failed to start (see %s)", host_log);
+    fail_box(box);
     return 1;
   }
 
@@ -247,7 +294,8 @@ int main(void) {
   PROCESS_INFORMATION be_pi;
   ZeroMemory(&be_pi, sizeof(be_pi));
   int exit_code = 1;
-  if (spawn_process(backend, NULL, NULL, FALSE, CREATE_NO_WINDOW, &be_pi)) {
+  if (spawn_process(backend, backend_args[0] != L'\0' ? backend_args : NULL,
+                    NULL, FALSE, CREATE_NO_WINDOW, &be_pi)) {
     CloseHandle(be_pi.hThread);
     WaitForSingleObject(be_pi.hProcess, INFINITE);
     DWORD code = 1;
@@ -261,5 +309,7 @@ int main(void) {
   TerminateProcess(host_pi.hProcess, 1);
   CloseHandle(host_pi.hThread);
   CloseHandle(host_pi.hProcess);
+  /* The host (which inherited the log handle) is gone — best-effort cleanup. */
+  DeleteFileW(host_log);
   return exit_code;
 }

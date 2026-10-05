@@ -1,0 +1,16 @@
+{
+  "name": "@zturnlibs/example-siprobe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "ztron check"
+  },
+  "dependencies": {
+    "@zturnlibs/ztron-api": "workspace:*",
+    "@zturnlibs/ztron-core": "workspace:*",
+    "@zturnlibs/ztron-runtime-ffi": "workspace:*"
+  },
+  "devDependencies": {
+    "@zturnlibs/ztron-cli": "workspace:*"
+  }
+}

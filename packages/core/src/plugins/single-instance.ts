@@ -3,8 +3,15 @@
  *
  * The primary instance binds a loopback TCP port derived from the identifier
  * (a deterministic FNV-1a hash into 20000–60000). A second instance fails to
- * bind, signals the primary, and reports `is_primary === false`; the primary
- * emits `ztron://single-instance` and focuses its window.
+ * bind, POSTs its `{ argv, cwd }` to that port, and exits — upstream Tauri
+ * forwards the same payload over a named pipe (Windows) and never lets the
+ * secondary outlive its forward. The primary emits `ztron://single-instance`
+ * with the forwarded payload and focuses its window.
+ *
+ * argv comes from the backend's own argument vector minus argv[0]
+ * (`tjs.args.slice(1)` — the same convention as the cli plugin): for a
+ * packed app that is exactly the args passed to `ztron-launcher`, which
+ * the Windows launcher forwards to the backend on its command line.
  */
 import type { Plugin } from "../plugin.js";
 
@@ -55,26 +62,48 @@ export function singleInstancePlugin(
         const server = (await tjs.serve({
           port,
           listenIp: "127.0.0.1",
-          fetch: async () => {
-            // A secondary instance connected: bring the primary forward.
+          fetch: async (req) => {
+            // A secondary instance connected: adopt its payload. A GET (or
+            // an unparseable body) means a pre-forwarding peer — empty argv.
+            let payload: { argv: string[]; cwd: string } = { argv: [], cwd: "" };
+            try {
+              if (req.method === "POST") {
+                const body = await req.text();
+                if (body) {
+                  payload = JSON.parse(body) as { argv: string[]; cwd: string };
+                }
+              }
+            } catch {
+              /* keep the empty payload */
+            }
+            // Bring the primary forward.
             const wv = app.getWebview("main");
             if (wv) {
               wv.eval("window.focus()");
             }
-            app.emit("ztron://single-instance", { argv: [], cwd: "" });
+            app.emit("ztron://single-instance", payload);
             return new Response("ok");
           },
         })) as { port: number; close(): void };
         void server;
         isPrimary = true;
       } catch {
-        // Port already held by another instance → this is a secondary.
+        // Port already held by another instance → this is a secondary:
+        // forward our real argv/cwd to the primary, then exit like upstream.
         isPrimary = false;
         try {
-          await fetch(`http://127.0.0.1:${port}/`);
+          await fetch(`http://127.0.0.1:${port}/`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              argv: [...tjs.args.slice(1)],
+              cwd: tjs.cwd,
+            }),
+          });
         } catch {
           /* primary unreachable */
         }
+        tjs.exit(0);
       }
     },
   };

@@ -1331,6 +1331,26 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 142. Windows P2 收官(GAP H22):single-instance argv 转发三层链——launcher 命令行 → POST 载荷 → secondary 退出
+
+GAP H22:第二实例参数恒不转发(插件 GET 无载荷、硬编码 `argv:[]`),上游 Windows 语义是命名管道转发 {argv,cwd} 且 secondary 转发即退出。ztron 的通道是 loopback HTTP,等价修复分三层,每层各有真坑:
+
+**层1:launcher_windows.c argv 捕获。** `main(void)` 完全忽略参数、`spawn_process(backend, NULL,...)`——backend 无从得知。修复:GetCommandLineW+CommandLineToArgvW 捕获 argv[1..],按 CRT 解析规则逐参引用后拼成命令行后缀传给 backend(规则:引号前与闭引号前的反斜杠加倍、内嵌引号转义;恒加引号对无特殊字符 token 也合法,免去条件分支)。backend 侧 `tjs.args` 对 `tjs compile` 产物=[exe,...用户参数](实测:run 模式是 [exe,run,script,...],compile 后无 run/script——两者形状不同,packed backend 是后者),故 `tjs.args.slice(1)`=用户参数,与 cli 插件既有约定一致。cmd 回退 launcher 补 `%*`。
+
+**层2:插件载荷转发。** secondary POST JSON `{argv:tjs.args.slice(1), cwd:tjs.cwd}`;primary fetch handler 解析 body(`req.text()`+JSON.parse,try/catch 包裹),GET/空体=旧版空载荷兼容。emit 真实载荷,api 文档字符串同步(去掉 "argv is currently always empty")。
+
+**层3:secondary 退出。** 转发后 `tjs.exit(0)`(上游 parity:secondary 不得活得比转发久)。app.ts run() 顺序是 user setup→plugin setups→窗口创建,故 secondary 在窗口前死透——零闪窗。
+
+**真坑 A:.host.log 并发争用。** 首轮探针 secondary exit 1 且无 POST:同装目录第二个 launcher `CreateFileW(.host.log, CREATE_ALWAYS)` 撞上活宿主(继承句柄)的 sharing violation→log=NULL→新宿主的 PORT= 打印无处落→轮询读到**第一个实例的旧端口**→backend 连错宿主 exit 1。修复:日志按 PID 命名(`.host.<pid>.log`),launcher 退出(宿主已 Terminate)后 best-effort DeleteFileW。这正是 single-instance 场景本身(同一装目录双开)——不修则打包链的第二实例永远到不了插件。
+
+**真坑 B:shell32.lib 不在默认链接集。** CommandLineToArgvW → LNK2019 `__imp_CommandLineToArgvW`;compileWindowsLauncher 链接行补 shell32.lib。返回 false 时静默回退 ztron-launcher.cmd——首轮"编译失败"被回退掩盖,launcher 实为旧版(argv 不转发),探针 argv=[] 与 cwd=C:\ 并存的怪象即此。
+
+**真坑 C:committed 双拷贝。** findWindowsLauncherSource 优先 packages/cli/native/host/launcher_windows.c(npm tarball 所含),repo 根副本仅 workspace 回退;两份靠 cli-packaging.test.ts 保持一致。改 repo 副本对打包无效——必须同步。另:CLI 自身 dist 产物需重编,src 改动不进下一次 `ztron build`。
+
+**探针 examples/siprobe(H8/H9 deeplinkprobe 同款自驱形状)。** `ztron build` 出打包 app→dev primary 绑实例端口→页面 bootstrap invoke("run")→`tjs.spawn` 打包 launcher 带 ["--siprobe-marker","second arg"]、cwd=C:\(异于默认,证明 cwd 真的传播)→断言:SECOND_EXIT_OK(exit_status===0,转发先于退出)、FWD_OK(argv/cwd 精确匹配)。app.emit 在 setup 内 monkey-patch 捕获(EventManager 只扇出到页面总线,backend 侧无损捕获——deeplinkprobe runtime slot 重绑同款手法)。探针尾部 w?.terminate() 后显式 `tjs.exit(0)`:single-instance 插件的 serve 监听 socket 让 tjs loop 不排空(hello 先例),否则 check 等进程退出超时。3 markers 两轮复证。
+
+上游对照:tauri-plugin-single-instance Windows 走命名管道写 argv+cwd;HTTP POST JSON 是通道等价,载荷语义一致。GAP H 表至此收官(H19 已 N/A)。
+
 ## 141. Windows P2 第九项(GAP H21):ztron-driver 上游平价重写 + msedgedriver 真机双腿——WebView2 自动化的 UDF 契约
 
 **透明代理语义(照抄上游 tauri-driver)**:driver 不再有本地路由——全部请求(含 /status)原样透传 spawn 的原生 remote(win32 msedgedriver/linux WebKitWebDriver/darwin 无→显式报错同上游),唯一检查点是 new-session:`tauri:options`{application,args,webviewOptions?}剥出→win32 重写为 `ms:edgeChromium:true+browserName:"webview2"+ms:edgeOptions:{binary(Rust with_extension("exe") 平价),args,webviewOptions?}`、linux 为 `webkitgtk:browserOptions`——并镜像进 desiredCapabilities。CLI 守卫必须用 `import.meta.url===pathToFileURL(argv[1]).href`:旧的 `endsWith("driver")` 对 bin shim(execs node dist/index.js)恒 false→CLI 静默无效。中继的帧语义:入站 chunked 请求体要定长重帧——保留 transfer-encoding 又重算 content-length 是 RFC 7230 帧冲突,node 解析器直接 400 空体(最小复现二分定位的教训)。单测形状:纯重写断言×3(win32/linux/无 tauri:options 直通)+假 remote(tests/fixtures/fake-webdriver-remote.mjs,node --test glob 自动收录)端到端中继+chunked 重帧回归。

@@ -165,7 +165,7 @@ if exist "%DIR%ztron.conf.json" (
   for /f "usebackq delims=" %%z in ("%DIR%ztron.conf.json") do set "ZTRON_CONF=!ZTRON_CONF!%%z"
 )
 if exist "%DIR%capabilities\\" set "ZTRON_CAPABILITIES_DIR=%DIR%capabilities"
-"%DIR%ztron-backend.exe"
+"%DIR%ztron-backend.exe" %*
 taskkill /f /pid %HOST_PID% >nul 2>&1
 `;
 }

@@ -1377,7 +1377,7 @@ function compileWindowsLauncher(
     batch,
     `@echo off\r
 call "${vcvars}" >nul 2>&1\r
-cl /nologo /O2 /W4 /utf-8 /DZTRON_INVOKE_KEY=\\"${invokeKey}\\" "${src}" /Fe:"${out}" /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup user32.lib\r
+cl /nologo /O2 /W4 /utf-8 /DZTRON_INVOKE_KEY=\\"${invokeKey}\\" "${src}" /Fe:"${out}" /link /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup user32.lib shell32.lib\r
 `,
   );
   try {
