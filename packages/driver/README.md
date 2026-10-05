@@ -4,20 +4,60 @@ WebDriver intermediary for [Ztron](https://github.com/ZturnLibs/ztron) apps — 
 
 ## Why
 
-Ztron apps use the OS webview, which doesn't expose a WebDriver endpoint by itself. `ztron-driver` accepts a normal W3C WebDriver session (so WebDriverIO, selenium clients, and CI harnesses work unmodified) and translates it to the Ztron host surface.
+Ztron apps use the OS webview, which doesn't expose a WebDriver endpoint by itself. `ztron-driver` accepts a normal W3C WebDriver session (so WebDriverIO, selenium clients, and CI harnesses work unmodified) and relays it to the platform's native WebDriver remote — which it spawns itself — rewriting only the new-session capabilities.
 
 ## Usage
 
 ```sh
 npm install -g @zturnlibs/ztron-driver
-ztron-driver   # start the relay, then point your WebDriver client at it
+ztron-driver   # client port 4444, native remote port 4445
 ```
 
-Pair it with any WebDriver client pointed at the relay — the integration test layer of Ztron itself ([`tests/`](https://github.com/ZturnLibs/ztron/tree/main/tests)) drives real windows through this path, so it is exercised on every `ztron check` run.
+Point any WebDriver client at the relay and request a session with `tauri:options` (upstream wire contract):
 
-## Status
+```js
+{
+  capabilities: {
+    alwaysMatch: {
+      "tauri:options": {
+        application: "C:/apps/hello/dist/ZtronApp/ztron-launcher",
+        args: [],                    // forwarded to the app binary
+        webviewOptions: { /* Windows-only passthrough to ms:edgeOptions */ }
+      }
+    }
+  }
+}
+```
 
-Working on macOS (Apple Silicon). Platform coverage follows the [Ztron host](https://github.com/ZturnLibs/ztron#平台支持).
+`application` is the app's **entry binary** — for a packed Ztron app that is
+`ztron-launcher` (it starts the backend and the webview host; pointing at
+`ztron-host` directly gives you a window with no backend).
+
+The driver translates `tauri:options` per platform, exactly like upstream:
+Windows → `ms:edgeOptions` (`ms:edgeChromium` + WebView2 binary) served by
+`msedgedriver`; Linux → `webkitgtk:browserOptions` served by
+`WebKitWebDriver`. Everything else passes through untouched — the native
+remote's answers are the truthful ones.
+
+Flags: `--port` / `ZTRON_DRIVER_PORT` (default 4444), `--native-port` /
+`ZTRON_DRIVER_NATIVE_PORT` (4445), `--native-driver` / `ZTRON_NATIVE_DRIVER`
+(explicit remote binary; also the hook for wrapping a custom/fake remote).
+
+Windows note: install `msedgedriver.exe` matching your WebView2/Edge version
+and put it on `PATH` (or pass `--native-driver`). The driver sets the usual
+automation environment (`TAURI_AUTOMATION`, `TAURI_WEBVIEW_AUTOMATION`);
+msedgedriver itself injects the CDP port into the app via
+`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` and hands it a scoped user-data
+folder via `WEBVIEW2_USER_DATA_FOLDER` — the vendored Ztron engine honors
+both under automation, so app sessions need no extra configuration.
+
+## Platform matrix
+
+| Platform  | Native remote    | Status |
+| --------- | ---------------- | ------ |
+| Windows   | `msedgedriver`   | verified end-to-end (real msedgedriver 154 → packed hello app: session/navigate/title/delete) |
+| Linux     | `WebKitWebDriver`| wire contract unit-tested; remote-relay verified against a fake remote |
+| macOS     | —                | not supported (upstream parity: no native WebDriver remote); fails closed at startup unless `ZTRON_NATIVE_DRIVER` wraps a custom remote |
 
 ## License
 

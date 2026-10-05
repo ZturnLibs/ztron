@@ -1331,6 +1331,16 @@ ZtronApp.app/Contents/
 - **CLI `ztron signer`**:generate/sign/verify 三动作(无密码 key;--encrypted 显式报未支持)。冒烟:生成→签名(trusted comment 回读)→验证→篡改拒绝(缺 .minisig ENOENT)✓。依赖新增 cli→@zturnlibs/ztron-core(workspace)
 - **状态**:84 tests / 83 pass / 1 skip + typecheck 全仓过;minisign 格式已按 jedisct1 源码逐字段核对,**真·minisign 工具互测待装工具后补一条对拍**
 
+## 141. Windows P2 第九项(GAP H21):ztron-driver 上游平价重写 + msedgedriver 真机双腿——WebView2 自动化的 UDF 契约
+
+**透明代理语义(照抄上游 tauri-driver)**:driver 不再有本地路由——全部请求(含 /status)原样透传 spawn 的原生 remote(win32 msedgedriver/linux WebKitWebDriver/darwin 无→显式报错同上游),唯一检查点是 new-session:`tauri:options`{application,args,webviewOptions?}剥出→win32 重写为 `ms:edgeChromium:true+browserName:"webview2"+ms:edgeOptions:{binary(Rust with_extension("exe") 平价),args,webviewOptions?}`、linux 为 `webkitgtk:browserOptions`——并镜像进 desiredCapabilities。CLI 守卫必须用 `import.meta.url===pathToFileURL(argv[1]).href`:旧的 `endsWith("driver")` 对 bin shim(execs node dist/index.js)恒 false→CLI 静默无效。中继的帧语义:入站 chunked 请求体要定长重帧——保留 transfer-encoding 又重算 content-length 是 RFC 7230 帧冲突,node 解析器直接 400 空体(最小复现二分定位的教训)。单测形状:纯重写断言×3(win32/linux/无 tauri:options 直通)+假 remote(tests/fixtures/fake-webdriver-remote.mjs,node --test glob 自动收录)端到端中继+chunked 重帧回归。
+
+**Leg2 根因链(真机 msedgedriver 154,逐环实证)**:msedgedriver 对 app 会话**不上 argv**(verbose log"Launching"行只有 binary),自动化开关全部经 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` env 注入(--remote-debugging-port=0 等);然后它建自己的 scoped temp UDF,经 **`WEBVIEW2_USER_DATA_FOLDER` env** 下发给 app 进程,预先创建 `<UDF>\EBWebView\{Default,Local State}`(Preferences/Local State 文件),再轮询 **`<UDF>\EBWebView\DevToolsActivePort`**(捕获对比实证:文件端口==CDP debuggerAddress)。Ztron 引擎显式传 UDF(%APPDATA%\<exe-name>)打破了该契约→"session not created: DevToolsActivePort file doesn't exist"。**两个反直觉实证**:①loader 即使收到 null UDF 也不应用 WEBVIEW2_USER_DATA_FOLDER(手动 env 探针:浏览器 argv 仍 loader 默认布局)→修复必须在引擎层;②port 文件只写一次(浏览器启动时),轮询方删掉后不会重现。
+
+**修复形状(vendored win32_edge.hh,生产零变化)**:embed() 检测 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 存在(仅自动化工具设置;空值经 GetEnvironmentVariableW 与 unset 不可分,一并走显式路径=安全侧)→读 `WEBVIEW2_USER_DATA_FOLDER` 作 UDF(有值),无值则 null(loader 默认布局=wry 形态);非自动化保持显式 %APPDATA%\<exe-name> 不变(**该 UDF 与真实 D2R 应用共享,任何清理/重置都禁止**)。改动同步 scripts/patches/webview-local.patch(git diff 重生成+`git apply --reverse --check --directory=native/webview` roundtrip 校验)。
+
+**打包应用的正确入口**:tauri:options.application 指向 **ztron-launcher.exe**(打包产物真入口,负责拉起 backend+host);直接指 ztron-host.exe 得到"有窗无后端"——单 about:blank target、页面永不导航(宿主等 backend 连接才放行前端 URL)。CDP target 与窗口句柄:driver 会话的 current window 可能是 about:blank(首 target),读应用标题要 window/handles 遍历+switch 到含应用页的句柄。
+
 ## 140. Windows P2 第八项(GAP H20):msi 打包真接线 + Authenticode 签名——严格 ICE 合规的 per-user MSI
 
 **真构建路径判定**:packWindowsApp(index.ts)是 ztron build 的实际路径(targets 驱动),legacy packMsi/bundleTargets 无调用者=死代码;packNsisDir 是 msi 版模板。findWix/findSigntool 照 findMakensis 模式:ZTRON_ 环境变量覆盖→where→标准安装目录 globs(WiX3 `C:\Program Files (x86)\WiX Toolset\v3*`;signtool 按 Windows Kits 10.* 版本倒序)。**WiX3 免安装 binaries 可行**:candle/light 是自包含 exe,但 candle 需要同目录 wix.dll 等程序集(FileNotFoundException: wix, Version=3.0.0.0)——必须全量解压 wix314-binaries.zip(9 字节 404 假包的教训:wix3112rtm asset 名不存在,查 GitHub API 得 wix3141rtm)。

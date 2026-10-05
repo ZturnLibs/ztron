@@ -25,10 +25,10 @@
 - **验证方法**：真机调用五插件命令
 - **判定**：各命令返回真机数据
 
-### A4. ztron-driver 转发（F7）
-- **就绪内容**：`packages/driver`——W3C /status、new-session→平台 remote 表（Linux WebKitWebDriver/Windows msedgedriver/darwin 无 remote 同上游）、spawn 派发
-- **所需环境**：Linux 或 Windows + 对应 WebDriver remote
-- **验证方法**：`ztron-driver` 起服务后用 WebDriver 客户端建会话
+### A4. ztron-driver 转发（F7）——Windows 腿已闭环（GAP H21）
+- **已验证（Windows + msedgedriver 154）**：透明代理重写后真机双腿——Leg1 普通 Edge 会话（SESSION/NAV/TITLE/URL/DELETE 全 200）；Leg2 驱动打包 hello 应用（`tauri:options.application`=ztron-launcher，TITLE 读回应用真标题）。引擎侧配套修复：vendored win32_edge.hh 在自动化 env（WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS）存在时采纳 WEBVIEW2_USER_DATA_FOLDER 为 UDF（msedgedriver 的 scoped temp 目录，端口文件落 <UDF>\EBWebView\DevToolsActivePort）
+- **剩余（Linux）**：WebKitWebDriver 腿同法验证（wire 契约单测已绿；中继逻辑平台无关）
+- **验证方法**：`ztron-driver` 起服务后用 WebDriver 客户端建会话（客户端示例见 tests/unit/driver-proxy.test.ts 的 wire 断言与仓库外 wd-e2e 探针）
 - **判定**：会话建立并转发命令
 
 ## B. 待凭证 / 账号

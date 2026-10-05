@@ -507,7 +507,7 @@ index 1a0a2c6..f369cf3 100755
  } // namespace detail
  
 diff --git a/core/include/webview/detail/backends/win32_edge.hh b/core/include/webview/detail/backends/win32_edge.hh
-index 316a9d5..81e32a3 100644
+index 316a9d5..5998cd4 100644
 --- a/core/include/webview/detail/backends/win32_edge.hh
 +++ b/core/include/webview/detail/backends/win32_edge.hh
 @@ -58,9 +58,11 @@
@@ -1038,10 +1038,37 @@ index 316a9d5..81e32a3 100644
    user_script add_user_script_impl(const std::string &js) override {
      auto wjs = widen_string(js);
      std::wstring script_id;
-@@ -740,6 +1201,41 @@ private:
+@@ -740,6 +1201,68 @@ private:
      wchar_t userDataFolder[MAX_PATH];
      PathCombineW(userDataFolder, dataPath, currentExeName);
  
++    // GAP H21: under WebDriver automation msedgedriver injects
++    // --remote-debugging-port via WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS,
++    // creates a scoped temp user-data folder, hands it to the app via
++    // WEBVIEW2_USER_DATA_FOLDER, pre-creates the <folder>\EBWebView profile
++    // layout inside it, and then waits for <folder>\EBWebView\DevToolsActive
++    // Port to appear. Our explicit folder (%APPDATA%\<exe-name>) breaks that
++    // contract ("session not created: DevToolsActivePort file doesn't
++    // exist"), and the WebView2 loader itself does not apply the env var
++    // when it receives one (verified: browser still boots in the loader
++    // default layout) — so the automation folder must be applied HERE.
++    // The env vars are set only by automation tooling; production keeps the
++    // explicit %APPDATA%\<exe-name> folder untouched.
++    wchar_t automationUserDataFolder[MAX_PATH];
++    wchar_t *userDataFolderArg = userDataFolder;
++    if (GetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
++                                nullptr, 0) > 0) {
++      DWORD n = GetEnvironmentVariableW(L"WEBVIEW2_USER_DATA_FOLDER",
++                                        automationUserDataFolder, MAX_PATH);
++      if (n > 0 && n < MAX_PATH) {
++        userDataFolderArg = automationUserDataFolder;
++      } else {
++        // No driver-provided folder (or too long): fall back to the loader
++        // default layout — the shape wry/tauri apps present to msedgedriver.
++        userDataFolderArg = nullptr;
++      }
++    }
++
 +    // Register the ztron custom scheme on the environment options so
 +    // Chromium routes ztron:// navigations into WebResourceRequested (GAP
 +    // H5). The options object MUST be a process-wide singleton: WebView2
@@ -1080,7 +1107,7 @@ index 316a9d5..81e32a3 100644
      m_com_handler = new webview2_com_handler(
          wnd, cb,
          [&](ICoreWebView2Controller *controller, ICoreWebView2 *webview) {
-@@ -753,10 +1249,15 @@ private:
+@@ -753,10 +1276,15 @@ private:
            m_webview = webview;
            flag.clear();
          });
@@ -1093,11 +1120,11 @@ index 316a9d5..81e32a3 100644
      m_com_handler->set_attempt_handler([&] {
        return m_webview2_loader.create_environment_with_options(
 -          nullptr, userDataFolder, nullptr, m_com_handler);
-+          nullptr, userDataFolder, env_options_arg, m_com_handler);
++          nullptr, userDataFolderArg, env_options_arg, m_com_handler);
      });
      m_com_handler->try_create_environment();
  
-@@ -802,9 +1303,170 @@ private:
+@@ -802,9 +1330,170 @@ private:
      if (owns_window()) {
        focus_webview();
      }
@@ -1268,7 +1295,7 @@ index 316a9d5..81e32a3 100644
    void resize_widget() {
      if (m_widget) {
        RECT r{};
-@@ -874,7 +1536,33 @@ private:
+@@ -874,7 +1563,33 @@ private:
  
    void run_event_loop_while(std::function<bool()> fn) override {
      MSG msg;
@@ -1303,7 +1330,7 @@ index 316a9d5..81e32a3 100644
        TranslateMessage(&msg);
        DispatchMessageW(&msg);
      }
-@@ -887,11 +1575,34 @@ private:
+@@ -887,11 +1602,34 @@ private:
    HWND m_window = nullptr;
    HWND m_widget = nullptr;
    HWND m_message_window = nullptr;
