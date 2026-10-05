@@ -28,6 +28,7 @@ import { tmpdir } from "node:os";
 import {
   bundleAll,
   macSignAndNotarize,
+  packMsiDir,
   packNsisDir,
   packUpdaterArtifacts,
   type PackageType,
@@ -1322,6 +1323,22 @@ async function packWindowsApp(o: PackOptions): Promise<void> {
     );
     console.log(
       `[ztron] bundle nsis: ${r.built ? r.path : `skeleton -> ${r.path} (${r.reason})`}`,
+    );
+  }
+  if (targets.includes("msi")) {
+    const r = packMsiDir(
+      o.outDir,
+      {
+        identifier: o.conf.identifier ?? "com.ztron.app",
+        productName: o.conf.productName ?? o.appName,
+        version: o.conf.version ?? "0.1.0",
+        icons: (o.conf.bundle as { icon?: string[] } | undefined)?.icon,
+      },
+      appDir,
+      launcherName,
+    );
+    console.log(
+      `[ztron] bundle msi: ${r.built ? r.path : `skeleton -> ${r.path} (${r.reason})`}${r.built && r.reason ? ` (${r.reason})` : ""}`,
     );
   }
 }

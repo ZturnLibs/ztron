@@ -22,9 +22,11 @@ import {
   statSync,
   readFileSync,
   copyFileSync,
+  readdirSync,
 } from "node:fs";
-import { join, basename, resolve } from "node:path";
+import { join, basename, resolve, relative } from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 export type PackageType =
   | "app"
@@ -179,14 +181,24 @@ SectionEnd
     };
   }
   const r = spawnSync(makensis, [script], { encoding: "utf8" });
+  const built = r.status === 0 && existsSync(artifactPath);
+  if (!built) {
+    return {
+      type: "nsis",
+      path: artifactPath,
+      built: false,
+      reason:
+        (r.stderr ?? r.stdout ?? "makensis failed").slice(-400) || undefined,
+    };
+  }
+  const s = signWinArtifact(artifactPath);
   return {
     type: "nsis",
     path: artifactPath,
-    built: r.status === 0 && existsSync(artifactPath),
-    reason:
-      r.status === 0
-        ? undefined
-        : (r.stderr ?? r.stdout ?? "makensis failed").slice(-400),
+    built: true,
+    reason: s.signed
+      ? undefined
+      : `built; signing skipped: ${s.reason ?? "unknown"}`,
   };
 }
 
@@ -241,6 +253,328 @@ SectionEnd
     path: join(dir, `${cfg.productName}_${cfg.version}_setup.exe`),
     built: r.status === 0,
     reason: r.status === 0 ? undefined : (r.stderr ?? "makensis failed").slice(0, 200),
+  };
+}
+
+/**
+ * Locates the WiX v3 toolchain (candle + light) on the current machine.
+ * ZTRON_WIX points at a directory holding candle.exe/light.exe (portable
+ * `wix314-binaries.zip` installs — same convention as ZTRON_MAKENSIS).
+ * WiX v4+ ships a single `wix build` command instead and is NOT handled
+ * here; the emitted .wxs still builds by hand on any WiX host.
+ */
+export function findWix(): { candle: string; light: string } | null {
+  const env = process.env.ZTRON_WIX;
+  if (env) {
+    const candle = join(env, "candle.exe");
+    const light = join(env, "light.exe");
+    if (existsSync(candle) && existsSync(light)) return { candle, light };
+  }
+  if (process.platform !== "win32") return null;
+  const where = spawnSync("where", ["candle"], { encoding: "utf8" });
+  if (where.status === 0) {
+    const first = where.stdout.trim().split(/\r?\n/)[0];
+    if (first && existsSync(first)) {
+      const light = join(first.replace(/candle\.exe$/i, ""), "light.exe");
+      if (existsSync(light)) return { candle: first, light };
+    }
+  }
+  for (const root of [
+    "C:\\Program Files (x86)\\WiX Toolset",
+    "C:\\Program Files\\WiX Toolset",
+  ]) {
+    if (!existsSync(root)) continue;
+    for (const ver of readdirSync(root).filter((d) => d.startsWith("v3"))) {
+      const candle = join(root, ver, "bin", "candle.exe");
+      const light = join(root, ver, "bin", "light.exe");
+      if (existsSync(candle) && existsSync(light)) return { candle, light };
+    }
+  }
+  return null;
+}
+
+/**
+ * Locates signtool.exe (Authenticode signing, Windows SDK). ZTRON_SIGNTOOL
+ * overrides; falls back to `where` and the per-version Windows Kits trees
+ * (newest first, x64 preferred).
+ */
+export function findSigntool(): string | null {
+  const env = process.env.ZTRON_SIGNTOOL;
+  if (env && existsSync(env)) return env;
+  if (process.platform !== "win32") return null;
+  const where = spawnSync("where", ["signtool"], { encoding: "utf8" });
+  if (where.status === 0) {
+    const first = where.stdout.trim().split(/\r?\n/)[0];
+    if (first) return first;
+  }
+  const kitsRoot = "C:\\Program Files (x86)\\Windows Kits\\10\\bin";
+  if (existsSync(kitsRoot)) {
+    const versions = readdirSync(kitsRoot)
+      .filter((v) => /^10\./.test(v))
+      .sort()
+      .reverse();
+    for (const v of versions) {
+      for (const arch of ["x64", "x86"]) {
+        const p = join(kitsRoot, v, arch, "signtool.exe");
+        if (existsSync(p)) return p;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Authenticode-signs an installer artifact when a certificate is
+ * configured: ZTRON_SIGN_PFX (+ZTRON_SIGN_PASSWORD) or a cert-store
+ * SHA1 thumbprint via ZTRON_SIGN_THUMBPRINT. ZTRON_SIGN_TS_URL adds an
+ * RFC3161 timestamp. Without any of these the artifact ships unsigned
+ * and the reason is reported — mirrors the mac F5 chain, where
+ * signing is driven by caller-provided identity and simply reports
+ * `signed: false` when absent.
+ */
+export function signWinArtifact(
+  path: string,
+): { signed: boolean; reason?: string } {
+  const st = findSigntool();
+  if (!st)
+    return { signed: false, reason: "signtool not found (Windows SDK)" };
+  const pfx = process.env.ZTRON_SIGN_PFX;
+  const pwd = process.env.ZTRON_SIGN_PASSWORD;
+  const thumb = process.env.ZTRON_SIGN_THUMBPRINT;
+  if (!pfx && !thumb) {
+    return {
+      signed: false,
+      reason:
+        "no cert configured (set ZTRON_SIGN_PFX or ZTRON_SIGN_THUMBPRINT)",
+    };
+  }
+  const args = ["sign", "/fd", "SHA256"];
+  if (pfx) args.push("/f", pfx);
+  if (pwd) args.push("/p", pwd);
+  if (thumb) args.push("/sha1", thumb);
+  const ts = process.env.ZTRON_SIGN_TS_URL;
+  if (ts) args.push("/tr", ts, "/td", "SHA256");
+  args.push(path);
+  const r = spawnSync(st, args, { encoding: "utf8" });
+  return r.status === 0
+    ? { signed: true }
+    : {
+        signed: false,
+        reason: (r.stderr ?? r.stdout ?? "signtool failed").slice(-400),
+      };
+}
+
+/**
+ * MSI for the flat Windows app layout (win32 buildApp branch) — the WiX
+ * counterpart of packNsisDir. Emits a complete .wxs (per-user install to
+ * %LOCALAPPDATA%, recursive component tree of the app dir, Start-menu +
+ * desktop shortcuts to the launcher, HKCU Add/Remove-Programs entry with
+ * the bundle icon) and runs candle + light when findWix() resolves, then
+ * signs the .msi when a cert is configured.
+ *
+ * UpgradeCode is derived deterministically from the bundle identifier
+ * (MD5-formatted UUID) so upgrades work across versions without the
+ * caller threading a GUID through config; Product Id="*" plus
+ * MajorUpgrade gives standard replace-on-upgrade semantics.
+ */
+export function packMsiDir(
+  outDir: string,
+  cfg: BundleConfigShape,
+  appDir: string,
+  launcherName: string,
+): ArtifactResult {
+  const dir = join(outDir, "msi");
+  mkdirSync(dir, { recursive: true });
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      c === "&"
+        ? "&amp;"
+        : c === "<"
+          ? "&lt;"
+          : c === ">"
+            ? "&gt;"
+            : c === '"'
+              ? "&quot;"
+              : "&apos;",
+    );
+  const name = esc(cfg.productName);
+  // Stable UpgradeCode: md5(namespace + identifier) sliced into GUID form.
+  const md5 = createHash("md5")
+    .update(`ztron-msi:${cfg.identifier}`)
+    .digest("hex");
+  const upgradeCode = [
+    md5.slice(0, 8),
+    md5.slice(8, 12),
+    md5.slice(12, 16),
+    md5.slice(16, 20),
+    md5.slice(20, 32),
+  ].join("-");
+  // Deterministic component GUIDs: Guid="*" is rejected once a component
+  // carries both a registry keypath and a file (CNDL0230), and stable GUIDs
+  // are what make MajorUpgrade replace files in place across versions
+  // instead of leaving orphans.
+  const guidFor = (seed: string) => {
+    const h = createHash("md5")
+      .update(`ztron-msi-comp:${cfg.identifier}:${seed}`)
+      .digest("hex");
+    return [
+      h.slice(0, 8),
+      h.slice(8, 12),
+      h.slice(12, 16),
+      h.slice(16, 20),
+      h.slice(20, 32),
+    ].join("-");
+  };
+
+  const icoSrc = cfg.icons
+    ?.map((p) => resolve(p))
+    .find((abs) => abs.toLowerCase().endsWith(".ico") && existsSync(abs));
+
+  // Recursive component tree of the flat app dir (the `File /r` analog —
+  // heat.exe would do this, but the layout is known so we emit directly).
+  // Per-user context rules (light ICE validation is fatal here): every
+  // component under the user profile takes an HKCU registry KeyPath, not
+  // a file (ICE38); user-profile directories carry RemoveFolder cleanup
+  // (ICE64); shortcuts are NON-advertised and live in the launcher's
+  // HKCU-keypath component (ICE43 — advertised shortcuts would require a
+  // file KeyPath and contradict ICE38).
+  let ids = 0;
+  const refs: string[] = [];
+  const regKey = `Software\\${cfg.identifier.replace(/[^\w.]/g, "_")}`;
+  const emitTree = (abs: string, dirId: string, indent: string): string => {
+    let xml = "";
+    const dirComp = `ZCD${ids++}`;
+    refs.push(dirComp);
+    xml += `${indent}<Component Id="${dirComp}" Guid="*">\n`;
+    xml += `${indent}  <RegistryValue Root="HKCU" Key="${regKey}" Name="${dirComp}" Type="integer" Value="1" KeyPath="yes" />\n`;
+    xml += `${indent}  <RemoveFolder Id="Rm${dirComp}" Directory="${dirId}" On="uninstall" />\n`;
+    xml += `${indent}</Component>\n`;
+    for (const entry of readdirSync(abs, { withFileTypes: true })) {
+      const childAbs = join(abs, entry.name);
+      if (entry.isDirectory()) {
+        const childDir = `ZD${ids++}`;
+        xml += `${indent}<Directory Id="${childDir}" Name="${esc(entry.name)}">\n`;
+        xml += emitTree(childAbs, childDir, indent + "  ");
+        xml += `${indent}</Directory>\n`;
+      } else {
+        const compId = `ZC${ids++}`;
+        const fileId = `ZF${ids++}`;
+        refs.push(compId);
+        const isLauncher = entry.name === launcherName;
+        const iconAttr = icoSrc ? ` Icon="ZtApp.ico"` : "";
+        const shortcutsXml = isLauncher
+          ? [
+              { id: "ZtStartMenu", dir: "ZtMenuDir" },
+              { id: "ZtDesktop", dir: "DesktopFolder" },
+            ]
+              .map(
+                (s) =>
+                  `${indent}  <Shortcut Id="${s.id}" Directory="${s.dir}" Name="${name}" Target="[#${fileId}]" WorkingDirectory="INSTALLDIR"${iconAttr} Advertise="no" />\n`,
+              )
+              .join("")
+          : "";
+        const compGuid = guidFor(relative(appDir, childAbs).replaceAll("\\", "/"));
+        xml += `${indent}<Component Id="${compId}" Guid="${compGuid}">\n`;
+        xml += `${indent}  <RegistryValue Root="HKCU" Key="${regKey}" Name="${compId}" Type="integer" Value="1" KeyPath="yes" />\n`;
+        xml += `${indent}  <File Id="${fileId}" Name="${esc(entry.name)}" Source="${esc(childAbs)}" />\n`;
+        xml += shortcutsXml;
+        xml += `${indent}</Component>\n`;
+      }
+    }
+    return xml;
+  };
+  const treeXml = emitTree(appDir, "INSTALLDIR", "        ");
+  const featureRefs = refs
+    .map((c) => `      <ComponentRef Id="${c}" />`)
+    .join("\n");
+
+  const wxs = join(dir, `${cfg.productName}.wxs`);
+  write(
+    wxs,
+    `<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated by ztron build (win32 flat layout) — candle + light (WiX v3). -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="${name}" Language="1033" Version="${esc(cfg.version)}"
+           Manufacturer="${name}" UpgradeCode="${upgradeCode}">
+    <Package InstallerVersion="500" Compressed="yes"
+             Description="${name}" />
+    <!-- Modern per-user context: ALLUSERS=2 + MSIINSTALLPERUSER=1 (v5+).
+         MSIINSTALLPERUSER alone is ignored; ALLUSERS=2 alone is the
+         legacy per-user context whose ARP entry lands under HKLM. -->
+    <Property Id="ALLUSERS" Value="2" />
+    <Property Id="MSIINSTALLPERUSER" Value="1" />
+    <MajorUpgrade Schedule="afterInstallValidate" AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+${icoSrc ? `    <Icon Id="ZtApp.ico" SourceFile="${esc(icoSrc)}" />\n    <Property Id="ARPPRODUCTICON" Value="ZtApp.ico" />\n` : ""}    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="INSTALLDIR" Name="${name}">
+${treeXml}
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ZtMenuDir" Name="${name}">
+          <Component Id="ZCMenuDir" Guid="*">
+            <RegistryValue Root="HKCU" Key="${regKey}" Name="menuDir"
+                           Type="integer" Value="1" KeyPath="yes" />
+            <RemoveFolder Id="ZtRmMenuDir" Directory="ZtMenuDir" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+    <Feature Id="Main" Level="1">
+      <ComponentRef Id="ZCMenuDir" />
+${featureRefs}
+    </Feature>
+  </Product>
+</Wix>
+`);
+
+  const artifactPath = join(dir, `${cfg.productName}_${cfg.version}.msi`);
+  const wix = findWix();
+  if (!wix) {
+    return {
+      type: "msi",
+      path: artifactPath,
+      built: false,
+      reason:
+        "WiX (candle/light) not found (install WiX v3, or set ZTRON_WIX to a directory with candle.exe+light.exe; .wxs emitted ready to build)",
+    };
+  }
+  const wixobj = join(dir, `${cfg.productName}.wixobj`);
+  const c = spawnSync(
+    wix.candle,
+    ["-nologo", "-arch", "x64", "-out", wixobj, wxs],
+    { encoding: "utf8" },
+  );
+  if (c.status !== 0) {
+    return {
+      type: "msi",
+      path: artifactPath,
+      built: false,
+      reason: ("candle failed: " + (c.stderr || c.stdout || "")).slice(-400),
+    };
+  }
+  const l = spawnSync(wix.light, ["-nologo", "-out", artifactPath, wixobj], {
+    encoding: "utf8",
+  });
+  if (l.status !== 0 || !existsSync(artifactPath)) {
+    return {
+      type: "msi",
+      path: artifactPath,
+      built: false,
+      reason: ("light failed: " + (l.stderr || l.stdout || "")).slice(-400),
+    };
+  }
+  const s = signWinArtifact(artifactPath);
+  return {
+    type: "msi",
+    path: artifactPath,
+    built: true,
+    reason: s.signed
+      ? undefined
+      : `built; signing skipped: ${s.reason ?? "unknown"}`,
   };
 }
 

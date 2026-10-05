@@ -586,6 +586,30 @@ if { [ -n "${ZTRON_MAKENSIS:-}" ] && [ -f "${ZTRON_MAKENSIS:-}" ]; } || \
 else
   step "packaged spike (win32): NSIS SKIPPED (no makensis on PATH / ZTRON_MAKENSIS)"
 fi
+
+# MSI leg (GAP H20): same gated shape as NSIS — WiX3 resolves via ZTRON_WIX
+# or `where candle`; light runs its full ICE validation (no -sval), so the
+# build itself is the assertion. Signing is not asserted here: with no cert
+# configured the bundle reports {signed:false, reason} and stays green
+# (mac signMac philosophy).
+if { [ -n "${ZTRON_WIX:-}" ] && [ -f "${ZTRON_WIX:-}/candle.exe" ]; } || \
+   { command -v where >/dev/null 2>&1 && where candle >/dev/null 2>&1; }; then
+  step "packaged spike (win32): MSI installer"
+  local CONF="$APP_DIR/ztron.conf.json"
+  cp "$CONF" "$CONF.bak"
+  node -e "const fs=require('fs');const c=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));c.bundle={targets:['msi']};fs.writeFileSync(process.argv[1],JSON.stringify(c,null,2)+'\n')" "$CONF"
+  if run_ztron_check "$APP_DIR" build > /tmp/ci-win-msi-build.log 2>&1; then
+    ls "$APP_DIR"/dist/msi/*.msi >/dev/null 2>&1 \
+      || { mv "$CONF.bak" "$CONF"; fail "MSI .msi missing (win32)"; }
+  else
+    tail -15 /tmp/ci-win-msi-build.log
+    mv "$CONF.bak" "$CONF"
+    fail "MSI build (win32)"
+  fi
+  mv "$CONF.bak" "$CONF"
+else
+  step "packaged spike (win32): MSI SKIPPED (no WiX candle on PATH / ZTRON_WIX)"
+fi
 }
 
 if [[ "$SKIP_PACKAGED" -eq 1 ]]; then

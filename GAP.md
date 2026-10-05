@@ -170,7 +170,7 @@
 
 | ID | 缺口 | 状态 |
 |----|------|------|
-| H20 | msi 仅 WiX 骨架（candle+light 未接）；无 Authenticode 签名（mac 有 codesign+notarize 全链 F5） | ☐ |
+| H20 | msi 仅 WiX 骨架（candle+light 未接）；无 Authenticode 签名（mac 有 codesign+notarize 全链 F5） | ✓ packMsiDir：WiX3 免安装 binaries（ZTRON_WIX→where candle→标准安装目录）；per-user MSI 严格 ICE 合规形状（HKCU RegistryValue KeyPath/非 advertised 快捷方式/RemoveFolder——light 全校验不 -sval）；装/卸/同版本重装/快捷方式真机验证；签名 signtool（ZTRON_SIGN_PFX/ZTRON_SIGN_THUMBPRINT+RFC3161 ZTRON_SIGN_TS_URL），无 cert→{signed:false, reason}；篡改副本 HashMismatch 证签名护内容 |
 | H21 | driver msedgedriver remote：spawn 表有，请求级转发待真机验证（VERIFY-LATER A1） | ☐ |
 | H22 | single-instance argv 恒 `[]`（第二实例参数不转发，上游 Windows 走命名管道） | ☐ |
 
