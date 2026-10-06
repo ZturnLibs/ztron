@@ -859,7 +859,8 @@ export class Window {
   }
 
   /**
-   * Sets the dock badge to arbitrary text (macOS only).
+   * Sets the badge to arbitrary text (macOS: dock badge · Windows: taskbar
+   * overlay icon on the main window).
    * `null`/`undefined`/`""` removes the badge.
    */
   async setBadgeLabel(badgeLabel: string | null): Promise<void> {
@@ -1105,7 +1106,7 @@ export enum Effect {
   LiquidGlassClear = "liquidGlassClear",
 }
 
-/** Effect active state (macOS only). */
+/** Effect active state (macOS vibrancy · Windows Mica/Acrylic backdrop). */
 export enum EffectState {
   FollowsWindowActiveState = -1,
   Active = 0,

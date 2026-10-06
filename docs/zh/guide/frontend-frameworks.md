@@ -408,4 +408,4 @@ svelte-demo 的 `listeners.ts` 模式封装。
 
 **深入：[示例](/start/examples) · [调用后端命令](/guide/ipc) · [CLI 参考](/reference/cli)**
 
-适用版本：`ztron 0.3.1`
+适用版本：`ztron 0.3.12`

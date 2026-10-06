@@ -66,4 +66,4 @@ await win.setSizeConstraints({ minWidth: 320, minHeight: 240 });
 
 None (pure frontend module).
 
-Applicable version: `ztron 0.3.1`
+Applicable version: `ztron 0.3.12`

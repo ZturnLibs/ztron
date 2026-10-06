@@ -165,4 +165,4 @@ icns/iconset/multi-size pngs), `ztron info` (print environment info),
 `ztron add <plugin>` (add a plugin to the project), and `ztron migrate`
 (migrate legacy configuration).
 
-适用版本：`ztron 0.3.1`
+适用版本：`ztron 0.3.12`

@@ -78,4 +78,4 @@ Windows/Linux 打包目标尚未提供，本页字段均以 macOS 行为为准�
 
 完整字段说明见[配置参考](/reference/config)。
 
-适用版本：`ztron 0.3.1`
+适用版本：`ztron 0.3.12`

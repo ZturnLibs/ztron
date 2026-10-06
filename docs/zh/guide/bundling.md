@@ -2,9 +2,9 @@
 title: 打包与分发
 ---
 
-`ztron build` 把应用产成可分发的产物：macOS 上是 `.app` 与 `.dmg`，
-其余平台目标是真实工具链消费的控制文件/清单骨架。本页以
-`packages/cli/src/index.ts` 的 `buildApp` 实际流程为准。
+`ztron build` 把应用产成可分发的产物：macOS 上是 `.app` 与 `.dmg`；
+Windows 上是扁平应用目录 + NSIS 与 MSI 安装包（支持 Authenticode 签名）。
+本页以 `packages/cli/src/index.ts` 的 `buildApp` 实际流程为准。
 
 ## ztron build 做了什么
 
@@ -23,9 +23,13 @@ title: 打包与分发
    dylib、现场编译 Mach-O launcher、拷贝前端产物与图标，然后
    codesign（见下）。
 
-macOS 之外（Linux/Windows）当前只做目录布局：Linux 为 `dist/<appName>/`，
-Windows 分支目前硬编码 `dist/ZtronApp/`（不随 `appName` 变化）；目录下放
-`ztron-host` + webview 库 + `frontend/`。
+macOS 之外，Windows 分支（`packWindowsApp`）组装扁平的 `dist/<appName>/`
+目录：`ztron-launcher.exe`（MSVC 编译的 GUI 子系统可执行文件；无 MSVC 时
+回退 `ztron-launcher.cmd`）、`ztron-host.exe`、WebView2 加载器库、
+`ffi-8.dll`、tjs 编译的 `ztron-backend.exe`、`frontend/` 与暂存的
+conf/capabilities——全部并排存放，因为 host 从自身目录解析
+`webview.dll`、后端从自身目录解析 `ffi-8.dll`。Linux 目前仍只产出
+`dist/<appName>/` 目录布局。
 
 ## .app 结构
 
@@ -56,6 +60,26 @@ staging 目录放入 `.app` 与指向 `/Applications` 的符号链接（经典�
 安装布局），再以 `hdiutil create -format UDZO`（zlib 压缩）制成镜像，
 卷名即应用名。
 
+## Windows 安装包（NSIS / MSI）
+
+`bundle.targets` 含 `nsis` 和/或 `msi` 时，`packWindowsApp` 把扁平目录
+交给对应 packer：
+
+- **NSIS**（`packNsisDir`）：产出完整 `.nsi`（per-user 安装、开始菜单与
+  桌面快捷方式指向 launcher、卸载器、带 bundle 图标的"添加/删除程序"
+  条目），并在找到 `makensis` 时直接运行（`ZTRON_MAKENSIS` 可覆盖；会
+  探测 `where makensis` 与标准 `Program Files` 位置）。脚本以带 BOM 的
+  UTF-8 写出，CJK 产品名不会乱码。
+- **MSI**（`packMsiDir`）：产出完整 `.wxs`（per-user 安装到
+  `%LOCALAPPDATA%`、递归组件树、快捷方式、HKCU"添加/删除程序"条目），
+  并在找到 `candle + light` 时直接运行（`ZTRON_WIX` 指向 WiX v3
+  binaries 目录；WiX v4 的单一 `wix build` 命令不在此列）。UpgradeCode
+  由 bundle identifier 确定性派生，跨版本升级原位替换文件，无需额外
+  配置。
+
+本机没有对应工具链时，packer 仍会写出可直接运行的脚本/定义并报告
+`built:false` 与确切原因，而不是静默失败。
+
 ## bundle.* 配置
 
 全字段表见[配置参考](/reference/config)。与 build 行为直接相关的：
@@ -64,27 +88,31 @@ staging 目录放入 `.app` 与指向 `/Applications` 的符号链接（经典�
 | --- | --- |
 | `bundle.active` | 是否启用打包步骤（声明性字段；当前 build 流程未读取该开关，总是执行打包） |
 | `bundle.targets` | 额外打包目标：`"all"` 或 `nsis/msi/appimage/deb/rpm`（数组或逗号分隔字符串） |
-| `bundle.icon` | PNG 路径，供 portable packers 使用（`.app` 的 AppIcon.icns 当前取 CLI 自带的 `assets/app-icon.png`） |
+| `bundle.icon` | PNG 路径，供 portable packers 使用（`.app` 的 AppIcon.icns 当前取 CLI 自带的 `assets/app-icon.png`；Windows 上 `.ico` 条目供 NSIS/MSI 安装包图标使用） |
 | `bundle.resources` | 随包分发的附加资源 |
 
-`targets` 的 Windows/Linux 目标由各 packer 生成真实工具链消费的控制
-文件/脚本（`.nsi`、`.wxs`、AppDir、`DEBIAN/`、`.spec`）；本机没有对应
-工具链时报告 `built:false` 与确切原因，而不是静默失败。注意 hello
-示例的 `ztron.conf.json` 目前没有 `bundle` 段——不配置时 build 照常
-产出 `.app` + `.dmg`，`targets` 只影响附加产物。`.app` 名取 `appName`
-（缺省 `ZtronApp`，去除空白与非常规字符）；packers 的 productName 取
-`productName ?? appName`。
+`targets` 的 Linux 目标由各 packer 生成真实工具链消费的控制文件/脚本
+（AppDir、`DEBIAN/`、`.spec`）；Windows 的 `nsis`/`msi` packer 在工具链
+存在时直接运行真实工具链（如上所述）。注意 hello 示例的
+`ztron.conf.json` 目前没有 `bundle` 段——不配置时 build 照常产出
+`.app` + `.dmg`（macOS）或扁平目录（Windows），`targets` 只影响附加
+产物。`.app` 名取 `appName`（缺省 `ZtronApp`，去除空白与非常规字符）；
+packers 的 productName 取 `productName ?? appName`。
 
 ## 签名现状
 
-- **ad-hoc 签名：已自动。** `ZTRON_SIGN_IDENTITY` 未设置时以 `-` 为
-  identity：先签 `MacOS/ztron-host`，再签整个 bundle——产物在本机可
+- **macOS ad-hoc 签名：已自动。** `ZTRON_SIGN_IDENTITY` 未设置时以 `-`
+  为 identity：先签 `MacOS/ztron-host`，再签整个 bundle——产物在本机可
   直接运行，无 Gatekeeper 弹窗。
 - **Developer ID 签名与公证：未完成。** 代码路径（`macSignAndNotarize`，
   环境变量 `ZTRON_SIGN_IDENTITY` / `ZTRON_NOTARY_APPLE_ID` /
-  `ZTRON_NOTARY_TEAM_ID`）已写，但尚未在真实 Apple 开发者身份下验证；
-  仓库 README 的 Remaining 一节如实列有 "Developer ID signing /
-  notarization"（见 <https://github.com/ZturnLibs/ztron#readme>）。
+  `ZTRON_NOTARY_TEAM_ID`）已写，但尚未在真实 Apple 开发者身份下验证。
   分发到其他机器仍需自行完成 Developer ID 签名与公证。
+- **Windows Authenticode：已支持。** NSIS/MSI 打包完成后，
+  `signWinArtifact` 在配置了证书时用 `signtool` 签名安装包：
+  `ZTRON_SIGN_PFX`（+ `ZTRON_SIGN_PASSWORD`）或证书库 SHA1 指纹
+  `ZTRON_SIGN_THUMBPRINT`；`ZTRON_SIGN_TS_URL` 附加 RFC3161 时间戳。
+  `signtool` 经 `ZTRON_SIGNTOOL`、`where signtool` 或 Windows Kits 目录
+  定位。未配置证书时产物不签名并报告确切原因。
 
-适用版本：`ztron 0.3.1`
+适用版本：`ztron 0.3.12`

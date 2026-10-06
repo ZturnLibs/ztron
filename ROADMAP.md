@@ -20,8 +20,8 @@
 | 插件生态          | ~30 官方插件                                                               | 25 插件                             | 小   | plugins/*          | core+api TS  |
 | 配置              | tauri.conf.json schema + CSP + capabilities                                | 手写 TS                             | 中   | tauri-utils        | CLI          |
 | 打包              | 7 格式+签名+updater+图标                                                   | macOS .app/.dmg/签名/公证/updater/图标;Windows 目录+NSIS+updater;Linux 骨架 | 中   | tauri-bundler      | CLI+平台脚本 |
-| 测试              | tauri-driver/WebDriver + mock runtime                                      | MockRuntime + 三层覆盖率            | 中   | tauri-driver       | CLI+core     |
-| 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 开发链+NSIS 打包已打通(预编译链待发布) | 很大 | -                  | C+core       |
+| 测试              | tauri-driver/WebDriver + mock runtime                                      | MockRuntime + 三层覆盖率 + ztron-driver（tauri-driver 平价，v0.3.12 已发布；Windows msedgedriver 真机双腿） | 小   | tauri-driver       | CLI+core     |
+| 平台              | Win/Linux/Android/iOS                                                      | macOS 完整;Windows 全能力(平台审计 22 项收官:效果/拖放/深链/权限/主题/通知/菜单/托盘事件族/badge/grab/背景色/single-instance)+NSIS/MSI 打包+Authenticode 签名;Linux 骨架 CI 编译过(runtimes 待真机);移动=P-M0 起步 | 大   | -                  | C+core       |
 
 ## 2. 关键架构决策
 
@@ -73,7 +73,7 @@
 - [x] macOS ad-hoc 签名 + versioned dylib 打包修复 + 图标
 - [x] host 跨平台重构(core + host_platform.{macos,windows,linux})已交付
 - [x] Windows 编译验证(0.3.8:vcpkg libffi 工具链;hello/multiwin/menuprobe spike 本机全绿 `FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`)
-- [x] Windows NSIS 打包 + CI 矩阵接入(0.3.8/0.3.9:NSIS 整目录安装器 + bundle.icon 的 .ico 贯通安装向导/快捷方式/卸载列表 + launcher 编译 + flat 目录本机端到端;CI windows-spike 全链门禁含 packaged e2e(dispatch 触发);遗留:msi 仅 WiX 骨架、无 Authenticode 签名)
+- [x] Windows NSIS 打包 + CI 矩阵接入(0.3.8/0.3.9:NSIS 整目录安装器 + bundle.icon 的 .ico 贯通安装向导/快捷方式/卸载列表 + launcher 编译 + flat 目录本机端到端;CI windows-spike 全链门禁含 packaged e2e(dispatch 触发);后续收官:MSI(WiX 完整实现,确定性 UpgradeCode)+ Authenticode 签名(ZTRON_SIGN_PFX/THUMBPRINT/TS_URL))
 - [ ] Linux 编译验证 + AppImage 打包(需目标平台;打包骨架已在 bundler.ts)
 - [ ] 移动端(Android WebView / iOS WKWebView)——**方案已定**(docs/superpowers/specs/2026-10-03-mobile-platform-design.md):iOS 先行,分 P-M0 尖峰(tjs 交叉编译/单进程嵌入)→P-M1 iOS 纵切→P-M2 iOS CLI→P-M3/4 Android→P-M5 插件激活→P-M6 收尾;ztron 优势=TS 后端命令面零改动跨端,硬骨头=tjs 移动编译(FFI!)与 webview C API 移动 shim
 
@@ -132,10 +132,10 @@
 | 项                                                                                        | 原因                                     |
 | ----------------------------------------------------------------------------------------- | ---------------------------------------- |
 | Linux 编译 + AppImage/deb/rpm 验证                                                        | 需目标平台(打包骨架已就绪)              |
-| Windows msi(WiX 完整实现)+ Authenticode 签名                                              | 骨架已有,工具链待接入                   |
+| ~~Windows msi(WiX 完整实现)+ Authenticode 签名~~                                          | ✅ 已完成(packMsiDir + signWinArtifact) |
 | 移动端 + 移动/硬件插件运行时(barcode/biometric/haptics/nfc/geolocation 的 API 面与命令注册已就位,桌面 fail-closed) | 整个构建链未启动                         |
 | fps / server 插件                                                                            | 需原生绑定/偏门                          |
-| tauri-driver/WebDriver 集成测试                                                           | 未实现(用 MockRuntime+spike 替代)        |
+| ~~tauri-driver/WebDriver 集成测试~~                                                       | ✅ 已完成(ztron-driver,tauri-driver 平价,v0.3.12 已发布) |
 | IPC 二进制通道(原记 MessagePack)                                                         | ✅ 已纠偏并对齐(DESIGN §91)             |
 
 ## 6. Tauri 2.12 对齐状态(2026-10-03,基准 tauri 2.12.1 / 30da1fd6e)
