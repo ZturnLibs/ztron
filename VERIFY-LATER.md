@@ -43,11 +43,10 @@
 - **四向互测全绿**：①真 minisign 签名 → 我们验证 ✓；②我们解析真 -W 密钥+签名 → 真 minisign 验证 ✓；③真 minisign 加密密钥 → 我们 scrypt 解密（pickparams 语义对齐，9.2s）→ 签名 → 真 minisign 验证 ✓；④我们写入的加密密钥 → 真 minisign 解密签名 ✓
 - **修复两个真 bug**：-W 密钥 chk 全零（上游只在密码路径算校验和）；opslimit/memlimit 槽的 libsodium pickparams 语义 + 循环退出值 off-by-one
 
-### B3. 全包重发布（GitHub Packages + npmjs）
-- **就绪内容（本机已尽）**：publish.yml 双通道流水线（GPR restricted + npmjs public）11 包拓扑序全含 driver（b95f927 入清单）；driver bin shebang 链完好（src→dist 保留，npm Unix shim 依赖）、--help/--version 早退路径（装而未配机型的标准 bin UX）+ 单测 spawn dist 断言（driver-proxy 6/6）；smoke-npm 新增 driver bin 腿（--version + --help grep，无需 native remote）；全包 `npm pack --dry-run` 本地循环全绿（publish.yml 同款命令）；版本 11 包齐 0.3.9
-- **所需**：GitHub Actions 额度恢复（smoke-npm 需真实发布后才有包可装）
-- **验证方法**：打 tag `v0.3.9` 触发
-- **判定**：`@zturnlibs/ztron-driver@0.3.9` 出现在 Packages/npmjs；smoke-npm 三腿全绿（CLI doctor/init/build + driver bin）
+### ~~B3. 全包重发布（GitHub Packages + npmjs）~~ —— 已完成（2026-10-06，v0.3.10→v0.3.12 三连发）
+- **发布结果**：双通道（GPR restricted + npmjs public）11 包齐发布。v0.3.10 首发（npmjs 一次全绿；GPR 首跑 unit tests 红后幂等 dispatch 补齐）→ v0.3.11（driver bin stdout flush 修复）→ **v0.3.12（driver bin POSIX 全链可用版，当前 latest）**。smoke 三腿：doctor 7/7 + init/build/dmg 历轮全绿；driver bin 腿（--version/--help）于 v0.3.12 起真绿
+- **发布过程揪出的真缺陷（全部已修）**：①capability rewrite 测试按宿主平台断言缺 linux/darwin 分支（ubuntu/macos unit 存量红，H21 引入）；②driver `--version/--help` write 后立即 process.exit 在 POSIX pipe 丢 stdout（Windows 同步写掩护）；③CLI 入口探针 `import.meta.url === pathToFileURL(argv[1])` 在 macOS/Linux npm **symlink** shim 下永假——bin 静默无效（0.3.10/0.3.11 带病），v0.3.12 改 realpath 双侧比较；④windows-latest 镜像切 VS2026 后 WebView2.h 不再在默认 INCLUDE（MSVC 腿改从 webview build 的 FetchContent _deps 自包含解析）+ MSVC 腿漏 apply webview-local.patch（permission API 原型）；⑤publish 四步幂等化（npm view 预检 skip，重跑不再 E409）+ smoke pin 刚发布版本 + 20×20s CDN 传播预算
+- **发布流水线现状**：tag `v*` 或 workflow_dispatch 触发；publish-npm 输出发布版本号供 smoke 精确验证"本次发布的版本"；全流程可安全重跑
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
 
