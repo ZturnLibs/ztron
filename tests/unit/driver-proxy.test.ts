@@ -58,12 +58,24 @@ test("capability rewrite: tauri:options -> ms:edgeOptions (win32 shape)", () => 
     };
     assert.equal(gtk.binary, "C:\\apps\\hello\\ztron-host");
     assert.deepEqual(gtk.args, ["-x"]);
+  } else {
+    // darwin: no native WebDriver remote (upstream parity) — the rewrite
+    // strips tauri:options and injects nothing.
+    assert.ok(
+      !("ms:edgeOptions" in am) && !("webkitgtk:browserOptions" in am),
+    );
+    assert.ok(
+      !("ms:edgeChromium" in out.desiredCapabilities) &&
+        !("webkitgtk:browserOptions" in out.desiredCapabilities),
+    );
   }
   // legacy bucket mirrors the same native object
   assert.ok(!("tauri:options" in out.desiredCapabilities));
   assert.ok(
     "ms:edgeChromium" in out.desiredCapabilities ||
-      "webkitgtk:browserOptions" in out.desiredCapabilities,
+      "webkitgtk:browserOptions" in out.desiredCapabilities ||
+      // darwin: nothing was injected anywhere
+      process.platform === "darwin",
   );
 });
 
@@ -185,10 +197,18 @@ test("ztron-driver relays sessions to the native remote end-to-end", async (t) =
   assert.equal(ns.status, 200);
   const am = ns.json.value.capabilities.alwaysMatch as Record<string, unknown>;
   assert.ok(!("tauri:options" in am));
-  assert.ok(
-    "ms:edgeOptions" in am || "webkitgtk:browserOptions" in am,
-    `native options missing: ${JSON.stringify(am)}`,
-  );
+  if (process.platform === "darwin") {
+    // no native remote on darwin (upstream parity): tauri:options is
+    // stripped, nothing is injected — the relay itself is still exercised.
+    assert.ok(
+      !("ms:edgeOptions" in am) && !("webkitgtk:browserOptions" in am),
+    );
+  } else {
+    assert.ok(
+      "ms:edgeOptions" in am || "webkitgtk:browserOptions" in am,
+      `native options missing: ${JSON.stringify(am)}`,
+    );
+  }
 
   // Arbitrary commands forward untouched (method + path + body).
   const echo = await call("POST", "/session/fake-1/url", {

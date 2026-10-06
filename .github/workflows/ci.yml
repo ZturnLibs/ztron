@@ -112,12 +112,22 @@ jobs:
       # host.c is POSIX-thread/socket-structured (pthread/ssize_t/select);
       # its Windows port (winsock threads) is future work. This job
       # validates the platform implementation file itself.
+      # WebView2.h comes from the SDK the webview build just fetched via
+      # FetchContent (NuGet layout:
+      # _deps/microsoft_web_webview2-src/build/native/include). The
+      # windows-latest image used to carry the header on its default
+      # INCLUDE; the VS2026 images no longer do — resolve it from _deps.
+      # bash shell + -D (not /D): MSYS would rewrite a /D... argument into
+      # a Git install path.
       - name: compile host_windows.c (syntax check)
-        shell: cmd
+        shell: bash
         run: |
-          cl -nologo -Zs -W4 -WX /D_CRT_SECURE_NO_WARNINGS ^
-            -I native\webview\core\include ^
-            native\host\host_windows.c
+          W2H=$(find native/webview/build/_deps -name WebView2.h -print -quit)
+          test -n "$W2H" || { echo "WebView2.h not found under _deps"; exit 1; }
+          cl -nologo -Zs -W4 -WX -D_CRT_SECURE_NO_WARNINGS \
+            -I "$(dirname "$W2H")" \
+            -I native/webview/core/include \
+            native/host/host_windows.c
 
   # Manual-only: each run costs ~25 macos-runner minutes; local
   # `bash scripts/ci.sh` is the routine full-chain gate. macos free-tier
