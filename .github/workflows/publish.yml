@@ -143,8 +143,14 @@ jobs:
     name: publish @zturnlibs/ztron-* to npmjs (public)
     needs: native-darwin-arm64
     runs-on: ubuntu-latest
+    # The exact version this run published — smoke pins it so the CDN
+    # propagation window can't silently install the PREVIOUS release.
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - id: ver
+        run: echo "version=$(node -e "console.log(require('./packages/api/package.json').version)")" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v4
         with:
           version: 9.15.4
@@ -222,10 +228,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: install CLI (retry for registry propagation)
+      - name: install CLI (pin published version; wait for CDN propagation)
         run: |
-          for i in 1 2 3 4 5; do
-            if npm i -g @zturnlibs/ztron-cli; then exit 0; fi
+          V="${{ needs.publish-npm.outputs.version }}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if npm i -g "@zturnlibs/ztron-cli@$V"; then exit 0; fi
             echo "retry $i"; sleep 20
           done
           exit 1
@@ -256,10 +263,11 @@ jobs:
           pkill -f ztron-host || true
       - name: driver bin smoke (--version/--help; no native remote needed)
         run: |
-          for i in 1 2 3 4 5; do
-            if npm i -g @zturnlibs/ztron-driver; then break; fi
+          V="${{ needs.publish-npm.outputs.version }}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if npm i -g "@zturnlibs/ztron-driver@$V"; then break; fi
             echo "retry $i"; sleep 20
           done
-          npm ls -g @zturnlibs/ztron-driver || exit 1
+          npm ls -g "@zturnlibs/ztron-driver@$V" || exit 1
           ztron-driver --version
           ztron-driver --help | grep -q -- "--native-driver"
