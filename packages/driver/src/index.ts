@@ -24,7 +24,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export interface DriverOptions {
@@ -343,13 +343,25 @@ export function startDriver(options: DriverOptions = {}): Promise<DriverServer> 
 }
 
 /** CLI entry: run only when this module IS the entry (bin shim / direct
- * node invocation). The old `argv[1].endsWith("driver")` probe never
- * matched the real bin layout — the shim execs `node dist/index.js`, so
- * argv[1] is the file itself; the CLI silently did nothing. */
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+ * node invocation). The shim layouts differ per platform: Windows npm
+ * writes a .cmd that execs `node <real>\dist\index.js` (argv[1] IS the
+ * file), while macOS/Linux npm SYMLINKs the bin — argv[1] is the symlink
+ * path while node resolves the ESM entry to its real path, so a plain
+ * URL equality never matches and the CLI silently did nothing (0.3.10/
+ * 0.3.11 on POSIX). Compare through realpath on both sides. */
+function isCliEntry(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    if (import.meta.url === pathToFileURL(realpathSync(entry)).href) {
+      return true;
+    }
+  } catch {
+    /* entry vanished / unreadable — fall through to the literal compare */
+  }
+  return import.meta.url === pathToFileURL(entry).href;
+}
+if (isCliEntry()) {
   const argVal = (name: string): string | undefined => {
     const i = process.argv.indexOf(name);
     return i >= 0 ? process.argv[i + 1] : undefined;
