@@ -1,6 +1,6 @@
 {
   "name": "@zturnlibs/tjs-types",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "description": "TypeScript types for the txiki.js (tjs) runtime, synced from the txiki.js checkout ztron builds against, plus ambient additions for pure-ES2022 consumers",
   "type": "module",
   "types": "./src/ztron.d.ts",
