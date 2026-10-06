@@ -74,8 +74,18 @@ jobs:
         with:
           name: ztron-darwin-arm64-tgz
           path: /tmp/native-tgz
+      # Idempotent: re-runs after a partial publish (e.g. a unit-test
+      # failure downstream) must not die on E409 cannot-publish-over.
       - name: publish native platform package
-        run: npm publish /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz --access restricted --tag latest
+        run: |
+          tgz=$(ls /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz)
+          meta=$(tar -xzOf "$tgz" package/package.json)
+          pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+          if npm view "$pkg" version >/dev/null 2>&1; then
+            echo "--- $pkg already published, skipping"
+          else
+            npm publish "$tgz" --access restricted --tag latest || exit 1
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: install
@@ -112,9 +122,17 @@ jobs:
           cat /tmp/tgz/order.txt
       # setup-node's .npmrc embeds the ${NODE_AUTH_TOKEN} placeholder —
       # the token must come from this step's env or every PUT is E401.
+      # Idempotent: skip tarballs whose exact name@version is already in
+      # the registry (re-run after a partial publish).
       - name: publish tarballs to GitHub Packages
         run: |
           while IFS= read -r tgz; do
+            meta=$(tar -xzOf "$tgz" package/package.json)
+            pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+            if npm view "$pkg" version >/dev/null 2>&1; then
+              echo "--- $pkg already published, skipping"
+              continue
+            fi
             echo "--- publishing $tgz"
             npm publish "$tgz" --access restricted --tag latest || exit 1
           done < /tmp/tgz/order.txt
@@ -144,8 +162,18 @@ jobs:
         with:
           name: ztron-darwin-arm64-tgz
           path: /tmp/native-tgz
+      # Idempotent, same deal as the GitHub Packages job: re-runs must
+      # tolerate an already-published name@version (E409) instead of dying.
       - name: publish native platform package
-        run: npm publish /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz --access public --tag latest
+        run: |
+          tgz=$(ls /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz)
+          meta=$(tar -xzOf "$tgz" package/package.json)
+          pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+          if npm view "$pkg" version >/dev/null 2>&1; then
+            echo "--- $pkg already published, skipping"
+          else
+            npm publish "$tgz" --access public --tag latest || exit 1
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: install
@@ -169,9 +197,17 @@ jobs:
             echo "/tmp/tgz/$tgz" >> /tmp/tgz/order.txt
           done
           cat /tmp/tgz/order.txt
+      # Idempotent: skip tarballs whose exact name@version is already in
+      # the registry (re-run after a partial publish).
       - name: publish tarballs to npmjs (public scoped)
         run: |
           while IFS= read -r tgz; do
+            meta=$(tar -xzOf "$tgz" package/package.json)
+            pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+            if npm view "$pkg" version >/dev/null 2>&1; then
+              echo "--- $pkg already published, skipping"
+              continue
+            fi
             echo "--- publishing $tgz"
             npm publish "$tgz" --access public --tag latest || exit 1
           done < /tmp/tgz/order.txt

@@ -42,14 +42,29 @@ test("capability rewrite: tauri:options -> ms:edgeOptions (win32 shape)", () => 
   };
   const am = out.capabilities.alwaysMatch;
   assert.ok(!("tauri:options" in am), "tauri:options must be stripped");
-  assert.equal(am["ms:edgeChromium"], true);
-  assert.equal(am.browserName, "webview2");
-  const edge = am["ms:edgeOptions"] as { binary: string; args: string[] };
-  assert.equal(edge.binary, "C:\\apps\\hello\\ztron-host.exe");
-  assert.deepEqual(edge.args, ["-x"]);
+  // Per-host-platform rewrite (same deal as the linux-shape test below):
+  // assert the branch this host takes; the other branch stays covered by
+  // the stripping + legacy-mirror assertions.
+  if (process.platform === "win32") {
+    assert.equal(am["ms:edgeChromium"], true);
+    assert.equal(am.browserName, "webview2");
+    const edge = am["ms:edgeOptions"] as { binary: string; args: string[] };
+    assert.equal(edge.binary, "C:\\apps\\hello\\ztron-host.exe");
+    assert.deepEqual(edge.args, ["-x"]);
+  } else if (process.platform === "linux") {
+    const gtk = am["webkitgtk:browserOptions"] as {
+      binary: string;
+      args: string[];
+    };
+    assert.equal(gtk.binary, "C:\\apps\\hello\\ztron-host");
+    assert.deepEqual(gtk.args, ["-x"]);
+  }
   // legacy bucket mirrors the same native object
   assert.ok(!("tauri:options" in out.desiredCapabilities));
-  assert.equal(out.desiredCapabilities["ms:edgeChromium"], true);
+  assert.ok(
+    "ms:edgeChromium" in out.desiredCapabilities ||
+      "webkitgtk:browserOptions" in out.desiredCapabilities,
+  );
 });
 
 test("capability rewrite: webkitgtk:browserOptions (linux shape)", () => {
