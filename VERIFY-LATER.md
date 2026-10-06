@@ -41,11 +41,13 @@
 
 ### ~~B2. 真·minisign 工具互测~~ —— 已完成（DESIGN §124；2026-09-02 复证四向全绿）
 - **四向互测全绿**：①真 minisign 签名 → 我们验证 ✓；②我们解析真 -W 密钥+签名 → 真 minisign 验证 ✓；③真 minisign 加密密钥 → 我们 scrypt 解密（pickparams 语义对齐，9.2s）→ 签名 → 真 minisign 验证 ✓；④我们写入的加密密钥 → 真 minisign 解密签名 ✓
-- **修复两个真 bug**：-W 密钥 chk 全零（上游只在密码路径算校验和）；opslimit/memlimit 槽的 libsodium pickparams 语义 + 循环退出值 off-by-one### B3. GitHub Packages 重发布
-- **就绪内容**：publish.yml 五包拓扑序流水线（0.1.0 已发成功过）；本会话新增 driver 包待入 publish 清单
-- **所需**：GitHub Actions 额度恢复
-- **验证方法**：打 tag `v*` 触发
-- **判定**：`@zturnlibs/ztron-driver@0.1.0` 出现在 Packages
+- **修复两个真 bug**：-W 密钥 chk 全零（上游只在密码路径算校验和）；opslimit/memlimit 槽的 libsodium pickparams 语义 + 循环退出值 off-by-one
+
+### B3. 全包重发布（GitHub Packages + npmjs）
+- **就绪内容（本机已尽）**：publish.yml 双通道流水线（GPR restricted + npmjs public）11 包拓扑序全含 driver（b95f927 入清单）；driver bin shebang 链完好（src→dist 保留，npm Unix shim 依赖）、--help/--version 早退路径（装而未配机型的标准 bin UX）+ 单测 spawn dist 断言（driver-proxy 6/6）；smoke-npm 新增 driver bin 腿（--version + --help grep，无需 native remote）；全包 `npm pack --dry-run` 本地循环全绿（publish.yml 同款命令）；版本 11 包齐 0.3.9
+- **所需**：GitHub Actions 额度恢复（smoke-npm 需真实发布后才有包可装）
+- **验证方法**：打 tag `v0.3.9` 触发
+- **判定**：`@zturnlibs/ztron-driver@0.3.9` 出现在 Packages/npmjs；smoke-npm 三腿全绿（CLI doctor/init/build + driver bin）
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
 

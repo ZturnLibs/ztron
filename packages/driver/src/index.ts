@@ -24,7 +24,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export interface DriverOptions {
@@ -354,6 +354,32 @@ if (
     const i = process.argv.indexOf(name);
     return i >= 0 ? process.argv[i + 1] : undefined;
   };
+  /* --help/--version exit before any remote lookup: an installed-but-
+     unconfigured machine (no msedgedriver/WebKitWebDriver) still gets the
+     standard bin UX, and the publish smoke can verify the bin shim alone. */
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    process.stdout.write(
+      "ztron-driver — WebDriver intermediary for Ztron apps (W3C relay)\n" +
+        "\n" +
+        "Usage: ztron-driver [options]\n" +
+        "\n" +
+        "  --port <n>           client-facing W3C port (default 4444; ZTRON_DRIVER_PORT)\n" +
+        "  --native-port <n>    native remote port (default 4445; ZTRON_DRIVER_NATIVE_PORT)\n" +
+        "  --native-driver <p>  explicit remote binary (default: platform lookup;\n" +
+        "                       ZTRON_NATIVE_DRIVER — also the hook for custom/fake remotes)\n" +
+        "\n" +
+        "Request a session with \"tauri:options\" capabilities; see the package\n" +
+        "README for the wire contract and platform matrix.\n",
+    );
+    process.exit(0);
+  }
+  if (process.argv.includes("--version") || process.argv.includes("-v")) {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { version: string };
+    process.stdout.write(`${pkg.version}\n`);
+    process.exit(0);
+  }
   void (async () => {
     try {
       const server = await startDriver({

@@ -218,3 +218,12 @@ jobs:
           pgrep -f ztron-backend >/dev/null || { echo "backend never started"; cat /tmp/launch.log; exit 1; }
           pkill -f ztron-backend || true
           pkill -f ztron-host || true
+      - name: driver bin smoke (--version/--help; no native remote needed)
+        run: |
+          for i in 1 2 3 4 5; do
+            if npm i -g @zturnlibs/ztron-driver; then break; fi
+            echo "retry $i"; sleep 20
+          done
+          npm ls -g @zturnlibs/ztron-driver || exit 1
+          ztron-driver --version
+          ztron-driver --help | grep -q -- "--native-driver"

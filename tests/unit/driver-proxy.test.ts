@@ -232,3 +232,27 @@ test("relay re-frames chunked request bodies (no framing conflict)", async (t) =
   );
   assert.equal(st.status, 200, `chunked relay failed: ${st.text}`);
 });
+
+test("bin entry: --version/--help exit before any remote lookup", async () => {
+  const { spawn } = await import("node:child_process");
+  const bin = fileURLToPath(
+    new URL("../../packages/driver/dist/index.js", import.meta.url),
+  );
+  const run = (args: string[]) =>
+    new Promise<{ code: number; out: string }>((resolve, reject) => {
+      const p = spawn(process.execPath, [bin, ...args]);
+      let out = "";
+      p.stdout.on("data", (c) => (out += c));
+      p.on("error", reject);
+      p.on("exit", (code) => resolve({ code: code ?? -1, out }));
+    });
+  const v = await run(["--version"]);
+  assert.equal(v.code, 0);
+  assert.match(v.out, /^\d+\.\d+\.\d+\n$/, "--version prints the pkg version");
+  const h = await run(["--help"]);
+  assert.equal(h.code, 0);
+  assert.match(h.out, /--native-driver/, "--help documents the flag set");
+  /* no flags → tries to start for real; -v/-h variants must not */
+  const vShort = await run(["-v"]);
+  assert.match(vShort.out, /^\d+\.\d+\.\d+\n$/, "-v behaves like --version");
+});
