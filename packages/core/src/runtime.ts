@@ -540,6 +540,9 @@ export interface ImageController {
   fromBytes(base64: string): Promise<number>;
   /** Loads an image from a file path and returns its id (-1 on failure). */
   fromPath(path: string): Promise<number>;
+  /** Loads the app's embedded Windows icon resource (id 32512) —
+   *  Windows-only, -1 elsewhere (tauri Image::from_app_icon_resource). */
+  fromAppIconResource?(): Promise<number>;
   /** Releases a registered image. */
   destroy(id: number): void;
   /** Host-decoded RGBA pixels (b64) for PNG/path-loaded images. */
@@ -557,6 +560,9 @@ export interface ApplicationController {
   hide(): void;
   /** Toggles the Dock icon (macOS activation policy Regular/Accessory). */
   setDockVisibility(visible: boolean): void;
+  /** Activates the app even if another app is active (macOS; no-op
+   *  elsewhere). Tauri Builder::activate_ignoring_other_apps. */
+  activateIgnoringOtherApps(): void;
 }
 
 /** Webview permission interception (tauri on_permission_request). */

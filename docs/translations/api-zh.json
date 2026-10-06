@@ -1789,5 +1789,11 @@
   },
   "window.Effects.interactive": {
     "summary": "液态玻璃交互性(macOS 27+;其他平台忽略)。"
+  },
+  "core.Resource.[asyncDispose]": {
+    "summary": "支持 `await using`（ECMAScript 显式资源管理）：作用域结束自动释放，路径与 close() 相同。"
+  },
+  "image.Image.fromAppIconResource": {
+    "summary": "加载应用内嵌的 Windows 图标资源（资源 id 32512，即 NSIS/WiX 安装器使用的图标）。仅 Windows；其他平台抛错。"
   }
 }

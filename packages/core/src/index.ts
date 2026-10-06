@@ -144,6 +144,11 @@ export type {
   PermissionWireRequest,
 } from "./permissions.js";
 export type { PermissionController } from "./runtime.js";
+export type {
+  AppDirectoriesOverride,
+  AppDirectoryOverrides,
+} from "./plugins/path.js";
+export { resolveAppDirs } from "./plugins/path.js";
 export { StateManager } from "./state.js";
 export {
   PermissionRegistry,

@@ -2,7 +2,7 @@
 
 来源：`packages/core/src/app.ts` 的 `ProjectConfigFile` 接口，由 `pnpm --dir docs run gen:config` 生成——请勿手改（漂移由 `gen:config:check` 把关）。未知顶层键不会被拒绝：校验时告警并原样保留，对应下表的 `[key: string]` 索引签名。
 
-共 40 行：top 16 · build 5 · app 2 · app.security 6 · bundle 11。
+共 41 行：top 16 · build 5 · app 3 · app.security 6 · bundle 11。
 
 ## 顶层字段（16 项）
 
@@ -35,12 +35,13 @@
 | `build.beforeBuildCommand?` | `string` | 构建前执行的构建钩子命令 |
 | `build.beforeBundleCommand?` | `string` | 打包前执行的构建钩子命令 |
 
-## app（2 项）
+## app（3 项）
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `app.withGlobalTauri?` | `boolean` | 全局 API 注入开关（在页面 `window` 上暴露内部 API） |
 | `app.macOSPrivateApi?` | `boolean` | 启用 macOS 私有 API |
+| `app.appDirectoriesOverride?` | `string \| { config?: string; data?: string; localData?: string; cache?: string; log?: string; }` | 覆盖 app_* 路径 API 返回的目录（便携应用）：传一个根目录字符串（config/data/localData 解析到该目录，cache 到 `<根>/caches`，log 到 `<根>/logs`），或按 `{config,data,localData,cache,log}` 逐项覆盖。路径首段可用 `$HOME`、`$DATA` 等 13 个基础目录变量（白名单与 Tauri 一致）。 |
 
 ## app.security（6 项）
 

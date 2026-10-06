@@ -68,6 +68,12 @@ test("window commands route to the handle", async () => {
   }
   assert.deepEqual(w.opacityLog, [0.5]);
 
+  await mock.main.invoke("plugin:app|activate_ignoring_other_apps", {});
+  assert.deepEqual(
+    mock.appLifecycleLog.filter((l) => l.kind === "activate-ignoring").length,
+    1,
+  );
+
   await mock.main.invoke("plugin:window|set_fullscreen_on_monitor", {
     position: { x: -1920, y: 0 },
   });

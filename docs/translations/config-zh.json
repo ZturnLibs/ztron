@@ -38,5 +38,6 @@
   "bundle.shortDescription": "简短描述",
   "bundle.longDescription": "详细描述",
   "bundle.copyright": "版权信息",
-  "bundle.license": "许可证"
+  "bundle.license": "许可证",
+  "app.appDirectoriesOverride": "覆盖 app_* 路径 API 返回的目录（便携应用）：传一个根目录字符串（config/data/localData 解析到该目录，cache 到 `<根>/caches`，log 到 `<根>/logs`），或按 `{config,data,localData,cache,log}` 逐项覆盖。路径首段可用 `$HOME`、`$DATA` 等 13 个基础目录变量（白名单与 Tauri 一致）。"
 }

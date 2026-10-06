@@ -3291,6 +3291,11 @@ static int dispatch(Msg *m, webview_t w) {
     }
     return 1;
   }
+  if (strcmp(m->type, "image_from_app_icon_resource") == 0) {
+    /* Windows-only API (exe icon resource); macOS has no equivalent. */
+    if (m->req_id >= 0) zt_reply_query(m->req_id, "-1");
+    return 1;
+  }
   if (strcmp(m->type, "image_from_path") == 0) {
     if (m->req_id >= 0) {
       id image = OBJC_MSG(id(*)(id, SEL), (id)objc_getClass("NSImage"),
@@ -3364,6 +3369,13 @@ static int dispatch(Msg *m, webview_t w) {
     /* Whole-app hide (NSApp hide:) — windows stay alive, just off-screen. */
     OBJC_MSG(void (*)(id, SEL, id), zt_nsapp(), sel_registerName("hide:"),
              (id)0);
+    return 1;
+  }
+  if (strcmp(m->type, "app_activate_ignoring") == 0) {
+    /* Tauri Builder::activate_ignoring_other_apps: activate even when
+       another app is frontmost (macOS-only concept; peers no-op). */
+    OBJC_MSG(void (*)(id, SEL, BOOL), zt_nsapp(),
+             sel_registerName("activateIgnoringOtherApps:"), (BOOL)1);
     return 1;
   }
   if (strcmp(m->type, "app_show") == 0) {

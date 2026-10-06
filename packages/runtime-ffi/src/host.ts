@@ -436,6 +436,8 @@ export class HostRuntime implements RuntimeAdapter {
     hide: () => this.send({ type: "app_hide" }),
     setDockVisibility: (visible: boolean) =>
       this.send({ type: "app_set_dock_visibility", value: visible }),
+    activateIgnoringOtherApps: () =>
+      this.send({ type: "app_activate_ignoring" }),
   };
 
   /** System tray controller (implements `RuntimeAdapter.tray`). */
@@ -862,6 +864,10 @@ export class HostRuntime implements RuntimeAdapter {
       ),
     fromPath: (path) =>
       this.sendRequest("image_from_path", { path }).then((r) =>
+        typeof r === "string" ? Number(r) : -1,
+      ),
+    fromAppIconResource: () =>
+      this.sendRequest("image_from_app_icon_resource", {}).then((r) =>
         typeof r === "string" ? Number(r) : -1,
       ),
     destroy: (id) => {

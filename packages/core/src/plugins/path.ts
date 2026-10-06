@@ -23,6 +23,98 @@ export interface PathPluginOptions {
   appId?: string;
 }
 
+/** Per-directory overrides for the app_* path APIs (tauri appDirectoriesOverride). */
+export interface AppDirectoryOverrides {
+  /** Overrides the app config directory. */
+  config?: string;
+  /** Overrides the app data directory. */
+  data?: string;
+  /** Overrides the app local data directory. */
+  localData?: string;
+  /** Overrides the app cache directory. */
+  cache?: string;
+  /** Overrides the app log directory. */
+  log?: string;
+}
+
+/** A single portable root (all app dirs) or per-directory overrides. */
+export type AppDirectoriesOverride = string | AppDirectoryOverrides;
+
+/* Allowed leading $VARIABLEs (tauri APP_DIRECTORIES_OVERRIDE_VARIABLES
+ * verbatim): $RESOURCE is read-only in bundles, $EXE/$FONT/$RUNTIME/
+ * $TEMPLATE unavailable everywhere, $APP* self-referential. $LOCALDATA
+ * maps to the platform data dir (ztron conflates local/app data there). */
+const OVERRIDE_BASE_DIRS: Record<string, string> = {
+  $AUDIO: "audioDir",
+  $CACHE: "cacheDir",
+  $CONFIG: "configDir",
+  $DATA: "dataDir",
+  $LOCALDATA: "dataDir",
+  $DESKTOP: "desktopDir",
+  $DOCUMENT: "documentDir",
+  $DOWNLOAD: "downloadDir",
+  $HOME: "homeDir",
+  $PICTURE: "pictureDir",
+  $PUBLIC: "publicDir",
+  $TEMP: "runtimeDir",
+  $VIDEO: "videoDir",
+} as Record<string, string>; /* "homeDir" is special-cased below */
+
+/** Resolves a $VARIABLE-prefixed override path against the base dirs. */
+function resolveOverridePath(base: PlatformDirs, p: string): string {
+  if (!p.startsWith("$")) return p;
+  const first = p.split(/[\\/]/)[0] ?? "";
+  const varName = first.slice(1);
+  if (!OVERRIDE_BASE_DIRS[first] && first !== "$HOME") {
+    throw new Error(
+      `appDirectoriesOverride: "${p}" starts with unsupported base ` +
+        `directory variable ${first}, expected one of ` +
+        Object.keys(OVERRIDE_BASE_DIRS).join(", "),
+    );
+  }
+  const root = first === "$HOME" ? tjs.homeDir : base[OVERRIDE_BASE_DIRS[first] as keyof PlatformDirs];
+  return root + p.slice(first.length);
+}
+
+/** Applies {@linkcode AppDirectoriesOverride} to the app_* entries: a root
+ *  maps config/data/localData to itself, cache to `<root>/caches` and log to
+ *  `<root>/logs`; the per-dir form only touches listed entries. */
+export function resolveAppDirs(
+  base: PlatformDirs,
+  override: AppDirectoriesOverride | undefined,
+): PlatformDirs {
+  if (override === undefined || override === null || override === "")
+    return base;
+  const sep = base.appCacheDir.includes("\\") ? "\\" : "/";
+  const pick = (p: string | undefined): string | undefined =>
+    p === undefined ? undefined : resolveOverridePath(base, p);
+  let o: Partial<Pick<PlatformDirs,
+    "appDataDir" | "appConfigDir" | "appCacheDir" | "appLocalDataDir" | "appLogDir">>;
+  if (typeof override === "string") {
+    const root = resolveOverridePath(base, override);
+    o = {
+      appDataDir: root,
+      appConfigDir: root,
+      appLocalDataDir: root,
+      appCacheDir: `${root}${sep}caches`,
+      appLogDir: `${root}${sep}logs`,
+    };
+  } else {
+    o = {
+      appDataDir: pick(override.data),
+      appConfigDir: pick(override.config),
+      appLocalDataDir: pick(override.localData),
+      appCacheDir: pick(override.cache),
+      appLogDir: pick(override.log),
+    };
+  }
+  const out = { ...base };
+  for (const [k, v] of Object.entries(o)) {
+    if (v !== undefined) (out as Record<string, string>)[k] = v;
+  }
+  return out;
+}
+
 let pathMod: PathLike | null = null;
 
 async function path(): Promise<PathLike> {
@@ -221,7 +313,17 @@ export function pathPlugin(options: PathPluginOptions = {}): Plugin {
   ] as const;
 
   const d = platformDirs(platform(), appId);
-  const commandFor = (key: keyof typeof d) => async () => d[key];
+  /* app_* dirs honor `app > appDirectoriesOverride` at command time (the
+   * config can change through AppBuilder.fromConfig after plugin creation,
+   * so resolution stays lazy). */
+  const commandFor = (key: keyof typeof d) => async (
+    _args: unknown,
+    ctx?: { app?: { config?: { appDirectoriesOverride?: AppDirectoriesOverride } } },
+  ) => {
+    const ov = ctx?.app?.config?.appDirectoriesOverride;
+    if (ov === undefined || ov === null || ov === "") return d[key];
+    return resolveAppDirs(d, ov)[key];
+  };
 
   return {
     name: "path",

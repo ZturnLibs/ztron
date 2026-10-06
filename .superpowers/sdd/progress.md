@@ -165,3 +165,12 @@ T4 complete: host_macos.c — attach_webview_impl + init()(主窗!抓到 attach 
 T5 complete: 三处 plist(dev host/ATS_INFO_PLIST/appInfoPlist)加 NSCamera/NSMicrophoneUsageDescription; ROADMAP §6 勾选 + 平台矩阵
 Gates: 243 tests/242/1skip/0fail(+4), typecheck 0, host 重编过, spike FULL_OK 86 checks 真实退出码 0 x2, cc -Werror 三处
 遗留: win/linux 后端接线(WebView2 PermissionRequested / webkitgtk permission-request 信号 -> 同一 wire);真机 getUserMedia 手动冒烟待用户(打开 devtools 执行 navigator.mediaDevices.getUserMedia({video:true}) 观察 handler/默认提示)
+
+=== t212 small-items run (plan: docs/superpowers/plans/2026-10-03-t212-small-items.md, branch: feat/t212-small-items) ===
+PR #39 MERGED (efd42a5; 权限线闭环). 本轮四小件:
+T1 complete: appDirectoriesOverride — ProjectConfigFile.app 扩展+校验, AppConfig/fromConfig 应用, resolveAppDirs(Root: config/data/localData->root, cache->caches, log->logs; per-dir 逐项; $VARIABLE 白名单 13 个与 tauri 逐字, $HOME 特判 tjs.homeDir; 未知 $VAR 抛错), path 插件 app_* 命令期经 ctx.app.config 懒解析; +6 tests
+T2 complete: Resource[Symbol.asyncDispose]=close() 路径; api tsconfig lib +ESNext.Disposable; Node 22.23 原生 symbol 已核实; +2 tests
+T3 complete: App.activateIgnoringOtherApps() + plugin:app|activate_ignoring_other_apps + ApplicationController 扩展 + host_macos NSApp activateIgnoringOtherApps:(win/linux 未识别消息天然 no-op); 偏差记录: tauri 是 Builder 构建期选项,ztron 为运行时方法; routing 断言 + 三账本
+T4 complete: Image.fromAppIconResource — api 工厂(-1 抛 "Windows-only") + coreAllowed/handler + ImageController.fromAppIconResource? + host_windows(LoadImageW 资源 32512 + GdipCreateBitmapFromHICON,声明补齐) + host_macos -1 reply(linux 与既有 image 命令同不覆盖); +3 tests
+T5 complete: api-zh 2 条(core.Resource.[asyncDispose] 键形含方括号!/image.Image.fromAppIconResource)严格门禁 587/587; 命令参考重生成(plugin:app 33->34? 以 gen 输出为准); ROADMAP §6 四项勾选
+Gates: 254 tests/253/1skip/0fail(基线 243->254, +11), build/typecheck 0, C 语法过, docs build+sidebar 绿
