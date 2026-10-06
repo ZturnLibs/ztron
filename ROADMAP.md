@@ -75,7 +75,7 @@
 - [x] Windows 编译验证(0.3.8:vcpkg libffi 工具链;hello/multiwin/menuprobe spike 本机全绿 `FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`)
 - [x] Windows NSIS 打包 + CI 矩阵接入(0.3.8/0.3.9:NSIS 整目录安装器 + bundle.icon 的 .ico 贯通安装向导/快捷方式/卸载列表 + launcher 编译 + flat 目录本机端到端;CI windows-spike 全链门禁含 packaged e2e(dispatch 触发);遗留:msi 仅 WiX 骨架、无 Authenticode 签名)
 - [ ] Linux 编译验证 + AppImage 打包(需目标平台;打包骨架已在 bundler.ts)
-- [ ] 移动端(Android WebView / iOS WKWebView)远期
+- [ ] 移动端(Android WebView / iOS WKWebView)——**方案已定**(docs/superpowers/specs/2026-10-03-mobile-platform-design.md):iOS 先行,分 P-M0 尖峰(tjs 交叉编译/单进程嵌入)→P-M1 iOS 纵切→P-M2 iOS CLI→P-M3/4 Android→P-M5 插件激活→P-M6 收尾;ztron 优势=TS 后端命令面零改动跨端,硬骨头=tjs 移动编译(FFI!)与 webview C API 移动 shim
 
 ### P6 多窗口(✅ 全部落地)
 

@@ -174,3 +174,8 @@ T3 complete: App.activateIgnoringOtherApps() + plugin:app|activate_ignoring_othe
 T4 complete: Image.fromAppIconResource — api 工厂(-1 抛 "Windows-only") + coreAllowed/handler + ImageController.fromAppIconResource? + host_windows(LoadImageW 资源 32512 + GdipCreateBitmapFromHICON,声明补齐) + host_macos -1 reply(linux 与既有 image 命令同不覆盖); +3 tests
 T5 complete: api-zh 2 条(core.Resource.[asyncDispose] 键形含方括号!/image.Image.fromAppIconResource)严格门禁 587/587; 命令参考重生成(plugin:app 33->34? 以 gen 输出为准); ROADMAP §6 四项勾选
 Gates: 254 tests/253/1skip/0fail(基线 243->254, +11), build/typecheck 0, C 语法过, docs build+sidebar 绿
+
+=== mobile platform planning run (branch: feat/mobile-platform-plan) ===
+调研: tauri 2.12.1 移动全链(CLI 命令/模板产物清单/双形态产物(安卓 .so+JNI/苹果 .a+start_app)/PluginManager 注解框架/options server/dev 局域网改写+adb reverse+tauri:// 反代/插件 Gradle 子工程+SwiftPM 注入/配置段) + ztron 可行性(txiki 有 Android CI 但 FFI=OFF 是硬前置;iOS 无先例=最大风险;webview 库无移动后端→自建 shim;桥是 postMessage 式与移动标准同构;桌面两进程→移动单进程须 transport 抽象)
+产出: docs/superpowers/specs/2026-10-03-mobile-platform-design.md(映射表/5 项架构决策 D1-D5/六阶段 P-M0..P-M6/7 项风险/5 项对 Tauri 的刻意偏差/附录:模板裁剪与 IPC 坑)+ROADMAP P5 移动行挂链
+下一步: 评审通过后从 P-M0(三个可行性尖峰,本机无设备依赖)开实施计划
