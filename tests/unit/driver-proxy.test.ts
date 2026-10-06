@@ -43,14 +43,17 @@ test("capability rewrite: tauri:options -> ms:edgeOptions (win32 shape)", () => 
   const am = out.capabilities.alwaysMatch;
   assert.ok(!("tauri:options" in am), "tauri:options must be stripped");
   // Per-host-platform rewrite (same deal as the linux-shape test below):
-  // assert the branch this host takes; the other branch stays covered by
-  // the stripping + legacy-mirror assertions.
+  // the native shape only exists where a native remote does, and the
+  // legacy bucket is only mirrored when a native object was produced.
   if (process.platform === "win32") {
     assert.equal(am["ms:edgeChromium"], true);
     assert.equal(am.browserName, "webview2");
     const edge = am["ms:edgeOptions"] as { binary: string; args: string[] };
     assert.equal(edge.binary, "C:\\apps\\hello\\ztron-host.exe");
     assert.deepEqual(edge.args, ["-x"]);
+    // legacy bucket mirrors the same native object
+    assert.ok(!("tauri:options" in out.desiredCapabilities));
+    assert.equal(out.desiredCapabilities["ms:edgeChromium"], true);
   } else if (process.platform === "linux") {
     const gtk = am["webkitgtk:browserOptions"] as {
       binary: string;
@@ -58,25 +61,18 @@ test("capability rewrite: tauri:options -> ms:edgeOptions (win32 shape)", () => 
     };
     assert.equal(gtk.binary, "C:\\apps\\hello\\ztron-host");
     assert.deepEqual(gtk.args, ["-x"]);
+    assert.ok(!("tauri:options" in out.desiredCapabilities));
+    assert.ok("webkitgtk:browserOptions" in out.desiredCapabilities);
   } else {
     // darwin: no native WebDriver remote (upstream parity) — the rewrite
-    // strips tauri:options and injects nothing.
+    // strips tauri:options from alwaysMatch and injects nothing; the
+    // legacy bucket is left untouched (mapCapabilities only rewrites it
+    // when a native object was produced).
     assert.ok(
       !("ms:edgeOptions" in am) && !("webkitgtk:browserOptions" in am),
     );
-    assert.ok(
-      !("ms:edgeChromium" in out.desiredCapabilities) &&
-        !("webkitgtk:browserOptions" in out.desiredCapabilities),
-    );
+    assert.ok("tauri:options" in out.desiredCapabilities);
   }
-  // legacy bucket mirrors the same native object
-  assert.ok(!("tauri:options" in out.desiredCapabilities));
-  assert.ok(
-    "ms:edgeChromium" in out.desiredCapabilities ||
-      "webkitgtk:browserOptions" in out.desiredCapabilities ||
-      // darwin: nothing was injected anywhere
-      process.platform === "darwin",
-  );
 });
 
 test("capability rewrite: webkitgtk:browserOptions (linux shape)", () => {

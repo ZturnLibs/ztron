@@ -96,7 +96,17 @@ jobs:
           # (scripts/build-native.sh WEBVIEW_REF).
           git clone --filter=blob:none --no-checkout https://github.com/webview/webview.git native/webview
           git -C native/webview checkout cbbdee44afff22867de9fd88a9fc8350d9bdd399
-      - name: build webview library (stock upstream, static)
+      # Mandatory, same as build-native.sh: host_windows.c calls the
+      # permission-handler API the patch adds (webview_set_permission_
+      # handler / webview_permission_respond) — against stock upstream the
+      # prototypes don't exist and -W4 -WX dies on C4013.
+      - name: apply local webview patches (mandatory)
+        working-directory: native/webview
+        shell: bash
+        run: |
+          git apply --check ../../scripts/patches/webview-local.patch
+          git apply ../../scripts/patches/webview-local.patch
+      - name: build webview library (patched upstream, static)
         shell: cmd
         run: |
           cmake -B native\webview\build -S native\webview ^
