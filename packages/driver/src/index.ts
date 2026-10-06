@@ -356,7 +356,12 @@ if (
   };
   /* --help/--version exit before any remote lookup: an installed-but-
      unconfigured machine (no msedgedriver/WebKitWebDriver) still gets the
-     standard bin UX, and the publish smoke can verify the bin shim alone. */
+     standard bin UX, and the publish smoke can verify the bin shim alone.
+     They must NOT process.exit() right after stdout.write: on POSIX,
+     stdout to a pipe is an async write and process.exit drops it (the
+     0.3.10 publish smoke saw --version print nothing and the --help grep
+     come up empty on the macos runner). Set exitCode and fall off the
+     end — a natural exit flushes. */
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     process.stdout.write(
       "ztron-driver — WebDriver intermediary for Ztron apps (W3C relay)\n" +
@@ -371,37 +376,44 @@ if (
         "Request a session with \"tauri:options\" capabilities; see the package\n" +
         "README for the wire contract and platform matrix.\n",
     );
-    process.exit(0);
-  }
-  if (process.argv.includes("--version") || process.argv.includes("-v")) {
+    process.exitCode = 0;
+  } else if (
+    process.argv.includes("--version") ||
+    process.argv.includes("-v")
+  ) {
     const pkg = JSON.parse(
       readFileSync(new URL("../package.json", import.meta.url), "utf8"),
     ) as { version: string };
     process.stdout.write(`${pkg.version}\n`);
-    process.exit(0);
+    process.exitCode = 0;
+  } else {
+    void (async () => {
+      try {
+        const server = await startDriver({
+          port: Number(
+            argVal("--port") ?? process.env.ZTRON_DRIVER_PORT ?? 4444,
+          ),
+          nativePort: Number(
+            argVal("--native-port") ??
+              process.env.ZTRON_DRIVER_NATIVE_PORT ??
+              4445,
+          ),
+          nativeDriver:
+            argVal("--native-driver") ?? process.env.ZTRON_NATIVE_DRIVER,
+          verbose: true,
+        });
+        const shutdown = () => {
+          server.remoteProc?.kill();
+          server.close(() => process.exit(0));
+        };
+        process.on("SIGINT", shutdown);
+        process.on("SIGTERM", shutdown);
+      } catch (e) {
+        process.stderr.write(
+          `${e instanceof Error ? e.message : String(e)}\n`,
+        );
+        process.exitCode = 1;
+      }
+    })();
   }
-  void (async () => {
-    try {
-      const server = await startDriver({
-        port: Number(argVal("--port") ?? process.env.ZTRON_DRIVER_PORT ?? 4444),
-        nativePort: Number(
-          argVal("--native-port") ??
-            process.env.ZTRON_DRIVER_NATIVE_PORT ??
-            4445,
-        ),
-        nativeDriver:
-          argVal("--native-driver") ?? process.env.ZTRON_NATIVE_DRIVER,
-        verbose: true,
-      });
-      const shutdown = () => {
-        server.remoteProc?.kill();
-        server.close(() => process.exit(0));
-      };
-      process.on("SIGINT", shutdown);
-      process.on("SIGTERM", shutdown);
-    } catch (e) {
-      process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
-      process.exit(1);
-    }
-  })();
 }
