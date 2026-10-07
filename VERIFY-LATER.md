@@ -12,6 +12,7 @@
 - **验证方法**：`bash scripts/build-native.sh`（Linux）或 MSVC 构 host.c+host_windows.c；跑任一 example `ztron check`
 - **判定**：窗口/托盘/菜单/对话框/spike 检查在真机过
 - **✅ Windows 侧已闭环（2026-10-03，真机 Win11 + MSVC 2022 BuildTools）**：host 重编（含 P0 批 H1–H4，DESIGN §125）后 hello FULL_OK（85–87 检查多轮）+ multiwin 5/5 + menuprobe 5/5 + 新增 winevent-probe 4/4（窗口事件路由/prevent_close 拦截/存活/销毁退出）；`ztron check` 三例 + 探针均真窗口实跑。Linux 侧仍待环境
+- **✅ showcase 门禁 Windows 绿（2026-10-07，真机 Win11）**：`cd examples/showcase && ztron check --expect SHOWCASE_OK` 两轮 exit 0——`SHOWCASE_OK:34`（34 卡全渲染 + 上报；doctor 7/7，Vite dev 链路真窗口实跑，host/tjs 用 native/libs 构件）。门禁为渲染级冒烟；34 卡按钮交互面仍属手工演示范围
 
 ### A2. 安装器产物（F3）
 - **就绪内容**：`packages/cli/src/bundler.ts` 五 packer——nsis（完整 MUI2 脚本）/msi（WiX .wxs）/appimage（AppDir 布局）/deb（DEBIAN/control）/rpm（spec）；单测断言控制文件内容
