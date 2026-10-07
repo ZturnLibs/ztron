@@ -478,6 +478,9 @@ importers:
       '@zturnlibs/ztron-darwin-arm64':
         specifier: workspace:*
         version: link:../native-darwin-arm64
+      '@zturnlibs/ztron-win32-x64':
+        specifier: workspace:*
+        version: link:../native-win32-x64
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
@@ -509,6 +512,8 @@ importers:
         version: 5.9.3
 
   packages/native-darwin-arm64: {}
+
+  packages/native-win32-x64: {}
 
   packages/runtime-ffi:
     dependencies:

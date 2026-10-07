@@ -63,10 +63,10 @@ export const en = {
   },
   statusm: {
     heading: 'Where it runs today',
-    sub: 'macOS is fully verified and ships with a bundled prebuilt chain on npm. Windows reached full host parity (22-item platform audit closed): effects, drag & drop, deep links, permissions, themes, toasts, full menu & tray events, single-instance — plus NSIS + MSI packaging and Authenticode signing. Linux is next.',
+    sub: 'macOS and Windows are fully verified and ship with a bundled prebuilt chain on npm: Windows reached full host parity (22-item platform audit closed) — effects, drag & drop, deep links, permissions, themes, toasts, full menu & tray events, single-instance — plus NSIS + MSI packaging and Authenticode signing. Linux is next.',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev pipeline · .app + .dmg · ad-hoc/Developer-ID signing · updater · bundled prebuilt chain (npm i -g @zturnlibs/ztron-cli)' },
-      { platform: 'Windows', status: 'ready', note: 'dev pipeline · NSIS + MSI + Authenticode · ztron-driver (msedgedriver) · WebView2 — full parity; build the native chain once from source (platform package pending)' },
+      { platform: 'Windows', status: 'ready', note: 'dev pipeline · NSIS + MSI + Authenticode · ztron-driver (msedgedriver) · WebView2 — full parity · prebuilt chain shipped on npm (npm i -g @zturnlibs/ztron-cli)' },
       { platform: 'Linux', status: 'wip', note: 'host skeleton (GTK + WebKitGTK) compiles on CI — runtime & packaging pending' },
     ],
     checks: '85+ deterministic end-to-end checks pass on every run — `ztron check` gates CI.',
@@ -76,12 +76,12 @@ export const en = {
   quickstart: {
     heading: 'Quick ',
     headingAccent: 'start',
-    sub: 'Install the CLI, scaffold, and a native window opens. macOS works out of the box (bundled chain); on Windows build the native chain once from the monorepo.',
+    sub: 'Install the CLI, scaffold, and a native window opens. macOS and Windows both work out of the box (prebuilt chain shipped on npm).',
     tabs: [
       {
         id: 'scaffold',
         label: 'Scaffold a project',
-        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # native window opens (macOS bundled chain)',
+        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # native window opens (macOS / Windows bundled chain)',
       },
       {
         id: 'monorepo',
@@ -106,7 +106,7 @@ export const en = {
     ctas: { docs: 'Usage guide', source: 'Source' },
   },
   packages: {
-    heading: 'One workspace, eleven packages',
+    heading: 'One workspace, twelve packages',
     sub: 'Published as @zturnlibs/ztron-* to npmjs and GitHub Packages (v0.3.12). Install the CLI globally and go.',
     items: [
       { name: '@zturnlibs/ztron-api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
@@ -120,6 +120,7 @@ export const en = {
       { name: '@zturnlibs/ztron-vue', role: 'Vue composables: the same reactive surface for Vue 3' },
       { name: '@zturnlibs/ztron-svelte', role: 'Svelte stores: the same reactive surface for Svelte' },
       { name: '@zturnlibs/ztron-darwin-arm64', role: 'Prebuilt native chain for macOS (arm64): tjs + ztron-host + libwebview' },
+      { name: '@zturnlibs/ztron-win32-x64', role: 'Prebuilt native chain for Windows (x64): tjs + ztron-host + webview + libffi runtime' },
     ],
   },
   footer: {

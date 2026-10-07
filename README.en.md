@@ -39,13 +39,13 @@
 | Backend change takes effect | On save | Rust recompile | On save |
 | Security model | ACL capabilities + Path/HttpScope + CSP | capabilities + scope | roll your own |
 | Packaging / signing / updater | ✅ built in | ✅ built in | via electron-builder & friends |
-| Platform verification | ✅ macOS (Apple Silicon) · 🚧 Windows · 🚧 Linux | ✅ all platforms + mobile | ✅ all platforms (10+ years) |
+| Platform verification | ✅ macOS (Apple Silicon) · ✅ Windows · 🚧 Linux | ✅ all platforms + mobile | ✅ all platforms (10+ years) |
 
 > Ztron numbers are a measured baseline (Apple M3, 2026-09, reproducible via `ztron bench --record`): cold start 582ms · invoke P50 0.31ms / P95 1ms · Channel 8.5MB/s · window create 58ms · .app 6.21MB. Competitor sizes are commonly cited figures, for scale only. **Honest disclaimer: Tauri and Electron are far more mature across platforms than Ztron** — treat the last row as the deciding one.
 
 ## Up and Running in 30 Seconds
 
-> Prerequisites: macOS (Apple Silicon verified) + Node.js ≥ 20. The native chain ships prebuilt with the CLI — **no repo clone, no compilation, no environment variables**.
+> Prerequisites: macOS (Apple Silicon verified) or Windows 10+, Node.js ≥ 20. The native chain ships prebuilt with the CLI — **no repo clone, no compilation, no environment variables**.
 
 ```bash
 npm i -g @zturnlibs/ztron-cli
@@ -119,7 +119,7 @@ For a deep dive see [DESIGN.md](./DESIGN.md) (architecture decisions, technical 
 | Platform | Status |
 | --- | --- |
 | macOS (Apple Silicon) | ✅ fully verified (Intel unverified, may work) |
-| Windows (WebView2) | 🚧 dev chain working: window/menu/tray/clipboard host surface complete, hello/multiwin/menuprobe spikes fully green locally (`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`); prebuilt native chain & packaging pending (local dev needs vcpkg + MSVC, see Contributing) |
+| Windows (WebView2) | ✅ fully verified: prebuilt native chain shipped with the CLI (`npm i -g` works out of the box); window/menu/tray/dialog/clipboard host surface complete, `ztron build` produces a flat dir + NSIS installer (end-to-end verified, incl. CJK install paths); windows-spike CI full-chain gate + release smoke (real npm install → doctor → init → build → launch probe) |
 | Linux (WebKitGTK) | 🚧 host skeleton in place, packaging chain pending |
 | Mobile (Android/iOS) | 📋 planned |
 

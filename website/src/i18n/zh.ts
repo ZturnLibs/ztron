@@ -63,10 +63,10 @@ export const zh = {
   },
   statusm: {
     heading: '当前支持的平台',
-    sub: 'macOS 全链路验证并随 npm 提供预编译链；Windows 达成完整 host 对齐（22 项平台审计收官）：特效、拖放、深链、权限、主题、通知、菜单与托盘事件族、single-instance——外加 NSIS + MSI 打包与 Authenticode 签名。Linux 是下一步。',
+    sub: 'macOS 与 Windows 均全链路验证并随 npm 提供预编译链：Windows 达成完整 host 对齐（22 项平台审计收官）——特效、拖放、深链、权限、主题、通知、菜单与托盘事件族、single-instance——外加 NSIS + MSI 打包与 Authenticode 签名。Linux 是下一步。',
     rows: [
       { platform: 'macOS', status: 'ready', note: 'dev 管线 · .app + .dmg · ad-hoc/Developer-ID 签名 · 更新器 · 预编译链随 npm 发布（npm i -g @zturnlibs/ztron-cli）' },
-      { platform: 'Windows', status: 'ready', note: 'dev 管线 · NSIS + MSI + Authenticode · ztron-driver（msedgedriver）· WebView2——全能力对齐；原生链需从源码构建一次（平台包待发布）' },
+      { platform: 'Windows', status: 'ready', note: 'dev 管线 · NSIS + MSI + Authenticode · ztron-driver（msedgedriver）· WebView2——全能力对齐 · 预编译链随 npm 发布（npm i -g @zturnlibs/ztron-cli）' },
       { platform: 'Linux', status: 'wip', note: 'host 骨架（GTK + WebKitGTK）已在 CI 编译通过——运行时与打包待完成' },
     ],
     checks: '每次运行通过 85+ 项端到端确定性检查——`ztron check` 是 CI 的门禁。',
@@ -76,12 +76,12 @@ export const zh = {
   quickstart: {
     heading: '快速',
     headingAccent: '上手',
-    sub: '装好 CLI，脚手架一跑，原生窗口即现。macOS 开箱即用（预编译链）；Windows 需在 monorepo 里从源码构建一次原生链。',
+    sub: '装好 CLI，脚手架一跑，原生窗口即现。macOS 与 Windows 均开箱即用（预编译链随 npm 分发）。',
     tabs: [
       {
         id: 'scaffold',
         label: '脚手架新项目',
-        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # 原生窗口出现即成功（macOS 预编译链）',
+        code: 'npm i -g @zturnlibs/ztron-cli\nztron init my-app && cd my-app\npnpm install\nztron dev                # 原生窗口出现即成功（macOS / Windows 预编译链）',
       },
       {
         id: 'monorepo',
@@ -106,7 +106,7 @@ export const zh = {
     ctas: { docs: '查看与使用方法', source: '源码' },
   },
   packages: {
-    heading: '一个工作区，十一个包',
+    heading: '一个工作区，十二个包',
     sub: '以 @zturnlibs/ztron-* 发布到 npmjs 与 GitHub Packages（v0.3.12）。全局装一个 CLI 即可开发。',
     items: [
       { name: '@zturnlibs/ztron-api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
@@ -120,6 +120,7 @@ export const zh = {
       { name: '@zturnlibs/ztron-vue', role: 'Vue 组合式函数：同一套响应式 API 面向 Vue 3' },
       { name: '@zturnlibs/ztron-svelte', role: 'Svelte stores：同一套响应式 API 面向 Svelte' },
       { name: '@zturnlibs/ztron-darwin-arm64', role: 'macOS（arm64）预编译原生链：tjs + ztron-host + libwebview' },
+      { name: '@zturnlibs/ztron-win32-x64', role: 'Windows（x64）预编译原生链：tjs + ztron-host + webview + libffi 运行时' },
     ],
   },
   footer: {

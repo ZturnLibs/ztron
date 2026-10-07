@@ -39,13 +39,13 @@
 | 后端改动生效 | 保存即生效 | 需 Rust 重编译 | 保存即生效 |
 | 安全模型 | ACL capabilities + Path/HttpScope + CSP | capabilities + scope | 自行实践 |
 | 打包 / 签名 / 自动更新 | ✅ 内置 | ✅ 内置 | 需 electron-builder 等生态件 |
-| 平台验证 | ✅ macOS（Apple Silicon）· 🚧 Windows · 🚧 Linux | ✅ 全平台 + 移动端 | ✅ 全平台（10 年+） |
+| 平台验证 | ✅ macOS（Apple Silicon）· ✅ Windows · 🚧 Linux | ✅ 全平台 + 移动端 | ✅ 全平台（10 年+） |
 
 > Ztron 数字为实测基线（Apple M3，2026-09，`ztron bench --record` 可复现）：冷启动 582ms · invoke P50 0.31ms / P95 1ms · Channel 8.5MB/s · 窗口创建 58ms · .app 6.21MB。竞品体积为公开资料常见量级，仅供感知。**诚实声明：Tauri/Electron 的多平台成熟度远高于 Ztron**，选型请以上表最后一行为准。
 
 ## 30 秒上手
 
-> 前置：macOS（Apple Silicon 已验证）+ Node.js ≥ 20。原生链已随 CLI 预编译，**无需 clone 本仓库、无需编译、无需配环境变量**。
+> 前置：macOS（Apple Silicon 已验证）或 Windows 10+，Node.js ≥ 20。原生链已随 CLI 预编译，**无需 clone 本仓库、无需编译、无需配环境变量**。
 
 ```bash
 npm i -g @zturnlibs/ztron-cli
@@ -119,7 +119,7 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 | 平台 | 状态 |
 | --- | --- |
 | macOS（Apple Silicon） | ✅ 完整验证（Intel 未验证，可尝试） |
-| Windows（WebView2） | 🚧 开发链 + NSIS 打包已打通：窗口/菜单/托盘/剪贴板宿主面完成，hello/multiwin/menuprobe spike 全绿（`FULL_OK`/`MENU_V2_OK`/`TRAY_V2_OK`），`ztron build` 产出 flat 目录 + NSIS 安装包（本机端到端验证，含 CJK 安装路径）；windows-spike CI 全链门禁（dispatch 触发）；预编译原生链待发布（本地开发需 vcpkg + MSVC，见下方参与开发） |
+| Windows（WebView2） | ✅ 完整验证：预编译原生链随 CLI 发布（`npm i -g` 开箱即用）；窗口/菜单/托盘/对话框/剪贴板宿主面完成，`ztron build` 产出 flat 目录 + NSIS 安装包（端到端验证，含 CJK 安装路径）；windows-spike CI 全链门禁 + 发布 smoke（真实 npm 安装→doctor→init→build→启动探测） |
 | Linux（WebKitGTK） | 🚧 host 骨架已就位，打包链待接入 |
 | Mobile（Android/iOS） | 📋 规划中 |
 

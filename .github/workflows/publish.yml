@@ -51,9 +51,67 @@ jobs:
           path: /tmp/zturnlibs-ztron-darwin-arm64-*.tgz
           if-no-files-found: error
 
+  native-win32-x64:
+    name: build prebuilt native chain (Windows x64)
+    runs-on: windows-latest
+    env:
+      # build-native.sh resolves vcpkg at ${VCPKG_ROOT:-/c/vcpkg} from Git
+      # Bash; the runner's vcpkg lives at C:\vcpkg (VCPKG_INSTALLATION_ROOT).
+      VCPKG_ROOT: /c/vcpkg
+    steps:
+      # webview-local.patch + `git apply` are CRLF-fragile; the runner image
+      # default must not smudge the checkout.
+      - name: keep the checkout LF
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - name: install libffi via vcpkg (tjs:ffi requirement)
+        shell: pwsh
+        run: '& "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install libffi:x64-windows'
+      - name: build native chain (txiki.js + webview + host, cmake/MSVC)
+        shell: bash
+        env:
+          WEBVIEW_CMAKE_ARGS: >-
+            -DWEBVIEW_ENABLE_CHECKS=OFF
+            -DWEBVIEW_BUILD_DOCS=OFF
+            -DWEBVIEW_BUILD_TESTS=OFF
+            -DWEBVIEW_BUILD_AMALGAMATION=OFF
+        run: bash scripts/build-native.sh
+      - name: stage artifacts into the platform package
+        shell: bash
+        run: |
+          mkdir -p packages/native-win32-x64/native/libs
+          # ffi-8.dll is the vcpkg libffi runtime tjs.exe loads at startup —
+          # build-native.sh stages it beside tjs (packaging copies it from
+          # there into app bundles; without it ztron-backend.exe won't start).
+          for f in tjs.exe ztron-host.exe webview.dll ffi-8.dll; do
+            cp "native/libs/$f" "packages/native-win32-x64/native/libs/$f"
+          done
+      - name: sanity (staged tjs.exe runs — proves ffi-8.dll resolves)
+        shell: bash
+        run: |
+          cd packages/native-win32-x64/native/libs
+          ./tjs.exe -v
+      - name: verify artifact manifest
+        shell: bash
+        run: |
+          test -f packages/native-win32-x64/native/libs/tjs.exe
+          test -f packages/native-win32-x64/native/libs/ztron-host.exe
+          test -f packages/native-win32-x64/native/libs/webview.dll
+          test -f packages/native-win32-x64/native/libs/ffi-8.dll
+      - name: pack platform package
+        shell: bash
+        run: |
+          cd packages/native-win32-x64
+          npm pack --pack-destination "$RUNNER_TEMP"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ztron-win32-x64-tgz
+          path: ${{ env.RUNNER_TEMP }}/zturnlibs-ztron-win32-x64-*.tgz
+          if-no-files-found: error
+
   publish:
     name: publish @zturnlibs/ztron-* to GitHub Packages
-    needs: native-darwin-arm64
+    needs: [native-darwin-arm64, native-win32-x64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,11 +132,27 @@ jobs:
         with:
           name: ztron-darwin-arm64-tgz
           path: /tmp/native-tgz
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-win32-x64-tgz
+          path: /tmp/native-tgz-win
       # Idempotent: re-runs after a partial publish (e.g. a unit-test
       # failure downstream) must not die on E409 cannot-publish-over.
-      - name: publish native platform package
+      - name: publish native platform package (darwin-arm64)
         run: |
           tgz=$(ls /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz)
+          meta=$(tar -xzOf "$tgz" package/package.json)
+          pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+          if npm view "$pkg" version >/dev/null 2>&1; then
+            echo "--- $pkg already published, skipping"
+          else
+            npm publish "$tgz" --access restricted --tag latest || exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: publish native platform package (win32-x64)
+        run: |
+          tgz=$(ls /tmp/native-tgz-win/zturnlibs-ztron-win32-x64-*.tgz)
           meta=$(tar -xzOf "$tgz" package/package.json)
           pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
           if npm view "$pkg" version >/dev/null 2>&1; then
@@ -141,7 +215,7 @@ jobs:
 
   publish-npm:
     name: publish @zturnlibs/ztron-* to npmjs (public)
-    needs: native-darwin-arm64
+    needs: [native-darwin-arm64, native-win32-x64]
     runs-on: ubuntu-latest
     # The exact version this run published — smoke pins it so the CDN
     # propagation window can't silently install the PREVIOUS release.
@@ -168,11 +242,27 @@ jobs:
         with:
           name: ztron-darwin-arm64-tgz
           path: /tmp/native-tgz
+      - uses: actions/download-artifact@v4
+        with:
+          name: ztron-win32-x64-tgz
+          path: /tmp/native-tgz-win
       # Idempotent, same deal as the GitHub Packages job: re-runs must
       # tolerate an already-published name@version (E409) instead of dying.
-      - name: publish native platform package
+      - name: publish native platform package (darwin-arm64)
         run: |
           tgz=$(ls /tmp/native-tgz/zturnlibs-ztron-darwin-arm64-*.tgz)
+          meta=$(tar -xzOf "$tgz" package/package.json)
+          pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
+          if npm view "$pkg" version >/dev/null 2>&1; then
+            echo "--- $pkg already published, skipping"
+          else
+            npm publish "$tgz" --access public --tag latest || exit 1
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: publish native platform package (win32-x64)
+        run: |
+          tgz=$(ls /tmp/native-tgz-win/zturnlibs-ztron-win32-x64-*.tgz)
           meta=$(tar -xzOf "$tgz" package/package.json)
           pkg=$(node -e "const p=JSON.parse(process.argv[1]);console.log(p.name+'@'+p.version)" "$meta")
           if npm view "$pkg" version >/dev/null 2>&1; then
@@ -271,3 +361,68 @@ jobs:
           npm ls -g "@zturnlibs/ztron-driver@$V" || exit 1
           ztron-driver --version
           ztron-driver --help | grep -q -- "--native-driver"
+
+  smoke-npm-windows:
+    name: smoke windows — real npm install, doctor, init, build, launch
+    needs: publish-npm
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: ensure WebView2 Evergreen runtime (launch probe)
+        shell: pwsh
+        run: |
+          # The host cannot create a WebView2 environment without the
+          # runtime; runner images do not guarantee it. Idempotent.
+          curl.exe -L -o MicrosoftEdgeWebview2Setup.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+          ./MicrosoftEdgeWebview2Setup.exe /silent /install
+      - name: install CLI (pin published version; wait for CDN propagation)
+        shell: bash
+        run: |
+          V="${{ needs.publish-npm.outputs.version }}"
+          for i in $(seq 1 20); do
+            if npm i -g "@zturnlibs/ztron-cli@$V"; then exit 0; fi
+            echo "retry $i"; sleep 20
+          done
+          exit 1
+      # THE platform-package assertion: doctor green with nothing built from
+      # source — tjs/ztron-host/webview must all resolve from
+      # @zturnlibs/ztron-win32-x64 (mirror of the mac smoke's contract).
+      - name: doctor must be all green on the bundled chain alone
+        shell: bash
+        run: ztron doctor
+      - name: init + build a scaffolded app + launch probe
+        shell: bash
+        run: |
+          cd "$(mktemp -d)"
+          ztron init smoke-app
+          cd smoke-app
+          npm install --no-fund --no-audit
+          ztron build
+          test -d dist
+          # Payload manifest — flat layout, mirrors ci.sh win_packaged_spike.
+          for f in ztron-host.exe ztron-backend.exe webview.dll ffi-8.dll \
+                   frontend/index.html ztron.conf.json; do
+            test -e "dist/ZtronApp/$f" || { echo "payload missing $f"; ls dist/ZtronApp; exit 1; }
+          done
+          # Launcher: MSVC-compiled exe on runners, .cmd fallback without
+          # MSVC — either must exist (bundle bootable).
+          L="dist/ZtronApp/ztron-launcher.exe"
+          test -e "$L" || L="dist/ZtronApp/ztron-launcher.cmd"
+          test -e "$L" || { echo "no launcher in payload"; ls dist/ZtronApp; exit 1; }
+          # Launch: the process must stay up (a silent DLL/loader failure
+          # exits early) and the backend must be running.
+          "$L" > launch.log 2>&1 &
+          LPID=$!
+          sleep 12
+          if ! kill -0 "$LPID" 2>/dev/null; then
+            echo "launcher exited early:"; cat launch.log; exit 1
+          fi
+          head -20 launch.log
+          tasklist //FI "IMAGENAME eq ztron-backend.exe" | grep -qi ztron-backend \
+            || { echo "backend never started"; cat launch.log; exit 1; }
+          # Best-effort teardown (runner is reimaged anyway).
+          taskkill //F //IM ztron-backend.exe //T 2>/dev/null || true
+          taskkill //F //IM ztron-host.exe //T 2>/dev/null || true
+          taskkill //F //IM ztron-launcher.exe //T 2>/dev/null || true

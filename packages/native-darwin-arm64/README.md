@@ -10,7 +10,7 @@ It is consumed automatically as an `optionalDependency` of [`@zturnlibs/ztron-cl
 npm install -g @zturnlibs/ztron-cli
 ```
 
-The existence of this package is the point: end users never compile anything — no Xcode toolchain dance, no checkout, no environment variables. Other platforms ship as their own `@zturnlibs/ztron-<os>-<arch>` packages as their chains reach prebuilt status (Windows pending, see the [roadmap](https://github.com/ZturnLibs/ztron/blob/main/ROADMAP.md)).
+The existence of this package is the point: end users never compile anything — no Xcode toolchain dance, no checkout, no environment variables. Other platforms ship as their own `@zturnlibs/ztron-<os>-<arch>` packages as their chains reach prebuilt status (Windows: [`@zturnlibs/ztron-win32-x64`](https://www.npmjs.com/package/@zturnlibs/ztron-win32-x64); Linux pending, see the [roadmap](https://github.com/ZturnLibs/ztron/blob/main/ROADMAP.md)).
 
 ## License
 

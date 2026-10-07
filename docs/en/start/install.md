@@ -7,7 +7,7 @@ title: Prerequisites & Installation
 | Dependency | Requirement | Notes |
 | --- | --- | --- |
 | macOS | Apple Silicon (verified) | prebuilt chain installs out of the box; Intel unverified, you can try it |
-| Windows | Windows 10+ with the WebView2 Runtime | full host parity since v0.3.12 (22-item platform audit closed) + NSIS/MSI packaging + Authenticode; no platform package yet — build the native chain once from source (see the appendix) |
+| Windows | Windows 10+ with the WebView2 Runtime | prebuilt chain installs out of the box; full host parity (22-item platform audit closed) + NSIS/MSI packaging + Authenticode |
 | Linux | — | host skeleton only, not yet usable |
 | Node.js | ≥ 20 | |
 
@@ -17,15 +17,10 @@ title: Prerequisites & Installation
 npm i -g @zturnlibs/ztron-cli
 ```
 
-On macOS the install automatically brings the **prebuilt native chain** (the
-`tjs` runtime + the `ztron-host` native window host + the webview dynamic
-library, ~2MB) — no repo clone, no compilation, no environment variables.
-
-On Windows the CLI installs the same way, but the native chain is not yet
-shipped as a platform package: build it once from source (appendix below),
-then point the CLI at the outputs via `ZTRON_TJS` / `ZTRON_HOST_BIN` /
-`ZTRON_WEBVIEW_LIB` (or keep the project inside the ztron clone, where the
-CLI finds `native/libs/` automatically).
+On macOS and Windows the install automatically brings the **prebuilt native
+chain** (the `tjs` runtime + the `ztron-host` native window host + the webview
+dynamic library, ~2MB; Windows also carries the libffi runtime DLL) — no repo
+clone, no compilation, no environment variables.
 
 > The package is also published on GitHub Packages. If npmjs is unavailable,
 > write `@zturnlibs:registry=https://npm.pkg.github.com` and
@@ -45,8 +40,8 @@ Every FAIL comes with a fix hint.
 
 # Appendix: Build the Native Chain from Source (contributors / fallback)
 
-Only needed when you want to modify the native layer, when the prebuilt
-package is unavailable, or on Windows. Extra prerequisites:
+Only needed when you want to modify the native layer, or when the prebuilt
+package is unavailable. Extra prerequisites:
 
 - **macOS**: pnpm 9 and Xcode Command Line Tools (they compile txiki.js +
   ztron-host + the webview library).

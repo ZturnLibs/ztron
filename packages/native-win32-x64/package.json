@@ -1,0 +1,26 @@
+{
+  "name": "@zturnlibs/ztron-win32-x64",
+  "version": "0.3.12",
+  "description": "Ztron prebuilt native chain for Windows x64 (tjs runtime + ztron-host + webview + libffi runtime)",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "native"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZturnLibs/ztron.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZturnLibs/ztron/issues"
+  },
+  "homepage": "https://github.com/ZturnLibs/ztron#readme",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}
