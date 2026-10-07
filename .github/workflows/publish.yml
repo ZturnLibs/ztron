@@ -106,7 +106,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ztron-win32-x64-tgz
-          path: ${{ env.RUNNER_TEMP }}/zturnlibs-ztron-win32-x64-*.tgz
+          # runner.temp (runner context), NOT env.RUNNER_TEMP — default env
+          # vars are invisible to the env context, which evals to an empty
+          # string and makes the glob resolve at the drive root.
+          path: ${{ runner.temp }}/zturnlibs-ztron-win32-x64-*.tgz
           if-no-files-found: error
 
   publish:
