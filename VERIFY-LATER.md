@@ -67,9 +67,13 @@
 - **修复**（webview-local.patch 内三重防护）：引擎存活注册表（构造注册/析构入口摘除）+ lambda 投递前 is_alive 校验（死指针→丢弃消息）+ 析构置空 associated 指针（兼防地址复用）
 - **验证**：修复后 multiwin 连续 8 轮 5/5 检查全过（含 STRESS_OK）exit 0，.ips 崩溃计数零增长；此前该阶段几乎必崩
 
-### C3. macOS Actions 全链 job
-- **归因**：macos runner 10×计费烧穿免费额度（DESIGN §100），已降 workflow_dispatch
-- **验证**：额度恢复后手动触发即应绿
+### ~~C3. macOS Actions 全链 job~~ —— 已完成（2026-10-07，run 37604719019 macos-spike success）
+- dispatch ci 时 macos-spike 一并触发（workflow 级 dispatch 无法单点 job），真跑全绿——"额度恢复后手动触发即应绿"验证成立
+
+### C4. windows-spike（CI Windows 全链）—— 首跑环境雷已修，复跑验证中
+- **首跑实录（run 37604719019）**：8 段中 7 段绿（hello/multiwin/menuprobe/popuprobe/winevent/scheme + 打包），唯 **permission probe 红**——windows-latest 是裸 runner，无摄像头/麦克风：Chromium 在 PermissionRequested 事件触发前就因 NotFoundError 失败 getUserMedia（`PERM_DENY_FAIL {"name":"NotFoundError"}` + `PERM_KINDS_FAIL camera=false mic=false`）。真机（2026-10-03 A1）与 macOS runner（有虚拟设备）不受影响——环境假设缺陷，非代码回归
+- **修复**：探针自检 `enumerateDevices`（Chromium 自己的可见面），无 videoinput+audioinput → `PERM_NODEVICE_SKIPPED` + FULL_OK 显式跳过；ci.sh 腿改分支断言（有设备主机保持四断言全量，裸 runner 显式 SKIPPED——msi 腿同款惯例）；探针补标准 FULL_OK 哨兵（裸 check 模式需要）
+- **判定**：复跑 windows-spike 绿（跳过路径在真 runner 上实证）；**flakiness 数据仍只有 1 轮**，翻 push 触发需继续积累（ci.yml 注释的既定计划）
 
 ---
 

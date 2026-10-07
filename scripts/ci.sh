@@ -315,14 +315,27 @@ case "$(uname -s)" in
     step "permission probe (win32 PermissionRequested bridge)"
     PERM_ROOT="$(cygpath -m "$(mktemp -d)")"
     mkdir -p "$PERM_ROOT"
-    ZTRON_SCHEME_ROOT="$PERM_ROOT" \
+    # Device-less hosts (windows-latest has no camera/mic) cannot run the
+    # media deny/allow path: Chromium fails getUserMedia with NotFoundError
+    # before PermissionRequested ever fires. The probe self-detects this and
+    # reports PERM_NODEVICE_SKIPPED; on hosts WITH devices the full
+    # four-assertion set must be present.
+    if ZTRON_SCHEME_ROOT="$PERM_ROOT" \
       run_ztron_check "$ROOT/examples/permissionprobe" check --timeout "$SPIKE_TIMEOUT_MS" \
-      --expect PERM_REQ_OK \
-      --expect PERM_DENY_OK \
-      --expect PERM_ALLOW_OK \
-      --expect PERM_KINDS_OK \
-      > /tmp/ci-perm.log 2>&1 \
-      || { tail -30 /tmp/ci-perm.log; fail "permission probe"; }
+      > /tmp/ci-perm.log 2>&1; then
+      if grep -q "PERM_REQ_OK" /tmp/ci-perm.log; then
+        for t in PERM_REQ_OK PERM_DENY_OK PERM_ALLOW_OK PERM_KINDS_OK; do
+          grep -q "$t" /tmp/ci-perm.log \
+            || { tail -30 /tmp/ci-perm.log; fail "permission probe ($t missing)"; }
+        done
+      elif grep -q "PERM_NODEVICE_SKIPPED" /tmp/ci-perm.log; then
+        echo "permission probe: host has no capture devices — skipped (bridge covered on device hosts)"
+      else
+        tail -30 /tmp/ci-perm.log; fail "permission probe (no REQ_OK, no skip marker)"
+      fi
+    else
+      tail -30 /tmp/ci-perm.log; fail "permission probe"
+    fi
     tail -2 /tmp/ci-perm.log
     rm -rf "$PERM_ROOT"
     ;;

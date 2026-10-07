@@ -5,6 +5,15 @@
  * ztron:// scheme is TreatAsSecure while html-string windows are opaque
  * about:blank origins with no navigator.mediaDevices. Self-driving:
  *
+ *   0. device gate: enumerateDevices must see a videoinput AND an
+ *      audioinput. Chromium fails getUserMedia with NotFoundError before
+ *      the PermissionRequested event ever fires on a device-less host
+ *      (windows-latest runners have no camera/mic), so without this gate
+ *      the deny/allow/kinds assertions are unrunnable there. The probe
+ *      reports PERM_NODEVICE_SKIPPED and exits clean; ci.sh treats that
+ *      as an explicit skip. Real machines and macOS runners run the full
+ *      sequence below.
+ *
  *   1. page (ztron://localhost/) requests the CAMERA
  *      -> host bridge emits permission_request(camera, url, label)
  *      -> PERM_REQ_OK (kind/url/label all present);
@@ -19,6 +28,7 @@
  *
  * Run: ZTRON_SCHEME_ROOT=<dir> ztron check --expect PERM_REQ_OK \
  *        --expect PERM_DENY_OK --expect PERM_ALLOW_OK --expect PERM_KINDS_OK
+ * (ci.sh drops the --expect set and branches on REQ vs NODEVICE_SKIPPED.)
  */
 import { AppBuilder } from "@zturnlibs/ztron-core";
 import { HostRuntime } from "@zturnlibs/ztron-runtime-ffi";
@@ -67,16 +77,34 @@ const pageHtml = `<!doctype html>
       ipc("perm_stage2", r).catch(function () {});
     });
   };
-  setTimeout(function () {
-    ask({ video: true }).then(function (r) {
-      ipc("perm_stage1", r).catch(function () {});
+  navigator.mediaDevices
+    .enumerateDevices()
+    .then(function (ds) {
+      var hasVideo = false;
+      var hasAudio = false;
+      for (var i = 0; i < ds.length; i++) {
+        if (ds[i].kind === "videoinput") hasVideo = true;
+        if (ds[i].kind === "audioinput") hasAudio = true;
+      }
+      return hasVideo && hasAudio;
+    })
+    .then(function (devicesReady) {
+      if (!devicesReady) {
+        ipc("perm_nodevice", {}).catch(function () {});
+        return;
+      }
+      setTimeout(function () {
+        ask({ video: true }).then(function (r) {
+          ipc("perm_stage1", r).catch(function () {});
+        });
+      }, 800);
     });
-  }, 800);
 })();
 </script></body></html>`;
 
 const seenKinds = new Set<string>();
 let permCount = 0;
+let completed = false;
 
 const app = new AppBuilder(runtime, "com.ztron.permissionprobe")
   .configure({ invokeKey: "perm" })
@@ -109,6 +137,17 @@ const app = new AppBuilder(runtime, "com.ztron.permissionprobe")
   .setup((app) => {
     const main = () => app.getWebview("main");
 
+    app.command("perm_nodevice", () => {
+      completed = true;
+      console.log(
+        "PERM_NODEVICE_SKIPPED no capture devices (camera+mic): " +
+          "deny/allow/kinds covered on device hosts",
+      );
+      // Same settle-then-terminate shape as perm_stage2.
+      setTimeout(() => main()?.terminate(), 300);
+      return { ok: true };
+    });
+
     app.command("perm_stage1", (args) => {
       const r = (args ?? {}) as { ok?: boolean; name?: string };
       console.log(
@@ -121,6 +160,7 @@ const app = new AppBuilder(runtime, "com.ztron.permissionprobe")
     });
 
     app.command("perm_stage2", (args) => {
+      completed = true;
       const r = (args ?? {}) as { ok?: boolean; name?: string };
       const allowWorked = !!r.ok || r.name !== "NotAllowedError";
       console.log(
@@ -146,3 +186,6 @@ if (root) {
   await tjs.writeFile(root.replace(/\/+$/, "") + "/index.html", pageHtml);
 }
 await app.run().catch((e) => console.log("[perm] ERROR", String(e)));
+// Standard sentinel for bare `ztron check` (ci.sh's device gate branches on
+// the REQ_OK vs NODEVICE_SKIPPED tags; FULL_OK only after a clean sequence).
+if (completed) console.log("SPIKE_RESULT: FULL_OK");
