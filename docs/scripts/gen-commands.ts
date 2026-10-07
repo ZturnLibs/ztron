@@ -26,7 +26,7 @@
  * - The manifest is imported via `--experimental-strip-types` (it is a
  *   plain typed-const module, no runtime TS features needed).
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 // Plain typed consts only — `--experimental-strip-types` imports it as-is.
@@ -191,8 +191,18 @@ const T = {
   },
 } as const;
 
-/** Footer both locales share (command surface is version-pinned). */
-const FOOTER = "适用版本：`ztron 0.3.12`";
+/**
+ * Footer both locales share (command surface is version-pinned). The
+ * version comes from the release source of truth (packages/api — the
+ * same file the publish workflow reads), so a version bump regenerates
+ * the footer without touching this script.
+ */
+const apiVersion = (
+  JSON.parse(
+    readFileSync(path.join(projectRoot, "packages/api/package.json"), "utf8"),
+  ) as { version: string }
+).version;
+const FOOTER = `适用版本：\`ztron ${apiVersion}\``;
 
 /**
  * Render one locale's page. Table cells escape `|` so the full

@@ -265,8 +265,18 @@ const T = {
   },
 } as const;
 
-/** Footer both locales share (config surface is version-pinned). */
-const FOOTER = "适用版本：`ztron 0.3.12`";
+/**
+ * Footer both locales share (config surface is version-pinned). The
+ * version comes from the release source of truth (packages/api — the
+ * same file the publish workflow reads), so a version bump regenerates
+ * the footer without touching this script.
+ */
+const apiVersion = (
+  JSON.parse(
+    readFileSync(path.join(projectRoot, "packages/api/package.json"), "utf8"),
+  ) as { version: string }
+).version;
+const FOOTER = `适用版本：\`ztron ${apiVersion}\``;
 
 /**
  * Description cell for one row. zh comes from config-zh.json (missing
