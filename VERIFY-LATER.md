@@ -70,10 +70,11 @@
 ### ~~C3. macOS Actions 全链 job~~ —— 已完成（2026-10-07，run 37604719019 macos-spike success）
 - dispatch ci 时 macos-spike 一并触发（workflow 级 dispatch 无法单点 job），真跑全绿——"额度恢复后手动触发即应绿"验证成立
 
-### C4. windows-spike（CI Windows 全链）—— 首跑环境雷已修，复跑验证中
+### ~~C4. windows-spike（CI Windows 全链）~~ —— 已完成（2026-10-07，run 37608086776 全绿）
 - **首跑实录（run 37604719019）**：8 段中 7 段绿（hello/multiwin/menuprobe/popuprobe/winevent/scheme + 打包），唯 **permission probe 红**——windows-latest 是裸 runner，无摄像头/麦克风：Chromium 在 PermissionRequested 事件触发前就因 NotFoundError 失败 getUserMedia（`PERM_DENY_FAIL {"name":"NotFoundError"}` + `PERM_KINDS_FAIL camera=false mic=false`）。真机（2026-10-03 A1）与 macOS runner（有虚拟设备）不受影响——环境假设缺陷，非代码回归
 - **修复**：探针自检 `enumerateDevices`（Chromium 自己的可见面），无 videoinput+audioinput → `PERM_NODEVICE_SKIPPED` + FULL_OK 显式跳过；ci.sh 腿改分支断言（有设备主机保持四断言全量，裸 runner 显式 SKIPPED——msi 腿同款惯例）；探针补标准 FULL_OK 哨兵（裸 check 模式需要）
-- **判定**：复跑 windows-spike 绿（跳过路径在真 runner 上实证）；**flakiness 数据仍只有 1 轮**，翻 push 触发需继续积累（ci.yml 注释的既定计划）
+- **复跑实证（run 37608086776）**：windows full chain 全绿，日志明示 `permission probe: host has no capture devices — skipped`——跳过路径真走过，设备主机断言路径本地同日验证（5 检查 + FULL_OK exit 0）
+- **flakiness 现状**：绿轮次 1（37608086776）。**翻 push 触发（ci.yml 既定计划）建议再积累 2–3 轮绿**——Windows runner 计费 2×、单轮 ~25 分钟，可在后续发布或风险改动时顺手 dispatch 攒数据
 
 ---
 
