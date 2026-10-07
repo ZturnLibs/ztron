@@ -43,7 +43,7 @@ The perf benchmark example: `ztron bench` drives its automated measurement seque
 
 ## showcase
 
-An interactive demo app for beginners (34 cards: live buttons + snippets + doc links).
+An interactive demo app for beginners (39 cards: live buttons + snippets + doc links).
 See the dedicated page for viewing and usage: [Showcase Demo App](/en/start/showcase).
 
 ## react-demo

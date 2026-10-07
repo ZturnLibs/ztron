@@ -2,6 +2,7 @@ import {
   os,
   shell,
   path,
+  fs,
   openUrl,
   openPath,
   revealItemInDir,
@@ -21,6 +22,7 @@ import {
   updater,
 } from "@zturnlibs/ztron-api";
 import { act, extractError, type Demo } from "../demo-ui";
+import { getPlatform } from "../platform";
 import type { Lang } from "../i18n";
 
 /** 每个模块一个双语字典：可见文案（标题/描述/按钮/输出/代码注释）全覆盖 */
@@ -40,10 +42,10 @@ const locale = await os.locale();`,
     },
     shell: {
       title: "执行命令 shell",
-      description: "运行外部命令并捕获输出；scope 白名单决定允许的程序（本应用放行 echo/pwd/cat/sh）。",
+      description: "运行外部命令并捕获输出；scope 白名单决定允许的程序（本应用放行 echo/pwd/cat/sh，Windows 侧放行 cmd 内建等价物）。",
       code: `import { shell } from "@zturnlibs/ztron-api";
 
-const r = await shell.execute("echo", ["hi"]);
+const r = await shell.execute("echo", ["hi"]);       // Windows: cmd /c echo
 console.log(r.stdout, r.stderr, r.code);
 
 // cwd 选项
@@ -60,18 +62,18 @@ await shell.execute("curl", ["http://example.com"]);`,
     },
     opener: {
       title: "打开 URL / 文件",
-      description: "用系统默认应用打开链接或目录，在访达中定位文件。",
+      description: "用系统默认应用打开链接或目录，在文件管理器（Windows 资源管理器 / macOS 访达）中定位文件。",
       code: `import { openUrl, openPath, revealItemInDir } from "@zturnlibs/ztron-api";
 
 await openUrl("https://zturnlibs.github.io/ztron/");
-await openPath("/tmp");               // 访达打开目录
-await revealItemInDir("/etc/hosts");  // 定位并选中`,
+await openPath(tmpDir);               // 文件管理器打开目录
+await revealItemInDir(targetFile);    // 定位并选中（Windows 先落到临时目录再定位）`,
       openDocs: "打开 Ztron 文档站",
       docsOpened: "已在默认浏览器打开",
-      openTmp: "访达打开临时目录",
-      tmpOpened: "访达已打开",
-      revealHosts: "定位 hosts 文件",
-      hostsRevealed: "访达已定位 /etc/hosts",
+      openTmp: "文件管理器打开临时目录",
+      tmpOpened: "文件管理器已打开",
+      revealFile: "定位文件（临时目录内示例文件）",
+      fileRevealed: (target: string) => `已在文件管理器中定位：${target}`,
     },
     singleInstance: {
       title: "单实例",
@@ -88,7 +90,7 @@ if (primary) console.log("我是主实例");
     deepLink: {
       title: "深层链接 deep-link",
       description:
-        "处理 ztron:// 协议 URL。dev 裸二进制注册不了协议，打包 .app 后从浏览器打开 ztron://showcase/hello 可触发。",
+        "处理 ztron:// 协议 URL。Windows 首次启动即注册 HKCU 协议（dev 也能触发）；macOS 需打包 .app 注册 CFBundleURLTypes 后触发。",
       code: `import { onDeepLink } from "@zturnlibs/ztron-api";
 
 const un = await onDeepLink((url) => {
@@ -97,11 +99,12 @@ const un = await onDeepLink((url) => {
 un();`,
       attach: "挂监听",
       received: (url: string) => `收到：${url}`,
-      attached: "监听已挂上。触发前提：打包 .app 并注册 CFBundleURLTypes（见文档）",
+      attachedMac: "监听已挂上。触发前提：打包 .app 并注册 CFBundleURLTypes（见文档）",
+      attachedWin: "监听已挂上。Windows 已注册 ztron:// 协议（HKCU）：Win+R 输入 ztron://showcase/hello 回车即可触发",
     },
     autostart: {
       title: "开机自启",
-      description: "enable / disable / isEnabled 三件套（macOS 写入登录项）。",
+      description: "enable / disable / isEnabled 三件套（macOS 写登录项，Windows 写 HKCU Run 注册表键）。",
       code: `import { enableAutostart, disableAutostart, isAutostartEnabled } from "@zturnlibs/ztron-api";
 
 await enableAutostart();
@@ -176,10 +179,10 @@ const locale = await os.locale();`,
     shell: {
       title: "Run commands with shell",
       description:
-        "Run external commands and capture their output; a scope allowlist decides which programs are permitted (this app allows echo/pwd/cat/sh).",
+        "Run external commands and capture their output; a scope allowlist decides which programs are permitted (this app allows echo/pwd/cat/sh, plus the cmd built-in equivalents on Windows).",
       code: `import { shell } from "@zturnlibs/ztron-api";
 
-const r = await shell.execute("echo", ["hi"]);
+const r = await shell.execute("echo", ["hi"]);   // Windows: cmd /c echo
 console.log(r.stdout, r.stderr, r.code);
 
 // The cwd option
@@ -197,18 +200,18 @@ await shell.execute("curl", ["http://example.com"]);`,
     opener: {
       title: "Open URLs / files",
       description:
-        "Open links or directories with the system default app, or reveal a file in Finder.",
+        "Open links or directories with the system default app, or reveal a file in the file manager (Windows Explorer / macOS Finder).",
       code: `import { openUrl, openPath, revealItemInDir } from "@zturnlibs/ztron-api";
 
 await openUrl("https://zturnlibs.github.io/ztron/");
-await openPath("/tmp");               // opens the directory in Finder
-await revealItemInDir("/etc/hosts");  // reveals and selects it`,
+await openPath(tmpDir);               // opens the directory in the file manager
+await revealItemInDir(targetFile);    // reveals and selects it (Windows: drop it in the temp dir first)`,
       openDocs: "Open the Ztron docs site",
       docsOpened: "Opened in the default browser",
-      openTmp: "Open the temp directory in Finder",
-      tmpOpened: "Finder opened the directory",
-      revealHosts: "Reveal the hosts file",
-      hostsRevealed: "Finder revealed /etc/hosts",
+      openTmp: "Open the temp directory in the file manager",
+      tmpOpened: "File manager opened the directory",
+      revealFile: "Reveal a file (sample file in the temp dir)",
+      fileRevealed: (target: string) => `Revealed in the file manager: ${target}`,
     },
     singleInstance: {
       title: "Single instance",
@@ -226,7 +229,7 @@ if (primary) console.log("I am the primary instance");
     deepLink: {
       title: "Deep links",
       description:
-        "Handles ztron:// protocol URLs. A dev bare binary cannot register the protocol; package the app as a .app first, then opening ztron://showcase/hello from a browser triggers it.",
+        "Handles ztron:// protocol URLs. Windows registers the protocol under HKCU on first launch (works even in dev); macOS needs the app packaged as a .app with CFBundleURLTypes registered.",
       code: `import { onDeepLink } from "@zturnlibs/ztron-api";
 
 const un = await onDeepLink((url) => {
@@ -235,13 +238,15 @@ const un = await onDeepLink((url) => {
 un();`,
       attach: "Attach listener",
       received: (url: string) => `Received: ${url}`,
-      attached:
+      attachedMac:
         "Listener attached. To trigger it: package as a .app and register CFBundleURLTypes (see the docs)",
+      attachedWin:
+        "Listener attached. Windows already registered the ztron:// protocol (HKCU): press Win+R, type ztron://showcase/hello and hit Enter",
     },
     autostart: {
       title: "Launch at startup",
       description:
-        "The enable / disable / isEnabled trio (writes a login item on macOS).",
+        "The enable / disable / isEnabled trio (a login item on macOS, an HKCU Run registry key on Windows).",
       code: `import { enableAutostart, disableAutostart, isAutostartEnabled } from "@zturnlibs/ztron-api";
 
 await enableAutostart();
@@ -333,14 +338,20 @@ export function systemCatalog(lang: Lang): { category: string; demos: Demo[] } {
     code: t.shell.code,
     docPath: "/plugins/shell.html",
     mount(area, out) {
+      const isWin = getPlatform() === "windows";
       area.append(
         act(out, t.shell.echo, async () => {
-          const r = await shell.execute("echo", [t.shell.echoArg]);
+          // Windows 的 echo 是 cmd 内建（无 echo.exe），必须经 cmd /c
+          const r = isWin
+            ? await shell.execute("cmd", ["/c", "echo", t.shell.echoArg])
+            : await shell.execute("echo", [t.shell.echoArg]);
           out.ok(`stdout: ${r.stdout.trim()}\ncode: ${r.code}`);
         }),
         act(out, t.shell.pwd, async () => {
           const tmp = await path.tempDir();
-          const r = await shell.execute("pwd", [], { cwd: tmp });
+          const r = isWin
+            ? await shell.execute("cmd", ["/c", "cd"], { cwd: tmp })
+            : await shell.execute("pwd", [], { cwd: tmp });
           out.ok(`stdout: ${r.stdout.trim()}`);
         }),
         act(out, t.shell.outOfScope, async () => {
@@ -371,9 +382,13 @@ export function systemCatalog(lang: Lang): { category: string; demos: Demo[] } {
           await openPath(await path.tempDir());
           out.ok(t.opener.tmpOpened);
         }),
-        act(out, t.opener.revealHosts, async () => {
-          await revealItemInDir("/etc/hosts");
-          out.ok(t.opener.hostsRevealed);
+        act(out, t.opener.revealFile, async () => {
+          // 平台中立目标：先往临时目录写一个示例文件再定位它
+          // （POSIX 的 /etc/hosts 在 Windows 不存在）
+          const target = await path.join(await path.tempDir(), "ztron_showcase.txt");
+          await fs.writeText(target, "reveal demo");
+          await revealItemInDir(target);
+          out.ok(t.opener.fileRevealed(target));
         }),
       );
     },
@@ -405,7 +420,7 @@ export function systemCatalog(lang: Lang): { category: string; demos: Demo[] } {
       area.append(
         act(out, t.deepLink.attach, async () => {
           await onDeepLink((url) => out.info(t.deepLink.received(url)));
-          out.ok(t.deepLink.attached);
+          out.ok(getPlatform() === "macos" ? t.deepLink.attachedMac : t.deepLink.attachedWin);
         }),
       );
     },

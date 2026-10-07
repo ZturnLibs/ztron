@@ -93,7 +93,7 @@ export const en = {
   showcase: {
     heading: 'See it all in the ',
     headingAccent: 'Showcase',
-    sub: 'A runnable desktop app with 34 interactive cards — every button calls the real API: native dialogs, clipboard, multi-window, theme switching, frameless tricks. Each card carries a copyable snippet and a direct link to its docs page.',
+    sub: 'A runnable desktop app with 39 interactive cards — every button calls the real API: native dialogs, clipboard, multi-window, theme switching, frameless tricks, Mica materials, file drag & drop. Each card carries a copyable snippet and a direct link to its docs page.',
     bullets: [
       '8 categories: core IPC & events, windows, fs, network, dialogs, menu & tray, data, system',
       'Live demo, inline result, minimal snippet, docs link — one card per feature',

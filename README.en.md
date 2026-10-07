@@ -112,7 +112,7 @@ For a deep dive see [DESIGN.md](./DESIGN.md) (architecture decisions, technical 
 | `vue-ts` | Vue 3.5 + Tailwind v4 |
 | `svelte` | Svelte 5 runes + Tailwind v4 |
 
-[`examples/`](./examples/) contains 8 runnable examples. The highlight is **[showcase](./examples/showcase/)** — 34 interactive cards demoing every plugin API live (`pnpm --filter @zturnlibs/ztron-example-showcase dev`); plus hello / multiwin / react-demo / vue-demo / svelte-demo / bench / menuprobe. A guided tour lives on the [examples page](https://zturnlibs.github.io/ztron/docs/en/start/examples.html).
+[`examples/`](./examples/) contains 8 runnable examples. The highlight is **[showcase](./examples/showcase/)** — 39 interactive cards demoing every plugin API live (`pnpm --filter @zturnlibs/ztron-example-showcase dev`); plus hello / multiwin / react-demo / vue-demo / svelte-demo / bench / menuprobe. A guided tour lives on the [examples page](https://zturnlibs.github.io/ztron/docs/en/start/examples.html).
 
 ## Platform Support
 

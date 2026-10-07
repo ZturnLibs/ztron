@@ -7,6 +7,7 @@ import {
   onShortcut,
 } from "@zturnlibs/ztron-api";
 import { act, type Demo } from "../demo-ui";
+import { getPlatform, isMac } from "../platform";
 import type { Lang } from "../i18n";
 
 /** 每个模块一个双语字典：可见文案（标题/描述/按钮/输出/代码注释）全覆盖 */
@@ -31,7 +32,8 @@ const menu = await setAppMenu([
 await menu.setItemAccelerator("quit", "CmdOrCtrl+Q");
 await menu.setItemChecked("zoom", false);`,
       install: "安装示例菜单",
-      installed: "已安装（看屏幕顶部菜单栏），quit 已绑定 CmdOrCtrl+Q",
+      installedMac: "已安装（看屏幕顶部菜单栏），quit 已绑定 CmdOrCtrl+Q",
+      installedWin: "已安装（看窗口标题栏下方的菜单栏）。加速键在 Windows 菜单上不渲染（host 能力差异），点击菜单项照常触发",
       toggleZoom: "切换 Zoom 勾选",
       needInstall: "请先安装示例菜单",
       zoomToggled: (checked: boolean) =>
@@ -39,35 +41,38 @@ await menu.setItemChecked("zoom", false);`,
     },
     tray: {
       title: "系统托盘 TrayIcon",
-      description: "在菜单栏创建托盘：模板图标自适应深浅色、悬停提示、显隐控制。",
+      description: "创建系统托盘图标（Windows 任务栏时钟附近 / macOS 菜单栏）：悬停提示、显隐控制；模板图标是 macOS 专属的自适应深浅色机制。",
       code: `import { TrayIcon } from "@zturnlibs/ztron-api";
 
 const tray = await TrayIcon.create({
   title: "Z",
   tooltip: "Ztron Showcase 托盘",
 });
-await tray.setIconAsTemplate(true);   // macOS 模板图标
+await tray.setIconAsTemplate(true);   // macOS 模板图标（其他平台 no-op）
 await tray.setVisible(false);
 await tray.destroy();`,
       tooltip: "Ztron Showcase 托盘",
       create: "创建托盘（5 秒后销毁）",
-      shown: "托盘已出现在菜单栏右上角（标题 Z）",
+      shownMac: "托盘已出现在菜单栏右上角（标题 Z）",
+      shownWin: "托盘已出现在任务栏时钟附近（可能收进 ^ 折叠区）（标题 Z）",
       destroyed: "托盘已销毁",
     },
     shortcut: {
       title: "全局快捷键",
-      description: "注册系统级快捷键，应用在后台也能收到触发事件；注册后切到别的应用按 Cmd+Shift+J 试试。",
+      description: "注册系统级快捷键，应用在后台也能收到触发事件；注册后切到别的应用按组合键试试（Windows Ctrl+Shift+J / macOS Cmd+Shift+J）。",
       code: `import { registerShortcut, isRegistered, onShortcut } from "@zturnlibs/ztron-api";
 
-await registerShortcut("showcase", "Cmd+Shift+J");
+// 修饰键按平台：Windows 用 Ctrl，macOS 用 Cmd（"Cmd" 在 Windows 解析为 Win 键）
+const combo = isWindows ? "Ctrl+Shift+J" : "Cmd+Shift+J";
+await registerShortcut("showcase", combo);
 console.log("已注册：", await isRegistered("showcase"));
 
 const un = await onShortcut((e) => {
   console.log("触发：", e.shortcutId);   // "showcase"
 });
 // await unregisterShortcut("showcase"); un();`,
-      register: "注册 Cmd+Shift+J（10 秒窗口）",
-      registered: (reg: boolean) => `注册${reg ? "成功" : "失败"}，切到其他应用按 Cmd+Shift+J`,
+      register: (combo: string) => `注册 ${combo}（10 秒窗口）`,
+      registered: (reg: boolean, combo: string) => `注册${reg ? "成功" : "失败"}，切到其他应用按 ${combo}`,
       fired: (id: string) => `触发：${id}`,
       captured: "捕获到全局触发",
       notCaptured: "10 秒内未触发（快捷键可能被其他应用占用）",
@@ -94,7 +99,9 @@ const menu = await setAppMenu([
 await menu.setItemAccelerator("quit", "CmdOrCtrl+Q");
 await menu.setItemChecked("zoom", false);`,
       install: "Install the sample menu",
-      installed: "Installed (see the menu bar at the top of the screen); quit is bound to CmdOrCtrl+Q",
+      installedMac: "Installed (see the menu bar at the top of the screen); quit is bound to CmdOrCtrl+Q",
+      installedWin:
+        "Installed (see the menu bar under the window title bar). Accelerators are not rendered on Windows menus (host capability difference); clicking items still fires",
       toggleZoom: "Toggle the Zoom checkbox",
       needInstall: "Install the sample menu first",
       zoomToggled: (checked: boolean) =>
@@ -103,37 +110,41 @@ await menu.setItemChecked("zoom", false);`,
     tray: {
       title: "System tray with TrayIcon",
       description:
-        "Create a tray icon in the menu bar: template icon adapts to light/dark mode, hover tooltip, visibility control.",
+        "Create a system tray icon (Windows: near the clock / macOS: the menu bar): hover tooltip, visibility control; the template icon is a macOS-only adaptive light/dark mechanism.",
       code: `import { TrayIcon } from "@zturnlibs/ztron-api";
 
 const tray = await TrayIcon.create({
   title: "Z",
   tooltip: "Ztron Showcase tray",
 });
-await tray.setIconAsTemplate(true);   // macOS template icon
+await tray.setIconAsTemplate(true);   // macOS template icon (no-op elsewhere)
 await tray.setVisible(false);
 await tray.destroy();`,
       tooltip: "Ztron Showcase tray",
       create: "Create the tray (destroyed after 5 seconds)",
-      shown: "The tray icon appeared at the right end of the menu bar (title Z)",
+      shownMac: "The tray icon appeared at the right end of the menu bar (title Z)",
+      shownWin: "The tray icon appeared near the clock on the taskbar (possibly inside the ^ overflow area) (title Z)",
       destroyed: "Tray icon destroyed",
     },
     shortcut: {
       title: "Global shortcuts",
       description:
-        "Register a system-level shortcut that fires even when the app is in the background; after registering, switch to another app and press Cmd+Shift+J.",
+        "Register a system-level shortcut that fires even when the app is in the background; after registering, switch to another app and press the combo (Windows Ctrl+Shift+J / macOS Cmd+Shift+J).",
       code: `import { registerShortcut, isRegistered, onShortcut } from "@zturnlibs/ztron-api";
 
-await registerShortcut("showcase", "Cmd+Shift+J");
+// Per-platform modifiers: Ctrl on Windows, Cmd on macOS ("Cmd" parses as the
+// Windows key on Windows)
+const combo = isWindows ? "Ctrl+Shift+J" : "Cmd+Shift+J";
+await registerShortcut("showcase", combo);
 console.log("registered:", await isRegistered("showcase"));
 
 const un = await onShortcut((e) => {
   console.log("fired:", e.shortcutId);   // "showcase"
 });
 // await unregisterShortcut("showcase"); un();`,
-      register: "Register Cmd+Shift+J (10 second window)",
-      registered: (reg: boolean) =>
-        `Registration ${reg ? "succeeded" : "failed"}; switch to another app and press Cmd+Shift+J`,
+      register: (combo: string) => `Register ${combo} (10 second window)`,
+      registered: (reg: boolean, combo: string) =>
+        `Registration ${reg ? "succeeded" : "failed"}; switch to another app and press ${combo}`,
       fired: (id: string) => `Fired: ${id}`,
       captured: "Captured a global trigger",
       notCaptured: "No trigger within 10 seconds (the shortcut may be taken by another app)",
@@ -171,7 +182,7 @@ export function menuTrayCatalog(lang: Lang): { category: string; demos: Demo[] }
             { id: "quit", text: "Quit" },
           ]);
           await menu.setItemAccelerator("quit", "CmdOrCtrl+Q");
-          out.ok(t.menu.installed);
+          out.ok(isMac() ? t.menu.installedMac : t.menu.installedWin);
         }),
         act(out, t.menu.toggleZoom, async () => {
           if (!menu) {
@@ -196,8 +207,9 @@ export function menuTrayCatalog(lang: Lang): { category: string; demos: Demo[] }
       area.append(
         act(out, t.tray.create, async () => {
           const tray = await TrayIcon.create({ title: "Z", tooltip: t.tray.tooltip });
-          out.info(t.tray.shown);
-          await tray.setIconAsTemplate(true);
+          out.info(isMac() ? t.tray.shownMac : t.tray.shownWin);
+          // 模板图标是 macOS 专属概念，其他平台跳过
+          if (isMac()) await tray.setIconAsTemplate(true);
           await new Promise((r) => setTimeout(r, 5000));
           await tray.destroy();
           out.ok(t.tray.destroyed);
@@ -213,11 +225,13 @@ export function menuTrayCatalog(lang: Lang): { category: string; demos: Demo[] }
     code: t.shortcut.code,
     docPath: "/plugins/global-shortcut.html",
     mount(area, out) {
+      // "Cmd" 在 Windows 上解析为 Win 键，组合键按平台选
+      const combo = getPlatform() === "windows" ? "Ctrl+Shift+J" : "Cmd+Shift+J";
       area.append(
-        act(out, t.shortcut.register, async () => {
-          await registerShortcut("showcase-demo", "Cmd+Shift+J");
+        act(out, t.shortcut.register(combo), async () => {
+          await registerShortcut("showcase-demo", combo);
           const reg = await isRegistered("showcase-demo");
-          out.info(t.shortcut.registered(reg));
+          out.info(t.shortcut.registered(reg, combo));
           let firedSeen = false;
           const fired = await onShortcut((e) => {
             firedSeen = true;

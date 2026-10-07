@@ -12,7 +12,7 @@ title: 示例
 | multiwin | `@zturnlibs/ztron-example-multiwin` | 多窗口：conf 声明 + 运行时 WebviewWindow 创建/销毁 | `pnpm --filter @zturnlibs/ztron-example-multiwin dev` |
 | menuprobe | `@zturnlibs/ztron-example-menuprobe` | 菜单/托盘能力探测（跨平台） | `pnpm --filter @zturnlibs/ztron-example-menuprobe dev` |
 | bench | `@zturnlibs/ztron-example-bench` | 性能基准测量序列（invoke/Channel/窗口） | `node packages/cli/dist/index.js bench --runs 3` |
-| showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：34 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
+| showcase | `@zturnlibs/ztron-example-showcase` | 新手交互式演示：39 张功能卡片 + 代码片段 + 文档直达 | `pnpm --filter @zturnlibs/ztron-example-showcase dev` |
 | react-demo | `@zturnlibs/ztron-example-react-demo` | React 19 + Tailwind v4 验证示例（React 写法调用 Ztron API） | `pnpm --filter @zturnlibs/ztron-example-react-demo dev` |
 | vue-demo | `@zturnlibs/ztron-example-vue-demo` | Vue 3 + Tailwind v4 验证示例（Vue 写法调用 Ztron API） | `pnpm --filter @zturnlibs/ztron-example-vue-demo dev` |
 | svelte-demo | `@zturnlibs/ztron-example-svelte-demo` | Svelte 5 + Tailwind v4 验证示例（Svelte 写法调用 Ztron API） | `pnpm --filter @zturnlibs/ztron-example-svelte-demo dev` |
@@ -35,7 +35,7 @@ title: 示例
 
 ## showcase
 
-面向新手的交互式演示应用（34 张卡片，点按钮真跑 + 代码片段 + 文档直达）。
+面向新手的交互式演示应用（39 张卡片，点按钮真跑 + 代码片段 + 文档直达）。
 查看与使用方法见专页：[Showcase 演示应用](/start/showcase)。
 
 ## react-demo

@@ -32,7 +32,7 @@ const back = await fs.readFile("$TMP/ztron_demo.bin");`,
 const entries = await fs.readDir("$TMP");   // { name, isDirectory, isFile }[]
 const temp = await path.tempDir();
 const home = await path.homeDir();
-const appData = await path.appDataDir();    // ~/Library/Application Support/<appId>
+const appData = await path.appDataDir();    // Windows %APPDATA%\\<appId> · macOS ~/Library/Application Support/<appId>
 const joined = await path.join(temp, "a", "b.txt");`,
       listTmp: "列出临时目录前 8 项",
       dirTag: "[目录] ",
@@ -42,7 +42,7 @@ const joined = await path.join(temp, "a", "b.txt");`,
     },
     watch: {
       title: "文件监听 watch",
-      description: "fs.watch 监听文件变化（底层 FSEvents），返回取消监听函数。",
+      description: "fs.watch 监听文件变化（macOS FSEvents / Windows ReadDirectoryChangesW），返回取消监听函数。",
       code: `import { fs } from "@zturnlibs/ztron-api";
 
 const unwatch = await fs.watch("$TMP/ztron_watch.txt", (ev) => {
@@ -86,7 +86,7 @@ const back = await fs.readFile("$TMP/ztron_demo.bin");`,
 const entries = await fs.readDir("$TMP");   // { name, isDirectory, isFile }[]
 const temp = await path.tempDir();
 const home = await path.homeDir();
-const appData = await path.appDataDir();    // ~/Library/Application Support/<appId>
+const appData = await path.appDataDir();    // Windows %APPDATA%\\<appId> · macOS ~/Library/Application Support/<appId>
 const joined = await path.join(temp, "a", "b.txt");`,
       listTmp: "List first 8 entries of $TMP",
       dirTag: "[dir] ",
@@ -97,7 +97,7 @@ const joined = await path.join(temp, "a", "b.txt");`,
     watch: {
       title: "File watching: fs.watch",
       description:
-        "fs.watch watches a file for changes (backed by FSEvents) and returns a function to stop watching.",
+        "fs.watch watches a file for changes (FSEvents on macOS, ReadDirectoryChangesW on Windows) and returns a function to stop watching.",
       code: `import { fs } from "@zturnlibs/ztron-api";
 
 const unwatch = await fs.watch("$TMP/ztron_watch.txt", (ev) => {

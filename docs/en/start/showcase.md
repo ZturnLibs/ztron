@@ -6,7 +6,7 @@ title: Showcase Demo App
 
 Prerequisite: finish [Installation](/en/start/install) (`ztron doctor` all green).
 
-Showcase is a runnable desktop app that turns Ztron's capabilities into **34
+Showcase is a runnable desktop app that turns Ztron's capabilities into **39
 interactive cards**: every button really calls the corresponding API — opening
 native dialogs, reading the clipboard, creating a second window, switching the
 app theme, going frameless — with the result shown in place, plus a minimal
@@ -39,12 +39,12 @@ hot-reload; use `ztron build` for packaging.
 - **Docs button** — top-right of every card, linking straight to this site.
 - **Language switch** - the 中文 / EN toggle at the bottom of the sidebar localizes every visible string (code comments included); your choice is remembered.
 
-## The 34 cards at a glance
+## The 39 cards at a glance
 
 | Category | Cards | Highlights |
 | --- | --- | --- |
 | Core | 4 | invoke (with codegen bindings), events, Channel streaming |
-| Window | 5 | control, multi-window, monitors & events, **theme switching**, **frameless window** |
+| Window | 10 | control, multi-window, monitors & events, **theme switching & system theme push**, **frameless window**, **material effects (Mica/Acrylic)**, **file drag & drop**, **app badge (taskbar overlay)**, **cursor grab & all workspaces**, **close interception (preventClose)** |
 | FS | 3 | text/binary IO, directories & paths, fs.watch |
 | Network | 3 | http.fetch, streaming download, WebSocket |
 | Dialogs | 4 | open/save, message/ask/confirm, notifications, clipboard |
@@ -74,6 +74,6 @@ Source: [`examples/showcase/`](https://github.com/ZturnLibs/ztron/tree/main/exam
 cd examples/showcase && ztron check --expect SHOWCASE_OK
 ```
 
-"34 cards rendered and reported" doubles as a smoke check (exit 0), CI-friendly.
+"39 cards rendered and reported" doubles as a smoke check (exit 0), CI-friendly.
 
 **Next: [Quick Start](/en/start/quick-start) · [Examples](/en/start/examples) · [IPC](/en/guide/ipc) · [Security ACL](/en/guide/security)**

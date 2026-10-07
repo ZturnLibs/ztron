@@ -112,7 +112,7 @@ ztron doctor     # 环境五项体检，FAIL 自带修复提示
 | `vue-ts` | Vue 3.5 + Tailwind v4 |
 | `svelte` | Svelte 5 runes + Tailwind v4 |
 
-[`examples/`](./examples/) 下有 8 个可运行示例，最值得看的是 **[showcase](./examples/showcase/)**——34 张交互卡片现场演示全部插件 API（`pnpm --filter @zturnlibs/ztron-example-showcase dev`），另有 hello / multiwin / react-demo / vue-demo / svelte-demo / bench / menuprobe。逐个讲解见[文档示例页](https://zturnlibs.github.io/ztron/docs/start/examples.html)。
+[`examples/`](./examples/) 下有 8 个可运行示例，最值得看的是 **[showcase](./examples/showcase/)**——39 张交互卡片现场演示全部插件 API（`pnpm --filter @zturnlibs/ztron-example-showcase dev`），另有 hello / multiwin / react-demo / vue-demo / svelte-demo / bench / menuprobe。逐个讲解见[文档示例页](https://zturnlibs.github.io/ztron/docs/start/examples.html)。
 
 ## 平台支持
 

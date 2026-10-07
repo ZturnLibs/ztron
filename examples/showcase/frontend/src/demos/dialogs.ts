@@ -14,6 +14,7 @@ import {
   clearClipboard,
 } from "@zturnlibs/ztron-api";
 import { act, field, fieldValue, type Demo } from "../demo-ui";
+import { getPlatform } from "../platform";
 import type { Lang } from "../i18n";
 
 /** 每个模块一个双语字典：可见文案（标题/描述/按钮/输出/代码注释）全覆盖 */
@@ -75,9 +76,10 @@ if (granted) {
   await sendNotification({ title: "Ztron", body: "来自 showcase 的通知" });
 }`,
       sendBtn: "发一条通知",
-      noPermission: "通知权限未授予（dev 裸二进制常见，打包 .app 后可授权）",
+      noPermission: "通知权限未授予（macOS dev 裸二进制常见，打包后可授权；Windows 默认可接受）",
       notifBody: "这是一条系统通知",
-      sent: "通知已发出（看屏幕右上角）",
+      sentMac: "通知已发出（看屏幕右上角）",
+      sentWin: "通知已发出（看屏幕右下角的 Windows 通知中心）",
     },
     clipboard: {
       title: "剪贴板",
@@ -167,9 +169,10 @@ if (granted) {
 }`,
       sendBtn: "Send a notification",
       noPermission:
-        "Notification permission not granted (common for a bare dev binary; grant it after bundling the .app)",
+        "Notification permission not granted (common for a bare dev binary on macOS, grant it after bundling; on Windows notifications are accepted by default)",
       notifBody: "This is a system notification",
-      sent: "Notification sent (check the top-right corner of your screen)",
+      sentMac: "Notification sent (check the top-right corner of your screen)",
+      sentWin: "Notification sent (check the Windows notification center, bottom-right)",
     },
     clipboard: {
       title: "Clipboard",
@@ -265,7 +268,7 @@ export function dialogCatalog(lang: Lang): { category: string; demos: Demo[] } {
             return;
           }
           await sendNotification({ title: "Ztron Showcase", body: t.notif.notifBody });
-          out.ok(t.notif.sent);
+          out.ok(getPlatform() === "windows" ? t.notif.sentWin : t.notif.sentMac);
         }),
       );
     },

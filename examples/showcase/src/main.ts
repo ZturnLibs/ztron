@@ -4,6 +4,7 @@
  */
 import {
   AppBuilder,
+  detectPlatform,
   fsPlugin,
   pathPlugin,
   httpPlugin,
@@ -83,6 +84,9 @@ new AppBuilder(runtime, "com.ztron.showcase")
         { program: "pwd" },
         { program: "cat" },
         { program: "sh", args: ["**"] },
+        // Windows 没有 echo/pwd 可执行文件（echo/cd 是 cmd 内建）——
+        // 放行 cmd 供前端的平台等价按钮使用
+        ...(detectPlatform() === "windows" ? [{ program: "cmd", args: ["**"] }] : []),
       ],
     }),
   )
