@@ -49,11 +49,11 @@
 - **发布过程揪出的真缺陷（全部已修）**：①capability rewrite 测试按宿主平台断言缺 linux/darwin 分支（ubuntu/macos unit 存量红，H21 引入）；②driver `--version/--help` write 后立即 process.exit 在 POSIX pipe 丢 stdout（Windows 同步写掩护）；③CLI 入口探针 `import.meta.url === pathToFileURL(argv[1])` 在 macOS/Linux npm **symlink** shim 下永假——bin 静默无效（0.3.10/0.3.11 带病），v0.3.12 改 realpath 双侧比较；④windows-latest 镜像切 VS2026 后 WebView2.h 不再在默认 INCLUDE（MSVC 腿改从 webview build 的 FetchContent _deps 自包含解析）+ MSVC 腿漏 apply webview-local.patch（permission API 原型）；⑤publish 四步幂等化（npm view 预检 skip，重跑不再 E409）+ smoke pin 刚发布版本 + 20×20s CDN 传播预算
 - **发布流水线现状**：tag `v*` 或 workflow_dispatch 触发；publish-npm 输出发布版本号供 smoke 精确验证"本次发布的版本"；全流程可安全重跑
 
-### B4. Windows 预编译原生链发布（@zturnlibs/ztron-win32-x64）—— 包与流水线就绪，待 v0.3.13 发布收官
-- **就绪内容**：平台包（`os:[win32]/cpu:[x64]` 门控；native/libs 四件：tjs.exe / ztron-host.exe / webview.dll / ffi-8.dll——末者是 vcpkg libffi 运行时，tjs.exe 启动即加载，打包器从 tjs 旁复制进 app bundle）；CLI optionalDependencies 挂钩（win32 命中 `bundledPkgName` 预留名，native-locate 解析层早已就绪）；publish 流水线新 native-win32-x64 job（windows-latest 上 `build-native.sh` 全链构建 + `tjs.exe -v` 哨兵（证 ffi-8 可解析）+ manifest 校验）+ 双通道接入 + **smoke-npm-windows**（真实 npm 安装→doctor 全绿→init→build→launcher 启动 12s 存活 + ztron-backend 进程断言）
-- **版本冲突教训（首 dispatch 实录，run 37599339408）**：幂等预检 skip 的是"整包发布"，但 CLI 自身也在变（新增 win32 optionalDependency）——0.3.12 已被昨日发布占用，带挂钩的 CLI 发不出去；smoke 装到旧 CLI（optionalDependencies 仅 darwin）→ Windows 无 bundled chain → doctor 三连✗。**规则：依赖图变了就必须 bump 版本**，幂等预检只保护"内容相同的重跑"，不保护"同名新内容"
-- **所需**：全包 lockstep bump **v0.3.13**（12 包 + docs 全站"适用版本"脚注 + 官网 i18n 计数 11→12）后推 tag 触发发布
-- **判定**：native-win32-x64 job 绿；两通道 win32 tgz@0.3.13 发布成功；smoke-npm-windows 绿——**"doctor 只靠 bundled chain 全绿"是平台包价值的核心断言**（mac smoke 同款契约）
+### ~~B4. Windows 预编译原生链发布（@zturnlibs/ztron-win32-x64）~~ —— 已完成（2026-10-07，v0.3.13）
+- **发布结果**：双通道 12 包齐发布（GPR restricted + npmjs public），Windows 预编译链开箱即装——`npm i -g @zturnlibs/ztron-cli` 在 Windows 上自动携带 `@zturnlibs/ztron-win32-x64@0.3.13`（tjs.exe / ztron-host.exe / webview.dll / ffi-8.dll 四件）。smoke 双腿全绿：mac 腿 + **windows 腿**（真实 npm 安装→doctor 7/7→init→build→launcher 启动 12s 存活 + ztron-backend 进程断言）
+- **核心断言实锤（run 37601893426 doctor 日志）**：tjs / ztron-host / webview 全部解析自 `…\@zturnlibs\ztron-win32-x64\native\libs\`——"doctor 只靠 bundled chain 全绿"与 mac 腿同款契约达成
+- **版本冲突教训（首 dispatch 实录，run 37599339408）**：幂等预检 skip 的是"整包发布"，但 CLI 自身也在变（新增 win32 optionalDependency）——0.3.12 已被昨日发布占用，带挂钩的 CLI 发不出去；smoke 装到旧 CLI（optionalDependencies 仅 darwin）→ Windows 无 bundled chain → doctor 三连✗。**规则：依赖图变了就必须 bump 版本**，幂等预检只保护"内容相同的重跑"，不保护"同名新内容"。配套治本：docs 生成页脚注改从 packages/api/package.json 动态读版本（816a198），版本 bump 不再可能漂移生成页
+- **流水线**：native-win32-x64 job（windows-latest 全链构建 + `tjs.exe -v` 哨兵证 ffi-8 可解析 + manifest 校验）+ 双通道幂等发布 + smoke-npm-windows；artifact 上传路径须用 `runner.temp` 上下文（env 上下文看不到 RUNNER_TEMP，run 37598273404 实录）
 - **发布后**：README/官网/docs 的 Windows 状态行已随本次提交翻 ✅（预编译链随 CLI）；GAP/台账回填发布记录（B3 式）
 
 ## C. 本机环境漂移（已归因存量，健康环境复跑即应绿）
