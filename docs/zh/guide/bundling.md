@@ -115,4 +115,4 @@ packers 的 productName 取 `productName ?? appName`。
   `signtool` 经 `ZTRON_SIGNTOOL`、`where signtool` 或 Windows Kits 目录
   定位。未配置证书时产物不签名并报告确切原因。
 
-适用版本：`ztron 0.3.12`
+适用版本：`ztron 0.3.13`

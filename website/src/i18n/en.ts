@@ -107,7 +107,7 @@ export const en = {
   },
   packages: {
     heading: 'One workspace, twelve packages',
-    sub: 'Published as @zturnlibs/ztron-* to npmjs and GitHub Packages (v0.3.12). Install the CLI globally and go.',
+    sub: 'Published as @zturnlibs/ztron-* to npmjs and GitHub Packages (v0.3.13). Install the CLI globally and go.',
     items: [
       { name: '@zturnlibs/ztron-api', role: 'Frontend API translated from @tauri-apps/api — invoke/events/Channel + plugin wrappers' },
       { name: '@zturnlibs/ztron-core', role: 'Main-process core: IPC, events, commands, ACL, PathScope, 25 plugins, MockRuntime' },

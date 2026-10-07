@@ -107,7 +107,7 @@ export const zh = {
   },
   packages: {
     heading: '一个工作区，十二个包',
-    sub: '以 @zturnlibs/ztron-* 发布到 npmjs 与 GitHub Packages（v0.3.12）。全局装一个 CLI 即可开发。',
+    sub: '以 @zturnlibs/ztron-* 发布到 npmjs 与 GitHub Packages（v0.3.13）。全局装一个 CLI 即可开发。',
     items: [
       { name: '@zturnlibs/ztron-api', role: '由 @tauri-apps/api 翻译而来的前端 API——invoke/events/Channel + 插件封装' },
       { name: '@zturnlibs/ztron-core', role: '主进程核心：IPC、事件、命令、ACL、PathScope、25 插件、MockRuntime' },

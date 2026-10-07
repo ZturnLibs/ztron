@@ -70,4 +70,4 @@ Source: the `ProjectConfigFile` interface in `packages/core/src/app.ts`; generat
 | `bundle.copyright?` | `string` | — |
 | `bundle.license?` | `string` | — |
 
-适用版本：`ztron 0.3.12`
+适用版本：`ztron 0.3.13`

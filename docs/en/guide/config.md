@@ -79,4 +79,4 @@ all follow macOS behavior.
 
 For the full field reference, see the [Config Reference](/reference/config).
 
-适用版本：`ztron 0.3.12`
+适用版本：`ztron 0.3.13`

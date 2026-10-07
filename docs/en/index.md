@@ -18,11 +18,11 @@ features:
   - title: Tauri v2 capability parity
     details: "@zturnlibs/ztron-api ports @tauri-apps/api; invoke / events / Channel / fs / http / os / store / log / shell / updater plugins included, with a migration guide (see the Guide)."
   - title: macOS & Windows verified end-to-end
-    details: Milestones M0–P30 complete, 85+ deterministic checks (drivable via `ztron check`); Windows reached full host parity (22-item platform audit closed) with NSIS + MSI packaging and Authenticode signing; v0.3.12 ships 11 packages to npmjs and GitHub Packages.
+    details: Milestones M0–P30 complete, 85+ deterministic checks (drivable via `ztron check`); Windows reached full host parity (22-item platform audit closed) with NSIS + MSI packaging and Authenticode signing; v0.3.13 ships 12 packages to npmjs and GitHub Packages.
   - title: Guide & examples
     details: Architecture, IPC, events, windows, configuration, security model, plus three runnable examples — hello / multiwin / menuprobe.
   - title: Plugin system
     details: 40 built-in/plugin capability pages (window, webview, fs, http, tray…) documenting permissions, scope, examples and command lists per module, cross-linked with the command-level API reference.
-  - title: 适用版本：`ztron 0.3.12`
+  - title: 适用版本：`ztron 0.3.13`
     details: Docs evolve with the code; breaking API changes update this site in the same PR (see CONTRIBUTING).
 ---

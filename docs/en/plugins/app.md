@@ -59,4 +59,4 @@ await hideApplication(); await showApplication();
 `remove_data_store`. Full list in the
 [Commands Reference](/reference/commands).
 
-Applicable version: `ztron 0.3.12`
+Applicable version: `ztron 0.3.13`

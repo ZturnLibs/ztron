@@ -449,4 +449,4 @@ svelte-demo `listeners.ts` pattern.
 
 **Deep dive: [Examples](/start/examples) · [Calling Backend Commands](/guide/ipc) · [CLI Reference](/reference/cli)**
 
-适用版本：`ztron 0.3.12`
+适用版本：`ztron 0.3.13`

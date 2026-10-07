@@ -134,4 +134,4 @@ whitespace/unusual characters); the packers' productName is
   Without a certificate the artifact ships unsigned and the exact reason
   is reported.
 
-适用版本：`ztron 0.3.12`
+适用版本：`ztron 0.3.13`
