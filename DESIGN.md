@@ -1427,6 +1427,18 @@ GAP H22:第二实例参数恒不转发(插件 GET 无载荷、硬编码 `argv:[]
 
 **边界与纪律**:执行顺序敏感——ROLE_MIN 先于 INNER_POS 腿把窗口最小化,后者的 get_inner_position 读到 -32000(-32000(最小化坐标),但该腿断言只查数值类型,顺序无害;若未来 INNER_POS 加值断言须先 restore。CI 侧 menuprobe 步骤加条件 EXTRAS(case/uname,MINGW* 追加三个 --expect,mac 保持 5 腿)。
 
+## 135. Windows 对话框/菜单中文乱码:ANSI 后缀 Win32 API 吞 UTF-8 线上字节——根因与全文件 W 化清零
+
+- **症状**:showcase Windows 真机手工测试,`dialog message/confirm/ask` 系统弹窗中文全部乱码(用户报告)。历史自动化门禁(hello 87 检查/menuprobe/showcase SHOWCASE_OK)全绿——**探针字符串全程 ASCII,UTF-8 与 GBK 对 ASCII 同编码,此类缺陷天然躲过 exit-code 门禁,只有非 ASCII 真机手测能暴露**
+- **根因**:线上协议(backend↔host JSON line)全程 UTF-8,host_windows.c 却把线上裸字节直接喂给 ANSI 后缀 Win32 API——`dialog_message`/`dialog_confirm_like` 的 `MessageBoxA`、`dialog_open`/`dialog_save` 的 `OPENFILENAMEA`+`GetOpen/SaveFileNameA`、`menu_rebuild` 三处 `AppendMenuA`。A 后缀按系统 ANSI 代码页解释字节(zh-CN=cp936/GBK),UTF-8 中文字节被 GBK 重解释→乱码。托盘 tooltip/balloon 早已 `to_wide`+W 结构正确,唯对话框与菜单重建漏了——**同文件 W 化不一致,缺的是规则不是认知**
+- **全文件清剿(同类隐患一并修,共四批)**:①对话框五函数全 W 化(`MessageBoxW`×2;`OPENFILENAMEW`+W 版对话框+**返回路径先 `to_utf8_dyn` 再回传**——A 版返回的 ANSI 路径字节被当 UTF-8 回传是次生雷,中文名文件选出来路径就是坏的);②`menu_rebuild` 三处 `AppendMenuW`(栈 `wchar_t[256]` 安全:MenuItemRec.title[256] 字节≤256 UTF-16 槽,UTF-8→UTF-16 永不膨胀);③`window_get_title` 的 `GetWindowTextA`→W+`to_utf8_dyn`(中文标题读回必坏);④`tray_set_icon` 的 `LoadImageA`→W+`to_wide_dyn`(中文图标路径加载必败)、`relaunch` 的 `GetModuleFileNameA`+`ShellExecuteA` 对→全 W
+- **最狠一颗:deep-link 注册表 REG_SZ 写入**:`dl_register_scheme` 是"W 拿 exe 路径→`WideCharToMultiByte(CP_UTF8)` 转 UTF-8→`RegSetValueExA` 写 REG_SZ"——**A 版注册表 API 不做转换,UTF-8 字节原样存进原生 UTF-16 的 REG_SZ**,explorer 读出来按 UTF-16 解释→CJK 安装路径下 `ztron://` 启动命令必坏(H9 此前用 ASCII 路径验证,恰好人畜无害)。修法:`RegCreateKeyExW/RegSetValueExW`+`to_wide_dyn`;读侧 `deeplink_registry_query` 同步 `RegGetValueW`+`to_utf8_dyn`(读写必须同族,esc 缓冲 ×2→×4:astral 字符 2 UTF-16 槽可产 8 UTF-8 字节)
+- **转换助手**:`to_wide_dyn`(UTF-8→UTF-16,两调用测长;Msg.str/str2 各 1 MiB 不能上栈,必须堆)与 `to_utf8_dyn`(UTF-16→UTF-8);`zt_reply_string` 同步拷贝即发,返回后立刻 free 安全
+- **防复发规则(已写进 dialog 块代码注释)**:Windows host 凡接线上字符串的 Win32 调用一律 W 后缀+转换助手;A 后缀只许 ASCII 常量(窗口类名/CF_HTML/环境变量旗标名);W API 返回的 UTF-16 回传线上前必须 `to_utf8_dyn`。审查口径:`grep -noE "[A-Za-z_]+A\(" host_windows.c` 收敛到 4 处 ASCII 常量调用点(GetEnvironmentVariableA/RegisterClipboardFormatA×2/LoadCursorA)
+- **验证**:host 重编(build-native.sh 同款 cl 命令)exit 0;menuprobe `--expect MENU_V2_OK` 9 检查 exit 0(菜单/托盘/图标路径);hello 裸 `check` **87 检查 FULL_OK exit 0**(含 deep-link/title 腿);showcase 真机复测中文弹窗/菜单正常(用户确认)
+- **假阳性插曲(定性前先分"我引入"还是"姿势错")**:首轮 hello 用 `check --expect FULL_OK` 跑红(3/3 复现,"required checks missing (FULL_OK)")——但应用端 SPIKE_RESULT 明明打了 FULL_OK。读 CLI 扫描器(index.ts:724-749)定案:**FULL_OK 是哨兵行走 `fullOk` 布尔,从来不是上报标签不进 `seen`;hello 前端末签是 APP_LIFECYCLE_OK**,`--expect FULL_OK` 对 hello 是过约束调用,ci.sh 对 hello 本就是裸 `check`。裸跑即绿。教训:`--expect` 只能钉真实上报标签;探针红先 grep 应用端到底发没发过这个标签再怀疑自己的改动
+- **运维插曲**:TaskStop 杀 bash 包装壳,Windows 进程树不随父死——孤儿 dev CLI(node)继续占 5173,新实例秒退;清残留按 PID 精杀(用户真实 D2R 应用共享 ztron 镜像名,严禁按镜像名扫杀)
+
 ## 134. Windows P2 第一项(GAP H13):程序化 menu_popup——TPM_RETURNCMD + 唯一命令 id 基址
 
 - **目标(GAP.md H13)**:win 端 `menu_popup` dispatch 分支是 `return 1;` 空转——程序化弹出不可用,唯一能弹的是托盘左击路径;mac 侧 `popUpMenuPositioningItem:atLocation:inView:`(窗口坐标,(0,0)=当前光标)

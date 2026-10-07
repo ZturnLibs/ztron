@@ -107,6 +107,31 @@ static void to_wide(const char *s, wchar_t *out, int n) {
   MultiByteToWideChar(CP_UTF8, 0, s, -1, out, n);
 }
 
+/* UTF-8 -> UTF-16 heap buffer (caller frees). Sized via the two-call
+   MultiByteToWideChar form — Msg.str/str2 are 1 MiB, far too big for the
+   stack. n UTF-8 bytes never exceed n UTF-16 units (surrogate pairs only
+   arise from 4-byte sequences). NULL on allocation/conversion failure. */
+static wchar_t *to_wide_dyn(const char *s) {
+  int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
+  wchar_t *out = n > 0 ? (wchar_t *)malloc((size_t)n * sizeof(wchar_t)) : NULL;
+  if (out && MultiByteToWideChar(CP_UTF8, 0, s, -1, out, n) == 0) {
+    free(out);
+    return NULL;
+  }
+  return out;
+}
+
+/* UTF-16 -> UTF-8 heap buffer (caller frees); NULL on failure. */
+static char *to_utf8_dyn(const wchar_t *w) {
+  int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, NULL, 0, NULL, NULL);
+  char *out = n > 0 ? (char *)malloc((size_t)n) : NULL;
+  if (out && WideCharToMultiByte(CP_UTF8, 0, w, -1, out, n, NULL, NULL) == 0) {
+    free(out);
+    return NULL;
+  }
+  return out;
+}
+
 /* ---- window states ---- */
 
 static HWND zt_hwnd(void) {
@@ -1192,7 +1217,10 @@ static void dl_emit(const char *url) {
 }
 
 /* Claim HKCU\Software\Classes\ztron (the LSRegisterURL analog; HKCU needs
-   no elevation). Last writer wins — same semantics as LSRegisterURL. */
+   no elevation). Last writer wins — same semantics as LSRegisterURL.
+   Registry REG_SZ is natively UTF-16: the A variants store ANSI bytes raw
+   (no conversion), which breaks the launch command for non-ASCII install
+   paths — write through the W API with converted wide strings. */
 static void dl_register_scheme(void) {
   WCHAR exe[MAX_PATH];
   char exeA[MAX_PATH * 2];
@@ -1205,20 +1233,27 @@ static void dl_register_scheme(void) {
   k = WideCharToMultiByte(CP_UTF8, 0, exe, -1, exeA, sizeof(exeA), NULL, NULL);
   if (k <= 0)
     return;
-  if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Classes\\ztron", 0, NULL,
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\ztron", 0, NULL,
                       0, KEY_SET_VALUE, NULL, &k1, NULL) == ERROR_SUCCESS) {
-    RegSetValueExA(k1, NULL, 0, REG_SZ, (const BYTE *)"URL:ztron", 10);
-    RegSetValueExA(k1, "URL Protocol", 0, REG_SZ, (const BYTE *)"", 1);
+    RegSetValueExW(k1, NULL, 0, REG_SZ, (const BYTE *)L"URL:ztron",
+                   sizeof(L"URL:ztron"));
+    RegSetValueExW(k1, L"URL Protocol", 0, REG_SZ, (const BYTE *)L"",
+                   sizeof(L""));
     RegCloseKey(k1);
   }
-  if (RegCreateKeyExA(HKEY_CURRENT_USER,
-                      "Software\\Classes\\ztron\\shell\\open\\command", 0,
+  if (RegCreateKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Classes\\ztron\\shell\\open\\command", 0,
                       NULL, 0, KEY_SET_VALUE, NULL, &k1,
                       NULL) == ERROR_SUCCESS) {
     int w = snprintf(buf, sizeof(buf), "\"%s\" \"%%1\"", exeA);
-    if (w > 0)
-      RegSetValueExA(k1, NULL, 0, REG_SZ, (const BYTE *)buf,
-                     (DWORD)strlen(buf) + 1);
+    if (w > 0) {
+      wchar_t *wcmd = to_wide_dyn(buf);
+      if (wcmd) {
+        RegSetValueExW(k1, NULL, 0, REG_SZ, (const BYTE *)wcmd,
+                       (DWORD)((wcslen(wcmd) + 1) * sizeof(WCHAR)));
+        free(wcmd);
+      }
+    }
     RegCloseKey(k1);
   }
 }
@@ -2112,8 +2147,13 @@ static void tray_set_tooltip(const char *tooltip) { tray_set_title(tooltip); }
 static void tray_set_icon(const char *path) {
   int ti = tray_pick("");
   if (ti >= 0 && path && path[0]) {
-    HICON icon = (HICON)LoadImageA(NULL, path, IMAGE_ICON, 0, 0,
-                                   LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    wchar_t *wpath = to_wide_dyn(path);
+    HICON icon = NULL;
+    if (wpath) {
+      icon = (HICON)LoadImageW(NULL, wpath, IMAGE_ICON, 0, 0,
+                               LR_LOADFROMFILE | LR_DEFAULTSIZE);
+      free(wpath);
+    }
     if (icon) {
       TrayRec *t = &g_trays[ti];
       if (t->nid.hIcon) DestroyIcon(t->nid.hIcon);
@@ -2253,20 +2293,24 @@ static void menu_rebuild(MenuRec *m) {
   for (i = 0; i < m->count; i++) {
     MenuItemRec *it = &m->items[i];
     UINT flags;
+    wchar_t wtitle[256]; /* MenuItemRec.title is 256 bytes */
     if (it->has_submenu) {
       MenuRec *child = menu_by_id(it->id);
-      if (child && child->hmenu)
-        AppendMenuA(m->hmenu, MF_POPUP | MF_STRING, (UINT_PTR)child->hmenu,
-                    it->title);
+      if (child && child->hmenu) {
+        to_wide(it->title, wtitle, 256);
+        AppendMenuW(m->hmenu, MF_POPUP | MF_STRING, (UINT_PTR)child->hmenu,
+                    wtitle);
+      }
       continue;
     }
     if (it->separator) {
-      AppendMenuA(m->hmenu, MF_SEPARATOR, 0, NULL);
+      AppendMenuW(m->hmenu, MF_SEPARATOR, 0, NULL);
       continue;
     }
     flags = MF_STRING | (it->enabled ? MF_ENABLED : MF_GRAYED);
     if (it->checked == 1) flags |= MF_CHECKED;
-    AppendMenuA(m->hmenu, flags, m->cmd_base + i, it->title);
+    to_wide(it->title, wtitle, 256);
+    AppendMenuW(m->hmenu, flags, m->cmd_base + i, wtitle);
     /* SetMenuItemBitmaps associations die with the HMENU — reapply. */
     if (it->bmp)
       SetMenuItemBitmaps(m->hmenu, i, MF_BYPOSITION, it->bmp, it->bmp);
@@ -2808,38 +2852,66 @@ static void tray_popup_menu(const char *menu_id) {
 }
 
 /* ---- dialogs (COM IFileDialog) ---- */
+/* All user-visible strings ride the wire as UTF-8; the W (UTF-16) variants
+   + to_wide/to_utf8 are mandatory. The A variants interpret bytes in the
+   ANSI code page (cp936 on zh-CN Windows) and mojibake non-ASCII text. */
 
 static void dialog_open(Msg *m) {
-  OPENFILENAMEA ofn = { 0 };
-  char path[MAX_PATH] = { 0 };
+  wchar_t wpath[MAX_PATH] = { 0 };
+  wchar_t wtitle[128];
+  OPENFILENAMEW ofn = { 0 };
   ofn.lStructSize = sizeof(ofn);
   ofn.hwndOwner = zt_hwnd();
-  ofn.lpstrFile = path;
-  ofn.nMaxFile = sizeof(path);
-  ofn.lpstrTitle = m->id;
+  ofn.lpstrFile = wpath;
+  ofn.nMaxFile = MAX_PATH;
+  to_wide(m->id, wtitle, 128);
+  ofn.lpstrTitle = wtitle;
   ofn.Flags = OFN_FILEMUSTEXIST;
-  if (GetOpenFileNameA(&ofn)) zt_reply_string(m->req_id, path);
-  else zt_reply_null(m->req_id);
+  if (GetOpenFileNameW(&ofn)) {
+    char *path = to_utf8_dyn(wpath);
+    if (path) zt_reply_string(m->req_id, path);
+    else zt_reply_null(m->req_id);
+    free(path);
+  } else {
+    zt_reply_null(m->req_id);
+  }
 }
 static void dialog_save(Msg *m) {
-  OPENFILENAMEA ofn = { 0 };
-  char path[MAX_PATH] = { 0 };
-  if (m->id[0]) strncpy(path, m->id, sizeof(path) - 1);
+  wchar_t wpath[MAX_PATH] = { 0 };
+  wchar_t wtitle[128];
+  OPENFILENAMEW ofn = { 0 };
+  if (m->id[0]) to_wide(m->id, wpath, MAX_PATH);
   ofn.lStructSize = sizeof(ofn);
   ofn.hwndOwner = zt_hwnd();
-  ofn.lpstrFile = path;
-  ofn.nMaxFile = sizeof(path);
-  ofn.lpstrTitle = m->str;
+  ofn.lpstrFile = wpath;
+  ofn.nMaxFile = MAX_PATH;
+  to_wide(m->str, wtitle, 128);
+  ofn.lpstrTitle = wtitle;
   ofn.Flags = OFN_OVERWRITEPROMPT;
-  if (GetSaveFileNameA(&ofn)) zt_reply_string(m->req_id, path);
-  else zt_reply_null(m->req_id);
+  if (GetSaveFileNameW(&ofn)) {
+    char *path = to_utf8_dyn(wpath);
+    if (path) zt_reply_string(m->req_id, path);
+    else zt_reply_null(m->req_id);
+    free(path);
+  } else {
+    zt_reply_null(m->req_id);
+  }
 }
 static void dialog_message(Msg *m) {
-  int r = MessageBoxA(zt_hwnd(), m->str2[0] ? m->str2 : m->id, m->id,
-                      MB_OKCANCEL);
+  wchar_t *wbody = to_wide_dyn(m->str2[0] ? m->str2 : m->id);
+  wchar_t *wtitle = to_wide_dyn(m->id);
+  if (!wbody || !wtitle) {
+    free(wbody);
+    free(wtitle);
+    zt_reply_null(m->req_id);
+    return;
+  }
+  int r = MessageBoxW(zt_hwnd(), wbody, wtitle, MB_OKCANCEL);
   char tmp[16];
   snprintf(tmp, sizeof(tmp), "%d", r == IDOK ? 0 : 1);
   zt_reply_string(m->req_id, tmp);
+  free(wbody);
+  free(wtitle);
 }
 
 /* ask/confirm parity with mac dialog_confirm_like: JSON true on the first
@@ -2849,9 +2921,18 @@ static void dialog_confirm_like(Msg *m, UINT buttons) {
   UINT icon = m->kind == 2   ? MB_ICONERROR
               : m->kind == 1 ? MB_ICONWARNING
                              : MB_ICONINFORMATION;
-  int r = MessageBoxA(zt_hwnd(), m->str2[0] ? m->str2 : m->id, m->id,
-                      buttons | icon);
+  wchar_t *wbody = to_wide_dyn(m->str2[0] ? m->str2 : m->id);
+  wchar_t *wtitle = to_wide_dyn(m->id);
+  if (!wbody || !wtitle) {
+    free(wbody);
+    free(wtitle);
+    zt_reply_query(m->req_id, "false");
+    return;
+  }
+  int r = MessageBoxW(zt_hwnd(), wbody, wtitle, buttons | icon);
   zt_reply_query(m->req_id, (r == IDOK || r == IDYES) ? "true" : "false");
+  free(wbody);
+  free(wtitle);
 }
 
 static void zt_reply_frame(int req_id, const RECT *r) {
@@ -3391,16 +3472,21 @@ static int dispatch(Msg *m, webview_t wv) {
     dl_emit(g_deeplink_pending);
   }
   if (strcmp(m->type, "deeplink_registry_query") == 0) {
-    /* H9 probe readback: what the OS will actually run for ztron://. */
-    char cmd[MAX_PATH * 2 + 16];
-    DWORD sz = sizeof(cmd);
-    char esc[(MAX_PATH * 2 + 16) * 2];
-    char buf[(MAX_PATH * 2 + 16) * 2 + 32];
-    if (RegGetValueA(HKEY_CURRENT_USER,
-                     "Software\\Classes\\ztron\\shell\\open\\command", NULL,
-                     RRF_RT_REG_SZ, NULL, cmd, &sz) == ERROR_SUCCESS) {
+    /* H9 probe readback: what the OS will actually run for ztron://.
+       W read (REG_SZ is natively UTF-16) + to_utf8 for the wire — matches
+       dl_register_scheme's W write. */
+    WCHAR wcmd[MAX_PATH * 2 + 16];
+    DWORD sz = sizeof(wcmd);
+    char *cmd;
+    char esc[(MAX_PATH * 2 + 16) * 4];
+    char buf[(MAX_PATH * 2 + 16) * 4 + 32];
+    if (RegGetValueW(HKEY_CURRENT_USER,
+                     L"Software\\Classes\\ztron\\shell\\open\\command", NULL,
+                     RRF_RT_REG_SZ, NULL, wcmd, &sz) == ERROR_SUCCESS &&
+        (cmd = to_utf8_dyn(wcmd)) != NULL) {
       zt_json_escape(cmd, esc, sizeof(esc));
       snprintf(buf, sizeof(buf), "{\"command\":\"%s\"}", esc);
+      free(cmd);
     } else {
       snprintf(buf, sizeof(buf), "{\"command\":null}");
     }
@@ -3740,9 +3826,12 @@ static int dispatch(Msg *m, webview_t wv) {
   if (strcmp(m->type, "window_get_title") == 0) {
     HWND w = zt_hwnd_for(wv);
     if (w && m->req_id >= 0) {
-      char title[512];
-      GetWindowTextA(w, title, sizeof(title));
-      zt_reply_string(m->req_id, title);
+      wchar_t wtitle[512];
+      GetWindowTextW(w, wtitle, 512);
+      char *title = to_utf8_dyn(wtitle);
+      if (title) zt_reply_string(m->req_id, title);
+      else zt_reply_null(m->req_id);
+      free(title);
     } else if (m->req_id >= 0) {
       zt_reply_null(m->req_id);
     }
@@ -4364,9 +4453,9 @@ static int attach_webview(webview_t w) {
 }
 
 static void relaunch(void) {
-  char path[MAX_PATH];
-  if (GetModuleFileNameA(NULL, path, sizeof(path)) > 0) {
-    ShellExecuteA(NULL, "open", path, "0", NULL, SW_SHOWNORMAL);
+  wchar_t path[MAX_PATH];
+  if (GetModuleFileNameW(NULL, path, MAX_PATH) > 0) {
+    ShellExecuteW(NULL, L"open", path, L"0", NULL, SW_SHOWNORMAL);
   }
   /* webview_terminate, not WM_CLOSE: the prevent-close intercept would eat
      a posted WM_CLOSE and the relaunch would strand the old instance. */
